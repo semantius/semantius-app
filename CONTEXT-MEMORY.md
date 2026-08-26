@@ -2,6 +2,18 @@
 
 > **Agent-maintained file.** Update only when you discover something a future session would otherwise get wrong — non-obvious platform constraints, architectural patterns, or environmental quirks. Do not use it as a change log. Integrate knowledge into the relevant section; do not append to a log.
 
+## Working Agreements (stated human preferences — persist across sessions)
+
+- **Memory belongs in this repo, never in an out-of-repo agent memory store.** Do NOT write
+  to `~/.claude/projects/*/memory/` or a `MEMORY.md` there. Anything worth keeping across
+  sessions goes in **`CONTEXT-MEMORY.md`** (committed, shared, reviewable) or as a comment in
+  the relevant source file. Memory the team cannot see in the repo is worthless — invisible on
+  every other machine and in every review.
+- **Never cite git authorship to attribute code to the human.** Agents work in the human's
+  local checkout and commit under their git identity, so the author/committer fields say
+  nothing about who wrote a line — much of this repo is agent-written. When existing code is
+  criticised, do not investigate or argue provenance; acknowledge the problem and fix it.
+
 ## Tech Stack (`apps/web`)
 
 | Layer       | Technology                                          |

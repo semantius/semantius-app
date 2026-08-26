@@ -161,14 +161,33 @@ slower than a single-arch build. Pull and run it exactly like the local image:
 docker run -p 7070:80 --env-file docker/.env ghcr.io/semantius/semantius-app:latest
 ```
 
-Cut a release with the helper — it tags the current commit and pushes the tag,
-which is what triggers the workflow (multi-arch build + publish):
+Cut a release with the helper. It bumps the root `package.json` version, commits
+that, then creates an **annotated** tag and pushes it — the tag push is what
+triggers the workflow:
 
 ```bash
-docker/release.sh v0.1.0        # tag the current commit + push it
+docker/release.sh v0.1.3        # prompts for confirmation; -y to skip
 ```
 
-It does no local build/push itself — publishing happens entirely in CI.
+It refuses to run on a dirty tree, on a branch whose HEAD isn't pushed, on a tag
+that already exists, or on a version that isn't newer than the latest tag. It does
+no local build/push itself — publishing happens entirely in CI.
+
+CI then does three things: builds the multi-arch image, pushes it to GHCR, and
+**creates the GitHub Release**. A pushed tag does not become a Release on its own —
+they are separate objects, which is why the Releases page stayed empty before the
+`Create GitHub Release` step existed.
+
+Browse the published images here (Releases and Tags do **not** show them — the
+zip/tar.gz on the Tags page are GitHub's automatic source archives, unrelated):
+
+```
+https://github.com/semantius/semantius-app/pkgs/container/semantius-app
+```
+
+A GHCR package is **private on first publish**, so `docker pull` will 403 for
+anyone (and anonymously) until you flip it: package page → Package settings →
+Change visibility → Public. One-time, per package.
 
 ## Files
 
@@ -182,7 +201,7 @@ It does no local build/push itself — publishing happens entirely in CI.
 | `docker-compose.yml` | LOCAL build/run definition. |
 | `docker-compose.ghcr.yml` | Run the PUBLISHED GHCR image (no build). |
 | `build.sh` / `start.sh` | Build / run the local image. |
-| `release.sh` | Tag the current commit `vX.Y.Z` and push it to trigger the CI publish. |
+| `release.sh` | Bump version, annotated-tag `vX.Y.Z`, push it (guarded) to trigger the CI publish + GitHub Release. |
 | `start-published.sh` | Pull + run the published GHCR image. |
 | `stop.sh` / `delete.sh` | Stop (keep) / stop + delete the container. |
 | `logs.sh` | Follow container logs. |
