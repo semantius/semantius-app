@@ -6,11 +6,10 @@
 # To build & run from your working tree instead, use docker-compose.yml.
 services:
   web:
-    image: ghcr.io/intranetfactory/semantius-web:${TAG:-latest}
-    container_name: semantius-web
-    # Single exposed endpoint (Caddy). For auto-HTTPS, set SITE_ADDRESS to a
-    # domain in docker/.env and also publish 443 (- "443:443"). To proxy /api and
-    # /api-docs, add sibling services on the same network (see docker-compose.yml).
+    image: ghcr.io/semantius/semantius-app:${TAG:-latest}
+    container_name: semantius-app
+    # SPA only — a single static endpoint. TLS is expected to be terminated by an
+    # outer proxy (Dokploy / Cloudflare / a load balancer).
     ports:
       - "${WEB_PORT:-7070}:80"
     env_file:

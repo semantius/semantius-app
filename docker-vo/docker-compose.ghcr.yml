@@ -1,0 +1,22 @@
+# PUBLISHED image (release): pull and run the GHCR image — NO local build.
+# NOTE: CI publishes ghcr.io/semantius/semantius-app from docker/Dockerfile —
+# i.e. the SPA-only nginx image, NOT this Caddy variant. There is no published
+# image of docker-vo/; build it locally with docker-vo/build.sh.
+# Use this to run a released artifact (e.g. on a server, or to test a release).
+#   docker compose -f docker-vo/docker-compose.ghcr.yml up -d --pull always
+# or the wrapper: docker-vo/start-published.sh   (optionally: TAG=v1.2.3 docker-vo/start-published.sh)
+#
+# To build & run from your working tree instead, use docker-compose.yml.
+services:
+  web:
+    image: ghcr.io/semantius/semantius-app:${TAG:-latest}
+    container_name: semantius-app-vo
+    # Single exposed endpoint (Caddy). For auto-HTTPS, set SITE_ADDRESS to a
+    # domain in docker-vo/.env and also publish 443 (- "443:443"). To proxy /api and
+    # /api-docs, add sibling services on the same network (see docker-compose.yml).
+    ports:
+      - "${WEB_PORT:-7071}:80"
+    env_file:
+      - path: .env
+        required: false
+    restart: unless-stopped

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Tag the current commit and push the tag (triggers .github/workflows/docker-publish.yml).
-# Usage: docker/release.sh v0.1.0
+# Usage: docker-vo/release.sh v0.1.0
 set -euo pipefail
 cd "$(dirname "$0")/.."
 

@@ -1,12 +1,11 @@
 #!/bin/sh
 # Generate the SPA's runtime config file (window.__ENV__) from the container
-# environment. Runs at container start (via docker-entrypoint.sh, which the
-# nginx image executes from /docker-entrypoint.d/) and is also
+# environment. Runs at container start (via entrypoint.sh) and is also
 # runnable standalone on a host for inspection:  ./gen-config.sh /tmp/config.js
 #
 # This is a pure env -> JS emitter: every value comes from a real environment
-# variable, or from $ENV_FILE (docker/.env) as a default. Value precedence:
-#   real environment variable  >  $ENV_FILE (docker/.env) default  >  empty
+# variable, or from $ENV_FILE (docker-vo/.env) as a default. Value precedence:
+#   real environment variable  >  $ENV_FILE (docker-vo/.env) default  >  empty
 #
 # OIDC discovery is NOT done here anymore. Set VITE_OAUTH_CONFIG (a
 # .well-known/openid-configuration URL) and the SPA fetches it at runtime,
@@ -15,7 +14,7 @@
 # dev / Vercel / Cloudflare / Docker.
 set -eu
 
-OUT="${1:-/usr/share/nginx/html/config.js}"   # nginx static root
+OUT="${1:-/srv/config.js}"   # Caddy static root (was nginx's /usr/share/nginx/html)
 ENV_FILE="${ENV_FILE:-/config/.env}"
 
 # Keep this list in sync with apps/web/public/config.js.

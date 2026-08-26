@@ -1,13 +1,13 @@
-# Docker — runtime-configurable image
+# Docker — SPA-only, runtime-configurable image
 
-A single, environment-agnostic image of the web SPA, served by **Caddy**. Built
+A single, environment-agnostic image of the web SPA, served by **nginx**. Built
 **once**, configured **at container start** — no rebuild to point it at a
 different API, tenant, or OAuth provider.
 
-Caddy also lets this be the **one exposed endpoint** for a whole stack: it
-reverse-proxies `/api` and `/api-docs` to sibling containers (see
-[Reverse proxy](#reverse-proxy-single-endpoint)), so PostgREST/Scalar never need
-their own published ports.
+This image serves **only the SPA**. It has no reverse proxy: the app talks
+directly to whatever absolute `VITE_API_BASE_URL` you configure. If you need one
+published port to also front `/api` and `/api-docs` on sibling containers, use
+the Caddy variant in [`../docker-vo/`](../docker-vo/README.md) instead.
 
 ## How it works
 
@@ -19,52 +19,17 @@ binding a build to one environment. This image breaks that binding:
 2. The committed `apps/web/public/config.js` holds only placeholder tokens, so
    **local dev and Vercel/Cloudflare builds are unchanged** — they ignore the
    placeholders and use Vite's build-time values.
-3. At container start, [`entrypoint.sh`](entrypoint.sh) runs
-   [`gen-config.sh`](gen-config.sh) to regenerate `/srv/config.js` from the
-   container environment, then execs Caddy — so the running app uses real values.
-   (The Caddy image has no `/docker-entrypoint.d/*.sh` hook like nginx, hence the
-   explicit entrypoint.)
+3. At container start, [`docker-entrypoint.sh`](docker-entrypoint.sh) — installed
+   as `/docker-entrypoint.d/40-gen-config.sh`, which the nginx image runs before
+   launching nginx — calls [`gen-config.sh`](gen-config.sh) to regenerate
+   `/usr/share/nginx/html/config.js` from the container environment, so the
+   running app uses real values.
 
 Value precedence per key:
 
 ```
 real env var  >  docker/.env  >  built-in default
 ```
-
-## Reverse proxy (single endpoint)
-
-The [`Caddyfile`](Caddyfile) serves the SPA **and** reverse-proxies two path
-prefixes to sibling containers, so the entire stack is reachable through this one
-published port:
-
-| Request path | Proxied to (default) | Override env | Prefix |
-| --- | --- | --- | --- |
-| `/api/*` | `postgrest:3000` | `API_UPSTREAM` | stripped (`/api/customers` → `/customers`) |
-| `/api-docs/*` | `scalar:8080` | `DOCS_UPSTREAM` | stripped (`/api-docs/...` → `/...`) |
-| everything else | static SPA (`/srv`) | — | — |
-
-- Add the upstreams as services on the **same compose network with no `ports:`**
-  (internal-only). See the commented `postgrest`/`scalar` block in
-  [`docker-compose.yml`](docker-compose.yml).
-- Caddy re-resolves upstream DNS per request, so an upstream that starts later or
-  is recreated just works — no `depends_on` ordering, no nginx `resolver` dance.
-  When an upstream is absent the route 502s but the SPA still serves.
-- To make the **SPA call the proxied API**, set `VITE_API_BASE_URL=/api` in
-  `docker/.env` (it otherwise defaults to an absolute external URL, so the proxy
-  is opt-in).
-
-### HTTPS
-
-`SITE_ADDRESS` controls the listen address (default `:80`, plain HTTP behind an
-outer TLS terminator like Dokploy/Cloudflare/an LB). Set it to a domain to enable
-Caddy's automatic HTTPS:
-
-```
-SITE_ADDRESS=app.example.com
-```
-
-Then also publish `443` (`- "443:443"` in compose) and mount a persistent volume
-at `/data` so issued certificates survive restarts.
 
 ## Two ways to run
 
@@ -73,7 +38,7 @@ There are two independent modes — pick one:
 ### A. Develop — build from your working tree and run (local)
 
 ```bash
-docker/build.sh          # build the LOCAL image (semantius-web:local) — does NOT publish
+docker/build.sh          # build the LOCAL image (semantius-app:local) — does NOT publish
 docker/start.sh          # run the local image (does NOT rebuild) → http://localhost:7070
 docker/logs.sh           # follow logs
 docker/stop.sh           # stop but KEEP the container (restart with start.sh)
@@ -90,7 +55,7 @@ docker/stop.sh                       # stop (keep) · docker/delete.sh to delete
 
 `build.sh` / `start.sh` never push anything. **Publishing happens only in CI**
 when a `v*` tag is pushed (see below). The local build is tagged
-`semantius-web:local`; the published image is `ghcr.io/intranetfactory/semantius-web`.
+`semantius-app:local`; the published image is `ghcr.io/semantius/semantius-app`.
 
 The host port defaults to **7070**; override with `WEB_PORT` (env var or a line
 in `docker/.env`), e.g. `WEB_PORT=9000 docker/start.sh`.
@@ -100,16 +65,22 @@ in `docker/.env`), e.g. `WEB_PORT=9000 docker/start.sh`.
 ```bash
 docker/stop.sh                       # stop but KEEP it → restart with docker/start.sh
 docker/delete.sh                     # stop AND delete the container (network too)
-docker rm -f semantius-web           # delete directly by container name
-docker rmi semantius-web:local       # also delete the local image (reclaim ~108MB)
+docker rm -f semantius-app           # delete directly by container name
+docker rmi semantius-app:local       # also delete the local image
 ```
 
 ### Plain Docker (no compose)
 
 ```bash
-docker build -f docker/Dockerfile -t semantius-web:local .
-docker run -p 7070:80 --env-file docker/.env semantius-web:local
+docker build -f docker/Dockerfile -t semantius-app:local .
+docker run -p 7070:80 --env-file docker/.env semantius-app:local
 ```
+
+### HTTPS
+
+nginx here listens on plain HTTP (`:80`) only — terminate TLS in front of it
+(Dokploy, Cloudflare, a load balancer, or a reverse proxy). The Caddy variant in
+`docker-vo/` is the one with built-in automatic HTTPS.
 
 ## Configuration
 
@@ -133,7 +104,7 @@ Key variables (see `.env.example` for the full list and comments):
 point `VITE_OAUTH_CONFIG` at a `.well-known/openid-configuration` URL. The **app**
 fetches it at boot and maps `authorization_endpoint`, `token_endpoint`,
 `userinfo_endpoint`, `end_session_endpoint`, and `scopes_supported` to the
-matching config (only the ones you left blank). Discovery now runs in the SPA —
+matching config (only the ones you left blank). Discovery runs in the SPA —
 not in `gen-config.sh` — so it works the same in dev/Vercel/Cloudflare/Docker and
 the container just passes plain env vars. If the discovery URL is unreachable at
 boot, the app shows a blocking configuration-error screen.
@@ -178,16 +149,16 @@ Edit `docker/.env`, then `docker compose -f docker/docker-compose.yml restart`.
 
 ## CI / GitHub Container Registry
 
-`.github/workflows/docker-publish.yml` builds and pushes the image to
-`ghcr.io/intranetfactory/semantius-web` when a **`v*` tag** is pushed (e.g.
-`v1.2.3`), tagging `1.2.3`, `1.2`, and `latest`. It publishes a **multi-arch**
-manifest (`linux/amd64` + `linux/arm64`), so it runs on x64 and ARM hosts alike
-(cloud VMs, Apple Silicon / Windows-on-ARM via Docker Desktop, Graviton, Pi). The
-arm64 leg builds under QEMU emulation, so CI is slower than a single-arch build.
-Pull and run it exactly like the local image:
+`.github/workflows/docker-publish.yml` builds and pushes **this** image (it
+points at `docker/Dockerfile`) to `ghcr.io/semantius/semantius-app` when a
+**`v*` tag** is pushed (e.g. `v1.2.3`), tagging `1.2.3`, `1.2`, and `latest`. It
+publishes a **multi-arch** manifest (`linux/amd64` + `linux/arm64`), so it runs
+on x64 and ARM hosts alike (cloud VMs, Apple Silicon / Windows-on-ARM via Docker
+Desktop, Graviton, Pi). The arm64 leg builds under QEMU emulation, so CI is
+slower than a single-arch build. Pull and run it exactly like the local image:
 
 ```bash
-docker run -p 7070:80 --env-file docker/.env ghcr.io/intranetfactory/semantius-web:latest
+docker run -p 7070:80 --env-file docker/.env ghcr.io/semantius/semantius-app:latest
 ```
 
 Cut a release with the helper — it tags the current commit and pushes the tag,
@@ -203,11 +174,11 @@ It does no local build/push itself — publishing happens entirely in CI.
 
 | File | Role |
 | --- | --- |
-| `Dockerfile` | Multi-stage build (`node:22-slim` → `caddy:2-alpine`). |
+| `Dockerfile` | Multi-stage build (`node:22-slim` → `nginx:stable-alpine`). |
 | `Dockerfile.dockerignore` | BuildKit ignore rules (kept beside the Dockerfile). |
 | `gen-config.sh` | Generates `config.js` from env + `.env` (pure env→JS, no curl/jq). |
-| `entrypoint.sh` | Container ENTRYPOINT: runs `gen-config.sh`, then execs Caddy. |
-| `Caddyfile` | Static serving + SPA fallback + cache headers + `/api` & `/api-docs` reverse proxy. |
+| `docker-entrypoint.sh` | Installed as `/docker-entrypoint.d/40-gen-config.sh`; runs `gen-config.sh` before nginx starts. |
+| `nginx.conf` | Static serving + SPA fallback + cache headers. No proxy routes. |
 | `docker-compose.yml` | LOCAL build/run definition. |
 | `docker-compose.ghcr.yml` | Run the PUBLISHED GHCR image (no build). |
 | `build.sh` / `start.sh` | Build / run the local image. |
@@ -216,3 +187,11 @@ It does no local build/push itself — publishing happens entirely in CI.
 | `stop.sh` / `delete.sh` | Stop (keep) / stop + delete the container. |
 | `logs.sh` | Follow container logs. |
 | `.env.example` | Config template (committed). `.env` is your real values (git-ignored). |
+
+## Relationship to `docker-vo/`
+
+`docker-vo/` is the previous Caddy-based image, kept as a variant: same runtime
+config mechanism, but it also reverse-proxies `/api` → `postgrest:3000` and
+`/api-docs` → `scalar:8080`, and can do automatic HTTPS. It uses its own image
+tag (`semantius-app-vo:local`), container name (`semantius-app-vo`) and default
+host port (**7071**) so both can run side by side.

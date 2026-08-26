@@ -1,0 +1,26 @@
+# BuildKit reads this file (named <dockerfile>.dockerignore) when building with
+# `-f docker-vo/Dockerfile`, so the ignore rules live alongside the Dockerfile.
+# Rules are relative to the build context (the repo root).
+
+# Dependencies & build outputs — reinstalled/rebuilt inside the image
+**/node_modules
+**/dist
+**/dist-ssr
+**/.turbo
+
+# VCS, CI, local tooling artifacts not needed for the build
+.git
+.github
+.vscode
+.idea
+screenshots
+apps/load-tests
+**/*.log
+.preview-url.md
+.pr-comment.md
+
+# Never copy env secrets into the image; keep only the committed example, which
+# is baked as the default /config/.env.
+**/.env
+**/.env.*
+!docker-vo/.env.example

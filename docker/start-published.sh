@@ -4,4 +4,4 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."   # repo root
 docker compose -f docker/docker-compose.ghcr.yml up -d --pull always "$@"
-echo "semantius-web (published ${TAG:-latest}) is running → http://localhost:${WEB_PORT:-7070}"
+echo "semantius-app (published ${TAG:-latest}) is running → http://localhost:${WEB_PORT:-7070}"

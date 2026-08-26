@@ -1,8 +1,11 @@
 # LOCAL image definition (dev). Build and run are separate steps:
 #   docker compose -f docker/docker-compose.yml build   # build (or: docker/build.sh)
 #   docker compose -f docker/docker-compose.yml up -d    # run   (or: docker/start.sh)
-# `up` does not rebuild — it reuses semantius-web:local (building only if absent).
+# `up` does not rebuild — it reuses semantius-app:local (building only if absent).
 # To run the PUBLISHED GHCR image instead, see docker-compose.ghcr.yml.
+#
+# SPA only: this serves the web app and nothing else. For the variant that also
+# reverse-proxies /api and /api-docs to sibling containers, see docker-vo/.
 #
 # Paths below are resolved relative to THIS file (docker/), so `context: ..` is
 # the repo root and `env_file: .env` is docker/.env.
@@ -12,15 +15,11 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
     # Local tag (NOT pushed). The published image is ghcr.io/... (see CI).
-    image: semantius-web:local
-    container_name: semantius-web
+    image: semantius-app:local
+    container_name: semantius-app
     # Host port defaults to 7070; override with WEB_PORT (env or docker/.env).
-    # This is the ONLY exposed endpoint — Caddy reverse-proxies /api and
-    # /api-docs to the sibling containers below (which publish no host ports).
     ports:
       - "${WEB_PORT:-7070}:80"
-      # For Caddy auto-HTTPS, set SITE_ADDRESS to a domain in docker/.env and
-      # also publish 443:  - "443:443"
     # Your real values. gen-config.sh turns them into config.js at container
     # start. Optional: if docker/.env is absent, the image's baked default
     # (/config/.env from .env.example) is used instead.
@@ -28,23 +27,3 @@ services:
       - path: .env
         required: false
     restart: unless-stopped
-
-  # --- Optional sibling services reached through the single web endpoint -------
-  # Caddy proxies /api → postgrest:3000 and /api-docs → scalar:8080 (override the
-  # targets with API_UPSTREAM / DOCS_UPSTREAM). These have NO `ports:` — they are
-  # reachable only inside the compose network, via the web container. Uncomment
-  # and fill in real images to serve the whole stack through http://localhost:7070.
-  # To make the SPA use the proxied API, set VITE_API_BASE_URL=/api in docker/.env.
-  #
-  # postgrest:
-  #   image: postgrest/postgrest:latest
-  #   environment:
-  #     PGRST_DB_URI: postgres://user:pass@db:5432/app
-  #     PGRST_DB_SCHEMA: public
-  #     PGRST_DB_ANON_ROLE: web_anon
-  #   restart: unless-stopped
-  #
-  # scalar:
-  #   image: scalarapi/api-reference:latest
-  #   # listens on 8080 inside the network; no host port needed
-  #   restart: unless-stopped

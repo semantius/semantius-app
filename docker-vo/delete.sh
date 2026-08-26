@@ -4,4 +4,4 @@
 # Run from anywhere.
 set -euo pipefail
 cd "$(dirname "$0")/.."   # repo root
-exec docker compose -f docker/docker-compose.yml down "$@"
+exec docker compose -f docker-vo/docker-compose.yml down "$@"
