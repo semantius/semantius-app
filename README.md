@@ -1,4 +1,4 @@
-# Semantius Web
+# Semantius App
 
 A production-ready React application with authentication, metadata-driven UI, and PostgREST data access — built on a monorepo that provisions itself automatically for AI coding agents and human developers.
 

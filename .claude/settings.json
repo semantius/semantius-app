@@ -1,10 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(chmod +x c:/dev/semantius-web/workplace/approve-pr.sh)",
-      "Bash(grep -r \"import.*controls\" c:devsemantius-web/apps/web/src/components/form/*.tsx)",
-      "Bash(grep -r \"window.location.hostname\\\\|split\\(''''\\\\.''''\\)\" c:/dev/semantius-web/apps/web/src --include=*.ts --include=*.tsx)",
-      "Bash(find /c/dev/semantius-web -name wrangler.* -o -name worker.* -o -name *worker* -type f)",
+      "Bash(chmod +x c:/dev/semantius-app/workplace/approve-pr.sh)",
+      "Bash(grep -r \"import.*controls\" c:devsemantius-app/apps/web/src/components/form/*.tsx)",
+      "Bash(grep -r \"window.location.hostname\\\\|split\\(''''\\\\.''''\\)\" c:/dev/semantius-app/apps/web/src --include=*.ts --include=*.tsx)",
+      "Bash(find /c/dev/semantius-app -name wrangler.* -o -name worker.* -o -name *worker* -type f)",
       "Bash(dotenvx run *)",
       "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\).on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\(Object.keys\\(j[0]||{}\\).join\\('\\\\n'\\)\\)}\\)\")",
       "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\).on\\('end',\\(\\)=>{try{const j=JSON.parse\\(d\\);const props=j.properties||j.metadata?.properties||{};console.log\\('property keys:',Object.keys\\(props\\).join\\(', '\\)\\);console.log\\('is_agent in properties:', 'is_agent' in props\\)}catch\\(e\\){console.log\\('ERR',d.slice\\(0,300\\)\\)}}\\)\")",

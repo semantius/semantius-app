@@ -2,10 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\({k:d[k] for k in [''''peerDependencies'''',''''peerDependenciesMeta'''',''''optionalDependencies''''] if k in d}, indent=2\\)\\)\")",
-      "Bash(find /c/dev/semantius-web/node_modules/.pnpm -name package.json -path */drizzle-cube*/package.json)",
-      "Bash(node -e \"const p=require\\(''/c/dev/semantius-web/node_modules/.pnpm/drizzle-cube@0.4.51_@types+_16d860b8eb3ba9d024e253a01700d433/node_modules/drizzle-cube/package.json''\\); console.log\\(JSON.stringify\\({peer: p.peerDependencies, meta: p.peerDependenciesMeta}, null, 2\\)\\)\")",
+      "Bash(find /c/dev/semantius-app/node_modules/.pnpm -name package.json -path */drizzle-cube*/package.json)",
+      "Bash(node -e \"const p=require\\(''/c/dev/semantius-app/node_modules/.pnpm/drizzle-cube@0.4.51_@types+_16d860b8eb3ba9d024e253a01700d433/node_modules/drizzle-cube/package.json''\\); console.log\\(JSON.stringify\\({peer: p.peerDependencies, meta: p.peerDependenciesMeta}, null, 2\\)\\)\")",
       "Bash(node -e \"const p=require\\(''drizzle-cube/package.json''\\); console.log\\(JSON.stringify\\({peer: p.peerDependencies, meta: p.peerDependenciesMeta}, null, 2\\)\\)\")",
-      "Bash(grep -l optional-peer-dep /c/dev/semantius-web/node_modules/.pnpm/drizzle-cube@0.4.51_@types+_16d860b8eb3ba9d024e253a01700d433/node_modules/drizzle-cube/dist/client/chunks/*.js)",
+      "Bash(grep -l optional-peer-dep /c/dev/semantius-app/node_modules/.pnpm/drizzle-cube@0.4.51_@types+_16d860b8eb3ba9d024e253a01700d433/node_modules/drizzle-cube/dist/client/chunks/*.js)",
       "Bash(pnpm --filter @semantius/frontend add @nivo/heatmap@^0.99.0 d3@^7.9.0)",
       "Bash(pnpm --filter @semantius/frontend build)",
       "Bash(npm show:*)",

@@ -33,8 +33,10 @@ dist-ssr
 !.env.sample
 !.env.example
 
-# Docker runtime config holds real values — commit only docker/.env.example
+# Docker runtime config holds real values — commit only the .env.example files.
+# Bare-name .env needs its own rule: the .env.* pattern above does not match it.
 docker/.env
+docker-vo/.env
 
 # Workplace version tracking
 .workplace-version
