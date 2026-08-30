@@ -224,7 +224,33 @@ The image is **environment-agnostic**: the Vite bundle is compiled against place
 - **Only `docker-vo/` proxies; `docker/` never does.** `docker/nginx.conf` is static serving + SPA fallback (`try_files $uri $uri/ /index.html`) + cache headers (`no-store` on `/config.js` and `/index.html`, immutable on `/assets/`) and stops there — the SPA must be pointed at an absolute `VITE_API_BASE_URL`. In `docker-vo/`, **Caddy is the single exposed endpoint** (`docker-vo/Caddyfile`): it serves the SPA (root `/srv`, SPA fallback, cache headers) **and** reverse-proxies `/api/*` → `{$API_UPSTREAM:postgrest:3000}` and `/api-docs/*` → `{$DOCS_UPSTREAM:scalar:8080}` to sibling containers, **stripping the prefix** (`handle_path`) so PostgREST sees `/customers`. Upstreams need no published ports; Caddy re-resolves their DNS per request (no startup-ordering failures). The proxy is **opt-in** — the SPA only uses it when `VITE_API_BASE_URL=/api`; the `.env` default stays an absolute external URL. `SITE_ADDRESS` sets the listen address: default `:80` (plain HTTP behind an outer TLS terminator), or a domain to enable Caddy auto-HTTPS (then also publish 443 and persist `/data`). These proxy/TLS vars are Caddy-only (i.e. `docker-vo/` only) — they are **not** in `CANONICAL_VARS` / `window.__ENV__`.
 - **OIDC discovery runs in the SPA, not in `gen-config.sh`.** Set **`VITE_OAUTH_CONFIG`** (a `.well-known/openid-configuration` URL, now a `VITE_`-prefixed passthrough var, formerly the Docker-only `OIDC_CONFIG`) and `initConfig()` in `lib/config.ts` fetches it at boot, filling any blank `VITE_OAUTH_*_ENDPOINT` + scope (explicit env values win). It runs only on the self-hosted path (when `VITE_API_BASE_URL` is set); the control-plane path builds endpoints from the tenant slug instead. A failed discovery fetch sets `_configError`, which `main.tsx` turns into a **blocking** boot screen (hard-fail). This keeps `gen-config.sh` a dependency-free env→JS emitter (**neither Dockerfile `apk add`s curl/jq**) and unifies discovery across dev/Vercel/Cloudflare/Docker. The interactive `apps/web/scripts/genconfig.js` still writes explicit endpoints into a build-time `.env` and is unaffected.
 - **`docker/.env` is a Docker-only file, NOT a Vite env file.** It is git-ignored (holds real values); only `docker/.env.example` is committed (and baked into the image as the default `/config/.env`). The bare-name `.env` needed an explicit `.gitignore` entry **per folder** (`docker/.env`, `docker-vo/.env`) because the repo's `.env.*` rule does not match a suffix-less `.env` — add one for any further sibling folder.
-- **The image builds with no secrets.** CI (`.github/workflows/docker-publish.yml`) pushes to `ghcr.io/semantius/semantius-app` on a `v*` tag, publishing a **multi-arch manifest (`linux/amd64` + `linux/arm64`)** via `docker/build-push-action` `platforms:` + a `setup-qemu-action` step. The arm64 leg builds under QEMU emulation (the runner is amd64), so it is noticeably slower — expected, not a hang. `sem-schema` is consumed from source (its `exports` point at `src/index.ts`), so only `pnpm --filter=@semantius/frontend build` runs — no package pre-build. Build stage is `node:22-slim` (Debian/glibc) to avoid musl native-binary issues with the Tailwind v4 oxide / lightningcss binaries — this build stage is identical in both folders; only the runtime stage differs.
+- **The image builds with no secrets.** CI (`.github/workflows/docker-publish.yml`) pushes to `ghcr.io/semantius/semantius-app` on a version tag, publishing a **multi-arch manifest (`linux/amd64` + `linux/arm64`)** via `docker/build-push-action` `platforms:` + a `setup-qemu-action` step. The arm64 leg builds under QEMU emulation (the runner is amd64), so it is noticeably slower — expected, not a hang. `sem-schema` is consumed from source (its `exports` point at `src/index.ts`), so only `pnpm --filter=@semantius/frontend build` runs — no package pre-build. Build stage is `node:22-slim` (Debian/glibc) to avoid musl native-binary issues with the Tailwind v4 oxide / lightningcss binaries — this build stage is identical in both folders; only the runtime stage differs.
+
+### Cutting a Release
+
+`./release.sh vX.Y.Z[-pre]` at the **repository root** (not `docker/` — nothing about
+cutting a release builds an image) is the only supported way to publish. It bumps the
+root `package.json`, commits `chore(release): vX.Y.Z`, tags and pushes; the tag push is
+the entire trigger for `docker-publish.yml`, which builds the multi-arch image, pushes to
+GHCR and creates the GitHub Release.
+
+- **`package.json` must agree with the tag.** The workflow's `guard` job fails the release
+  otherwise. The bump is not cosmetic: the SPA reports no version at runtime, so the tag is
+  the only record of what an image contains. v0.1.1 and v0.1.2 were both cut from a tree
+  claiming 0.1.0, because neither the bump nor the guard existed — `package.json` is
+  therefore still at 0.1.0 and the next release self-heals it. The guard is skipped on a
+  rehearsal, where there is no artifact to trace and the bump has not been written yet.
+- **Pre-releases are supported** (`v0.2.0-rc.1`) and take neither `{{major}}.{{minor}}` nor
+  `latest`. `latest` is derived from the prerelease flag, never assigned unconditionally.
+- **`{{major}}` is suppressed by `docker/metadata-action` while the major version is zero**
+  — its own documented default, not a workflow opt-in. Any preview of the tag set must
+  account for that or it promises a `:0` that never appears.
+- **A `workflow_dispatch` rehearses and never publishes**: both architectures build, nothing
+  is pushed. Only a tag publishes.
+- The tag filter is `v[0-9]+.[0-9]+.[0-9]+[-*]`, not `v*` — a `v`-prefixed non-version tag
+  must not start a publish.
+- `docker-vo/release.sh` is the old unguarded copy and is **not** the release path; that
+  folder is slated for deletion.
 
 ### `.env` File (CRITICAL — read before every deploy)
 

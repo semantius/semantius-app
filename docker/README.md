@@ -161,22 +161,37 @@ slower than a single-arch build. Pull and run it exactly like the local image:
 docker run -p 7070:80 --env-file docker/.env ghcr.io/semantius/semantius-app:latest
 ```
 
-Cut a release with the helper. It bumps the root `package.json` version, commits
-that, then creates an **annotated** tag and pushes it — the tag push is what
-triggers the workflow:
+Cut a release with the helper. It lives at the **repository root**, not here —
+nothing about cutting a release builds or pushes an image, so `docker/` was a
+place nobody looked:
 
 ```bash
-docker/release.sh v0.1.3        # prompts for confirmation; -y to skip
+./release.sh v0.1.3          # prompts for confirmation; -y to skip
+./release.sh v0.2.0-rc.1     # pre-release: no :0.2, no :latest
 ```
 
-It refuses to run on a dirty tree, on a branch whose HEAD isn't pushed, on a tag
-that already exists, or on a version that isn't newer than the latest tag. It does
-no local build/push itself — publishing happens entirely in CI.
+It bumps the root `package.json`, commits that, then creates a tag (signed if
+this machine has a signing key, annotated otherwise) and pushes it — the tag
+push is the whole trigger. It refuses to run on a dirty tree, on a branch whose
+HEAD isn't pushed, on a tag that already exists locally or on origin, or on a
+version that isn't newer than the latest tag. It builds and pushes nothing
+locally; publishing happens entirely in CI.
 
 CI then does three things: builds the multi-arch image, pushes it to GHCR, and
 **creates the GitHub Release**. A pushed tag does not become a Release on its own —
 they are separate objects, which is why the Releases page stayed empty before the
 `Create GitHub Release` step existed.
+
+Before any of that, a `version` guard job checks in about thirty seconds that the
+tag is a version and that **`package.json` agrees with it**, failing the release
+if not. That check is why the bump exists: the SPA reports no version at runtime,
+so the tag is the only record of what an image contains, and a tree that says
+0.1.0 under a tag that says 0.1.2 makes that record a lie. (v0.1.1 and v0.1.2
+were both cut that way, before either the bump or the guard existed.)
+
+A **`workflow_dispatch` rehearses and never publishes**: it builds both
+architectures and warms the cache, answering "will v0.1.3 build for arm64?"
+before there is a tag to answer it badly. Only a tag publishes.
 
 Browse the published images here (Releases and Tags do **not** show them — the
 zip/tar.gz on the Tags page are GitHub's automatic source archives, unrelated):
@@ -201,7 +216,6 @@ Change visibility → Public. One-time, per package.
 | `docker-compose.yml` | LOCAL build/run definition. |
 | `docker-compose.ghcr.yml` | Run the PUBLISHED GHCR image (no build). |
 | `build.sh` / `start.sh` | Build / run the local image. |
-| `release.sh` | Bump version, annotated-tag `vX.Y.Z`, push it (guarded) to trigger the CI publish + GitHub Release. |
 | `start-published.sh` | Pull + run the published GHCR image. |
 | `stop.sh` / `delete.sh` | Stop (keep) / stop + delete the container. |
 | `logs.sh` | Follow container logs. |
