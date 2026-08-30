@@ -111,6 +111,16 @@ export async function initConfig(): Promise<AppConfig> {
   _configError = null
   const fallback = envFallback()
 
+  // Capability precheck, before any endpoint is resolved or any login offered.
+  // validateConfig() (AuthContext) only asks whether the OAuth *values* are
+  // present; this asks whether the browser can actually PERFORM the flow.
+  const insecure = secureContextError()
+  if (insecure) {
+    _configError = insecure
+    _config = fallback
+    return _config
+  }
+
   // The control plane is opt-OUT, not opt-in. VITE_CONTROL_PLANE_URL is only
   // defaulted when UNSET (undefined); an EXPLICIT empty string ("") is the
   // self-hosted opt-out.
@@ -194,6 +204,31 @@ export async function initConfig(): Promise<AppConfig> {
 
   _config = fallback
   return _config
+}
+
+/**
+ * PKCE needs WebCrypto (`crypto.subtle.digest` for the S256 challenge), and
+ * browsers withhold `crypto.subtle` outside a secure context — HTTPS, or the
+ * `localhost` / `127.0.0.1` exemption. Reaching a plain-HTTP deployment over a
+ * LAN IP (`http://192.168.x.x:3000`) therefore makes login impossible.
+ *
+ * This tests the capability rather than inferring it from scheme + hostname, so
+ * it cannot false-positive behind a reverse proxy, in any deployment shape, or
+ * under `vite dev`: if the API is there, the flow can run.
+ *
+ * Recorded as a config error so boot stops at the existing screen in main.tsx
+ * BEFORE a login is attempted — otherwise logIn() fails after the app has
+ * committed to redirecting, which is invisible unless a route branches on
+ * useAuth().error.
+ */
+function secureContextError(): string | null {
+  if (typeof window === 'undefined') return null
+  if (window.isSecureContext && window.crypto?.subtle) return null
+  return (
+    `This origin (${window.location.origin}) is not a secure context, so the browser ` +
+    `withholds crypto.subtle — the WebCrypto API the PKCE login flow requires. ` +
+    `Serve the app over HTTPS, or reach it at http://localhost.`
+  )
 }
 
 /**

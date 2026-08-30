@@ -1,8 +1,7 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useAuth } from '@/hooks/useAuth'
 import { useEffect, useState } from 'react'
-import { AlertCircle } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { AuthFailure } from '@/components/AuthFailure'
 import { parseOAuthState } from '@/lib/oauthState'
 import { hideAppLoader } from '@/lib/appLoader'
 
@@ -77,28 +76,7 @@ function CallbackComponent() {
     // hide the loading overlay to show the error UI. (While autoRetrying is
     // true a fresh logIn() redirect is in flight; keep the spinner up.)
     hideAppLoader()
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="max-w-md text-center">
-          <AlertCircle className="mx-auto h-12 w-12 text-destructive" />
-          <h2 className="mt-4 text-xl font-semibold">Login Error</h2>
-          <p className="mt-2 text-muted-foreground">
-            There was an issue completing authentication.
-          </p>
-          <div className="mt-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-            {error}
-          </div>
-          <div className="mt-6 space-y-3">
-            <Button onClick={() => logIn()} className="w-full">
-              Try Again
-            </Button>
-            <p className="text-xs text-muted-foreground">
-              If the problem persists, try refreshing the page or clearing your browser cache.
-            </p>
-          </div>
-        </div>
-      </div>
-    )
+    return <AuthFailure message={error} onRetry={() => logIn()} />
   }
 
   // HTML overlay stays visible while completing the token exchange

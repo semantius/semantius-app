@@ -35,12 +35,45 @@ Path alias: `@` → `apps/web/src` (configured in `vite.config.ts` and `tsconfig
 
 ### Auth Routing
 
-- `/login` — always calls `logIn(redirectTarget)` on mount (clears stale state, redirects to OAuth). Passes the `?redirect=` search param as OAuth `state` so it survives the round-trip. Shows spinner only.
+- `/login` — always calls `logIn(redirectTarget)` on mount (clears stale state, redirects to OAuth). Passes the `?redirect=` search param as OAuth `state` so it survives the round-trip. Renders nothing (the boot overlay covers the redirect) **unless `useAuth().error` is set** — a login that fails to start has no other surface, see the hang invariant below.
 - `/oauth2_callback` — the OAuth `redirectUri` (hardcoded to `${origin}/oauth2_callback` — no env var). Detects an active callback via `hadOAuthCode` (frozen at mount via `useState(() => new URLSearchParams(window.location.search).has('code'))`). After token exchange, reads the redirect target from `localStorage.getItem('ROCP_auth_state')` and navigates there. **Do NOT use `loginInProgress` here** — the library clears it before the token exchange completes.
 - `/_app` (`beforeLoad`) — redirects to `/login` if not authenticated; does NOT check `loginInProgress`.
 - **`loginInProgress`** is stored in **localStorage** (library default) — persists across tabs and sessions. It is cleared by the library *before* the token exchange completes, so it is **not a reliable indicator** in `/oauth2_callback`. Stale state is harmless: `/login` always calls `logIn()` which resets it via `clearStorage()`.
 - **Must register `/oauth2_callback` as allowed redirect URI** in your OAuth provider (Auth0, Keycloak, etc.).
 - **`useLayoutEffect` for `router.update()`** — `RouterContextUpdater` uses `useLayoutEffect` (not `useEffect`) to call `router.update()`. Layout effects run synchronously before paint and before any passive effects, ensuring the router context is always up-to-date before navigation fires. Using `useEffect` causes a race condition where the callback's navigate fires before `isAuthenticated: true` is visible to `_app.tsx` `beforeLoad`.
+
+### Boot Loading Overlay — the hang invariant
+
+`index.html` ships a static `<div id="app-loader">` that **only application code can
+dismiss**, via `hideAppLoader()` (`lib/appLoader.ts`). Nothing removes it on its own —
+not a redirect that never happens, not a component that renders nothing.
+
+> **Invariant:** every path that stops making progress — success, failure, or waiting on
+> a human — must call `hideAppLoader()`. A component that reaches a terminal `return null`
+> without one is a **hang**, not an error: the user sees an infinite spinner and the app
+> has no way to say what went wrong.
+
+Enforced by `src/test/appLoaderInvariant.test.ts`, which fails any route module with a
+top-level `return null` and no `hideAppLoader` path. This is why a route that only ever
+returns `null` while a redirect is in flight still needs a failure branch.
+
+**Corollary for `useAuth()`:** `logIn()` / `logOut()` in `react-oauth2-code-pkce` are
+fire-and-forget — the library catches its own rejection and the message surfaces **only**
+as `useAuth().error`, never as a throw or a rejected promise the caller can await. Any
+component that triggers an auth action and does not read `error` fails silently. Both legs
+of the flow render `components/AuthFailure.tsx`.
+
+### PKCE Requires a Secure Context (boot gate)
+
+PKCE needs `crypto.subtle`, which browsers withhold outside a secure context — HTTPS, or
+the `localhost` / `127.0.0.1` exemption. **Reaching a plain-HTTP deployment over a LAN IP
+(`http://192.168.x.x:3000`) therefore makes login impossible**, no matter how the OAuth
+config is set. `initConfig()` prechecks the *capability* (`window.isSecureContext &&
+window.crypto?.subtle`) before resolving any endpoint, so boot stops at the configuration
+error screen naming the origin rather than failing later inside the login flow. Testing
+the capability rather than inferring it from scheme + hostname means it cannot
+false-positive behind a reverse proxy or in any deployment shape. Serving the stack over
+HTTPS is a `semantius-self-hosted` concern; this repo only makes the failure legible.
 
 ### Routing Conventions
 

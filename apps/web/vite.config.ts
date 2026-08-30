@@ -10,7 +10,13 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     tanstackRouter({
       target: 'react',
-      autoCodeSplitting: true,
+      // Route files are code-split in real builds. Under Vitest the transform is
+      // off: it rewrites `component: X` into `lazyRouteComponent(...)` and moves
+      // X into a virtual module, which puts a route's component out of reach of
+      // a unit test (`Route.options.component` is then the lazy wrapper).
+      autoCodeSplitting: !process.env.VITEST,
+      // Colocated route tests are not routes.
+      routeFileIgnorePattern: '[.](test|spec)[.]',
     }),
     viteReact(),
     tailwindcss(),

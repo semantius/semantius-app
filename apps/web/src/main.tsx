@@ -10,12 +10,34 @@ import { TooltipProvider } from './components/ui/tooltip'
 import type { RouterContext } from './routes/__root'
 import { initConfig, getConfigError } from './lib/config'
 import { hideAppLoader } from './lib/appLoader'
+import { BootFailure } from './components/BootFailure'
 import { applyDevUrlToken } from './lib/devUrlToken'
 import './global.css'
 
 // Seed auth from a `#jwt=` URL fragment on localhost/preview builds, before the
 // router and AuthProvider read token storage. No-op + deny-by-default in prod.
 applyDevUrlToken()
+
+// Diagnostic floor. Nothing else in the app observes rejected promises, so a
+// throw in code that isn't inside a React render (an event handler, a fire-and-
+// forget async call) currently vanishes without a trace. Log always; surface it
+// loudly in dev only. This does not recover from anything — it makes the silence
+// audible.
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('[unhandledrejection]', event.reason)
+  if (import.meta.env.DEV) {
+    // Best-effort: the Toaster may not be mounted yet during boot, and a failure
+    // here must never mask the rejection we are reporting.
+    import('sonner')
+      .then(({ toast }) => {
+        const reason = event.reason
+        toast.error('Unhandled promise rejection', {
+          description: reason instanceof Error ? reason.message : String(reason),
+        })
+      })
+      .catch(() => {})
+  }
+})
 
 // Import the generated route tree
 import { routeTree } from './routeTree.gen'
@@ -64,13 +86,11 @@ initConfig().then(() => {
     hideAppLoader()
     root.render(
       <StrictMode>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', fontFamily: 'system-ui, sans-serif', padding: '2rem' }}>
-          <div style={{ maxWidth: '480px', textAlign: 'center' }}>
-            <h1 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.75rem' }}>Configuration Error</h1>
-            <p style={{ color: '#666', marginBottom: '1rem' }}>The application could not load its configuration.</p>
-            <pre style={{ background: '#f5f5f5', padding: '1rem', borderRadius: '6px', fontSize: '0.8rem', textAlign: 'left', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{configError}</pre>
-          </div>
-        </div>
+        <BootFailure
+          title="Configuration Error"
+          description="The application could not load its configuration."
+          detail={configError}
+        />
       </StrictMode>,
     )
     return
@@ -93,6 +113,23 @@ initConfig().then(() => {
           <Toaster position="top-right" />
         </QueryClientProvider>
       </ThemeProvider>
+    </StrictMode>,
+  )
+}).catch((err: unknown) => {
+  // initConfig() records the failures it anticipates in _configError and
+  // resolves. A rejection here is therefore something it did NOT anticipate —
+  // and without this branch root.render() is never called, so the index.html
+  // overlay stays up over an empty page: the same infinite spinner as a hung
+  // login, reached by a different route.
+  console.error('[boot] initConfig() failed', err)
+  hideAppLoader()
+  root.render(
+    <StrictMode>
+      <BootFailure
+        title="Application Failed to Start"
+        description="An unexpected error occurred while loading the application."
+        detail={err instanceof Error ? (err.stack || err.message) : String(err)}
+      />
     </StrictMode>,
   )
 })
