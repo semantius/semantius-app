@@ -21,6 +21,7 @@ import {
   DataTableHeader,
   DataTableBody,
   DataTableEmptyBody,
+  DataTableSkeleton,
   RowDragContext,
   type DataTableReorderEvent,
 } from '@/components/niko-table/core'
@@ -986,7 +987,18 @@ export function DataTableView({
               onRowClick={onRowClick}
               enableRowDnd={dndEnabled}
               onReorder={handleReorder}
-            />
+            >
+              {/* Must be a CHILD of DataTableBody — it renders its children
+                  inside <tbody>, so as a sibling of DataTableBody these <tr>s
+                  would sit directly under <table>. Self-gating: the skeleton
+                  returns null unless the table context says isLoading, the body
+                  hides its rows while loading, and the empty body nulls out.
+                  `placeholderData` keeps isLoading false on paging/sorting, so
+                  this only ever shows on a table's first load. Row height is
+                  held by DataTableSkeleton's own line-box wrapper, so nothing
+                  jumps when the rows land and no override is needed here. */}
+              <DataTableSkeleton rows={pagination.pageSize} />
+            </DataTableBody>
             <DataTableEmptyBody />
           </DataTable>
 

@@ -634,6 +634,11 @@ export function DataTableSkeleton({
           {visibleColumns.map((column, colIndex) => {
             const size = column.columnDef.size
             const cellStyle = size ? { width: `${size}px` } : undefined
+            // Ragged bar widths read as content rather than as a loading bar
+            // graph. Derived from the cell coordinates, not Math.random(), so a
+            // re-render never reshuffles the shape mid-load. The cell keeps the
+            // column's own `size`; this percentage varies within it.
+            const barWidth = `${55 + ((rowIndex * 5 + colIndex * 3) % 4) * 12}%`
 
             return (
               <TableCell
@@ -641,7 +646,19 @@ export function DataTableSkeleton({
                 className={cellClassName}
                 style={cellStyle}
               >
-                <Skeleton className={cn("h-4 w-full", skeletonClassName)} />
+                {/* Two heights, deliberately. The h-5 wrapper is the text-sm
+                    LINE BOX (20px) — it holds the row at exactly the height a
+                    real one-line row gets from TableCell's p-2, so nothing
+                    shifts when data lands. The bar is the text's CAP height
+                    (10px for 14px Geist); sizing it to the line box instead
+                    makes every cell a solid slab that reads as blocks, not
+                    text. */}
+                <div className="flex h-5 items-center">
+                  <Skeleton
+                    className={cn("h-2.5", skeletonClassName)}
+                    style={{ width: barWidth }}
+                  />
+                </div>
               </TableCell>
             )
           })}

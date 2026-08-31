@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useCallback, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
@@ -46,6 +46,15 @@ function appLoaderHidden() {
   return document.getElementById('app-loader')!.hasAttribute('hidden')
 }
 
+// hideAppLoader() fades the overlay out rather than removing it outright: it
+// drops pointer-events and opacity on the spot and only sets [hidden] when the
+// CSS transition ends (or its fallback timer fires — jsdom emits no
+// transitionend). This is the "no longer in the way" half of that.
+function appLoaderDismissing() {
+  const el = document.getElementById('app-loader')!
+  return el.style.pointerEvents === 'none' && el.style.opacity === '0'
+}
+
 describe('/login', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -68,7 +77,8 @@ describe('/login', () => {
     expect(await screen.findByText(CRYPTO_SUBTLE_ERROR)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument()
     // Without this the card renders behind an opaque overlay — a hang, not an error.
-    expect(appLoaderHidden()).toBe(true)
+    expect(appLoaderDismissing()).toBe(true)
+    await waitFor(() => expect(appLoaderHidden()).toBe(true))
   })
 
   it('retries the login when Try Again is clicked', async () => {
@@ -96,5 +106,6 @@ describe('/login', () => {
     expect(logIn).toHaveBeenCalledTimes(1)
     expect(container).toBeEmptyDOMElement()
     expect(appLoaderHidden()).toBe(false)
+    expect(appLoaderDismissing()).toBe(false)
   })
 })

@@ -106,9 +106,13 @@ export function ModuleSwitcher({
         <SidebarMenuItem>
           <SidebarMenuButton size="lg" disabled>
             <Skeleton className="size-8 rounded-lg shrink-0" />
+            {/* Bars are cap height (10px for the 14px label, 8px for the 12px
+                sub-line), not the line box — a line-box-tall bar reads as a
+                block rather than as text. The logo tile above keeps its full
+                size-8 because a real logo IS that big. */}
             <div className="grid flex-1 gap-1.5">
-              <Skeleton className="h-3.5 w-24" />
-              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-2.5 w-24" />
+              <Skeleton className="h-2 w-16" />
             </div>
           </SidebarMenuButton>
         </SidebarMenuItem>

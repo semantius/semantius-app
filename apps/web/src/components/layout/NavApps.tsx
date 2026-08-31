@@ -8,6 +8,7 @@ import {
 } from "lucide-react"
 import { Link, useMatchRoute, useNavigate } from '@tanstack/react-router'
 import { useTable } from '@/hooks/useTable'
+import type { Module } from '@/contexts/AuthContext'
 import { ApiErrorDisplay } from '@/components/ApiErrorDisplay'
 
 import {
@@ -24,6 +25,7 @@ import {
   SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSkeleton,
   useSidebar,
 } from '@/components/ui/sidebar'
 
@@ -47,6 +49,18 @@ export function NavApps({
     enabled: !!moduleId,
   })
 
+  // The tables query is disabled until a module is known, and a disabled query
+  // reports isLoading: false — so during boot NavApps would flash "Select a
+  // module to view apps" while the modules list is still in flight. Watching the
+  // modules query too keeps the skeleton up across that gap.
+  // IMPORTANT: this call must stay byte-identical to ModuleSwitcher's (and
+  // SidebarPrefetch's) — the react-query key is ['table', name, query, count],
+  // so a drifting query string would fetch modules a second time instead of
+  // sharing the one cache entry.
+  const { isLoading: modulesLoading } = useTable<Module>('modules', {
+    query: 'order=module_name.asc',
+  })
+
   // Show error if fetch fails
   if (error) {
     return (
@@ -57,12 +71,29 @@ export function NavApps({
     )
   }
 
-  // Show loading state
-  if (isLoading) {
+  // Show loading state. Note the second clause is only about the *boot* gap
+  // described above — once modules have loaded, a tenant with no modules at all
+  // must fall through to the empty state rather than skeleton forever.
+  if (isLoading || (!moduleId && modulesLoading)) {
     return (
       <SidebarGroup className="group-data-[collapsible=icon]:hidden">
         <SidebarGroupLabel>Apps</SidebarGroupLabel>
-        <div className="text-sm text-muted-foreground px-2 py-1">Loading ...</div>
+        <SidebarMenu>
+          {/* SidebarMenuSkeleton renders one item, so repeat it here.
+              Its text bar defaults to h-4 (the text-sm line box); a menu label
+              is 14px Geist with a 10px cap, so the default reads as a slab next
+              to the rest of the skeletons. Target it by its data-sidebar hook —
+              the icon bar is a sibling and must stay size-4, because a real
+              icon IS 16px. Call-site className: ui/sidebar.tsx is CLI-owned. */}
+          {Array.from({ length: 4 }).map((_, i) => (
+            <SidebarMenuItem key={i}>
+              <SidebarMenuSkeleton
+                showIcon
+                className="**:data-[sidebar=menu-skeleton-text]:h-2.5"
+              />
+            </SidebarMenuItem>
+          ))}
+        </SidebarMenu>
       </SidebarGroup>
     )
   }

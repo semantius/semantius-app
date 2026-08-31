@@ -3,6 +3,7 @@ import { createFileRoute, notFound, useParams } from '@tanstack/react-router'
 import { lazy, Suspense, useMemo } from 'react'
 import { NotFoundPage } from '@/components/NotFoundPage'
 import { ViewSkeleton } from '@/components/ViewSkeleton'
+import type { EntityMetadata } from '@/types/metadata'
 
 // Discover all view components - lazy load for code splitting
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -29,6 +30,15 @@ export const Route = createFileRoute('/_app/$moduleId/$table_name')({
     return { metadata }
   },
   component: RouteComponent,
+  // Show the content-area skeleton while the blocking loader runs, instead of
+  // holding the previous page. pendingMs keeps fast/cached navigations flash-
+  // free; the explicit pendingMinMs: 0 overrides the router's 500ms default,
+  // which would otherwise keep the skeleton up after the data had arrived.
+  // pendingComponent receives no props, so metadata only reaches the inner
+  // Suspense fallback below.
+  pendingComponent: ViewSkeleton,
+  pendingMs: 300,
+  pendingMinMs: 0,
   notFoundComponent: NotFoundPage,
 })
 
@@ -67,7 +77,7 @@ function RouteComponent() {
   }
   
   return (
-    <Suspense fallback={<ViewSkeleton />}>
+    <Suspense fallback={<ViewSkeleton metadata={metadata} />}>
       {/* key on table_name remounts the view when switching tables. Without it
           the SAME generic View instance is reused across tables (same route,
           changed params), so its internal state and useTable's keep-previous
@@ -85,14 +95,17 @@ function RouteComponent() {
  * Fetch entity metadata using the get_schema RPC function
  * This follows the PostgREST RPC pattern for calling stored procedures
  */
-async function fetchEntityMetadata(table_name: string, token: string | null) {
+async function fetchEntityMetadata(
+  table_name: string,
+  token: string | null,
+): Promise<EntityMetadata | null> {
   if (!token) {
     throw new Error('Authentication token is required')
   }
 
   try {
     const { callRpc } = await import('@/lib/apiClient')
-    return await callRpc('get_schema', { p_table_name: table_name }, token)
+    return await callRpc<EntityMetadata>('get_schema', { p_table_name: table_name }, token)
   } catch {
     return null
   }

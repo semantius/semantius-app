@@ -2,24 +2,133 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!-- Boot theme + variant, before any CSS is parsed.
+         MUST mirror the next-themes config in src/main.tsx
+         (attribute="class" defaultTheme="system" storageKey="semantius-ui-theme"),
+         otherwise the skeleton paints light and next-themes flips it to dark on
+         hydration — exactly the white flash this overlay exists to prevent. -->
+    <script>
+      ;(function () {
+        try {
+          var stored = localStorage.getItem('semantius-ui-theme')
+          var dark =
+            stored === 'dark' ||
+            ((!stored || stored === 'system') &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches)
+          if (dark) {
+            document.documentElement.classList.add('dark')
+            document.documentElement.style.colorScheme = 'dark'
+          } else {
+            document.documentElement.style.colorScheme = 'light'
+          }
+        } catch (e) {
+          /* private mode / storage blocked — fall through to the light skeleton */
+        }
+        // Routes outside the _app layout never render the app shell, so a shell
+        // skeleton there would be a lie. They keep the plain centered spinner.
+        var plain = [
+          '/login',
+          '/oauth2_callback',
+          '/logout',
+          '/logout-success',
+          '/form-playground',
+        ]
+        var path = window.location.pathname.replace(/\/+$/, '') || '/'
+        if (plain.indexOf(path) !== -1) {
+          document.documentElement.classList.add('al-plain')
+        }
+      })()
+    </script>
     <link rel="icon" type="image/svg+xml" href="/semantius-logo-square.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Semantius</title>
     <style>
-      /* Initial loading spinner — hidden once the app signals readiness */
+      /* ── Boot skeleton overlay ────────────────────────────────────────────
+         Paints an app-shell skeleton (sidebar + header + content) in pure CSS,
+         before any JS runs, and stays up until application code calls
+         hideAppLoader() (src/lib/appLoader.ts).
+
+         The colour tokens below are copied VERBATIM from the `:root` / `.dark`
+         blocks in src/global.css (--background, --sidebar, --skeleton,
+         --border). They cannot reference the real variables — global.css lives
+         inside the JS bundle, which has not loaded yet. If you change those four
+         tokens in global.css, change them here too, or the overlay will not
+         match the app it crossfades into. (global.css carries the reciprocal
+         comment.) --skeleton in particular is NOT --muted: see the contrast note
+         beside it in global.css.
+
+         Geometry likewise mirrors the real shell: 16rem sidebar (SIDEBAR_WIDTH,
+         components/ui/sidebar.tsx), 4rem header (h-16, layout/AppLayout.tsx),
+         and the content block from components/ViewSkeleton.tsx. */
+      :root {
+        --al-bg: oklch(1 0 0);
+        --al-sidebar: oklch(0.985 0.001 106.423);
+        --al-skeleton: oklch(0.89 0.003 106.42);
+        --al-border: oklch(0.923 0.003 48.717);
+        /* --radius in global.css; the radius-* scale is derived from it. */
+        --al-radius: 0.45rem;
+      }
+      html.dark {
+        --al-bg: oklch(0.147 0.004 49.25);
+        --al-sidebar: oklch(0.216 0.006 56.043);
+        --al-skeleton: oklch(0.31 0.007 34.298);
+        --al-border: oklch(1 0 0 / 10%);
+      }
+
       #app-loader {
-        display: flex;
-        align-items: center;
-        justify-content: center;
         position: fixed;
         inset: 0;
         z-index: 9999;
-        background: white;
+        overflow: hidden;
+        background: var(--al-bg);
+        /* Fade out rather than vanish. hideAppLoader() flips opacity and only
+           sets [hidden] once the transition ends; pointer-events go first so the
+           real UI is never blocked behind a still-visible overlay. */
+        transition: opacity 180ms ease-out;
       }
       #app-loader[hidden] {
         display: none;
       }
-      .app-loader-inner {
+
+      /* Identical to Tailwind animate-pulse + ui/skeleton.tsx (whose `bg-muted`
+         global.css retargets to --skeleton) so the overlay bars and the React
+         skeletons that replace them share colour, radius and pulse rhythm. */
+      .al-skel {
+        background: var(--al-skeleton);
+        border-radius: calc(var(--al-radius) * 1.8);
+        animation: al-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+      @keyframes al-pulse {
+        50% {
+          opacity: 0.5;
+        }
+      }
+      .al-r-lg {
+        border-radius: var(--al-radius);
+      }
+      .al-r-xl {
+        border-radius: calc(var(--al-radius) + 4px);
+      }
+      /* Holds a text line box while the bar inside is only cap height. */
+      .al-line {
+        display: flex;
+        align-items: center;
+      }
+
+      /* ── Plain variant (routes outside the _app layout) ── */
+      .al-center {
+        display: none;
+      }
+      html.al-plain .al-center {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+      }
+      html.al-plain .al-shell {
+        display: none;
+      }
+      .al-center-inner {
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -28,17 +137,170 @@
         font-family: system-ui, sans-serif;
         font-size: 0.875rem;
       }
-      .app-loader-spinner {
+      .al-spinner {
         width: 2rem;
         height: 2rem;
         border: 2px solid #e5e5e5;
         border-top-color: #888;
         border-radius: 50%;
-        animation: app-spin 0.6s linear infinite;
+        animation: al-spin 0.6s linear infinite;
       }
-      @keyframes app-spin {
+      @keyframes al-spin {
         to {
           transform: rotate(360deg);
+        }
+      }
+
+      /* ── Shell ── */
+      .al-shell {
+        display: flex;
+        height: 100%;
+      }
+
+      /* Sidebar — 16rem = SIDEBAR_WIDTH (components/ui/sidebar.tsx) */
+      .al-side {
+        display: flex;
+        flex: none;
+        flex-direction: column;
+        width: 16rem;
+        background: var(--al-sidebar);
+        border-right: 1px solid var(--al-border);
+      }
+      /* Below md the sidebar is offcanvas (Sidebar renders a Sheet), so the boot
+         shell must not reserve a column for it. */
+      @media (max-width: 47.99rem) {
+        .al-side {
+          display: none;
+        }
+      }
+      /* SidebarHeader / SidebarFooter: p-2 */
+      .al-side-head,
+      .al-side-foot {
+        padding: 0.5rem;
+      }
+      /* SidebarContent: flex-1 gap-2 */
+      .al-side-body {
+        display: flex;
+        flex: 1 1 auto;
+        flex-direction: column;
+        gap: 0.5rem;
+        min-height: 0;
+        overflow: hidden;
+      }
+      /* SidebarGroup: p-2 */
+      .al-group {
+        display: flex;
+        flex-direction: column;
+        padding: 0.5rem;
+      }
+      /* SidebarGroupLabel: h-8 px-3 */
+      .al-group-label {
+        display: flex;
+        align-items: center;
+        height: 2rem;
+        padding: 0 0.75rem;
+      }
+      /* SidebarMenu: gap-0.5 */
+      .al-menu {
+        display: flex;
+        flex-direction: column;
+        gap: 0.125rem;
+      }
+      /* SidebarMenuSkeleton: h-8 items-center gap-2 px-2 */
+      .al-menu-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        height: 2rem;
+        padding: 0 0.5rem;
+      }
+      /* SidebarMenuButton size="lg": h-12 px-3 gap-2 */
+      .al-lg-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        height: 3rem;
+        padding: 0 0.75rem;
+      }
+      .al-lines {
+        display: grid;
+        flex: 1 1 auto;
+        gap: 0.375rem;
+        min-width: 0;
+      }
+
+      /* Main column */
+      .al-main {
+        display: flex;
+        flex: 1 1 auto;
+        flex-direction: column;
+        min-width: 0;
+        background: var(--al-bg);
+      }
+      /* header: h-16; Header.tsx inner is `h-full w-full items-center px-4 gap-2` */
+      .al-head {
+        display: flex;
+        flex: none;
+        align-items: center;
+        gap: 0.5rem;
+        height: 4rem;
+        padding: 0 1rem;
+      }
+      /* Content wrapper in AppLayout: p-4 pt-0; ViewSkeleton root is space-y-6 */
+      .al-content {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+        padding: 0 1rem 1rem;
+        min-width: 0;
+      }
+      .al-row {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      }
+      .al-row-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+      }
+      .al-row-between {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+      }
+      .al-stack-2 {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      .al-table {
+        display: flex;
+        flex-direction: column;
+      }
+      .al-table-head {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        height: 2.5rem;
+        border-bottom: 1px solid var(--al-border);
+      }
+      .al-table-row {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        height: 2.25rem;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        #app-loader {
+          transition: none;
+        }
+        .al-skel,
+        .al-spinner {
+          animation: none;
         }
       }
     </style>
@@ -50,9 +312,180 @@
   </head>
   <body>
     <div id="app-loader">
-      <div class="app-loader-inner">
-        <div class="app-loader-spinner"></div>
-        <span>Loading…</span>
+      <div class="al-center">
+        <div class="al-center-inner">
+          <div class="al-spinner"></div>
+          <span>Loading…</span>
+        </div>
+      </div>
+
+      <div class="al-shell">
+        <div class="al-side">
+          <div class="al-side-head">
+            <!-- ModuleSwitcher loading row -->
+            <div class="al-lg-row">
+              <div class="al-skel al-r-lg" style="width: 2rem; height: 2rem; flex: none"></div>
+              <div class="al-lines">
+                <div class="al-skel" style="width: 6rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 4rem; height: 0.5rem"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="al-side-body">
+            <div class="al-group">
+              <!-- "Apps" group label -->
+              <div class="al-group-label">
+                <div class="al-skel" style="width: 2.25rem; height: 0.5rem"></div>
+              </div>
+              <div class="al-menu">
+                <div class="al-menu-item">
+                  <div class="al-skel al-r-xl" style="width: 1rem; height: 1rem; flex: none"></div>
+                  <div class="al-skel" style="height: 0.625rem; flex: 1 1 auto; max-width: 72%"></div>
+                </div>
+                <div class="al-menu-item">
+                  <div class="al-skel al-r-xl" style="width: 1rem; height: 1rem; flex: none"></div>
+                  <div class="al-skel" style="height: 0.625rem; flex: 1 1 auto; max-width: 55%"></div>
+                </div>
+                <div class="al-menu-item">
+                  <div class="al-skel al-r-xl" style="width: 1rem; height: 1rem; flex: none"></div>
+                  <div class="al-skel" style="height: 0.625rem; flex: 1 1 auto; max-width: 84%"></div>
+                </div>
+                <div class="al-menu-item">
+                  <div class="al-skel al-r-xl" style="width: 1rem; height: 1rem; flex: none"></div>
+                  <div class="al-skel" style="height: 0.625rem; flex: 1 1 auto; max-width: 63%"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="al-side-foot">
+            <!-- NavUser row -->
+            <div class="al-lg-row">
+              <div class="al-skel al-r-lg" style="width: 2rem; height: 2rem; flex: none"></div>
+              <div class="al-lines">
+                <div class="al-skel" style="width: 6rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 8rem; height: 0.5rem"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="al-main">
+          <div class="al-head">
+            <div class="al-skel" style="width: 1.75rem; height: 1.75rem"></div>
+            <div style="flex: 1 1 auto"></div>
+            <div class="al-skel" style="width: 2rem; height: 2rem"></div>
+          </div>
+
+          <!-- Mirrors components/ViewSkeleton.tsx -->
+          <div class="al-content">
+            <!-- Breadcrumb -->
+            <div class="al-row" style="gap: 0.5rem; height: 1.25rem">
+              <div class="al-skel" style="width: 4rem; height: 0.625rem"></div>
+              <div class="al-skel" style="width: 0.875rem; height: 0.875rem"></div>
+              <div class="al-skel" style="width: 6rem; height: 0.625rem"></div>
+            </div>
+
+            <!-- Title + description + primary action -->
+            <div class="al-row-top">
+              <div class="al-stack-2">
+                <div class="al-line" style="height: 2.25rem"><div class="al-skel" style="width: 14rem; height: 1.375rem"></div></div>
+                <div class="al-line" style="height: 1.5rem"><div class="al-skel" style="width: 18rem; height: 0.75rem"></div></div>
+              </div>
+              <div class="al-skel" style="width: 9rem; height: 2rem; flex: none"></div>
+            </div>
+
+            <!-- Toolbar: search + sort/filter/view -->
+            <div class="al-row-between">
+              <div
+                class="al-skel"
+                style="width: 100%; max-width: 25rem; height: 2rem"
+              ></div>
+              <div class="al-row" style="gap: 0.5rem; flex: none">
+                <div class="al-skel" style="width: 5rem; height: 1.75rem"></div>
+                <div class="al-skel" style="width: 5rem; height: 1.75rem"></div>
+                <div class="al-skel" style="width: 5rem; height: 2rem"></div>
+              </div>
+            </div>
+
+            <!-- Table -->
+            <div class="al-table">
+              <div class="al-table-head">
+                <div class="al-skel" style="width: 10rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 3rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 14rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 10rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 8rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 6rem; height: 0.625rem"></div>
+              </div>
+              <div class="al-table-row">
+                <div class="al-skel" style="width: 10rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 3rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 14rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 10rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 8rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 6rem; height: 0.625rem"></div>
+              </div>
+              <div class="al-table-row">
+                <div class="al-skel" style="width: 10rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 3rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 14rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 10rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 8rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 6rem; height: 0.625rem"></div>
+              </div>
+              <div class="al-table-row">
+                <div class="al-skel" style="width: 10rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 3rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 14rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 10rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 8rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 6rem; height: 0.625rem"></div>
+              </div>
+              <div class="al-table-row">
+                <div class="al-skel" style="width: 10rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 3rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 14rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 10rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 8rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 6rem; height: 0.625rem"></div>
+              </div>
+              <div class="al-table-row">
+                <div class="al-skel" style="width: 10rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 3rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 14rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 10rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 8rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 6rem; height: 0.625rem"></div>
+              </div>
+              <div class="al-table-row">
+                <div class="al-skel" style="width: 10rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 3rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 14rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 10rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 8rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 6rem; height: 0.625rem"></div>
+              </div>
+              <div class="al-table-row">
+                <div class="al-skel" style="width: 10rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 3rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 14rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 10rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 8rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 6rem; height: 0.625rem"></div>
+              </div>
+              <div class="al-table-row">
+                <div class="al-skel" style="width: 10rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 3rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 14rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 10rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 8rem; height: 0.625rem"></div>
+                <div class="al-skel" style="width: 6rem; height: 0.625rem"></div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
     <div id="root"></div>

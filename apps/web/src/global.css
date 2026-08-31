@@ -11,6 +11,12 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* NOTE: --background, --sidebar, --skeleton, --border and --radius (in BOTH
+   :root and .dark below) are duplicated verbatim in apps/web/index.html as the
+   --al-* tokens of the boot skeleton overlay. That overlay paints before this
+   stylesheet exists (it ships in the JS bundle), so it cannot reference these
+   variables. Change one, change the other, or the overlay stops matching the
+   app it crossfades into. */
 :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.147 0.004 49.25);
@@ -45,6 +51,12 @@
   --sidebar-accent-foreground: oklch(0.216 0.006 56.043);
   --sidebar-border: oklch(0.923 0.003 48.717);
   --sidebar-ring: oklch(0.709 0.01 56.259);
+  /* Loading-placeholder fill. Deliberately NOT --muted: at oklch(0.97) on a
+     white page --muted gives a 1.09:1 contrast ratio (1.04:1 at the animate-
+     pulse trough, and 1.045:1 against the sidebar), which is below the
+     threshold most displays can resolve — a full-screen skeleton in that tone
+     reads as a blank white page. 1.39:1 here / 1.33:1 on the sidebar. */
+  --skeleton: oklch(0.89 0.003 106.42);
 }
 
 .dark {
@@ -80,6 +92,9 @@
   --sidebar-accent-foreground: oklch(0.985 0.001 106.423);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.553 0.013 58.071);
+  /* Dark fares better than light with --muted (1.30:1 on the page) but is still
+     weak on the sidebar (1.15:1); this lifts both to 1.50:1 / 1.33:1. */
+  --skeleton: oklch(0.31 0.007 34.298);
 }
 
 @theme inline {
@@ -124,6 +139,20 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* Route every skeleton's fill to --skeleton instead of --muted.
+   `ui/skeleton.tsx` hardcodes `bg-muted` and is CLI-owned (never hand-edit it —
+   a `shadcn add` regenerates it), and there are ~25 <Skeleton> call sites plus
+   SidebarMenuSkeleton's inner bars, which a call-site className cannot reach
+   without an arbitrary-variant hack. So instead of fighting over
+   `background-color`, this redefines the *variable* on the skeleton slot:
+   `@theme inline` compiles `bg-muted` to `background-color: var(--muted)`, so
+   shadowing --muted here retargets the fill with zero specificity conflict —
+   a call-site `bg-*` override still wins normally. --muted is unaffected
+   everywhere else, and skeletons have no children to inherit it. */
+[data-slot='skeleton'] {
+  --muted: var(--skeleton);
 }
 
 @layer base {

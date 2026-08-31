@@ -57,6 +57,57 @@ Enforced by `src/test/appLoaderInvariant.test.ts`, which fails any route module 
 top-level `return null` and no `hideAppLoader` path. This is why a route that only ever
 returns `null` while a redirect is in flight still needs a failure branch.
 
+**`hideAppLoader()` is not synchronous.** It drops `pointer-events` and `opacity` on the
+spot (so the real UI is usable immediately) but sets the terminal `hidden` attribute only
+on `transitionend`, with a 300ms timer as the fallback for reduced-motion, hidden tabs and
+**jsdom, which never fires `transitionend`**. A test that asserts `[hidden]` right after
+render will fail; assert the fade started, then `await waitFor(...)` for `hidden`. It is
+idempotent by a `data-hiding` marker — render-phase call sites and StrictMode double
+effects both re-enter it.
+
+**Skeletons use `--skeleton`, never `--muted`.** `--muted` is `oklch(0.97)`, which against
+the white `--background` is a **1.09:1** contrast ratio — 1.04:1 at the `animate-pulse`
+trough, and 1.045:1 against the sidebar. That is below what a typical display resolves, so
+a full-screen skeleton in that tone renders as a **blank white page** (it was reported
+exactly that way: "blank screen, no loading circle, no skeleton loader at all"). Judge a
+loading state by measuring contrast, not by looking at a screenshot you already know the
+answer to. `--skeleton` (`global.css`) lifts this to 1.39:1 light / 1.50:1 dark.
+
+**Size a skeleton bar to the text, not to the line box.** A "line of text" bar should be
+the font's **cap height**, not its `line-height` — for Geist that is 22px for `text-3xl`
+(36px line box), 12px for 16px text, 10px for `text-sm` (20px line box), 8px for
+`text-xs`. Using the line box makes every bar a solid slab. Where the surrounding layout
+must not move (a grid row, a heading block), wrap the bar in a container of the **line-box**
+height and center the shorter bar inside it — that keeps row heights identical when the
+real content lands. Non-text placeholders (buttons, inputs, avatars, icons) are the
+opposite: they take the *real control's* full box, so check the actual component
+(`Button` default is `h-8 rounded-2xl`, base `Input` `h-8`, toolbar menus `size="sm"` =
+`h-7`) rather than guessing.
+
+`ui/skeleton.tsx` hardcodes `bg-muted` and is CLI-owned, and there are ~25 `<Skeleton>`
+call sites plus `SidebarMenuSkeleton`'s inner bars, so neither editing it nor a call-site
+`className` scales. `global.css` instead shadows the *variable* on the slot —
+`[data-slot='skeleton'] { --muted: var(--skeleton) }`. This works because `@theme inline`
+compiles `bg-muted` to `background-color: var(--muted)`; it wins no specificity fight, so
+a call-site `bg-*` override still applies, and `--muted` is untouched everywhere else.
+
+**The overlay paints an app-shell skeleton, not a spinner**, in pure CSS before any JS
+runs. Two duplication hazards come with that, both cross-referenced in the files:
+
+- `index.html` duplicates `--background` / `--sidebar` / `--skeleton` / `--border` /
+  `--radius` from `src/global.css` as `--al-*` tokens, and re-derives the shell geometry (16rem
+  sidebar, 4rem header, the `ViewSkeleton` content block). It **cannot** import them —
+  `global.css` ships inside the JS bundle. Change one side, change the other.
+- An inline `<script>` in `<head>` replicates the next-themes resolution
+  (`attribute="class"`, `defaultTheme="system"`, `storageKey="semantius-ui-theme"`) to set
+  `.dark` before first paint. If that config changes in `main.tsx`, the skeleton paints
+  light and next-themes flips it on hydration — the exact flash the overlay prevents.
+
+Routes outside the `_app` layout (`/login`, `/oauth2_callback`, `/logout`,
+`/logout-success`, `/form-playground`) never render the app shell, so the same script tags
+`<html>` with `al-plain` and they keep the plain centered spinner. **A new non-`_app` route
+must be added to that list**, or it boots behind a shell skeleton it will never become.
+
 **Corollary for `useAuth()`:** `logIn()` / `logOut()` in `react-oauth2-code-pkce` are
 fire-and-forget — the library catches its own rejection and the message surfaces **only**
 as `useAuth().error`, never as a throw or a rejected promise the caller can await. Any

@@ -33,7 +33,7 @@ export const BACKEND_TYPE_VALUES = BACKEND_TYPES.join(', ')
  */
 const BUILT_IN_MENUS: Record<'cloud' | 'self_hosted', UserMenuEntry[]> = {
   cloud: [
-    { title: 'Settings', url: '/settings?orgid={orgid}' },
+    { title: 'Settings', url: '/settings' },
     { title: 'Profile', url: 'https://app.semantius.com/settings?orgid={orgid}' },
     {
       title: 'Platform',

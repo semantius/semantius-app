@@ -11,6 +11,7 @@ import type { RouterContext } from './routes/__root'
 import { initConfig, getConfigError } from './lib/config'
 import { hideAppLoader } from './lib/appLoader'
 import { BootFailure } from './components/BootFailure'
+import { SidebarPrefetch } from './components/layout/SidebarPrefetch'
 import { applyDevUrlToken } from './lib/devUrlToken'
 import './global.css'
 
@@ -106,6 +107,10 @@ initConfig().then(() => {
         <QueryClientProvider client={queryClient}>
           <TooltipProvider>
             <AuthProviderWrapper router={router}>
+              {/* Outside the ProtectedRoute gate on purpose: kicks off the
+                  sidebar's modules query in parallel with the userinfo calls
+                  the gate waits on. Renders nothing. */}
+              <SidebarPrefetch />
               <RouterProvider router={router} />
             </AuthProviderWrapper>
           </TooltipProvider>
