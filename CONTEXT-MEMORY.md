@@ -103,10 +103,16 @@ runs. Two duplication hazards come with that, both cross-referenced in the files
   `.dark` before first paint. If that config changes in `main.tsx`, the skeleton paints
   light and next-themes flips it on hydration — the exact flash the overlay prevents.
 
-Routes outside the `_app` layout (`/login`, `/oauth2_callback`, `/logout`,
-`/logout-success`, `/form-playground`) never render the app shell, so the same script tags
-`<html>` with `al-plain` and they keep the plain centered spinner. **A new non-`_app` route
-must be added to that list**, or it boots behind a shell skeleton it will never become.
+The same script tags `<html>` with `al-plain` for routes that keep the plain centered
+spinner. **The test is what the overlay is about to BECOME, not which route is mounted
+under it** — being outside the `_app` layout is not the criterion. `/logout`,
+`/logout-success` and `/form-playground` end in a standalone centered page, so they are
+plain. `/login` and `/oauth2_callback` are **not**: both render `null` and lead into the
+app, and the callback holds the overlay across the entire tail of the boot (token
+exchange → userinfo → route loader → `get_schema`) — the longest stretch the skeleton
+exists to cover. Getting this backwards is what made a sign-in round trip go
+skeleton → IdP → *spinner* → app. Add a new route to the list only if it terminates in its
+own standalone page.
 
 **Corollary for `useAuth()`:** `logIn()` / `logOut()` in `react-oauth2-code-pkce` are
 fire-and-forget — the library catches its own rejection and the message surfaces **only**

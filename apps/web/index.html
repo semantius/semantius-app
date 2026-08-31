@@ -24,15 +24,20 @@
         } catch (e) {
           /* private mode / storage blocked — fall through to the light skeleton */
         }
-        // Routes outside the _app layout never render the app shell, so a shell
-        // skeleton there would be a lie. They keep the plain centered spinner.
-        var plain = [
-          '/login',
-          '/oauth2_callback',
-          '/logout',
-          '/logout-success',
-          '/form-playground',
-        ]
+        // Which variant to paint is decided by what the overlay is about to
+        // BECOME, not by which route happens to be mounted under it. These
+        // three end in a standalone centered page (a logout card, the form
+        // playground), so a shell skeleton would be a lie.
+        //
+        // /login and /oauth2_callback are deliberately NOT here: both render
+        // null and lead into the app. The callback in particular holds the
+        // overlay across the whole tail of the boot — token exchange, userinfo,
+        // route loader, get_schema — so it is the single longest stretch the
+        // skeleton exists to cover. It also keeps the sign-in round trip
+        // visually continuous: a fresh load of /login looks the same as
+        // reaching it by client-side redirect from /, where the document was
+        // parsed at / and already carries the shell.
+        var plain = ['/logout', '/logout-success', '/form-playground']
         var path = window.location.pathname.replace(/\/+$/, '') || '/'
         if (plain.indexOf(path) !== -1) {
           document.documentElement.classList.add('al-plain')

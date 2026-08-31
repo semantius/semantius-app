@@ -47,3 +47,36 @@ describe('app-loader invariant', () => {
     },
   )
 })
+
+/**
+ * The boot overlay has two variants, chosen in an inline script in index.html by
+ * pathname. The test is what the overlay is about to BECOME — NOT whether the
+ * route sits outside the `_app` layout.
+ *
+ * `/oauth2_callback` is the one that matters: it renders null and then navigates
+ * into the app, holding the overlay across the whole tail of the boot (token
+ * exchange, userinfo, route loader, get_schema). Listing it as "plain" made a
+ * sign-in round trip go skeleton → provider → *spinner* → app, which is the
+ * regression this pins. Same for `/login`, which leads to the provider.
+ *
+ * Only routes that terminate in their own standalone centered page belong here.
+ */
+describe('boot overlay variant', () => {
+  const html = readFileSync(join(ROUTES_DIR, '..', '..', 'index.html'), 'utf8')
+  const plain = [...(html.match(/var plain = \[([^\]]*)\]/s)?.[1] ?? '').matchAll(/'([^']+)'/g)].map(
+    (m) => m[1],
+  )
+
+  it('parses the plain-variant list out of index.html', () => {
+    expect(plain.length).toBeGreaterThan(0)
+  })
+
+  it('keeps the shell skeleton on the routes that lead into the app', () => {
+    expect(plain).not.toContain('/oauth2_callback')
+    expect(plain).not.toContain('/login')
+  })
+
+  it('uses the plain spinner only for standalone centered pages', () => {
+    expect(plain.sort()).toEqual(['/form-playground', '/logout', '/logout-success'])
+  })
+})
