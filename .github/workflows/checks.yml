@@ -1,0 +1,54 @@
+name: Checks
+
+# Lint + unit tests, defined ONCE and called from anywhere that needs them.
+#
+# It exists as its own file because the image build compiles and typechecks but
+# never RUNS anything (`pnpm build` is `vite build && tsc -b --noEmit`), so a tag
+# would otherwise publish a tree with failing tests. That is not theoretical: 18
+# tests were broken across four commits before this existed, because no build,
+# deploy or release path had ever executed them.
+#
+# Callers reach this through `workflow_call`, so this file stays the only
+# definition of the checks. Never copy the job into another workflow — add a
+# trigger here, or call this one.
+on:
+  # Dormant today: the project does not use PRs, and a trigger with no PRs
+  # never fires, so this costs nothing sitting here. It is enabled rather than
+  # commented out so that adopting PRs later needs NO change to this file.
+  pull_request:
+  workflow_call:
+  workflow_dispatch:
+  # Not enabled: unlike `pull_request`, this one bills a runner on EVERY push to
+  # main, which is the CI overhead the project deliberately opted out of. The
+  # release gate below is what protects what actually ships.
+  # push:
+  #   branches: [main]
+
+jobs:
+  checks:
+    name: lint + unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.22.0'
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # `pnpm check` is the single definition of what "the checks" are — the
+      # same command release.sh runs locally and AGENTS.md tells you to run.
+      # Change the commands in package.json, not here, or the gates drift apart.
+      #
+      # Deliberately not root `pnpm test`: that is `dotenvx run -- turbo test`,
+      # and .env is not committed, so dotenvx would inject nothing and the
+      # failure would look like a secrets problem. These jsdom unit tests need
+      # no secrets.
+      - name: Lint and test
+        run: pnpm check

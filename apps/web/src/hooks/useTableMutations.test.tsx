@@ -30,6 +30,17 @@ vi.mock('@/lib/apiClient', () => ({
     'Authorization': `Bearer ${token}`,
     'Content-Type': 'application/json',
   }),
+  // Fired on the SUCCESS path only (see useTableMutations onSuccess). Omitting
+  // it made every success case fail with a TypeError while the error cases
+  // still passed — the mock must cover the whole module surface the hook uses.
+  refreshSchemaCache: vi.fn(),
+}))
+
+// getConfig() throws unless initConfig() has run, and onSuccess reads
+// getConfig().tenantName. Stubbed rather than initialized: these tests are
+// about the mutation, not about config resolution.
+vi.mock('@/lib/config', () => ({
+  getConfig: () => ({ tenantName: 'test-tenant' }),
 }))
 
 function createWrapper() {

@@ -80,6 +80,24 @@ if [ -n "$LATEST" ] && [ "$(printf '%s\n%s\n' "$LATEST" "$VERSION" | sort -V | t
   die "$VERSION is not newer than the latest tag $LATEST"
 fi
 
+# The same checks the `checks` workflow runs, via the same `pnpm check` script,
+# run here so the refusal arrives before the tag exists rather than after a
+# publish has already started. The workflow still runs them — this is the fast
+# local copy, not a replacement. Neither side defines WHAT the checks are; both
+# defer to `pnpm check` in package.json, so they cannot drift apart.
+#
+# SKIP_TESTS=1 skips only THIS local copy, to save a few minutes when you have
+# just run the checks by hand. It does NOT let a broken tree publish: the tag
+# triggers the `checks` job, which build-and-push depends on, so the failure
+# simply moves from here to CI — after the tag exists, which is the worse place
+# to find it. Deliberately noisy for that reason.
+if [ "${SKIP_TESTS:-0}" = "1" ]; then
+  echo "release: WARNING - lint and tests skipped (SKIP_TESTS=1)" >&2
+else
+  echo "release: running lint + unit tests (pnpm check)..."
+  pnpm check || die "pnpm check failed - fix it before releasing (the tag would fail CI anyway)"
+fi
+
 pkg_version() { sed -n 's/^  "version": "\(.*\)",$/\1/p' package.json | head -1; }
 CURRENT="$(pkg_version)"
 

@@ -83,7 +83,7 @@ Use `pnpm dev` (or `pnpm --filter web dev`) for instant Vite HMR feedback while 
 
 ### Task completion — mandatory
 
-A task is **not complete** until it has been deployed to a Cloudflare branch preview and verified there. Do not mark a task done based on localhost behaviour alone.
+A task is **not complete** until **the full test suite passes** and it has been deployed to a Cloudflare branch preview and verified there. Do not mark a task done based on localhost behavior alone, and never on a passing build alone — the build does not run tests.
 
 ## Secrets
 
@@ -157,17 +157,33 @@ When asked to implement and verify a change:
 
 1. Make the change
 2. Use `pnpm dev` during development for fast feedback (localhost is for iteration only)
-3. `pnpm build` — confirm no build errors
-4. `pnpm preview:wrangler` — deploy to Cloudflare (**run from repo root**)
-5. Read `.preview-url.md` — this is the only valid URL for verification screenshots
+3. `pnpm check` — lint + unit tests. **Every test must pass, including ones you did not touch.** This is the same command `release.sh` and the `checks` workflow run, so a green `pnpm check` locally means a green gate.
+4. `pnpm build` — confirm no build errors
+5. `pnpm preview:wrangler` — deploy to Cloudflare (**run from repo root**)
+6. Read `.preview-url.md` — this is the only valid URL for verification screenshots
 
 ```bash
 cat .preview-url.md   # e.g. https://abc123.your-project.workers.dev
 ```
 
-6. `agent-browser open <url-from-.preview-url.md>` — **use this URL, not localhost**
-7. `agent-browser screenshot --full screenshots/YYYYMMDDHHMMSS-<short-title>.png`
-8. Confirm the screenshot URL/title bar reflects the Cloudflare domain, not localhost
+7. `agent-browser open <url-from-.preview-url.md>` — **use this URL, not localhost**
+8. `agent-browser screenshot --full screenshots/YYYYMMDDHHMMSS-<short-title>.png`
+9. Confirm the screenshot URL/title bar reflects the Cloudflare domain, not localhost
+
+> ❌ **Known failure mode:** treating a green `pnpm build` as proof the code works.
+> `build` is `vite build && tsc -b --noEmit` — it compiles and typechecks, it never
+> RUNS anything. Tests are a separate command and are not part of any build, deploy
+> or preview path.
+
+> ❌ **Known failure mode:** finding failures in tests you did not write and reporting
+> them instead of fixing them. A red suite is a red suite. Fix it, or say explicitly
+> why a specific test must stay red. Pre-existing failures are still your problem —
+> they are how a suite rots to the point where nobody reads it.
+>
+> A test asserting behavior the source deliberately moved past is **stale, not
+> correct**: check git history for the commit that changed the source, then update
+> the assertion to the real contract. Never delete a test to make the suite green,
+> and never weaken one into something that cannot fail.
 
 ---
 

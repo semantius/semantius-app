@@ -45,7 +45,12 @@ describe('InputNumber', () => {
       </TestWrapper>
     )
     const input = container.querySelector('input')
-    expect(input).toHaveAttribute('type', 'number')
+    // NOT type="number". The control is built on react-number-format, which
+    // needs a TEXT input to render grouped/formatted values and control the
+    // caret; a native number input cannot show "1,234.50" at all. Numeric
+    // intent is carried by inputMode, which is what drives the mobile keypad.
+    expect(input).toHaveAttribute('type', 'text')
+    expect(input).toHaveAttribute('inputmode', 'decimal')
   })
 
   it('should handle number values', () => {
@@ -111,8 +116,15 @@ describe('InputNumber', () => {
     )
 
     const input = screen.getByLabelText(/age/i) as HTMLInputElement
-    // Note: HTML5 number input prevents non-numeric input, but we test the validator
-    expect(input.type).toBe('number')
+    expect(input.type).toBe('text')
+
+    // A text input has no native numeric filtering, so react-number-format has
+    // to do the rejecting itself — that guarantee is the whole reason dropping
+    // type="number" is safe, so assert it rather than the attribute alone.
+    const user = userEvent.setup()
+    await user.type(input, 'abc12def')
+
+    expect(input.value).toBe('12')
   })
 
   it('should accept valid number', async () => {

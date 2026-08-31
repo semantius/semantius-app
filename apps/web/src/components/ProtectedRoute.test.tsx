@@ -1,15 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { ProtectedRoute } from './ProtectedRoute'
 import { useAuth } from '@/hooks/useAuth'
+import { hideAppLoader } from '@/lib/appLoader'
 
-// Mock the useAuth hook
 vi.mock('@/hooks/useAuth', () => ({
   useAuth: vi.fn(),
 }))
 
-// Helper to create a complete mock auth context
-function createMockAuth(overrides: Partial<ReturnType<typeof useAuth>> = {}): ReturnType<typeof useAuth> {
+vi.mock('@/lib/appLoader', () => ({
+  hideAppLoader: vi.fn(),
+}))
+
+/** Complete auth context with every field the component reads. */
+function createMockAuth(
+  overrides: Partial<ReturnType<typeof useAuth>> = {}
+): ReturnType<typeof useAuth> {
   return {
     token: '',
     tokenData: undefined,
@@ -31,140 +37,125 @@ function createMockAuth(overrides: Partial<ReturnType<typeof useAuth>> = {}): Re
   }
 }
 
+function renderProtected() {
+  return render(
+    <ProtectedRoute>
+      <div>Protected Content</div>
+    </ProtectedRoute>
+  )
+}
+
+/**
+ * ProtectedRoute renders NOTHING in every non-terminal state — the static
+ * #app-loader overlay from index.html is already covering the screen, so an
+ * in-component spinner would be a second, competing one. These tests therefore
+ * assert "renders nothing + the right overlay decision", not message text.
+ */
 describe('ProtectedRoute', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it('shows authenticating message when login is in progress', () => {
-    vi.mocked(useAuth).mockReturnValue(createMockAuth({
-      token: '',
-      loginInProgress: true,
-      isAuthReady: false,
-    }))
-
-    render(
-      <ProtectedRoute>
-        <div>Protected Content</div>
-      </ProtectedRoute>
+  it('renders nothing while login is in progress, letting the boot overlay stand', () => {
+    vi.mocked(useAuth).mockReturnValue(
+      createMockAuth({ token: '', loginInProgress: true, isAuthReady: false })
     )
 
-    expect(screen.getByText('Authenticating...')).toBeInTheDocument()
+    const { container } = renderProtected()
+
+    expect(container).toBeEmptyDOMElement()
     expect(screen.queryByText('Protected Content')).not.toBeInTheDocument()
   })
 
-  it('shows redirecting message when no token and not logging in', () => {
-    const mockLogin = vi.fn()
-    vi.mocked(useAuth).mockReturnValue(createMockAuth({
-      token: '',
-      login: mockLogin,
-      loginInProgress: false,
-      isAuthReady: false,
-    }))
-
-    render(
-      <ProtectedRoute>
-        <div>Protected Content</div>
-      </ProtectedRoute>
+  it('NEVER calls logIn itself — _app.tsx beforeLoad owns the redirect', () => {
+    // Regression guard for a real double-redirect bug: the auth library
+    // transiently clears loginInProgress before setting the token, so a logIn()
+    // here saw !token && !loginInProgress and fired a SECOND OAuth redirect.
+    const logIn = vi.fn()
+    const login = vi.fn()
+    vi.mocked(useAuth).mockReturnValue(
+      createMockAuth({ token: '', logIn, login, loginInProgress: false })
     )
 
-    expect(screen.getByText('Redirecting to login...')).toBeInTheDocument()
-    expect(screen.queryByText('Protected Content')).not.toBeInTheDocument()
+    renderProtected()
+
+    expect(logIn).not.toHaveBeenCalled()
+    expect(login).not.toHaveBeenCalled()
   })
 
-  it('calls login when no token is present', () => {
-    const mockLogin = vi.fn()
-    vi.mocked(useAuth).mockReturnValue(createMockAuth({
-      token: '',
-      login: mockLogin,
-      loginInProgress: false,
-      isAuthReady: false,
-    }))
-
-    render(
-      <ProtectedRoute>
-        <div>Protected Content</div>
-      </ProtectedRoute>
+  it('hides the boot overlay when there is no token, so the app cannot hang', () => {
+    // The hang invariant: a terminal state that leaves the overlay up is an
+    // infinite spinner with no way to say what went wrong.
+    vi.mocked(useAuth).mockReturnValue(
+      createMockAuth({ token: '', loginInProgress: false })
     )
 
-    expect(mockLogin).toHaveBeenCalled()
+    const { container } = renderProtected()
+
+    expect(container).toBeEmptyDOMElement()
+    expect(hideAppLoader).toHaveBeenCalled()
   })
 
-  it('shows loading message when token exists but auth is not ready', () => {
-    vi.mocked(useAuth).mockReturnValue(createMockAuth({
-      token: 'test-token',
-      loginInProgress: false,
-      isAuthReady: false,
-    }))
-
-    render(
-      <ProtectedRoute>
-        <div>Protected Content</div>
-      </ProtectedRoute>
+  it('renders nothing and KEEPS the overlay while user info is still loading', () => {
+    // Still making progress — this is the one non-terminal state, so the
+    // overlay must stay up rather than flashing an empty page.
+    vi.mocked(useAuth).mockReturnValue(
+      createMockAuth({ token: 'test-token', isAuthReady: false, userInfoLoading: true })
     )
 
-    expect(screen.getByText('Loading user information...')).toBeInTheDocument()
-    expect(screen.queryByText('Protected Content')).not.toBeInTheDocument()
+    const { container } = renderProtected()
+
+    expect(container).toBeEmptyDOMElement()
+    expect(hideAppLoader).not.toHaveBeenCalled()
   })
 
-  it('renders children when token exists and auth is ready', () => {
-    vi.mocked(useAuth).mockReturnValue(createMockAuth({
-      token: 'test-token',
-      loginInProgress: false,
-      isAuthReady: true,
-    }))
-
-    render(
-      <ProtectedRoute>
-        <div>Protected Content</div>
-      </ProtectedRoute>
+  it('renders children and hides the overlay once auth is ready', () => {
+    vi.mocked(useAuth).mockReturnValue(
+      createMockAuth({ token: 'test-token', isAuthReady: true })
     )
+
+    renderProtected()
 
     expect(screen.getByText('Protected Content')).toBeInTheDocument()
-    expect(screen.queryByText('Authenticating...')).not.toBeInTheDocument()
-    expect(screen.queryByText('Redirecting to login...')).not.toBeInTheDocument()
-    expect(screen.queryByText('Loading user information...')).not.toBeInTheDocument()
+    expect(hideAppLoader).toHaveBeenCalled()
   })
 
-  it('waits for isAuthReady before showing children', async () => {
-    const mockLogin = vi.fn()
-    const authState = createMockAuth({
-      token: 'test-token',
-      login: mockLogin,
-      loginInProgress: false,
-      isAuthReady: false,
-    })
-
-    vi.mocked(useAuth).mockReturnValue(authState)
-
-    const { rerender } = render(
-      <ProtectedRoute>
-        <div>Protected Content</div>
-      </ProtectedRoute>
+  it('shows children only after isAuthReady flips true', () => {
+    vi.mocked(useAuth).mockReturnValue(
+      createMockAuth({ token: 'test-token', isAuthReady: false })
     )
 
-    // Initially should show loading
-    expect(screen.getByText('Loading user information...')).toBeInTheDocument()
-    expect(screen.queryByText('Protected Content')).not.toBeInTheDocument()
+    const { container, rerender } = renderProtected()
 
-    // Update to ready state
-    vi.mocked(useAuth).mockReturnValue(createMockAuth({
-      token: 'test-token',
-      login: mockLogin,
-      loginInProgress: false,
-      isAuthReady: true,
-    }))
+    expect(container).toBeEmptyDOMElement()
 
+    vi.mocked(useAuth).mockReturnValue(
+      createMockAuth({ token: 'test-token', isAuthReady: true })
+    )
     rerender(
       <ProtectedRoute>
         <div>Protected Content</div>
       </ProtectedRoute>
     )
 
-    // Now should show protected content
-    await waitFor(() => {
-      expect(screen.getByText('Protected Content')).toBeInTheDocument()
-    })
-    expect(screen.queryByText('Loading user information...')).not.toBeInTheDocument()
+    expect(screen.getByText('Protected Content')).toBeInTheDocument()
+  })
+
+  it('surfaces a userinfo failure instead of rendering children', () => {
+    vi.mocked(useAuth).mockReturnValue(
+      createMockAuth({
+        token: 'test-token',
+        isAuthReady: true,
+        userInfoError: new Error('userinfo exploded'),
+      })
+    )
+
+    renderProtected()
+
+    expect(
+      screen.getByText('Failed to fetch user information from OAuth provider')
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Protected Content')).not.toBeInTheDocument()
+    expect(hideAppLoader).toHaveBeenCalled()
   })
 })

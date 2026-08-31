@@ -108,13 +108,25 @@ jobs:
 
           echo "\`$tag\` — version \`$version\`, prerelease \`$prerelease\`, publish \`$publish\`" >> "$GITHUB_STEP_SUMMARY"
 
+  # -------------------------------------------------------------------------
+  # Lint + unit tests. The steps live in checks.yml so that enabling them on
+  # pull requests later is one uncommented trigger there, with nothing copied
+  # into a second workflow.
+  #
+  # Runs beside `guard`, both gating the build, for the same reason `guard` is
+  # its own job — failing here costs a minute, failing after the emulated arm64
+  # leg costs fifteen.
+  # -------------------------------------------------------------------------
+  checks:
+    uses: ./.github/workflows/checks.yml
+
   build-and-push:
     name: image · amd64 + arm64
     runs-on: ubuntu-latest
     # The arm64 leg is emulated and slow, but not six-hours slow — the default
     # timeout would let a wedged QEMU build sit on a runner all afternoon.
     timeout-minutes: 60
-    needs: [guard]
+    needs: [guard, checks]
     steps:
       - name: Checkout
         uses: actions/checkout@v4

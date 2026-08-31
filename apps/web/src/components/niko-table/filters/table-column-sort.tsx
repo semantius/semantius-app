@@ -233,6 +233,13 @@ export function TableColumnSortMenu<TData, TValue>({
 
   const icons = SORT_ICONS[variant] || SORT_ICONS[FILTER_VARIANTS.TEXT]
 
+  // Above the `!canSort` early return on purpose: a hook after it is skipped on
+  // the null render, so a column toggling its sortability changes the hook count
+  // between renders and React throws.
+  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(false)
+  const menuOpen = controlledOpen ?? uncontrolledOpen
+  const setMenuOpen = onOpenChange ?? setUncontrolledOpen
+
   if (!canSort) return null
 
   const SortIcon =
@@ -245,10 +252,6 @@ export function TableColumnSortMenu<TData, TValue>({
   const sortIndex = column.getSortIndex()
   const isMultiSort = table && table.getState().sorting.length > 1
   const showSortBadge = isMultiSort && sortIndex !== -1
-
-  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(false)
-  const menuOpen = controlledOpen ?? uncontrolledOpen
-  const setMenuOpen = onOpenChange ?? setUncontrolledOpen
 
   return (
     <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>

@@ -232,7 +232,10 @@ describe('SchemaForm', () => {
       render(<SchemaForm schema={basicSchema} />)
 
       const ageInput = screen.getByLabelText(/age/i)
-      expect(ageInput).toHaveAttribute('type', 'number')
+      // The integer control is react-number-format based: a TEXT input whose
+      // numeric intent is carried by inputMode. precision 0 (integer) => numeric.
+      expect(ageInput).toHaveAttribute('type', 'text')
+      expect(ageInput).toHaveAttribute('inputmode', 'numeric')
     })
 
     it('should use TextareaInput for multiline format', () => {

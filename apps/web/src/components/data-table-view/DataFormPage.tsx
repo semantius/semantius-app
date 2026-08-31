@@ -43,6 +43,20 @@ export function DataFormPage({ schema, recordId, onClose, formMode, formId, onBe
   // Determine formMode: 'create' if no recordId, 'edit' if recordId provided, or use explicit formMode
   const resolvedFormMode = formMode || (recordId ? 'edit' : 'create')
 
+  // Hooks run BEFORE the schema guards below, and unconditionally. The guards
+  // are early returns, so hooks placed after them are skipped on the error
+  // render — React then sees a different hook count between renders and throws.
+  // Both identifiers can legitimately be missing here, so each hook takes a
+  // safe fallback and the query stays disabled until the schema is usable.
+  const { data, isLoading, error, refetch } = useTable(tableName ?? '', {
+    query: recordId && idColumn ? `${idColumn}=eq.${recordId}` : undefined,
+    enabled: !!recordId && !!tableName && !!idColumn,
+  })
+
+  // Mutation hooks for create and update
+  const createRecord = useCreateRecord(tableName ?? '')
+  const updateRecord = useUpdateRecord(tableName ?? '', idColumn ?? '')
+
   if (!tableName) {
     return (
       <div className="rounded-md bg-destructive/10 p-4 text-sm text-destructive">
@@ -58,16 +72,6 @@ export function DataFormPage({ schema, recordId, onClose, formMode, formId, onBe
       </div>
     )
   }
-
-  // Fetch record data if recordId is provided
-  const { data, isLoading, error, refetch } = useTable(tableName, {
-    query: recordId ? `${idColumn}=eq.${recordId}` : undefined,
-    enabled: !!recordId,
-  })
-
-  // Mutation hooks for create and update
-  const createRecord = useCreateRecord(tableName)
-  const updateRecord = useUpdateRecord(tableName, idColumn)
 
   // Handle form submission
   const handleSubmit = async (value: Record<string, any>) => {

@@ -8,6 +8,7 @@
     "dev:supabase": "dotenvx run --env-file .env.supabase -- turbo dev:supabase",
     "build": "turbo build",
     "lint": "turbo lint",
+    "check": "pnpm --filter @semantius/frontend lint && pnpm --filter @semantius/frontend test",
     "test": "dotenvx run -- turbo test",
     "preview": "dotenvx run -- turbo preview",
     "preview:wrangler": "dotenvx run -- turbo preview:wrangler",
