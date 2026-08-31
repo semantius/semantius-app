@@ -137,6 +137,38 @@ The callback url is /oauth2_callback like http://localhost:5173/oauth2_callback
 | `VITE_API_TYPE`        | Optional — set to `"supabase"` if using Supabase           |
 | `VITE_SUPABASE_APIKEY` | Supabase anon key (required when `VITE_API_TYPE=supabase`) |
 
+### User Interface
+
+The account menu in the sidebar footer is configuration-driven — see
+`apps/web/src/lib/userMenu.ts`.
+
+| Variable             | Description                                                                        |
+| -------------------- | ---------------------------------------------------------------------------------- |
+| `VITE_BACKEND_TYPE`  | `cloud` (default), `self_hosted`, or `custom`. Selects the built-in account menu.  |
+| `VITE_UI_CUSTOMIZER` | Required when `VITE_BACKEND_TYPE=custom` — JSON defining the account menu.         |
+
+Built-in menus:
+
+| `VITE_BACKEND_TYPE` | Entries                                                                                                                                                   |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cloud`             | Settings → `/settings?orgid={orgid}` · Profile → `https://app.semantius.com/settings?orgid={orgid}` · Platform → `…/settings/organization?orgid={orgid}` *(admin)* |
+| `self_hosted`       | Account → `/idp/account` · User Manager → `/idp/admin` *(admin)*                                                                                            |
+
+`VITE_UI_CUSTOMIZER` takes a JSON object; each entry needs `title` and `url`, and
+an optional `permission` that hides the entry from users who do not hold it
+(checked against `permissions` from `/rpc/get_userinfo`). Single-quote the value
+so the shell and dotenv pass it through literally:
+
+```
+VITE_BACKEND_TYPE=custom
+VITE_UI_CUSTOMIZER='{"user":{"menu":[{"title":"Account","url":"/idp/account"},{"title":"Admin","url":"/idp/admin","permission":"admin"}]}}'
+```
+
+`{orgid}` in any url is replaced at startup with the org slug (empty when there is
+no control plane). An absolute `http(s)://` url navigates away in the same tab;
+anything else routes inside the app. An unknown `VITE_BACKEND_TYPE`, or a missing
+or malformed `VITE_UI_CUSTOMIZER`, stops boot with a configuration-error screen.
+
 ### Deployment
 
 | Variable                | Required | Description                                                  |

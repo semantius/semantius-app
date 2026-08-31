@@ -9,8 +9,14 @@
  * blank OAuth endpoints are resolved from VITE_OAUTH_CONFIG (OIDC discovery).
  */
 
-import { _ } from "ajv"
 import { runtimeEnv } from './runtimeEnv'
+import {
+  BACKEND_TYPE_VALUES,
+  parseBackendType,
+  resolveUserMenu,
+  type BackendType,
+  type UiCustomizer,
+} from './userMenu'
 
 export interface AppConfig {
   // OAuth
@@ -36,6 +42,11 @@ export interface AppConfig {
   tenantId?: string
   tenantName?: string
   tenantLogo?: string | null
+
+  // UI (resolved from VITE_BACKEND_TYPE / VITE_UI_CUSTOMIZER — see lib/userMenu.ts).
+  // Required: every AppConfig is built from envFallback(), which seeds both.
+  backendType: BackendType
+  uiCustomizer: UiCustomizer
 }
 
 let _config: AppConfig | null = null
@@ -64,7 +75,12 @@ function envFallback(): AppConfig {
     apiType: normaliseApiType(runtimeEnv('VITE_API_TYPE', import.meta.env.VITE_API_TYPE)),
     supabaseApiKey: runtimeEnv('VITE_SUPABASE_APIKEY', import.meta.env.VITE_SUPABASE_APIKEY) || undefined,
 
-    cubeApiUrl: runtimeEnv('VITE_CUBE_API_URL', import.meta.env.VITE_CUBE_API_URL) || undefined
+    cubeApiUrl: runtimeEnv('VITE_CUBE_API_URL', import.meta.env.VITE_CUBE_API_URL) || undefined,
+
+    // Neutral placeholders. initConfig() overwrites both via applyUiCustomizer()
+    // once the tenant slug is known, on every return path.
+    backendType: 'cloud',
+    uiCustomizer: { user: { menu: [] } }
   }
 }
 
@@ -108,6 +124,16 @@ function buildOAuthUrls(slug: string) {
  * On failure, records the error (retrievable via getConfigError()).
  */
 export async function initConfig(): Promise<AppConfig> {
+  const cfg = await initConfigCore()
+  // The user menu is resolved LAST, in a wrapper rather than inside the core:
+  // initConfigCore() has seven return paths and the resolution needs the tenant
+  // slug, which only the last of them knows. `cfg` is the very object held in
+  // `_config`, so mutating it in place is what getConfig() will hand out.
+  applyUiCustomizer(cfg)
+  return cfg
+}
+
+async function initConfigCore(): Promise<AppConfig> {
   _configError = null
   const fallback = envFallback()
 
@@ -274,6 +300,43 @@ async function applyOidcDiscovery(cfg: AppConfig, rawScope: string): Promise<voi
   if (!cfg.oauthUserinfoEndpoint) cfg.oauthUserinfoEndpoint = doc.userinfo_endpoint || undefined
   if (!cfg.oauthLogoutEndpoint) cfg.oauthLogoutEndpoint = doc.end_session_endpoint || undefined
   if (!rawScope) cfg.oauthScope = deriveScope(doc.scopes_supported)
+}
+
+/**
+ * Resolve the configurable user menu from VITE_BACKEND_TYPE / VITE_UI_CUSTOMIZER
+ * and store it on the config. Runs once at init, AFTER the tenant fetch, so the
+ * `{orgid}` placeholder is substituted here and the stored URLs are concrete.
+ *
+ * A bad backend type or an unparseable customizer records _configError, which
+ * main.tsx turns into a blocking boot screen — the same convention a broken
+ * VITE_OAUTH_CONFIG follows. It never CLOBBERS an existing error, though: a
+ * tenant-lookup or OIDC-discovery failure is the more useful thing to report.
+ */
+function applyUiCustomizer(cfg: AppConfig): void {
+  const rawBackendType = runtimeEnv('VITE_BACKEND_TYPE', import.meta.env.VITE_BACKEND_TYPE)
+  const rawCustomizer = runtimeEnv('VITE_UI_CUSTOMIZER', import.meta.env.VITE_UI_CUSTOMIZER)
+
+  const backendType = parseBackendType(rawBackendType)
+  if (!backendType) {
+    recordConfigError(`Invalid VITE_BACKEND_TYPE: "${rawBackendType}". Valid values are: ${BACKEND_TYPE_VALUES}.`)
+    return
+  }
+  cfg.backendType = backendType
+
+  // On the cloud path cfg.tenantName is the org slug; on the self-hosted path
+  // (and on any early return) it is undefined, so `{orgid}` collapses to an
+  // empty string rather than leaking the literal placeholder into a URL.
+  const resolved = resolveUserMenu(backendType, rawCustomizer, cfg.tenantName)
+  if ('error' in resolved) {
+    recordConfigError(resolved.error)
+    return
+  }
+  cfg.uiCustomizer = { user: { menu: resolved.menu } }
+}
+
+/** Record `message` only if nothing earlier already failed (first error wins). */
+function recordConfigError(message: string): void {
+  if (_configError === null) _configError = message
 }
 
 /** Mirror the old gen-config.sh scope logic: prefer the standard trio when the

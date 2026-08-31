@@ -4,8 +4,11 @@ import {
   ChevronsUpDown,
   LogOut,
 } from "lucide-react"
-import { Link } from '@tanstack/react-router'
+import { Link, useRouter } from '@tanstack/react-router'
 import { useTable } from '@/hooks/useTable'
+import { useAuth } from '@/hooks/useAuth'
+import { getConfig } from '@/lib/config'
+import { isExternalUrl } from '@/lib/userMenu'
 
 import {
   Avatar,
@@ -50,7 +53,19 @@ export function NavUser({
   }
 }) {
   const { isMobile } = useSidebar()
+  const router = useRouter()
   const userInitials = getUserInitials(user.name)
+
+  // Account/admin entries are configuration, not code: VITE_BACKEND_TYPE picks a
+  // built-in menu and VITE_UI_CUSTOMIZER can replace it (see lib/userMenu.ts).
+  // URLs are already concrete here — {orgid} was substituted at initConfig time.
+  const { rpcUserInfo } = useAuth()
+  const userPermissions = (rpcUserInfo?.permissions as string[] | undefined) ?? []
+  // rpcUserInfo is null until /rpc/get_userinfo resolves, so permission-gated
+  // entries stay hidden until then — the same behaviour as module gating.
+  const menuEntries = getConfig().uiCustomizer.user.menu.filter(
+    (entry) => !entry.permission || userPermissions.includes(entry.permission)
+  )
 
   // Show the "Manage Favorites" entry only when the user actually has favorites.
   // Reuse NavBookmarks' exact query string so react-query serves both from one
@@ -59,6 +74,20 @@ export function NavUser({
     query: 'select=id,title,url&order=row_order.asc',
   })
   const hasFavorites = (bookmarks?.length ?? 0) > 0
+
+  const handleMenuClick = (url: string) => {
+    // External entries leave the SPA entirely — same tab, by decision.
+    // assign() rather than `location.href = url`: identical navigation, but an
+    // assignment to a value from outside the component trips react-hooks/immutability.
+    if (isExternalUrl(url)) {
+      window.location.assign(url)
+      return
+    }
+    // history.push, not navigate({ search }): these are pre-built URLs with a
+    // query string, and TanStack's search serializer JSON-encodes values that
+    // parse as JSON (an org slug like "1002" would become %221002%22).
+    router.history.push(url)
+  }
 
   const handleLogout = () => {
     // Navigate to /logout route which handles the logout flow
@@ -109,9 +138,16 @@ export function NavUser({
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem render={<Link to="/settings" />}>
-                Settings
-              </DropdownMenuItem>
+              {menuEntries.map((entry) => (
+                // Base UI's Menu.Item has no onSelect — that prop silently binds
+                // to the native text-selection event and never fires on click.
+                <DropdownMenuItem
+                  key={`${entry.title}:${entry.url}`}
+                  onClick={() => handleMenuClick(entry.url)}
+                >
+                  {entry.title}
+                </DropdownMenuItem>
+              ))}
               {hasFavorites && (
                 <DropdownMenuItem
                   render={

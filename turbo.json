@@ -17,7 +17,9 @@
     "VITE_API_TYPE",
     "VITE_SUPABASE_APIKEY",
     "VITE_CONTROL_PLANE_URL",
-    "VITE_CONTROL_PLANE_ORG"
+    "VITE_CONTROL_PLANE_ORG",
+    "VITE_BACKEND_TYPE",
+    "VITE_UI_CUSTOMIZER"
   ],
   "tasks": {
     "build": {

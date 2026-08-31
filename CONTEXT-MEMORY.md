@@ -75,6 +75,42 @@ the capability rather than inferring it from scheme + hostname means it cannot
 false-positive behind a reverse proxy or in any deployment shape. Serving the stack over
 HTTPS is a `semantius-self-hosted` concern; this repo only makes the failure legible.
 
+### Configuration-Driven User Menu
+
+The sidebar-footer account menu (`components/layout/NavUser.tsx`) is **configuration, not
+code**. `VITE_BACKEND_TYPE` picks a built-in menu (`cloud` default, `self_hosted`) or
+`custom`, which deserializes a `VITE_UI_CUSTOMIZER` JSON string
+(`{"user":{"menu":[{title,url,permission?}]}}`). Entries with a `permission` render only for
+users holding it (`rpcUserInfo.permissions`); `{orgid}` in a url is substituted with the org
+slug (`AppConfig.tenantName`, empty when there is no control plane). Resolution is a pure
+module — `lib/userMenu.ts` — called once from `initConfig()`, so stored URLs are concrete and
+the whole thing is unit-testable without a browser. An invalid backend type or an
+unparseable customizer sets `_configError` → blocking boot screen. Add new account/admin
+links by editing `BUILT_IN_MENUS`, not `NavUser.tsx`.
+
+### Adding a `VITE_*` Variable — the seven canonical registration points
+
+A new `VITE_*` var silently does nothing in one deployment shape or another unless it is
+registered in **all seven** places. Missing any one fails late and confusingly (see the
+`VITE_CONTROL_PLANE_ORG` / turbo passthrough note under Testing for what that looks like):
+
+1. `apps/web/public/config.js` — add `"VITE_X": "__VITE_X__"` (the placeholder token
+   `runtimeEnv()` treats as absent outside Docker).
+2. `docker/gen-config.sh` **and** `docker-vo/gen-config.sh` — append to `CANONICAL_VARS`;
+   keep both lists identical to each other and to `public/config.js`.
+3. `docker/.env.example` **and** `docker-vo/.env.example` — a commented example. The docker
+   `.env` parser is line-based, so any JSON value must be single-line.
+4. `turbo.json` `globalPassThroughEnv` — Turbo runs in strict env mode and strips anything
+   not listed, so an unlisted var is simply absent from the built bundle.
+5. Root `.env.example` — single-quote a JSON value (dotenv strips the quotes; unquoted, a
+   ` #` inside would truncate it as a comment).
+6. Read it in the app through `runtimeEnv('VITE_X', import.meta.env.VITE_X)` — never
+   `import.meta.env` directly, or the Docker "build once, run anywhere" path breaks.
+7. **Document it in the READMEs** — root `README.md` (an "Environment Variables" subsection)
+   **and** `docker/README.md` + `docker-vo/README.md` (the key-variables table and the
+   "Optional extras" list). An operator configures from the README, not from the source;
+   a var that exists only in code and `.env.example` is undiscoverable.
+
 ### Routing Conventions
 
 - File-based routing in `src/routes/`

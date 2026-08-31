@@ -140,6 +140,8 @@ Key variables (see `.env.example` for the full list and comments):
 | `VITE_API_BASE_URL` | PostgREST API base URL. |
 | `VITE_OAUTH_*_ENDPOINT` | OAuth endpoints — **usually leave blank** and let `VITE_OAUTH_CONFIG` resolve them; set to override. |
 | `VITE_CONTROL_PLANE_URL` / `VITE_CONTROL_PLANE_ORG` | Optional control-plane tenant lookup. |
+| `VITE_BACKEND_TYPE` | Account-menu flavor: `cloud` (default), `self_hosted`, or `custom`. |
+| `VITE_UI_CUSTOMIZER` | Required with `VITE_BACKEND_TYPE=custom` — single-line JSON account menu. |
 
 **`VITE_OAUTH_CONFIG` shortcut:** instead of setting each `VITE_OAUTH_*_ENDPOINT`,
 point `VITE_OAUTH_CONFIG` at a `.well-known/openid-configuration` URL. The **app**
@@ -181,7 +183,22 @@ VITE_OAUTH_CONFIG=https://your-idp/.well-known/openid-configuration
 Optional extras as needed: `VITE_CONTROL_PLANE_URL`, `VITE_CONTROL_PLANE_ORG`,
 `VITE_CUBE_API_URL`, `VITE_API_TYPE`, `VITE_SUPABASE_APIKEY`,
 `VITE_OAUTH_AUDIENCE`, `VITE_OAUTH_SCOPE`, `VITE_OAUTH_LOGOUT_ENDPOINT`,
-`VITE_OAUTH_LOGOUT_REDIRECT`, `VITE_OAUTH_REDIRECT_URI`.
+`VITE_OAUTH_LOGOUT_REDIRECT`, `VITE_OAUTH_REDIRECT_URI`,
+`VITE_BACKEND_TYPE`, `VITE_UI_CUSTOMIZER`.
+
+**Account menu.** `VITE_BACKEND_TYPE` picks the built-in menu — `cloud` (default,
+links to app.semantius.com) or `self_hosted` (Account → `/idp/account`, User
+Manager → `/idp/admin`, the latter shown only to users with the `admin`
+permission). Set it to `custom` and supply `VITE_UI_CUSTOMIZER` to define your
+own; `{orgid}` in a url is replaced with the org slug. The `.env` file is parsed
+line by line, so the JSON **must be on one line**:
+
+```
+VITE_BACKEND_TYPE=custom
+VITE_UI_CUSTOMIZER='{"user":{"menu":[{"title":"Account","url":"/idp/account"},{"title":"Admin","url":"/idp/admin","permission":"admin"}]}}'
+```
+
+A bad value or malformed JSON stops boot with a configuration-error screen.
 
 ### Adjusting a running deployment
 
