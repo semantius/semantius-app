@@ -62,7 +62,7 @@ export function NavUser({
   const { rpcUserInfo } = useAuth()
   const userPermissions = (rpcUserInfo?.permissions as string[] | undefined) ?? []
   // rpcUserInfo is null until /rpc/get_userinfo resolves, so permission-gated
-  // entries stay hidden until then — the same behaviour as module gating.
+  // entries stay hidden until then — the same behavior as module gating.
   const menuEntries = getConfig().uiCustomizer.user.menu.filter(
     (entry) => !entry.permission || userPermissions.includes(entry.permission)
   )

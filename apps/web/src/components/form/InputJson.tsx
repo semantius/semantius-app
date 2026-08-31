@@ -81,7 +81,7 @@ export function InputJson({
     <form.Field name={name} validators={validators}>
       {(field: any) => {
         // Resolve the field's schema default so an unseeded json field shows valid
-        // JSON instead of a BLANK editor. This is the last line of defence: even when
+        // JSON instead of a BLANK editor. This is the last line of defense: even when
         // form state was never seeded — get_schema emits json columns with a *union*
         // `type` array (["object","array",...]) so a value-less field can slip through
         // generateDefaultValue as undefined, and `shouldReload: false` can keep an

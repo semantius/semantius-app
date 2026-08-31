@@ -463,7 +463,7 @@ function DataTableRootInternal<TData, TValue>({
        * This lets the virtualized flex-layout distinguish between fixed-width
        * columns (`shrink-0`) and flexible columns (`flex-1 min-w-0`).
        * `column.getSize()` still falls back to 150 internally, so all other
-       * sizing behaviour (resizing, pinning styles, etc.) is unaffected.
+       * sizing behavior (resizing, pinning styles, etc.) is unaffected.
        */
       size: undefined,
     }),

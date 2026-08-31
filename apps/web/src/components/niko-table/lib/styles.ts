@@ -36,7 +36,7 @@ export const getCommonPinningStyles = <TData>(
     // NB: background is intentionally NOT set here so the bg-* classes at the
     // call sites (base `bg-background` + hover/selected variants) take effect.
     // Thin, SEMI-TRANSPARENT separator line (softer than a hard border). The
-    // wider background-coloured FADE that dissolves the scrolled-under content
+    // wider background-colored FADE that dissolves the scrolled-under content
     // of the neighbouring column is a full-height ::after gradient applied via
     // classes at the call site (a box-shadow fade was too narrow / not full
     // height to read as a soft edge).

@@ -231,7 +231,7 @@ function Sortable<T>(props: SortableProps<T>) {
       onDragCancel({ active }) {
         const activeIndex = active.data.current?.sortable.index ?? 0;
         const activeValue = active.id.toString();
-        return `Sorting cancelled. Sortable item "${activeValue}" returned to position ${activeIndex + 1} of ${value.length}.`;
+        return `Sorting canceled. Sortable item "${activeValue}" returned to position ${activeIndex + 1} of ${value.length}.`;
       },
       onDragMove({ active, over }) {
         if (over) {

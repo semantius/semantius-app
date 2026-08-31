@@ -72,7 +72,7 @@ function envFallback(): AppConfig {
     oauthAudience: runtimeEnv('VITE_OAUTH_AUDIENCE', import.meta.env.VITE_OAUTH_AUDIENCE) || undefined,
 
     apiBaseUrl: runtimeEnv('VITE_API_BASE_URL', import.meta.env.VITE_API_BASE_URL) ?? '',
-    apiType: normaliseApiType(runtimeEnv('VITE_API_TYPE', import.meta.env.VITE_API_TYPE)),
+    apiType: normalizeApiType(runtimeEnv('VITE_API_TYPE', import.meta.env.VITE_API_TYPE)),
     supabaseApiKey: runtimeEnv('VITE_SUPABASE_APIKEY', import.meta.env.VITE_SUPABASE_APIKEY) || undefined,
 
     cubeApiUrl: runtimeEnv('VITE_CUBE_API_URL', import.meta.env.VITE_CUBE_API_URL) || undefined,
@@ -259,9 +259,9 @@ function secureContextError(): string | null {
 
 /**
  * OIDC discovery. When VITE_OAUTH_CONFIG (a `.well-known/openid-configuration`
- * URL) is set, fetch it and fill any OAuth endpoint/scope that was NOT provided
- * explicitly via VITE_OAUTH_*. Explicit env values always win — discovery only
- * supplies the blanks.
+ * URL, absolute or origin-relative) is set, fetch it and fill any OAuth
+ * endpoint/scope that was NOT provided explicitly via VITE_OAUTH_*. Explicit
+ * env values always win — discovery only supplies the blanks.
  *
  * This replaces the old shell-side discovery in docker/gen-config.sh (curl+jq at
  * container start): the container now passes plain env vars and the app resolves
@@ -272,8 +272,26 @@ function secureContextError(): string | null {
  * blocking boot screen, so a broken VITE_OAUTH_CONFIG never silently degrades.
  */
 async function applyOidcDiscovery(cfg: AppConfig, rawScope: string): Promise<void> {
-  const url = (runtimeEnv('VITE_OAUTH_CONFIG', import.meta.env.VITE_OAUTH_CONFIG) ?? '').trim()
-  if (!url) return
+  const raw = (runtimeEnv('VITE_OAUTH_CONFIG', import.meta.env.VITE_OAUTH_CONFIG) ?? '').trim()
+  if (!raw) return
+
+  // VITE_OAUTH_CONFIG may be RELATIVE ("/.well-known/openid-configuration"):
+  // the self-hosted stack serves the discovery document from its own origin
+  // root on every host it fronts, so a relative value is what lets one
+  // deployment answer on any domain. Resolving it here is LOAD-BEARING, not
+  // cosmetic: apiClient.ts wraps globalThis.fetch and treats every URL that
+  // starts with "/" as an API call — it would prefix VITE_API_BASE_URL onto
+  // the path AND consult getConfig(), which throws while initConfig() is
+  // still running (this function is part of initConfig()). An absolute URL
+  // passes the interceptor untouched; new URL() leaves an already-absolute
+  // value exactly as it was.
+  let url: string
+  try {
+    url = new URL(raw, window.location.origin).toString()
+  } catch {
+    _configError = `OIDC discovery failed: VITE_OAUTH_CONFIG is not a valid URL (${raw})`
+    return
+  }
 
   let doc: {
     authorization_endpoint?: string
@@ -355,13 +373,26 @@ function deriveScope(scopesSupported: string[] | string | undefined): string {
 /** Get the current config. Throws if initConfig() has not been awaited. */
 export function getConfig(): AppConfig {
   if (!_config) {
-    throw new Error('App config not initialised — await initConfig() before rendering')
+    throw new Error('App config not initialized — await initConfig() before rendering')
   }
   //console.log('Using app config:', _config)
   return _config
 }
 
-function normaliseApiType(value: unknown): string | undefined {
+/**
+ * The current config, or `null` while initConfig() is still running.
+ *
+ * For the callers that must never explode pre-init. The fetch interceptor in
+ * apiClient.ts is the one that matters: it runs on EVERY fetch — including the
+ * OIDC discovery fetch initConfig() itself makes — so it cannot use the
+ * throwing accessor above without turning a boot-time fetch into a boot
+ * failure.
+ */
+export function tryGetConfig(): AppConfig | null {
+  return _config
+}
+
+function normalizeApiType(value: unknown): string | undefined {
   if (typeof value === 'string' && value.trim() !== '') {
     return value.toLowerCase()
   }

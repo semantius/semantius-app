@@ -1,6 +1,34 @@
 # Agent Instructions
 
-> **🔒 CRITICAL: Do not modify this file. It is a global SOP maintained by the human user only. It is shared across many repositories and organisations. Changes here are never required — if you think a rule needs changing, say so explicitly rather than editing this file.**
+> **🔒 CRITICAL: Do not modify this file. It is a global SOP maintained by the human user only. It is shared across many repositories and organizations. Changes here are never required — if you think a rule needs changing, say so explicitly rather than editing this file.**
+
+## Language
+
+**All output is American English — code, identifiers, comments, UI strings, commit
+messages, PR descriptions, and documentation.** No exceptions, including in prose you
+write about the code.
+
+| Never | Always |
+| --- | --- |
+| initialis(e/ed/ation) | initializ(e/ed/ation) |
+| normalise, serialise, organise, authorise, customise | normalize, serialize, organize, authorize, customize |
+| behaviour | behavior |
+| colour, coloured | color, colored |
+| defence, licence | defense, license |
+| cancelled | canceled |
+| centre | center |
+| analyse | analyze |
+| whilst, amongst | while, among |
+
+This applies to **identifiers** as much as prose (`normalizeApiType`, not
+`normaliseApiType`) and to **user-facing error strings**, which are the worst place for it
+— they get pasted into issues and searched for verbatim.
+
+Before finishing a task, scan your own diff:
+
+```bash
+git diff | grep -nEi "initialis|normalis|serialis|organis|authoris|customis|behaviour|colour|defence|licence|cancelled|centre|analyse|whilst|amongst"
+```
 
 ## Project Context
 

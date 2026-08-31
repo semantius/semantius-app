@@ -106,7 +106,15 @@ describe('initConfig — configurable user menu', () => {
     expect(getConfig().backendType).toBe('cloud')
     const menu = getConfig().uiCustomizer.user.menu
     expect(menu.map((e) => e.title)).toEqual(['Settings', 'Profile', 'Platform'])
-    expect(menu[0].url).toBe('/settings?orgid=acme')
+    // 'Settings' is an IN-APP relative route, so it carries no {orgid} to
+    // substitute — the tenant is already implied by the host. Substitution is
+    // asserted on the entries that actually hold the placeholder: the absolute
+    // control-plane links.
+    expect(menu[0].url).toBe('/settings')
+    expect(menu[1].url).toBe('https://app.semantius.com/settings?orgid=acme')
+    expect(menu[2].url).toBe(
+      'https://app.semantius.com/settings/organization?orgid=acme'
+    )
     expect(menu.some((e) => e.url.includes('{orgid}'))).toBe(false)
   })
 
@@ -153,5 +161,81 @@ describe('initConfig — configurable user menu', () => {
     await initConfig()
 
     expect(getConfigError()).toContain('Tenant lookup failed')
+  })
+})
+
+describe('initConfig — OIDC discovery (self-hosted)', () => {
+  function env(values: Record<string, string>) {
+    window.__ENV__ = values
+  }
+
+  /** A discovery document the bundled IdP would serve. */
+  function discoveryFetch() {
+    return vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: async () => ({
+        authorization_endpoint: 'https://b.example.com/oauth2/authorize',
+        token_endpoint: 'https://b.example.com/oauth2/token',
+        userinfo_endpoint: 'https://b.example.com/oauth2/userinfo',
+        scopes_supported: ['openid', 'profile', 'email'],
+      }),
+    })
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    secureBrowser()
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    delete window.__ENV__
+  })
+
+  it('fetches a RELATIVE VITE_OAUTH_CONFIG as an absolute URL on this origin', async () => {
+    // Load-bearing, not cosmetic: apiClient.ts wraps globalThis.fetch and
+    // rewrites every URL starting with "/" — prefixing VITE_API_BASE_URL and
+    // consulting getConfig(), which THROWS while initConfig() is still
+    // running. The self-hosted stack ships exactly this relative value, so a
+    // discovery fetch that ever leaves here relative is a blocked boot:
+    // "OIDC discovery failed: App config not initialized…".
+    const fetchSpy = discoveryFetch()
+    vi.stubGlobal('fetch', fetchSpy)
+    env({
+      VITE_CONTROL_PLANE_URL: ' ', // the documented self-hosted opt-out
+      VITE_OAUTH_CONFIG: '/.well-known/openid-configuration',
+    })
+
+    await initConfig()
+
+    expect(getConfigError()).toBeNull()
+    expect(fetchSpy).toHaveBeenCalledWith(
+      `${window.location.origin}/.well-known/openid-configuration`
+    )
+    expect(getConfig().oauthAuthEndpoint).toBe(
+      'https://b.example.com/oauth2/authorize'
+    )
+    expect(getConfig().oauthTokenEndpoint).toBe(
+      'https://b.example.com/oauth2/token'
+    )
+  })
+
+  it('passes an absolute VITE_OAUTH_CONFIG through unchanged', async () => {
+    const fetchSpy = discoveryFetch()
+    vi.stubGlobal('fetch', fetchSpy)
+    env({
+      VITE_CONTROL_PLANE_URL: ' ',
+      VITE_OAUTH_CONFIG:
+        'https://issuer.example.com/.well-known/openid-configuration',
+    })
+
+    await initConfig()
+
+    expect(getConfigError()).toBeNull()
+    expect(fetchSpy).toHaveBeenCalledWith(
+      'https://issuer.example.com/.well-known/openid-configuration'
+    )
   })
 })

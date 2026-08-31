@@ -38,7 +38,10 @@ describe('resolveUserMenu — built-in menus', () => {
     const menu = menuOf(resolveUserMenu('cloud', undefined, 'acme'))
 
     expect(menu.map((e) => e.title)).toEqual(['Settings', 'Profile', 'Platform'])
-    expect(menu[0].url).toBe('/settings?orgid=acme')
+    // 'Settings' is a RELATIVE in-app route: the tenant is already implied by
+    // the host, so it carries no {orgid} to substitute. Only the absolute
+    // control-plane links hold the placeholder.
+    expect(menu[0].url).toBe('/settings')
     expect(menu[1].url).toBe('https://app.semantius.com/settings?orgid=acme')
     expect(menu[2].url).toBe('https://app.semantius.com/settings/organization?orgid=acme')
     expect(menu[2].permission).toBe('admin')
@@ -47,7 +50,8 @@ describe('resolveUserMenu — built-in menus', () => {
   it('collapses {orgid} to an empty string when there is no slug', () => {
     const menu = menuOf(resolveUserMenu('cloud', undefined, undefined))
 
-    expect(menu[0].url).toBe('/settings?orgid=')
+    expect(menu[0].url).toBe('/settings')
+    expect(menu[1].url).toBe('https://app.semantius.com/settings?orgid=')
     expect(menu.every((e) => !e.url.includes('{orgid}'))).toBe(true)
   })
 
@@ -55,7 +59,9 @@ describe('resolveUserMenu — built-in menus', () => {
     menuOf(resolveUserMenu('cloud', undefined, 'first'))
     const second = menuOf(resolveUserMenu('cloud', undefined, 'second'))
 
-    expect(second[0].url).toBe('/settings?orgid=second')
+    // Must assert on a placeholder-bearing entry: menu[0] is a constant, so it
+    // would pass even if resolveUserMenu HAD poisoned the built-ins in place.
+    expect(second[1].url).toBe('https://app.semantius.com/settings?orgid=second')
   })
 
   it('serves the self_hosted menu and ignores any customizer JSON', () => {

@@ -12,7 +12,7 @@
 - **Never cite git authorship to attribute code to the human.** Agents work in the human's
   local checkout and commit under their git identity, so the author/committer fields say
   nothing about who wrote a line — much of this repo is agent-written. When existing code is
-  criticised, do not investigate or argue provenance; acknowledge the problem and fix it.
+  criticized, do not investigate or argue provenance; acknowledge the problem and fix it.
 
 ## Tech Stack (`apps/web`)
 

@@ -12,7 +12,7 @@
  * resets `animation-timeline` to `auto`, which would break the scroll binding.
  *
  * Browsers without scroll-driven animation support (Safari, Firefox) ignore the
- * timeline and the fade simply stays visible — the prior always-on behaviour.
+ * timeline and the fade simply stays visible — the prior always-on behavior.
  *
  * The right-pinned edge fade signals that more columns exist to the right, so it
  * is visible by default (useful even before scrolling) but fades OUT over the

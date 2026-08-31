@@ -6,7 +6,7 @@
  */
 
 import { type EntityMetadata } from "@/types/metadata"
-import { getConfig } from "@/lib/config"
+import { getConfig, tryGetConfig } from "@/lib/config"
 
 // --- Fetch interceptor ---
 // Module-level token store for the fetch interceptor
@@ -23,6 +23,16 @@ const _originalFetch = globalThis.fetch
  * Intercepted fetch: relative URLs (starting with "/") are prefixed with
  * VITE_API_BASE_URL and automatically receive authorization headers from
  * createApiHeaders(). Absolute URLs pass through unchanged.
+ *
+ * Before initConfig() has resolved, relative URLs ALSO pass through unchanged.
+ * This interceptor exists to route API calls, and before the config exists
+ * there are no API calls to route — the app does not render until initConfig()
+ * resolves. What there IS pre-init is initConfig()'s own OIDC discovery fetch,
+ * and an interceptor that consulted getConfig() here turned that fetch into a
+ * blocked boot ("App config not initialized") on every deployment whose
+ * VITE_OAUTH_CONFIG was origin-relative. Never throw from this function: a
+ * fetch wrapper that can fail for reasons unrelated to the request breaks
+ * callers that correctly handle network errors.
  */
 globalThis.fetch = function interceptedFetch(
   input: RequestInfo | URL,
@@ -32,7 +42,9 @@ globalThis.fetch = function interceptedFetch(
 
   // Only intercept relative paths (starting with "/")
   if (url.startsWith('/')) {
-    const { baseUrl } = getApiConfig()
+    const cfg = tryGetConfig()
+    if (!cfg) return _originalFetch(input, init)
+    const baseUrl = cfg.apiBaseUrl
     // Strip trailing slash from baseUrl to avoid double slashes
     const cleanBase = baseUrl.replace(/\/+$/, '')
     // Most call sites already build `${apiBaseUrl}/path` themselves. When baseUrl
@@ -192,11 +204,11 @@ export async function callRpc<TResult = unknown, TParams = Record<string, unknow
 /**
  * Feature flag controlling how foreign-key label values are fetched.
  *
- * - `false` (current behaviour): embed the referenced row via PostgREST resource
+ * - `false` (current behavior): embed the referenced row via PostgREST resource
  *   embedding and extract the label from the nested object at render time, e.g.
  *   `category_id_label:category_id(category_name)` returns
  *   `{ category_id_label: { category_name: "Tools" } }`.
- * - `true` (new behaviour): the database now exposes a generated `<fk>_label`
+ * - `true` (new behavior): the database now exposes a generated `<fk>_label`
  *   function / computed column that returns the label string directly, so the
  *   select only needs to request `category_id_label` and no nested-object
  *   handling is required (`{ category_id_label: "Tools" }`).

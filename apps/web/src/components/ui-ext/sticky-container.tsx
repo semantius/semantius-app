@@ -10,7 +10,7 @@ interface StickyContainerProps extends ComponentProps<'div'> {
    * scroll out of view. When the content is short enough that the container's natural
    * position is already on screen, it just renders in place — no pinning.
    *
-   * This is exactly the "form footer" behaviour: a taller-than-viewport form keeps the
+   * This is exactly the "form footer" behavior: a taller-than-viewport form keeps the
    * action bar glued to the bottom of the window, while a short form shows it at the end
    * of the form (not forced to the bottom). Works in any scroll context (the page, the
    * Sheet's scroll area, the Dialog body) with no measurement or JS — the nearest

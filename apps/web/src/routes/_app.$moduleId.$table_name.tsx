@@ -84,7 +84,7 @@ function RouteComponent() {
           placeholder data bleed across tables — showing the previous table's
           rows/row-count until the new query resolves. The key is table_name (not
           page/sort), so pagination/sort/filter WITHIN a table keep the instance
-          and its smooth keep-previous behaviour. The lazy component is cached and
+          and its smooth keep-previous behavior. The lazy component is cached and
           already resolved, so the remount does not re-trigger Suspense. */}
       <Component key={table_name} table_name={table_name} metadata={metadata} moduleId={moduleId} recordId={key} />
     </Suspense>
