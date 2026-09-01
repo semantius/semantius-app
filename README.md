@@ -1,53 +1,42 @@
 # Semantius App
 
-A production-ready React application with authentication, metadata-driven UI, and PostgREST data access — built on a monorepo that provisions itself automatically for AI coding agents and human developers.
+The open-source UI of [Semantius](https://github.com/semantius/semantius) — the SPA served on the `*.semantius.app` sites and the web interface for [semantius-self-hosted](https://github.com/semantius/semantius-self-hosted). The entire app is rendered from the **pg_semantius** metadata schema: adding a table to your data model gives you a full UI with zero frontend code.
 
-## Stack
-
-- **Turborepo** — monorepo build orchestration
-- **Vite 7 + React 19 + TypeScript 5.9** — front-end app
-- **Tailwind CSS v4 + shadcn/ui** — styling and components
-- **TanStack Router / Query / Table / Form** — routing, data fetching, tables, forms
-- **react-oauth2-code-pkce** — OAuth2/OIDC with PKCE flow
-- **sem-schema** — custom JSON Schema vocabulary (validation + form rendering)
-- **pnpm workspaces** — package management
-- **dotenvx** — encrypted environment variables
-- **agent-browser** — browser automation and screenshot generation for AI agents
-- **Cloudflare Workers (Wrangler)** — deployment target
-
-## Multi-Environment Support
-
-The workspace provisions itself via `workplace/setup.sh` (installs global deps, Playwright browsers, and project dependencies). It is idempotent — versioned so re-runs are skipped when already up to date.
-
-| Environment                 | How setup runs                                                                       |
-| --------------------------- | ------------------------------------------------------------------------------------ |
-| GitHub Copilot coding agent | `.github/workflows/copilot-setup-steps.yml` runs `setup.sh` before the agent session |
-| Claude Code sandbox         | `.claude/settings.json` hooks run `setup.sh` on `SessionStart`                       |
-| DevContainer                | `postCreateCommand` in `.devcontainer/devcontainer.json`                             |
-| Human clone                 | `bash workplace/setup.sh`                                                            |
+- **Static SPA** — no server-side code; deploy the built files to any static host or CDN
+- **Metadata-driven** — screens generated from the pg_semantius schema, not hand-coded per table
+- **Modern stack** — React 19, TypeScript, Vite, TanStack Router + Query, shadcn/ui, Tailwind CSS v4
+- **OAuth2/OIDC + PostgREST** — PKCE login and direct browser-to-API data access, no backend glue
+- **Customizable** — brandable theming, per-view overrides, chart plugins, config-driven menus
+- **Agent-optimized** — self-provisioning workspace and in-repo instructions for AI coding agents
+- **MIT licensed**
 
 ## Monorepo Structure
 
 ```
-├── .agents/skills/agent-browser/   # agent-browser skill (for agents)
+├── .agents/skills/                 # Skills for AI agents (agent-browser, shadcn)
 ├── .claude/                        # Claude Code settings and hooks
 ├── .devcontainer/                  # DevContainer configuration
-├── .github/workflows/              # copilot-setup-steps.yml
-├── apps/web/                       # Main React application
-│   ├── src/
-│   │   ├── components/             # UI components, layout, forms, tables
-│   │   ├── contexts/               # Auth context
-│   │   ├── hooks/                  # Data fetching, auth, permissions
-│   │   ├── routes/                 # TanStack Router file-based routes
-│   │   ├── lib/                    # API client, utilities
-│   │   └── global.css              # Tailwind v4 config
-│   ├── scripts/genconfig.js        # Interactive OAuth config tool
-│   ├── wrangler.jsonc              # Cloudflare deployment config
-│   └── deploy-wrangler.sh
+├── .github/workflows/              # Checks, Copilot setup, Docker publish
+├── apps/
+│   ├── web/                        # Main React application
+│   │   ├── src/
+│   │   │   ├── charts/             # Custom chart plugins (drizzle-cube)
+│   │   │   ├── components/         # UI components, layout, forms, tables
+│   │   │   │   ├── ui-ext/         # Hand-written components on shadcn primitives
+│   │   │   │   └── views/          # Per-table view overrides (generic View.tsx fallback)
+│   │   │   ├── contexts/           # Auth context
+│   │   │   ├── hooks/              # Data fetching, auth, permissions
+│   │   │   ├── routes/             # TanStack Router file-based routes
+│   │   │   ├── lib/                # API client, runtime config, utilities
+│   │   │   └── global.css          # Tailwind v4 config
+│   │   ├── public/config.js        # Runtime config placeholders (window.__ENV__)
+│   │   └── scripts/genconfig.js    # Interactive OAuth config tool
+│   └── load-tests/                 # k6 load-test scenarios
+├── docker/                         # Runtime-configurable nginx image (GHCR)
 ├── packages/
 │   └── sem-schema/                 # Custom JSON Schema vocabulary
-├── workplace/
-│   └── setup.sh                    # Unified setup script (versioned)
+├── workplace/                      # Setup, deploy, and PR-gate scripts (setup.sh, wrangler.jsonc)
+├── release.sh                      # Cuts a release: version bump + tag → Docker publish
 ├── turbo.json
 └── pnpm-workspace.yaml
 ```
@@ -128,6 +117,7 @@ The callback url is /oauth2_callback like http://localhost:5173/oauth2_callback
 | `VITE_OAUTH_LOGOUT_ENDPOINT`   | Logout endpoint                             |
 | `VITE_OAUTH_LOGOUT_REDIRECT`   | Post-logout redirect URI                    |
 | `VITE_OAUTH_AUDIENCE`          | API audience (required for Auth0)           |
+| `VITE_OAUTH_CONFIG`            | OIDC discovery URL (`.well-known/openid-configuration`) — fills any blank endpoints at boot |
 
 ### API
 
@@ -136,6 +126,9 @@ The callback url is /oauth2_callback like http://localhost:5173/oauth2_callback
 | `VITE_API_BASE_URL`    | PostgREST API base URL                                     |
 | `VITE_API_TYPE`        | Optional — set to `"supabase"` if using Supabase           |
 | `VITE_SUPABASE_APIKEY` | Supabase anon key (required when `VITE_API_TYPE=supabase`) |
+| `VITE_CONTROL_PLANE_URL` | Semantius control plane (default on) — set to an explicit empty value for self-hosted |
+| `VITE_CONTROL_PLANE_ORG` | Org slug when using the control plane                    |
+| `VITE_CUBE_API_URL`    | Cube.js analytics API URL (defaults from the tenant)       |
 
 ### User Interface
 
@@ -202,13 +195,19 @@ dotenvx run -- <command>
 
 ## Deployment
 
-The web app deploys to **Cloudflare Workers** via Wrangler.
+### Cloudflare Workers (branch previews)
 
 ```bash
 pnpm preview:wrangler
 ```
 
 Each branch gets its own preview URL, written to `.preview-url.md` at the repo root.
+
+### Docker (self-hosted)
+
+A runtime-configurable nginx image is published to `ghcr.io/semantius/semantius-app` (multi-arch) — this is how [semantius-self-hosted](https://github.com/semantius/semantius-self-hosted) consumes the app. The bundle is built once against placeholder config; at container start `window.__ENV__` is regenerated from the container environment, so one image serves any deployment without a rebuild. See [docker/README.md](docker/README.md).
+
+Releases are cut with `./release.sh vX.Y.Z` — the tag push triggers the Docker publish workflow and the GitHub Release.
 
 ## Packages
 
@@ -236,6 +235,17 @@ agent-browser screenshot --full <path>
 ```
 
 Skill documentation: `.agents/skills/agent-browser/SKILL.md`
+
+## Multi-Agent Support
+
+The workspace provisions itself via `workplace/setup.sh` (installs global deps, Playwright browsers, and project dependencies). It is idempotent — versioned so re-runs are skipped when already up to date.
+
+| Environment                 | How setup runs                                                                       |
+| --------------------------- | ------------------------------------------------------------------------------------ |
+| GitHub Copilot coding agent | `.github/workflows/copilot-setup-steps.yml` runs `setup.sh` before the agent session |
+| Claude Code sandbox         | `.claude/settings.json` hooks run `setup.sh` on `SessionStart`                       |
+| DevContainer                | `postCreateCommand` in `.devcontainer/devcontainer.json`                             |
+| Human clone                 | `bash workplace/setup.sh`                                                            |
 
 ## License
 

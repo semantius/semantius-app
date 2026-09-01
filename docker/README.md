@@ -6,8 +6,8 @@ different API, tenant, or OAuth provider.
 
 This image serves **only the SPA**. It has no reverse proxy: the app talks
 directly to whatever absolute `VITE_API_BASE_URL` you configure. If you need one
-published port to also front `/api` and `/api-docs` on sibling containers, use
-the Caddy variant in [`../docker-vo/`](../docker-vo/README.md) instead.
+published port to also front `/api` and `/api-docs` on sibling containers, put
+your own reverse proxy in front of it.
 
 ## How it works
 

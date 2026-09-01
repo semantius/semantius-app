@@ -9,7 +9,8 @@
       "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\).on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\(Object.keys\\(j[0]||{}\\).join\\('\\\\n'\\)\\)}\\)\")",
       "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\).on\\('end',\\(\\)=>{try{const j=JSON.parse\\(d\\);const props=j.properties||j.metadata?.properties||{};console.log\\('property keys:',Object.keys\\(props\\).join\\(', '\\)\\);console.log\\('is_agent in properties:', 'is_agent' in props\\)}catch\\(e\\){console.log\\('ERR',d.slice\\(0,300\\)\\)}}\\)\")",
       "Bash(node -e \"console.log\\(require\\('./apps/web/package.json'\\).name\\)\")",
-      "Bash(pnpm --filter @semantius/frontend build)"
+      "Bash(pnpm --filter @semantius/frontend build)",
+      "Bash(sort -u -t: -k2)"
     ]
   },
   "hooks": {
