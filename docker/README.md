@@ -148,13 +148,19 @@ Optional extras as needed: `VITE_CONTROL_PLANE_URL`, `VITE_CONTROL_PLANE_ORG`,
 **Account menu.** `VITE_BACKEND_TYPE` picks the built-in menu — `cloud` (default,
 links to app.semantius.com) or `self_hosted` (Account → `/idp/account`, User
 Manager → `/idp/admin`, the latter shown only to users with the `admin`
-permission). Set it to `custom` and supply `VITE_UI_CUSTOMIZER` to define your
-own; `{orgid}` in a url is replaced with the org slug. The `.env` file is parsed
-line by line, so the JSON **must be on one line**:
+permission — and both `target: redirect`, since `/idp/*` is served by the
+identity provider, not by this image).
+Set it to `custom` and supply `VITE_UI_CUSTOMIZER` to define your own; `{orgid}`
+in a url is replaced with the org slug, and each entry takes an optional
+`"target"` — `default` (in-app routing), `redirect` (full page load, same tab) or
+`newtab`. `redirect` is required for any same-origin path a *different* server
+answers, or the SPA's catch-all route swallows it and shows a 404 until the user
+refreshes. The `.env` file is parsed line by line, so the JSON **must be on one
+line**:
 
 ```
 VITE_BACKEND_TYPE=custom
-VITE_UI_CUSTOMIZER='{"user":{"menu":[{"title":"Account","url":"/idp/account"},{"title":"Admin","url":"/idp/admin","permission":"admin"}]}}'
+VITE_UI_CUSTOMIZER='{"user":{"menu":[{"title":"Account","url":"/idp/account","target":"redirect"},{"title":"Admin","url":"/idp/admin","permission":"admin","target":"redirect"}]}}'
 ```
 
 A bad value or malformed JSON stops boot with a configuration-error screen.

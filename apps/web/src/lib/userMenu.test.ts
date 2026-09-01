@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseBackendType, resolveUserMenu, isExternalUrl } from './userMenu'
+import { parseBackendType, resolveUserMenu, isExternalUrl, resolveMenuTarget } from './userMenu'
 
 /** Narrow a resolution result to its success branch, failing loudly otherwise. */
 function menuOf(result: ReturnType<typeof resolveUserMenu>) {
@@ -69,9 +69,11 @@ describe('resolveUserMenu — built-in menus', () => {
       resolveUserMenu('self_hosted', '{"user":{"menu":[{"title":"Ignored","url":"/nope"}]}}', 'acme'),
     )
 
+    // target:'redirect' is load-bearing — /idp is proxied to the IdP, so a
+    // router push would render the SPA's catch-all module route instead.
     expect(menu).toEqual([
-      { title: 'Account', url: '/idp/account' },
-      { title: 'User Manager', url: '/idp/admin', permission: 'admin' },
+      { title: 'Account', url: '/idp/account', target: 'redirect' },
+      { title: 'User Manager', url: '/idp/admin', permission: 'admin', target: 'redirect' },
     ])
   })
 })
@@ -116,6 +118,30 @@ describe('resolveUserMenu — custom', () => {
     expect(error).toContain('"url"')
   })
 
+  it('rejects an unknown target, listing the valid ones', () => {
+    const json = '{"user":{"menu":[{"title":"Ok","url":"/ok","target":"blank"}]}}'
+    const error = errorOf(resolveUserMenu('custom', json, 'acme'))
+
+    expect(error).toContain('"target"')
+    expect(error).toContain('default, redirect, newtab')
+  })
+
+  it('rejects a non-string target — true is not a shorthand for redirect', () => {
+    const json = '{"user":{"menu":[{"title":"Ok","url":"/ok","target":true}]}}'
+
+    expect(errorOf(resolveUserMenu('custom', json, 'acme'))).toContain('"target"')
+  })
+
+  it('carries every valid target through to the resolved entry', () => {
+    const json =
+      '{"user":{"menu":[{"title":"IdP","url":"/idp/account","target":"redirect"},' +
+      '{"title":"Docs","url":"/docs","target":"newtab"},' +
+      '{"title":"Home","url":"/home","target":"default"}]}}'
+    const menu = menuOf(resolveUserMenu('custom', json, 'acme'))
+
+    expect(menu.map((e) => e.target)).toEqual(['redirect', 'newtab', 'default'])
+  })
+
   it('rejects a non-string permission', () => {
     const json = '{"user":{"menu":[{"title":"Ok","url":"/ok","permission":7}]}}'
 
@@ -124,6 +150,29 @@ describe('resolveUserMenu — custom', () => {
 
   it('accepts an empty menu — an operator may want no account entries at all', () => {
     expect(menuOf(resolveUserMenu('custom', '{"user":{"menu":[]}}', 'acme'))).toEqual([])
+  })
+})
+
+describe('resolveMenuTarget', () => {
+  it('sends an absolute URL out of the SPA by default', () => {
+    expect(resolveMenuTarget({ title: 'Profile', url: 'https://app.semantius.com/settings' })).toBe('redirect')
+    expect(
+      resolveMenuTarget({ title: 'Profile', url: 'https://app.semantius.com/settings', target: 'default' }),
+    ).toBe('redirect')
+  })
+
+  it('routes a relative URL in-app by default', () => {
+    expect(resolveMenuTarget({ title: 'Settings', url: '/settings?orgid=acme' })).toBe('spa')
+    expect(resolveMenuTarget({ title: 'Settings', url: '/settings', target: 'default' })).toBe('spa')
+  })
+
+  it('honors an explicit redirect on a relative URL — /idp is proxied, not an app route', () => {
+    expect(resolveMenuTarget({ title: 'Account', url: '/idp/account', target: 'redirect' })).toBe('redirect')
+  })
+
+  it('honors newtab for relative and absolute URLs alike', () => {
+    expect(resolveMenuTarget({ title: 'Docs', url: '/docs', target: 'newtab' })).toBe('newtab')
+    expect(resolveMenuTarget({ title: 'Docs', url: 'https://example.com/docs', target: 'newtab' })).toBe('newtab')
   })
 })
 

@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import { NavUser } from './NavUser'
 import { SidebarProvider } from '@/components/ui/sidebar'
 import type { UserMenuEntry } from '@/lib/userMenu'
@@ -24,12 +24,22 @@ vi.mock('@/hooks/useTable', () => ({
 
 const MENU: UserMenuEntry[] = [
   { title: 'Settings', url: '/settings?orgid=acme' },
+  { title: 'Account', url: '/idp/account', target: 'redirect' },
+  { title: 'Docs', url: '/docs', target: 'newtab' },
   { title: 'Platform', url: 'https://app.semantius.com/settings/organization', permission: 'admin' },
 ]
 
 vi.mock('@/lib/config', () => ({
   getConfig: () => ({ uiCustomizer: { user: { menu: MENU } } }),
 }))
+
+// jsdom cannot navigate, so window.location.assign() is replaced wholesale for
+// this file (same pattern as ErrorBoundary.test.tsx) — otherwise the click logs
+// a "Not implemented: navigation" error and the call is unobservable. Same for
+// window.open, which jsdom leaves unimplemented.
+const assignSpy = vi.fn()
+const openSpy = vi.fn()
+const realLocation = window.location
 
 const user = { name: 'Wei Chen', email: 'admin@test.com', avatar: '' }
 
@@ -53,6 +63,12 @@ async function openMenu() {
 
 describe('NavUser — configuration-driven menu', () => {
   beforeAll(() => {
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      writable: true,
+      value: { ...realLocation, origin: realLocation.origin, href: realLocation.href, assign: assignSpy },
+    })
+    Object.defineProperty(window, 'open', { configurable: true, writable: true, value: openSpy })
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
       value: vi.fn().mockImplementation((query) => ({
@@ -68,8 +84,14 @@ describe('NavUser — configuration-driven menu', () => {
     })
   })
 
+  afterAll(() => {
+    Object.defineProperty(window, 'location', { configurable: true, writable: true, value: realLocation })
+  })
+
   beforeEach(() => {
     pushSpy.mockClear()
+    assignSpy.mockClear()
+    openSpy.mockClear()
     mockPermissions.mockReturnValue([])
   })
 
@@ -95,6 +117,27 @@ describe('NavUser — configuration-driven menu', () => {
 
     // Verbatim — the query string must survive, un-re-encoded.
     expect(pushSpy).toHaveBeenCalledWith('/settings?orgid=acme')
+  })
+
+  it('does a document navigation, not a router push, for target: redirect', { timeout: 20_000 }, async () => {
+    const ui = await openMenu()
+
+    await ui.click(screen.getByText('Account'))
+
+    // /idp is proxied to another server: a router push would match the SPA's
+    // catch-all module route and 404 until the user hit refresh.
+    expect(assignSpy).toHaveBeenCalledWith('/idp/account')
+    expect(pushSpy).not.toHaveBeenCalled()
+  })
+
+  it('opens a new tab for target: newtab, leaving the current page alone', { timeout: 20_000 }, async () => {
+    const ui = await openMenu()
+
+    await ui.click(screen.getByText('Docs'))
+
+    expect(openSpy).toHaveBeenCalledWith('/docs', '_blank', 'noopener,noreferrer')
+    expect(assignSpy).not.toHaveBeenCalled()
+    expect(pushSpy).not.toHaveBeenCalled()
   })
 
   it('still renders Log out below the configured entries', { timeout: 20_000 }, async () => {

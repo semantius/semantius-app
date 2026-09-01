@@ -8,7 +8,7 @@ import { Link, useRouter } from '@tanstack/react-router'
 import { useTable } from '@/hooks/useTable'
 import { useAuth } from '@/hooks/useAuth'
 import { getConfig } from '@/lib/config'
-import { isExternalUrl } from '@/lib/userMenu'
+import { resolveMenuTarget, type UserMenuEntry } from '@/lib/userMenu'
 
 import {
   Avatar,
@@ -75,18 +75,29 @@ export function NavUser({
   })
   const hasFavorites = (bookmarks?.length ?? 0) > 0
 
-  const handleMenuClick = (url: string) => {
-    // External entries leave the SPA entirely — same tab, by decision.
-    // assign() rather than `location.href = url`: identical navigation, but an
-    // assignment to a value from outside the component trips react-hooks/immutability.
-    if (isExternalUrl(url)) {
-      window.location.assign(url)
-      return
+  const handleMenuClick = (entry: UserMenuEntry) => {
+    switch (resolveMenuTarget(entry)) {
+      case 'newtab':
+        // noopener also implies noreferrer in modern browsers, but both are
+        // spelled out — the opened page must never reach back via window.opener.
+        window.open(entry.url, '_blank', 'noopener,noreferrer')
+        return
+      case 'redirect':
+        // A real document navigation, same tab: an absolute URL, or a
+        // same-origin path another server answers (`/idp/*` is proxied to the
+        // IdP, and the router's catch-all would otherwise swallow it).
+        // assign() rather than `location.href = url`: identical navigation, but
+        // an assignment to a value from outside the component trips
+        // react-hooks/immutability.
+        window.location.assign(entry.url)
+        return
+      case 'spa':
+        // history.push, not navigate({ search }): these are pre-built URLs with
+        // a query string, and TanStack's search serializer JSON-encodes values
+        // that parse as JSON (an org slug like "1002" would become %221002%22).
+        router.history.push(entry.url)
+        return
     }
-    // history.push, not navigate({ search }): these are pre-built URLs with a
-    // query string, and TanStack's search serializer JSON-encodes values that
-    // parse as JSON (an org slug like "1002" would become %221002%22).
-    router.history.push(url)
   }
 
   const handleLogout = () => {
@@ -143,7 +154,7 @@ export function NavUser({
                 // to the native text-selection event and never fires on click.
                 <DropdownMenuItem
                   key={`${entry.title}:${entry.url}`}
-                  onClick={() => handleMenuClick(entry.url)}
+                  onClick={() => handleMenuClick(entry)}
                 >
                   {entry.title}
                 </DropdownMenuItem>

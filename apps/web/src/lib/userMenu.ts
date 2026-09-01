@@ -11,11 +11,34 @@
 
 export type BackendType = 'cloud' | 'self_hosted' | 'custom'
 
+/**
+ * How a menu entry navigates — the operator-facing vocabulary.
+ *
+ * `default` routes in-app for a relative url and leaves the SPA for an absolute
+ * one; `redirect` and `newtab` are explicit overrides. See resolveMenuTarget().
+ */
+export type MenuTarget = 'default' | 'redirect' | 'newtab'
+
+/** Resolved navigation for one entry — `default` has been decided by then. */
+export type NavigationMode = 'spa' | 'redirect' | 'newtab'
+
 export interface UserMenuEntry {
   title: string
   url: string
   /** When set, the entry renders only if the user holds this permission. */
   permission?: string
+  /**
+   * How to navigate. Omitted / `default` routes a relative url inside the SPA
+   * and sends an absolute one to the browser; `redirect` forces a full document
+   * load in the same tab; `newtab` opens a new tab.
+   *
+   * `redirect` exists because a same-origin path is not necessarily an app
+   * route: `/idp/*` is reverse proxied to the identity provider, yet the SPA's
+   * catch-all `/$moduleId/$table_name` route happily *matches* `/idp/account`,
+   * so a router push renders a broken module view — a 404 that "fixes itself"
+   * on refresh, once the request finally reaches the proxy.
+   */
+  target?: MenuTarget
 }
 
 export interface UiCustomizer {
@@ -23,6 +46,8 @@ export interface UiCustomizer {
 }
 
 const BACKEND_TYPES: readonly BackendType[] = ['cloud', 'self_hosted', 'custom']
+
+const MENU_TARGETS: readonly MenuTarget[] = ['default', 'redirect', 'newtab']
 
 /** Valid `VITE_BACKEND_TYPE` values, for error messages. */
 export const BACKEND_TYPE_VALUES = BACKEND_TYPES.join(', ')
@@ -41,14 +66,16 @@ const BUILT_IN_MENUS: Record<'cloud' | 'self_hosted', UserMenuEntry[]> = {
       permission: 'admin',
     },
   ],
+  // `/idp/*` is proxied to the identity provider, not served by the SPA — these
+  // must leave the router (see UserMenuEntry.target).
   self_hosted: [
-    { title: 'Account', url: '/idp/account' },
-    { title: 'User Manager', url: '/idp/admin', permission: 'admin' },
+    { title: 'Account', url: '/idp/account', target: 'redirect' },
+    { title: 'User Manager', url: '/idp/admin', permission: 'admin', target: 'redirect' },
   ],
 }
 
 /**
- * Parse `VITE_BACKEND_TYPE`. Unset / empty defaults to `cloud`; an unrecognised
+ * Parse `VITE_BACKEND_TYPE`. Unset / empty defaults to `cloud`; an unrecognized
  * value returns null so the caller can record a blocking config error rather
  * than silently falling back to a menu the operator did not ask for.
  */
@@ -61,6 +88,17 @@ export function parseBackendType(raw: string | undefined): BackendType | null {
 /** True for an absolute http(s) URL — those leave the SPA, so no router push. */
 export function isExternalUrl(url: string): boolean {
   return /^https?:\/\//i.test(url)
+}
+
+/**
+ * Decide what one entry actually does. `default` keeps the historical behavior —
+ * an absolute url leaves the SPA, a relative one routes in-app — so a menu that
+ * declares no target behaves exactly as it did before targets existed.
+ */
+export function resolveMenuTarget(entry: UserMenuEntry): NavigationMode {
+  const target = entry.target ?? 'default'
+  if (target !== 'default') return target
+  return isExternalUrl(entry.url) ? 'redirect' : 'spa'
 }
 
 /**
@@ -131,6 +169,9 @@ function entryProblem(entry: unknown): string | null {
   if (!isNonEmptyString(entry.url)) return '"url" must be a non-empty string.'
   if (entry.permission !== undefined && typeof entry.permission !== 'string') {
     return '"permission" must be a string when present.'
+  }
+  if (entry.target !== undefined && !(MENU_TARGETS as readonly unknown[]).includes(entry.target)) {
+    return `"target" must be one of ${MENU_TARGETS.join(', ')} when present.`
   }
   return null
 }

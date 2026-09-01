@@ -139,7 +139,21 @@ code**. `VITE_BACKEND_TYPE` picks a built-in menu (`cloud` default, `self_hosted
 `custom`, which deserializes a `VITE_UI_CUSTOMIZER` JSON string
 (`{"user":{"menu":[{title,url,permission?}]}}`). Entries with a `permission` render only for
 users holding it (`rpcUserInfo.permissions`); `{orgid}` in a url is substituted with the org
-slug (`AppConfig.tenantName`, empty when there is no control plane). Resolution is a pure
+slug (`AppConfig.tenantName`, empty when there is no control plane).
+
+**A same-origin path is not automatically an app route.** The route tree's catch-all
+`/$moduleId/$table_name` *matches* something like `/idp/account`, which a reverse proxy
+serves from the identity provider — so router-pushing it rendered a module view that 404'd,
+"fixing itself" on refresh once the request finally reached the proxy. Entries therefore
+carry an optional **`target`** (`'default' | 'redirect' | 'newtab'`, resolved by
+`resolveMenuTarget()` in `lib/userMenu.ts`): `default` keeps the original rule (absolute url
+leaves the SPA, relative one routes in-app), `redirect` forces `window.location.assign()`,
+`newtab` a `window.open()`. The built-in `self_hosted` `/idp/*` entries declare `redirect`,
+and `VITE_UI_CUSTOMIZER` accepts the key per entry. Auto-detection is not possible — the
+router happily matches these paths — so any menu url answered by a different server behind
+the same origin must be marked explicitly. It is an **enum, not a boolean**: "leaves the
+SPA" and "opens a new tab" are separate axes, and a flag per axis would let them contradict
+each other. Resolution is a pure
 module — `lib/userMenu.ts` — called once from `initConfig()`, so stored URLs are concrete and
 the whole thing is unit-testable without a browser. An invalid backend type or an
 unparseable customizer sets `_configError` → blocking boot screen. Add new account/admin

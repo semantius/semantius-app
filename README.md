@@ -152,22 +152,33 @@ Built-in menus:
 | `VITE_BACKEND_TYPE` | Entries                                                                                                                                                   |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `cloud`             | Settings → `/settings?orgid={orgid}` · Profile → `https://app.semantius.com/settings?orgid={orgid}` · Platform → `…/settings/organization?orgid={orgid}` *(admin)* |
-| `self_hosted`       | Account → `/idp/account` · User Manager → `/idp/admin` *(admin)*                                                                                            |
+| `self_hosted`       | Account → `/idp/account` · User Manager → `/idp/admin` *(admin)* — both `redirect`                                                                          |
 
-`VITE_UI_CUSTOMIZER` takes a JSON object; each entry needs `title` and `url`, and
-an optional `permission` that hides the entry from users who do not hold it
-(checked against `permissions` from `/rpc/get_userinfo`). Single-quote the value
-so the shell and dotenv pass it through literally:
+`VITE_UI_CUSTOMIZER` takes a JSON object; each entry needs `title` and `url`, plus
+two optional keys — `permission` hides the entry from users who do not hold it
+(checked against `permissions` from `/rpc/get_userinfo`), and `target` picks how
+it navigates. Single-quote the value so the shell and dotenv pass it through
+literally:
 
 ```
 VITE_BACKEND_TYPE=custom
-VITE_UI_CUSTOMIZER='{"user":{"menu":[{"title":"Account","url":"/idp/account"},{"title":"Admin","url":"/idp/admin","permission":"admin"}]}}'
+VITE_UI_CUSTOMIZER='{"user":{"menu":[{"title":"Account","url":"/idp/account","target":"redirect"},{"title":"Admin","url":"/idp/admin","permission":"admin","target":"redirect"}]}}'
 ```
 
+| `target`   | Behavior                                                                       |
+| ---------- | ------------------------------------------------------------------------------ |
+| `default`  | *(omitted)* routes inside the app; an absolute `http(s)://` url navigates away |
+| `redirect` | full page load in the same tab — the server decides who serves the url         |
+| `newtab`   | opens in a new tab, leaving the app running                                    |
+
+Use `redirect` for any **same-origin path a different server answers** — a
+reverse-proxied `/idp/*`, for example. Without it the app's catch-all route
+matches such a path and renders a 404 that only "fixes itself" when the user hits
+refresh.
+
 `{orgid}` in any url is replaced at startup with the org slug (empty when there is
-no control plane). An absolute `http(s)://` url navigates away in the same tab;
-anything else routes inside the app. An unknown `VITE_BACKEND_TYPE`, or a missing
-or malformed `VITE_UI_CUSTOMIZER`, stops boot with a configuration-error screen.
+no control plane). An unknown `VITE_BACKEND_TYPE` or `target`, or a missing or
+malformed `VITE_UI_CUSTOMIZER`, stops boot with a configuration-error screen.
 
 ### Deployment
 
