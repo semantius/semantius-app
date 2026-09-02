@@ -49,6 +49,7 @@ export default defineConfig([
       'react-hooks/refs': 'warn',
       'react-hooks/incompatible-library': 'warn',
       'react-hooks/use-memo': 'warn',
+      'react-hooks/void-use-memo': 'warn',
       'react-hooks/static-components': 'warn',
       'react-hooks/immutability': 'warn',
       'react-hooks/purity': 'warn',

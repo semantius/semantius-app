@@ -1,0 +1,43 @@
+name: Audit
+
+# Nightly dependency audit, adopted from semantius-idp's SEC-9 job (its
+# `ci.yml`). It exists because nothing else here would ever surface a new
+# advisory: `checks.yml` runs lint + unit tests and only when something
+# changes, and the release gate runs on tags — so a vulnerability published
+# against an unchanged tree would sit unnoticed until the next release, and
+# even then nothing audits.
+#
+# A separate file, not a job in `checks.yml`: that file's contract is "the
+# checks, defined once, called from anywhere" — this is not one of the checks
+# (a new advisory is not a defect in the commit being checked), and gating
+# jobs against each other's triggers inside one file is exactly the kind of
+# `if:` lattice that reads as green while never running.
+#
+# When this goes red: close the advisory with a `pnpm.overrides` entry for
+# the affected package, never by raising `--audit-level` or ignoring the
+# advisory. The findings are almost always transitive; an override moves just
+# the vulnerable package and the lockfile records it.
+on:
+  schedule:
+    # 03:47 UTC, offset from the hour — GitHub throttles on-the-hour crons.
+    - cron: '47 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  audit:
+    name: pnpm audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.22.0'
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm audit --audit-level moderate
