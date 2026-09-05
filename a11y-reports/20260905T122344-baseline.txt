@@ -1,0 +1,58 @@
+Accessibility sweep — https://main-20260905131358-semantius-app.ma532.workers.dev
+55/64 cells admissible, 9 INCONCLUSIVE
+
+   29  Not Evaluated
+   17  Supports
+    9  Partially Supports
+
+Failing criteria:
+  1.3.1 Info and Relationships (A) — Partially Supports: 7 finding(s) across 7 of 110 cells.
+      module-home @ 390 / light: heading level jumps h1 -> h3 ("No Portlets")
+      module-home @ 1440 / light: heading level jumps h1 -> h3 ("No Portlets")
+      module-home @ 390 / dark: heading level jumps h1 -> h3 ("No Portlets")
+      module-home @ 1440 / dark: heading level jumps h1 -> h3 ("No Portlets")
+      … 3 more
+  2.4.1 Bypass Blocks (A) — Partially Supports: 7 finding(s) across 7 of 110 cells.
+      logout-success @ 390 / light: first focusable element is not a skip link
+      logout-success @ 1440 / light: first focusable element is not a skip link
+      logout-success @ 390 / dark: first focusable element is not a skip link
+      xcustomers-edit @ 1440 / dark: first focusable element is not a skip link
+      … 3 more
+  2.4.2 Page Titled (A) — Partially Supports: 2 finding(s) across 2 of 110 cells.
+      index, login: 2 routes share the title "Modules · Semantius"
+      entity-list, xcustomers: 2 routes share the title "Customers · Semantius"
+  1.4.3 Contrast (Minimum) (AA) — Partially Supports: 38 finding(s) across 17 of 110 cells.
+      module-home @ 390 / light: color-contrast — Elements must meet minimum color contrast ratio thresholds
+      entity-list @ 390 / light: color-contrast — Elements must meet minimum color contrast ratio thresholds
+      entity-list @ 390 / light: ::placeholder "Search Customers..." is 4.28:1 on div > div > div > input#base-ui-_r_9_
+      entity-record @ 390 / light: color-contrast — Elements must meet minimum color contrast ratio thresholds
+      … 34 more
+  1.4.10 Reflow (AA) — Partially Supports: 11 finding(s) across 11 of 55 cells.
+      entity-record-view @ 390 / light: 1 element(s) extend past the 375px viewport with no scrollable ancestor
+      xcustomers @ 390 / light: 3 element(s) extend past the 375px viewport with no scrollable ancestor
+      xcustomers-new @ 390 / light: 3 element(s) extend past the 390px viewport with no scrollable ancestor
+      xcustomers-record @ 390 / light: 3 element(s) extend past the 390px viewport with no scrollable ancestor
+      … 7 more
+  1.4.11 Non-text Contrast (AA) — Partially Supports: 32 finding(s) across 12 of 22 cells.
+      xcustomers @ 390 / light: div > div > div > select#xcustomers-page-size boundary is 1.26:1 (outside 1.26, fill 1.26)
+      xcustomers @ 390 / light: focus indicator on div > div > div > select#xcustomers-page-size is 1.26:1 (border)
+      xcustomers-new @ 390 / light: div > div > div > select#xcustomers-page-size boundary is 1.26:1 (outside 1.26, fill 1.26)
+      xcustomers-new @ 390 / light: div > form > div > select#status boundary is 1.26:1 (outside 1.26, fill 1.26)
+      … 28 more
+  2.4.7 Focus Visible (AA) — Partially Supports: 16 finding(s) across 12 of 22 cells.
+      xcustomers @ 390 / light: focus indicator on div > div > div > select#xcustomers-page-size is 1.26:1 (border)
+      xcustomers-new @ 390 / light: focus indicator on div > div > div > select#xcustomers-page-size is 1.26:1 (border)
+      xcustomers-new @ 390 / light: focus indicator on div > form > div > select#status is 1.26:1 (border)
+      xcustomers-record @ 390 / light: focus indicator on div > div > div > select#xcustomers-page-size is 1.26:1 (border)
+      … 12 more
+  2.4.11 Focus Not Obscured (Minimum) (AA) — Partially Supports: 300 finding(s) across 18 of 55 cells.
+      entity-list @ 390 / light: tr[table-row] > th[table-head] > div > button ("Customer ID") is covered by table[table] > thead[table-header] > tr[table-row] > th[table-head] when focused
+      entity-record @ 390 / light: main#main-content > header > div > button[sidebar-trigger] ("Toggle Sidebar") is covered by html > body > div#_r_2n_ > div[sheet-overlay] when focused
+      entity-record @ 390 / light: header > div > div > a ("SSemantius UI") is covered by html > body > div#_r_2n_ > div[sheet-overlay], body > div#_r_2n_ > div#_r_2g_ > div[sheet-header], div#_r_2g_ > div[sheet-header] > div > h2#base-ui-_r_2t_ when focused
+      entity-record @ 390 / light: header > div > div > button[button] ("Toggle theme (System)") is covered by body > div#_r_2n_ > div#_r_2g_ > div[sheet-header], body > div#_r_2n_ > div#_r_2g_ > button[sheet-close], div#_r_2n_ > div#_r_2g_ > div[sheet-header] > div when focused
+      … 296 more
+  2.5.8 Target Size (Minimum) (AA) — Partially Supports: 2 finding(s) across 2 of 55 cells.
+      entity-list @ 390 / light: target-size — All touch targets must be 24px large, or leave sufficient space
+      entity-list @ 390 / dark: target-size — All touch targets must be 24px large, or leave sufficient space
+
+29 criteria are Not Evaluated (not a pass): 1.1.1, 1.2.3, 1.3.2, 1.3.3, 2.1.2, 2.1.4, 2.3.1, 2.4.3, 2.5.1, 2.5.2, 2.5.4, 3.2.1, 3.2.2, 3.2.6, 3.3.1, 3.3.7, 1.2.4, 1.2.5, 1.4.5, 1.4.13, 2.4.5, 2.4.6, 2.5.7, 3.2.3, 3.2.4, 3.3.3, 3.3.4, 3.3.8, 4.1.3
