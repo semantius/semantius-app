@@ -4,6 +4,7 @@ import { useFormContext } from './FormContext'
 import { FormLabel } from './FormLabel'
 import { FormDescription } from './FormDescription'
 import { FormError } from './FormError'
+import { describedBy } from './fieldAria'
 
 export function InputUriReference({
   name,
@@ -13,7 +14,7 @@ export function InputUriReference({
   validators,
   schema,
 }: FormControlProps) {
-  const { form } = useFormContext()
+  const { form, formMode } = useFormContext()
   
   
   // Derive props from inputMode
@@ -50,9 +51,9 @@ export function InputUriReference({
                 disabled={disabled || readonly}
                 placeholder="/path or https://example.com"
                 aria-invalid={!!field.state.meta.errors?.[0]}
-                aria-describedby={field.state.meta.errors?.[0] ? `${name}-error` : undefined}
+                aria-describedby={describedBy(name, { description, error: field.state.meta.errors?.[0], formMode })}
               />
-              <FormDescription description={description} error={field.state.meta.errors?.[0]} />
+              <FormDescription name={name} description={description} error={field.state.meta.errors?.[0]} />
               <FormError name={name} error={field.state.meta.errors?.[0]} />
             </div>
           )}

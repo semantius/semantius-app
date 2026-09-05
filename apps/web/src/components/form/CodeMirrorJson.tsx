@@ -1,15 +1,14 @@
 import CodeMirror from '@uiw/react-codemirror'
 import { json } from '@codemirror/lang-json'
+import {
+  contentA11yAttributes,
+  useEditorTheme,
+  type CodeMirrorFieldProps,
+} from './codeMirrorField'
 
-interface CodeMirrorJsonProps {
-  value: string
-  onChange: (value: string) => void
-  onBlur: () => void
-  disabled?: boolean
-  readOnly?: boolean
-}
-
-export default function CodeMirrorJson({ value, onChange, onBlur, disabled, readOnly }: CodeMirrorJsonProps) {
+export default function CodeMirrorJson(props: CodeMirrorFieldProps) {
+  const { value, onChange, onBlur, disabled, readOnly } = props
+  const theme = useEditorTheme()
   const safeValue = typeof value === 'string' ? value : String(value ?? '')
   return (
     <div
@@ -19,11 +18,11 @@ export default function CodeMirrorJson({ value, onChange, onBlur, disabled, read
       <CodeMirror
         value={safeValue}
         height="200px"
-        extensions={[json()]}
+        extensions={[json(), contentA11yAttributes(props)]}
         onChange={onChange}
         onBlur={onBlur}
         editable={!disabled && !readOnly}
-        theme="light"
+        theme={theme}
         basicSetup={{
           lineNumbers: true,
           foldGutter: true,

@@ -654,7 +654,7 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
       </div>
 
       {formMode !== 'view' && (
-        <StickyContainer sticky="bottom" className="py-4 -mx-6 px-6">
+        <StickyContainer sticky="bottom" className="py-4 -mx-(--sticky-bleed) px-(--sticky-bleed)">
           {/* Submit-time errors render here (inside the pinned footer) so they stay
               visible; a sibling after the sticky bar would be pushed off-screen. */}
           {footerContent && <div className="mb-4">{footerContent}</div>}

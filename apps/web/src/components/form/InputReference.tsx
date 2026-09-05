@@ -3,6 +3,7 @@ import { useFormContext } from './FormContext'
 import { FormLabel } from './FormLabel'
 import { FormDescription } from './FormDescription'
 import { FormError } from './FormError'
+import { describedBy, labelledBy } from './fieldAria'
 import { APISelect } from './api-select'
 
 export function InputReference({
@@ -13,7 +14,7 @@ export function InputReference({
   validators,
   schema,
 }: FormControlProps) {
-  const { form } = useFormContext()
+  const { form, formMode } = useFormContext()
 
   // Derive props from inputMode
   const required = inputMode === 'required'
@@ -90,8 +91,12 @@ export function InputReference({
                 disabled={disabled || readonly}
                 clearable={true}
                 width="100%"
+                id={name}
+                aria-labelledby={labelledBy(name, label)}
+                aria-describedby={describedBy(name, { description, error: field.state.meta.errors?.[0], formMode })}
+                aria-invalid={!!field.state.meta.errors?.[0]}
               />
-              <FormDescription description={description} error={field.state.meta.errors?.[0]} />
+              <FormDescription name={name} description={description} error={field.state.meta.errors?.[0]} />
               <FormError name={name} error={field.state.meta.errors?.[0]} />
             </div>
           )}

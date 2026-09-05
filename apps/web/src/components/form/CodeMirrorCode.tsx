@@ -1,14 +1,14 @@
 import CodeMirror from '@uiw/react-codemirror'
+import {
+  contentA11yAttributes,
+  useEditorTheme,
+  type CodeMirrorFieldProps,
+} from './codeMirrorField'
 
-interface CodeMirrorCodeProps {
-  value: string
-  onChange: (value: string) => void
-  onBlur: () => void
-  disabled?: boolean
-  readOnly?: boolean
-}
 
-export default function CodeMirrorCode({ value, onChange, onBlur, disabled, readOnly }: CodeMirrorCodeProps) {
+export default function CodeMirrorCode(props: CodeMirrorFieldProps) {
+  const { value, onChange, onBlur, disabled, readOnly } = props
+  const theme = useEditorTheme()
   return (
     <div 
       className={readOnly ? 'opacity-60' : ''}
@@ -17,11 +17,12 @@ export default function CodeMirrorCode({ value, onChange, onBlur, disabled, read
       <CodeMirror
         value={value}
         height="200px"
-        extensions={[]} // No extensions = plain text with line numbers
+        // No language extension = plain text with line numbers.
+        extensions={[contentA11yAttributes(props)]}
         onChange={onChange}
         onBlur={onBlur}
         editable={!disabled && !readOnly}
-        theme="light"
+        theme={theme}
         basicSetup={{
           lineNumbers: true,
           foldGutter: true,

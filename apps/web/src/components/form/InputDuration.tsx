@@ -4,6 +4,7 @@ import { useFormContext } from './FormContext'
 import { FormLabel } from './FormLabel'
 import { FormDescription } from './FormDescription'
 import { FormError } from './FormError'
+import { describedBy } from './fieldAria'
 
 export function InputDuration({
   name,
@@ -13,7 +14,7 @@ export function InputDuration({
   validators,
   schema,
 }: FormControlProps) {
-  const { form } = useFormContext()
+  const { form, formMode } = useFormContext()
   
   
   // Derive props from inputMode
@@ -40,9 +41,9 @@ export function InputDuration({
                 disabled={disabled || readonly}
                 placeholder="P3Y6M4DT12H30M5S"
                 aria-invalid={!!field.state.meta.errors?.[0]}
-                aria-describedby={field.state.meta.errors?.[0] ? `${name}-error` : undefined}
+                aria-describedby={describedBy(name, { description, error: field.state.meta.errors?.[0], formMode })}
               />
-              <FormDescription description={description} error={field.state.meta.errors?.[0]} />
+              <FormDescription name={name} description={description} error={field.state.meta.errors?.[0]} />
               <FormError name={name} error={field.state.meta.errors?.[0]} />
             </div>
           )}

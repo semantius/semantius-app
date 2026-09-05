@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useId, useMemo } from "react";
 import { Check, ChevronsUpDown, Loader2, X } from "lucide-react";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useQuery } from "@tanstack/react-query";
@@ -77,6 +77,15 @@ export interface APISelectProps<T> {
   noResultsMessage?: string;
   /** Allow clearing the selection */
   clearable?: boolean;
+  /** Id applied to the trigger button (so a caller can target it). */
+  id?: string;
+  /**
+   * Id of the field's `<label>`. The trigger is a `<button>`, which a
+   * `<label for>` does not name, so the association has to come from here.
+   */
+  "aria-labelledby"?: string;
+  "aria-describedby"?: string;
+  "aria-invalid"?: boolean;
 }
 
 export function APISelect<T>({
@@ -104,7 +113,23 @@ export function APISelect<T>({
   triggerClassName,
   noResultsMessage,
   clearable = true,
+  id,
+  "aria-labelledby": ariaLabelledBy,
+  "aria-describedby": ariaDescribedBy,
+  "aria-invalid": ariaInvalid,
 }: APISelectProps<T>) {
+  const reactId = useId();
+  const triggerId = id ?? `${reactId}-trigger`;
+  // cmdk's Command.List spreads user props BEFORE writing its own generated
+  // `id`, so an id passed to <CommandList> is discarded and `aria-controls`
+  // would point at nothing — the exact aria-valid-attr-value failure it is
+  // there to prevent. Read the id back off the rendered node instead; the
+  // callback re-fires with null when the popup unmounts, clearing the
+  // reference.
+  const [listboxId, setListboxId] = useState<string>();
+  const listboxRef = useCallback((node: HTMLDivElement | null) => {
+    setListboxId(node?.id);
+  }, []);
   const getRecordId = useMemo(() =>
     typeof getRecordIdProp === "string"
       ? (option: T) => interpolate(getRecordIdProp, option as Record<string, unknown>)
@@ -258,59 +283,87 @@ export function APISelect<T>({
     [selectedValue, onChange, clearable, options, getRecordId]
   );
 
+  const showClearButton = !disabled && !!clearable && !!selectedValue;
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        render={
-          <Button
-            variant="ghost"
-            role="combobox"
-            aria-expanded={open}
-            className={cn(
-              "group cursor-pointer justify-between font-normal px-3",
-              inputSurfaceClassName,
-              disabled && "opacity-50 cursor-not-allowed",
-              triggerClassName
+      {/* The clear button is a SIBLING of the trigger, not one of its children.
+          Nesting a <button> inside the trigger <button> is invalid HTML and an
+          axe `nested-interactive` (serious) error, and — because the trigger
+          self-references in aria-labelledby — it would also be folded into the
+          trigger's accessible name. The reveal-on-interaction styling therefore
+          hangs off the wrapper: `group-has-aria-expanded` stands in for the old
+          `group-aria-expanded`, which needed the attribute on the group element
+          itself. */}
+      <div className="group/combobox relative" style={{ width: width }}>
+        <PopoverTrigger
+          render={
+            <Button
+              id={triggerId}
+              variant="ghost"
+              role="combobox"
+              aria-expanded={open}
+              // `role="combobox"` REQUIRES aria-controls; without it the role is a
+              // claim a screen reader cannot act on. It is resolved from the
+              // rendered listbox node and only while the popup exists — a
+              // reference to an unmounted id is itself an aria-valid-attr-value
+              // failure.
+              aria-controls={open ? listboxId : undefined}
+              aria-haspopup="listbox"
+              // Self-reference is intentional: the field label is announced first,
+              // then the trigger's own contents (the selected record, or the
+              // placeholder). See the same pattern in ui-ext/date-time-picker.
+              aria-labelledby={ariaLabelledBy ? `${ariaLabelledBy} ${triggerId}` : undefined}
+              aria-describedby={ariaDescribedBy}
+              aria-invalid={ariaInvalid}
+              className={cn(
+                "w-full cursor-pointer justify-between font-normal pl-3",
+                // Reserve the gutter the overlaid clear button occupies.
+                showClearButton ? "pr-12" : "pr-3",
+                inputSurfaceClassName,
+                disabled && "opacity-50 cursor-not-allowed",
+                triggerClassName
+              )}
+              disabled={disabled}
+            />
+          }
+        >
+            {selectedOption ? (
+              <div className={itemClassName}>{renderItem(selectedOption)}</div>
+            ) : initialLoading ? (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Loading...</span>
+              </div>
+            ) : (
+              <span className="text-muted-foreground">{placeholder}</span>
             )}
-            style={{ width: width }}
-            disabled={disabled}
-          />
-        }
-      >
-          {selectedOption ? (
-            <div className={itemClassName}>{renderItem(selectedOption)}</div>
-          ) : initialLoading ? (
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <span>Loading...</span>
-            </div>
-          ) : (
-            <span className="text-muted-foreground">{placeholder}</span>
-          )}
-          <div className="flex items-center gap-1 ml-auto shrink-0 opacity-0 group-hover:opacity-100 group-focus:opacity-100 group-aria-expanded:opacity-100 transition-opacity">
-            {!disabled && clearable && selectedValue && (
-              <span
-                role="button"
-                aria-label="Clear selection"
-                className="flex items-center justify-center"
-                onPointerDown={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setSelectedValue("");
-                  setSelectedOption(null);
-                  onChange("");
-                }}
-              >
-                <X className="opacity-50 hover:opacity-100 h-3 w-3" />
-              </span>
-            )}
-            {!disabled && <ChevronsUpDown className="opacity-50" size={10} />}
-          </div>
-      </PopoverTrigger>
+            {!disabled && <ChevronsUpDown className="ml-auto shrink-0 opacity-50" size={10} />}
+        </PopoverTrigger>
+        {showClearButton && (
+          // A real <button>, not a <span role="button">: the span was neither
+          // focusable nor key-operable. size-6 (24px) meets 2.5.8 while the X
+          // glyph stays 12px.
+          <button
+            type="button"
+            aria-label="Clear selection"
+            className="absolute top-1/2 right-7 flex size-6 -translate-y-1/2 items-center justify-center rounded-sm opacity-0 transition-opacity focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring group-hover/combobox:opacity-100 group-focus-within/combobox:opacity-100 group-has-aria-expanded/combobox:opacity-100"
+            onPointerDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setSelectedValue("");
+              setSelectedOption(null);
+              onChange("");
+            }}
+          >
+            <X className="opacity-50 hover:opacity-100 h-3 w-3" />
+          </button>
+        )}
+      </div>
       <PopoverContent className={cn("p-0 w-[var(--anchor-width)]", className)}>
         <Command shouldFilter={false}>
           <div className="relative border-b w-full">
@@ -327,7 +380,7 @@ export function APISelect<T>({
               </div>
             )}
           </div>
-          <CommandList>
+          <CommandList ref={listboxRef}>
             {error && (
               <div className="p-4 text-destructive text-center">
                 {error}

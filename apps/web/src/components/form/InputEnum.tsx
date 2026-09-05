@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { Check, ChevronsUpDown, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { inputSurfaceClassName } from '@/lib/utils-ext'
@@ -21,6 +21,7 @@ import { useFormContext } from './FormContext'
 import { FormLabel } from './FormLabel'
 import { FormDescription } from './FormDescription'
 import { FormError } from './FormError'
+import { describedBy, labelledBy } from './fieldAria'
 
 export function InputEnum({
   name,
@@ -30,8 +31,18 @@ export function InputEnum({
   validators,
   schema,
 }: FormControlProps) {
-  const { form } = useFormContext()
+  const { form, formMode } = useFormContext()
   const [open, setOpen] = useState(false)
+  // cmdk's Command.List spreads user props BEFORE writing its own generated
+  // `id`, so an id passed to <CommandList> is discarded and `aria-controls`
+  // would point at nothing — the exact aria-valid-attr-value failure it is
+  // there to prevent. Read the id back off the rendered node instead; the
+  // callback re-fires with null when the popup unmounts, clearing the
+  // reference.
+  const [listboxId, setListboxId] = useState<string>()
+  const listboxRef = useCallback((node: HTMLDivElement | null) => {
+    setListboxId(node?.id)
+  }, [])
 
   // Derive props from inputMode
   const required = inputMode === 'required'
@@ -52,6 +63,7 @@ export function InputEnum({
 
         const currentValue: string = field.state.value ?? ''
         const isDisabled = disabled || readonly
+        const showClearButton = !isDisabled && !required && !!currentValue
 
         const handleSelect = (selected: string) => {
           field.setMeta((meta: any) => ({
@@ -84,50 +96,70 @@ export function InputEnum({
                 if (!isOpen) field.handleBlur()
               }}
             >
-              <PopoverTrigger
-                render={
-                  <Button
-                    id={name}
-                    variant="ghost"
-                    role="combobox"
-                    aria-expanded={open}
-                    aria-invalid={!!field.state.meta.errors?.[0] || undefined}
-                    aria-describedby={field.state.meta.errors?.[0] ? `${name}-error` : undefined}
-                    disabled={isDisabled}
-                    className={cn(
-                      "group w-full cursor-pointer justify-between font-normal px-3",
-                      inputSurfaceClassName,
-                      !currentValue && "text-muted-foreground",
-                      "aria-invalid:ring-destructive/20 aria-invalid:border-destructive"
-                    )}
-                  />
-                }
-              >
-                <span className="truncate">
-                  {isDisabled ? (currentValue || '') : (currentValue || 'Select an option')}
-                </span>
-                <div className="flex items-center gap-1 ml-auto shrink-0 opacity-0 group-hover:opacity-100 group-focus:opacity-100 group-aria-expanded:opacity-100 transition-opacity">
-                  {!isDisabled && !required && currentValue && (
-                    <span
-                      role="button"
-                      aria-label="Clear selection"
-                      className="flex items-center justify-center"
-                      onPointerDown={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                      }}
-                      onClick={handleClear}
-                    >
-                      <X className="opacity-50 hover:opacity-100 h-3 w-3" />
-                    </span>
-                  )}
-                  {!isDisabled && <ChevronsUpDown className="opacity-50" size={10} />}
-                </div>
-              </PopoverTrigger>
+              {/* The clear button is a SIBLING of the trigger, not one of its
+                  children. Nesting a <button> inside the trigger <button> is
+                  invalid HTML and an axe `nested-interactive` (serious) error,
+                  and — because the trigger self-references in aria-labelledby —
+                  it would also be folded into the trigger's accessible name.
+                  The reveal-on-interaction styling therefore hangs off the
+                  wrapper: `group-has-[[aria-expanded=true]]` stands in for the
+                  old `group-aria-expanded`, which needed the attribute on the
+                  group element itself. */}
+              <div className="group/combobox relative w-full">
+                <PopoverTrigger
+                  render={
+                    <Button
+                      id={name}
+                      variant="ghost"
+                      role="combobox"
+                      aria-expanded={open}
+                      // Required by `role="combobox"`. Resolved from the rendered
+                      // listbox node — a dangling reference fails
+                      // aria-valid-attr-value.
+                      aria-controls={open ? listboxId : undefined}
+                      aria-haspopup="listbox"
+                      aria-labelledby={labelledBy(name, label) ? `${labelledBy(name, label)} ${name}` : undefined}
+                      aria-invalid={!!field.state.meta.errors?.[0] || undefined}
+                      aria-describedby={describedBy(name, { description, error: field.state.meta.errors?.[0], formMode })}
+                      disabled={isDisabled}
+                      className={cn(
+                        "w-full cursor-pointer justify-between font-normal pl-3",
+                        // Reserve the gutter the overlaid clear button occupies.
+                        showClearButton ? "pr-12" : "pr-3",
+                        inputSurfaceClassName,
+                        !currentValue && "text-muted-foreground",
+                        "aria-invalid:ring-destructive/20 aria-invalid:border-destructive"
+                      )}
+                    />
+                  }
+                >
+                  <span className="truncate">
+                    {isDisabled ? (currentValue || '') : (currentValue || 'Select an option')}
+                  </span>
+                  {!isDisabled && <ChevronsUpDown className="ml-auto shrink-0 opacity-50" size={10} />}
+                </PopoverTrigger>
+                {showClearButton && (
+                  // A real <button>: the previous <span role="button"> was not
+                  // focusable and took no key events. size-6 (24px) satisfies
+                  // 2.5.8; the glyph stays 12px.
+                  <button
+                    type="button"
+                    aria-label="Clear selection"
+                    className="absolute top-1/2 right-7 flex size-6 -translate-y-1/2 items-center justify-center rounded-sm opacity-0 transition-opacity focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring group-hover/combobox:opacity-100 group-focus-within/combobox:opacity-100 group-has-aria-expanded/combobox:opacity-100"
+                    onPointerDown={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                    }}
+                    onClick={handleClear}
+                  >
+                    <X className="h-3 w-3 opacity-50 hover:opacity-100" />
+                  </button>
+                )}
+              </div>
               <PopoverContent className="w-(--anchor-width) p-0" align="start">
                 <Command>
                   {showSearch && <CommandInput placeholder="Search..." />}
-                  <CommandList>
+                  <CommandList ref={listboxRef}>
                     <CommandEmpty>No option found.</CommandEmpty>
                     <CommandGroup>
                       {enumValues.map((option) => (
@@ -151,7 +183,7 @@ export function InputEnum({
                 </Command>
               </PopoverContent>
             </Popover>
-            <FormDescription description={description} error={field.state.meta.errors?.[0]} />
+            <FormDescription name={name} description={description} error={field.state.meta.errors?.[0]} />
             <FormError name={name} error={field.state.meta.errors?.[0]} />
           </div>
         )

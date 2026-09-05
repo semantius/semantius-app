@@ -3,6 +3,7 @@ import { useFormContext } from './FormContext'
 import { FormLabel } from './FormLabel'
 import { FormDescription } from './FormDescription'
 import { FormError } from './FormError'
+import { describedBy } from './fieldAria'
 import { NumberInput } from '@/components/ui-ext/number-input'
 import { resolvePrecision } from '@/lib/number-format'
 
@@ -14,7 +15,7 @@ export function InputNumber({
   validators,
   schema,
 }: FormControlProps) {
-  const { form } = useFormContext()
+  const { form, formMode } = useFormContext()
 
   // Derive props from inputMode
   const required = inputMode === 'required'
@@ -46,9 +47,9 @@ export function InputNumber({
                 disabled={disabled || readonly}
                 readOnly={readonly}
                 aria-invalid={!!field.state.meta.errors?.[0]}
-                aria-describedby={field.state.meta.errors?.[0] ? `${name}-error` : undefined}
+                aria-describedby={describedBy(name, { description, error: field.state.meta.errors?.[0], formMode })}
               />
-              <FormDescription description={description} error={field.state.meta.errors?.[0]} />
+              <FormDescription name={name} description={description} error={field.state.meta.errors?.[0]} />
               <FormError name={name} error={field.state.meta.errors?.[0]} />
             </div>
           )}

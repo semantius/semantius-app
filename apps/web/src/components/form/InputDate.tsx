@@ -4,6 +4,7 @@ import { useFormContext } from './FormContext'
 import { FormLabel } from './FormLabel'
 import { FormDescription } from './FormDescription'
 import { FormError } from './FormError'
+import { describedBy } from './fieldAria'
 
 export function InputDate({
   name,
@@ -13,7 +14,7 @@ export function InputDate({
   validators,
   schema,
 }: FormControlProps) {
-  const { form } = useFormContext()
+  const { form, formMode } = useFormContext()
   
   // Derive props from inputMode
   const required = inputMode === 'required'
@@ -54,12 +55,16 @@ export function InputDate({
           <div className="pt-2 space-y-1">
             <FormLabel htmlFor={name} label={label} required={required} error={!!field.state.meta.errors?.[0]} />
             <DatePicker
+              id={name}
+              label={label}
               date={dateValue}
               onDateChange={handleDateChange}
               disabled={disabled || readonly}
+              aria-describedby={describedBy(name, { description, error: field.state.meta.errors?.[0], formMode })}
+              aria-invalid={!!field.state.meta.errors?.[0]}
             />
             {readonly && <input type="hidden" name={name} value={field.state.value || ''} />}
-            <FormDescription description={description} error={field.state.meta.errors?.[0]} />
+            <FormDescription name={name} description={description} error={field.state.meta.errors?.[0]} />
             <FormError name={name} error={field.state.meta.errors?.[0]} />
           </div>
         )

@@ -4,6 +4,7 @@ import { useFormContext } from './FormContext'
 import { FormLabel } from './FormLabel'
 import { FormDescription } from './FormDescription'
 import { FormError } from './FormError'
+import { describedBy } from './fieldAria'
 
 export function InputBoolean({
   name,
@@ -13,7 +14,7 @@ export function InputBoolean({
   validators,
   schema,
 }: FormControlProps) {
-  const { form } = useFormContext()
+  const { form, formMode } = useFormContext()
   
   // Derive props from inputMode
   const readonly = inputMode === 'readonly'
@@ -47,9 +48,9 @@ export function InputBoolean({
               tabIndex={readonly ? -1 : undefined}
               className={readonly ? 'opacity-60' : ''}
               aria-invalid={!!field.state.meta.errors?.[0]}
-              aria-describedby={field.state.meta.errors?.[0] ? `${name}-error` : description ? `${name}-description` : undefined}
+              aria-describedby={describedBy(name, { description, error: field.state.meta.errors?.[0], formMode })}
             />
-            <FormDescription description={description} error={field.state.meta.errors?.[0]} />
+            <FormDescription name={name} description={description} error={field.state.meta.errors?.[0]} />
           </div>
           <FormError name={name} error={field.state.meta.errors?.[0]} />
         </div>

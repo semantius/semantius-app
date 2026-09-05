@@ -18,6 +18,17 @@ interface DatePickerProps {
   disabled?: boolean
   readOnly?: boolean
   className?: string
+  /**
+   * Id for the displayed value field. This is what a `<label htmlFor>` must point
+   * at: the readonly `<Input>` is the only labelable element here (a `<button>` is
+   * not named by a `<label for>`), so the id belongs on it rather than on the
+   * popover trigger.
+   */
+  id?: string
+  "aria-describedby"?: string
+  "aria-invalid"?: boolean
+  /** Field label text, used to name the calendar trigger button in context. */
+  label?: string
 }
 
 export function DatePicker({
@@ -27,14 +38,21 @@ export function DatePicker({
   disabled = false,
   readOnly = false,
   className,
+  id,
+  "aria-describedby": ariaDescribedBy,
+  "aria-invalid": ariaInvalid,
+  label,
 }: DatePickerProps) {
   return (
     <div className={cn("relative flex gap-2 max-w-[280px]", className)}>
       <Input
+        id={id}
         value={date ? format(date, "PPP") : ""}
         placeholder={placeholder}
         disabled={disabled}
         readOnly
+        aria-describedby={ariaDescribedBy}
+        aria-invalid={ariaInvalid}
         className="pr-10"
       />
       <Popover>
@@ -53,7 +71,12 @@ export function DatePicker({
           }
         >
           <CalendarIcon className="size-3.5" />
-          <span className="sr-only">Select date</span>
+          {/* The trigger has no visible text, so this is its entire accessible
+              name. Naming the field it belongs to matters once a form has several
+              date fields — "Choose date" three times over identifies nothing. */}
+          <span className="sr-only">
+            {label ? `Choose ${label} from calendar` : "Choose date from calendar"}
+          </span>
         </PopoverTrigger>
         <PopoverContent className="w-auto overflow-hidden p-0" align="end" alignOffset={-8} sideOffset={10}>
           <Calendar

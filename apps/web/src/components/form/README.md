@@ -53,12 +53,48 @@ interface FormControlProps {
 
 ### Shared Sub-Components
 
-- **FormLabel** — renders label with optional required indicator; returns `null` when label is falsy
-- **FormDescription** — renders muted description text; returns `null` when description is falsy
-- **FormError** — renders error message in destructive color; returns `null` when error is falsy
+- **FormLabel** — renders label with optional required indicator; returns `null` when label is falsy.
+  Always emits `id={name}-label` as well as `htmlFor`, so a control that cannot be
+  named by a `<label for>` can point `aria-labelledby` at it.
+- **FormDescription** — renders muted description text; returns `null` in view mode.
+  Emits `id={name}-description` when there IS a description; the `&nbsp;` spacer it
+  renders otherwise is `aria-hidden`.
+- **FormError** — renders the validation message in destructive color; returns `null`
+  when there is no error. Carries `role="alert"` and `id={name}-error`.
 - **CodeMirrorJson / CodeMirrorHtml / CodeMirrorCode / CodeMirrorJsonata** — CodeMirror wrappers for editor-based controls
+- **fieldAria.ts** — `describedBy()`, `labelledBy()`, `descriptionId()`, `errorId()`.
 
 These components handle null/empty checks internally — callers do not need conditional rendering.
+
+### The id / labelling rules every control must follow
+
+These are not style preferences. Seven of the 29 controls once rendered
+`<FormLabel htmlFor={name}>` pointing at nothing, and 28 never referenced their
+description at all — because each control re-spelled the wiring by hand. The rules
+below are what `fieldAria.ts` exists to encode; use it rather than repeating them.
+
+1. **The control gets `id={name}`** when it is a labelable element (`<input>`,
+   `<textarea>`, `<select>`). `<FormLabel htmlFor={name}>` then names it.
+2. **A control that is NOT labelable gets `aria-labelledby={labelledBy(name, label)}`**
+   instead. A `<label for>` does not name a `<button>` (a picker trigger, a combobox
+   trigger) and it does not name a CodeMirror `contenteditable` div. For a trigger
+   that also shows the current value, reference the label AND the trigger's own id —
+   `aria-labelledby={`${labelledBy(name, label)} ${triggerId}`}` — so the field name
+   is announced first and the value second.
+3. **`aria-describedby={describedBy(name, { description, error })}`**, always through
+   the helper. Description and error are **additive**, never either/or: a field can
+   carry help text and be invalid at once, and a user who hears only the error has
+   lost the instructions that would let them fix it. The helper returns `undefined`
+   when there is neither — an `aria-describedby` that resolves to no element is an
+   `aria-valid-attr-value` violation, and `''` or `' '` counts as one.
+4. **`aria-invalid` only where the role supports it.** A `<button>` trigger cannot
+   take it (it is not a text field); carry the invalid state visually there and let
+   the error text reach the user through `aria-describedby`. `role="combobox"`
+   triggers *can* take it — and, having claimed that role, they MUST also carry
+   `aria-controls` pointing at the popup, but only while the popup is mounted.
+5. **CodeMirror gets its attributes through `EditorView.contentAttributes`**
+   (see `codeMirrorField.ts`). Attributes on the wrapper never reach `.cm-content`,
+   which is the element that actually takes focus.
 
 ## Available Controls
 
@@ -265,6 +301,11 @@ All input controls must have comprehensive tests that validate:
 6. **Valid Value Acceptance Test**: Accept correctly formatted values without error
 7. **Label/Description Test**: Display label and description text correctly
 8. **User Interaction Test**: Test typing/interaction and value changes
+9. **Accessible Name Test**: The control has an accessible name equal to the label.
+   Assert it with `getByRole(role, { name })` or `toHaveAccessibleName`, NEVER with
+   `findByLabelText` — that queries the label association only and does not run
+   accessible-name computation, so it passes on controls that a screen reader would
+   announce as unnamed.
 
 ### Mandatory Test Template
 
@@ -318,6 +359,30 @@ describe('InputControlName', () => {
     )
     const element = container.querySelector('[type="..."]') // or other selector
     expect(element).toBeTruthy()
+  })
+
+  // 1b. Accessible Name Test — the one assertion that catches a label pointing
+  //     at nothing. getByLabelText would NOT: it checks the association, not the
+  //     computed name, so it passes on a control that announces as unnamed.
+  it('should be named by its label', () => {
+    render(
+      <TestWrapper>
+        <InputControlName name="fieldName" label="Field label" />
+      </TestWrapper>
+    )
+    expect(screen.getByRole('textbox', { name: 'Field label' })).toBeInTheDocument()
+  })
+
+  // 1c. Description Association Test — description AND error are additive; a
+  //     control that references only one of them drops the other.
+  it('should reference its description from aria-describedby', () => {
+    render(
+      <TestWrapper>
+        <InputControlName name="fieldName" label="Field label" description="Help text" />
+      </TestWrapper>
+    )
+    expect(screen.getByRole('textbox', { name: 'Field label' }))
+      .toHaveAccessibleDescription('Help text')
   })
 
   // 2. Required Indicator Test

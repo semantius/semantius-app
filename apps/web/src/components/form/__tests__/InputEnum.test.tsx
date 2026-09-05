@@ -11,12 +11,14 @@ describe('InputEnum', () => {
     children, 
     defaultValue,
     inputMode = 'default',
-    validatorFn = () => undefined
+    validatorFn = () => undefined,
+    formMode
   }: { 
     children: React.ReactNode
     defaultValue?: string
     inputMode?: string
     validatorFn?: (value: any) => string | undefined
+    formMode?: FormContextValue['formMode']
   }) {
     const form = useForm({
       defaultValues: { option: defaultValue || '' },
@@ -37,6 +39,7 @@ describe('InputEnum', () => {
         required: inputMode === 'required' ? ['option'] : []
       },
       validateField: validatorFn,
+      formMode,
     }
 
     return <FormProvider value={mockContext}>{children}</FormProvider>
@@ -191,6 +194,84 @@ describe('InputEnum', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('combobox')).toHaveTextContent('Select an option')
+    })
+  })
+
+  /**
+   * Regressions from the a11y pass, each of which shipped and had to be undone.
+   * They are asserted here rather than left to the browser sweep because all
+   * three are structural — visible in the rendered DOM, invisible on screen.
+   */
+  describe('ARIA wiring', () => {
+    it('renders the clear button OUTSIDE the trigger button', () => {
+      // A <button> inside a <button> is invalid HTML and axe `nested-interactive`
+      // (serious). It got there because the clear control was one of the
+      // PopoverTrigger's children.
+      render(
+        <TestWrapper defaultValue="Option 1">
+          <InputEnum name="option" label="Choose Option" />
+        </TestWrapper>
+      )
+      const trigger = screen.getByRole('combobox')
+      const clear = screen.getByRole('button', { name: /clear selection/i })
+      expect(trigger.contains(clear)).toBe(false)
+    })
+
+    it('keeps the clear button out of the trigger accessible name', () => {
+      // The trigger self-references in aria-labelledby, so its name is computed
+      // from its content — anything nested inside it gets read out as part of
+      // the field's name.
+      render(
+        <TestWrapper defaultValue="Option 1">
+          <InputEnum name="option" label="Choose Option" />
+        </TestWrapper>
+      )
+      expect(screen.getByRole('combobox')).not.toHaveAccessibleName(/clear selection/i)
+    })
+
+    it('points aria-controls at an element that actually exists', async () => {
+      // cmdk's Command.List overwrites any id passed to it, so the id this
+      // component generated pointed at nothing whenever the popup was open —
+      // the exact aria-valid-attr-value failure the attribute was added to avoid.
+      const user = userEvent.setup()
+      render(
+        <TestWrapper>
+          <InputEnum name="option" label="Choose Option" />
+        </TestWrapper>
+      )
+      const trigger = screen.getByRole('combobox')
+      expect(trigger).not.toHaveAttribute('aria-controls')
+
+      await user.click(trigger)
+      await waitFor(() => {
+        const id = trigger.getAttribute('aria-controls')
+        expect(id).toBeTruthy()
+        expect(document.getElementById(id!)).not.toBeNull()
+      })
+    })
+
+    it('references its description in edit mode', () => {
+      render(
+        <TestWrapper>
+          <InputEnum name="option" label="Choose Option" description="Pick one" />
+        </TestWrapper>
+      )
+      const id = screen.getByRole('combobox').getAttribute('aria-describedby')
+      expect(id).toBe('option-description')
+      expect(document.getElementById(id!)).not.toBeNull()
+    })
+
+    it('omits aria-describedby in view mode, where the description is not rendered', () => {
+      // SchemaForm forces readonly in view mode but still renders the control,
+      // while FormDescription returns null — so the reference dangled on every
+      // read-only record and for every user without edit permission.
+      render(
+        <TestWrapper formMode="view">
+          <InputEnum name="option" label="Choose Option" description="Pick one" inputMode="readonly" />
+        </TestWrapper>
+      )
+      expect(screen.getByRole('combobox')).not.toHaveAttribute('aria-describedby')
+      expect(document.getElementById('option-description')).toBeNull()
     })
   })
 })

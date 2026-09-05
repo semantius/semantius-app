@@ -19,6 +19,18 @@ interface DateTimePickerProps {
   disabled?: boolean
   readOnly?: boolean
   className?: string
+  /** Id applied to the date trigger — the control a caller points its label at. */
+  id?: string
+  /**
+   * Id of the field's `<label>`. Unlike DatePicker, the primary control here is a
+   * `<button>`, and `<label for>` does not name a button — the association has to
+   * come from the control side.
+   */
+  "aria-labelledby"?: string
+  "aria-describedby"?: string
+  "aria-invalid"?: boolean
+  /** Field label text, used to name the time input in context. */
+  label?: string
 }
 
 export function DateTimePicker({
@@ -27,7 +39,15 @@ export function DateTimePicker({
   disabled = false,
   readOnly = false,
   className,
+  id,
+  "aria-labelledby": ariaLabelledBy,
+  "aria-describedby": ariaDescribedBy,
+  "aria-invalid": ariaInvalid,
+  label,
 }: DateTimePickerProps) {
+  const reactId = React.useId()
+  const triggerId = id ?? `${reactId}-date`
+
   const [timeValue, setTimeValue] = React.useState(
     date ? format(date, "HH:mm") : ""
   )
@@ -62,7 +82,7 @@ export function DateTimePicker({
   const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     setTimeValue(value)
-    
+
     // Parse time in format HH:mm
     const [hours, minutes] = value.split(':').map(Number)
     if (!isNaN(hours) && !isNaN(minutes)) {
@@ -81,12 +101,26 @@ export function DateTimePicker({
           <PopoverTrigger
             render={
               <Button
+                id={triggerId}
                 variant="ghost"
+                // Self-reference is deliberate and is what ARIA prescribes for a
+                // "label + current value" trigger: the field label is announced
+                // first, then the button's own contents (the chosen date, or
+                // "Select date"). Naming it with the label alone would silence the
+                // value; leaving it unnamed is what happened before.
+                aria-labelledby={ariaLabelledBy ? `${ariaLabelledBy} ${triggerId}` : undefined}
+                aria-describedby={ariaDescribedBy}
+                // NOT aria-invalid: it is not supported on role="button" (this
+                // trigger opens a calendar, it is not a text field), so the
+                // invalid state is carried visually here and announced through
+                // the error text referenced by aria-describedby. The time <input>
+                // below is a real textbox and does take aria-invalid.
                 className={cn(
                   "w-full justify-start text-left font-normal",
                   inputSurfaceClassName,
                   !date && "text-muted-foreground",
-                  readOnly && "opacity-60"
+                  readOnly && "opacity-60",
+                  ariaInvalid && "border-destructive ring-3 ring-destructive/20"
                 )}
                 disabled={disabled || readOnly}
                 tabIndex={readOnly ? -1 : undefined}
@@ -113,6 +147,11 @@ export function DateTimePicker({
           onChange={handleTimeChange}
           disabled={disabled}
           readOnly={readOnly}
+          // The time half is a separate control with no label of its own; without
+          // this it announces as an unnamed time field.
+          aria-label={label ? `${label} time` : "Time"}
+          aria-describedby={ariaDescribedBy}
+          aria-invalid={ariaInvalid}
         />
       </div>
     </div>
