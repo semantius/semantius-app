@@ -13,6 +13,16 @@
   local checkout and commit under their git identity, so the author/committer fields say
   nothing about who wrote a line — much of this repo is agent-written. When existing code is
   criticized, do not investigate or argue provenance; acknowledge the problem and fix it.
+- **jsdom is not a test environment here, and browser primitives are never stubbed.** A
+  test that touches a `window` or `document` runs in the Vitest `browser` project (real
+  Chromium); one that does not runs in `node`. There is no third option — jsdom is
+  pointless for the second kind and a fake for the first. A test that wants to replace
+  `window.location`, `window.open`, `matchMedia`, `ResizeObserver`, `crypto`,
+  `isSecureContext`, `fetch` or timers is reporting a design problem: a navigation is a
+  link, an API call is a real call against nwind, a non-secure context is a real
+  `http://<lan-ip>` origin in Playwright. Stated after the second a11y session kept a
+  jsdom project and left `window.location` stubs in place; `substitutions.test.ts` is the
+  ratchet that keeps the count going down.
 
 ## Tech Stack (`apps/web`)
 
