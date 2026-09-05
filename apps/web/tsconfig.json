@@ -1,18 +1,16 @@
 {
   "include": ["**/*.ts", "**/*.tsx"],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "**/*.test.ts",
-    "**/*.test.tsx",
-    "src/test/**/*"
-  ],
+  "exclude": ["node_modules", "dist"],
   "compilerOptions": {
     "target": "ES2022",
     "jsx": "react-jsx",
     "module": "ESNext",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "types": ["vite/client"],
+    // Tests are typechecked too (they were excluded, so every test file was
+    // unchecked — a test that no longer compiles against the code it tests is
+    // exactly the failure a typechecker exists to catch). "vitest/globals"
+    // matches `globals: true` in vite.config.ts.
+    "types": ["vite/client", "vitest/globals"],
 
     /* Bundler mode */
     "moduleResolution": "bundler",

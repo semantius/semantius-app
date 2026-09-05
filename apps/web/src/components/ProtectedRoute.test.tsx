@@ -22,6 +22,7 @@ function createMockAuth(
     idToken: undefined,
     idTokenData: undefined,
     logIn: vi.fn(),
+    refreshAccessToken: vi.fn(),
     login: vi.fn(),
     logOut: vi.fn(),
     error: null,

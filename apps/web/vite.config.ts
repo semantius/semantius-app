@@ -36,5 +36,20 @@ export default defineConfig(({ mode }) => ({
     setupFiles: './src/test/setup.ts',
     pool: 'forks',
     watch: false,
+    // Vitest's 5s default is a wall-clock budget, and these are jsdom component
+    // tests driven by userEvent: typing eight characters into a field is dozens
+    // of real event dispatches plus a React render each. Individually they run in
+    // ~1s; with the whole suite running in parallel forks on a loaded machine the
+    // same test measured 7.3s and timed out. A timeout that depends on how busy
+    // the machine is fails the release gate at random, which trains everyone to
+    // re-run it — the worst possible outcome for a suite. Raised to a value no
+    // healthy test approaches, so a timeout means a hang, not contention.
+    testTimeout: 20_000,
+    // e2e/ is Playwright's, not Vitest's. Vitest's default glob picks up
+    // *.spec.ts anywhere, and a Playwright spec loaded by Vitest fails with a
+    // confusing "did not expect test.describe() to be called here".
+    // `node_modules/**` (no leading `**/`) is NARROWER than Vitest's default and
+    // would stop excluding a nested package's tests; spell out the default form.
+    exclude: ['**/node_modules/**', '**/dist/**', 'e2e/**'],
   }
 }))

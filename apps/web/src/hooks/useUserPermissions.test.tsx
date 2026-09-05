@@ -11,6 +11,7 @@ const createMockAuth = (overrides?: Partial<AuthContextType>): AuthContextType =
   idToken: undefined,
   idTokenData: undefined,
   logIn: () => {},
+  refreshAccessToken: () => {},
   login: () => {},
   logOut: () => {},
   error: null,
