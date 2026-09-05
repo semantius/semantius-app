@@ -3,39 +3,100 @@ import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 /**
- * Reads the theme tokens straight out of `src/global.css` and does WCAG contrast
+ * Reads the theme tokens straight out of the stylesheets and does WCAG contrast
  * math on them.
  *
  * Why parse the real stylesheet instead of hard-coding the values: a test that
  * carries its own copy of the palette passes forever after someone edits the
  * palette. The whole point is to fail when a token moves.
  *
- * THE GAMUT TRAP. 13 of the 69 `oklch()` declarations in global.css are outside
+ * THE GAMUT TRAP. 13 of the 68 `oklch()` declarations in the palette are outside
  * the sRGB gamut — `--primary`, `--destructive`, `--sidebar-primary` and the
- * chart ramp (both themes) among them. Those two counts are asserted in
- * tokenContrast.test.ts, so a palette edit updates them here rather than
- * silently making this paragraph false. What a browser paints for those is the CSS gamut-mapping
- * result, NOT a naive per-channel clamp, and the two differ by enough to move a
- * ratio across the 3:1 / 4.5:1 line (measured: up to ~0.1). Every color here
- * therefore goes through `toGamut({ method: 'css' })` before any arithmetic.
+ * chart ramp (both themes) among them. What a browser paints for those is the CSS
+ * gamut-mapping result, NOT a naive per-channel clamp, and the two differ by
+ * enough to move a ratio across the 3:1 / 4.5:1 line (measured: up to ~0.1).
+ * Every color here therefore goes through `toGamut({ method: 'css' })` before any
+ * arithmetic. Both counts are asserted in tokenContrast.test.ts, so a palette
+ * edit updates this paragraph rather than quietly making it false.
  */
 
 // Resolved from the working directory, not from `import.meta.url`: under Vitest
 // the module URL is not a `file:` URL, so fileURLToPath() throws. Walking up
 // keeps it working whether the suite is started in apps/web or at the repo root.
-function findGlobalCss(): string {
+function findSrcFile(relative: string): string {
   let dir = process.cwd()
   for (let i = 0; i < 4; i++) {
-    const candidate = resolve(dir, 'src/global.css')
+    const candidate = resolve(dir, 'src', relative)
     if (existsSync(candidate)) return candidate
-    const nested = resolve(dir, 'apps/web/src/global.css')
+    const nested = resolve(dir, 'apps/web/src', relative)
     if (existsSync(nested)) return nested
     dir = resolve(dir, '..')
   }
-  throw new Error('could not locate src/global.css from ' + process.cwd())
+  throw new Error(`could not locate src/${relative} from ${process.cwd()}`)
 }
 
-const CSS_PATH = findGlobalCss()
+/**
+ * THE PALETTE IS TWO FILES, and the order between them is load-bearing.
+ *
+ * `global.css` holds STOCK shadcn output — it is the `tailwind.css` target in
+ * components.json, so `shadcn init` / a `--preset` apply rewrites its token
+ * blocks. `theme-a11y.css` holds our accessibility corrections and is invisible
+ * to the CLI; `main.tsx` imports it second, so it wins on source order.
+ *
+ * Everything below therefore reads the OVERLAY, not either file alone. Reading
+ * global.css by itself would measure the stock palette and report the very
+ * failures this work exists to fix.
+ */
+const CSS_PATH = findSrcFile('global.css')
+const A11Y_CSS_PATH = findSrcFile('theme-a11y.css')
+const MAIN_TSX_PATH = findSrcFile('main.tsx')
+
+function read(path: string): string {
+  return readFileSync(path, 'utf8').replace(/\r\n/g, '\n')
+}
+
+/**
+ * Is the override file still actually loaded, and still loaded LAST?
+ *
+ * This is the single point of failure for the whole arrangement: drop the import
+ * from main.tsx, or move it above `./global.css`, and every correction reverts to
+ * shadcn's value in the browser while the contrast tests keep passing against the
+ * files on disk. Asserted in tokenContrast.test.ts.
+ */
+export function overrideWiring(): { imported: boolean; afterGlobalCss: boolean } {
+  // Comments are stripped first, and the match is anchored to a real import
+  // STATEMENT. A plain indexOf on the specifier finds it inside the explanatory
+  // comment that sits right above the import in main.tsx, so commenting the
+  // import out — the most likely way to lose it — left this guard green. Caught
+  // by mutating main.tsx and watching the test still pass.
+  const main = read(MAIN_TSX_PATH)
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^[ \t]*\/\/.*$/gm, '')
+  const at = (specifier: string) =>
+    main.match(new RegExp(`^[ \\t]*import\\s+'${specifier.replace('.', '\\.')}'`, 'm'))?.index ?? -1
+  const globalAt = at('./global.css')
+  const a11yAt = at('./theme-a11y.css')
+  return { imported: a11yAt !== -1, afterGlobalCss: globalAt !== -1 && a11yAt > globalAt }
+}
+
+/**
+ * `@theme inline` in global.css must keep mapping `--color-input-border`, or the
+ * `border-input-border` utility used at ~8 call sites compiles to nothing. The
+ * VALUE lives in theme-a11y.css; only the mapping has to stay in the entry that
+ * imports 'tailwindcss', which is why this one line cannot move with it.
+ */
+export function themeMapsInputBorder(): boolean {
+  return /--color-input-border:\s*var\(--input-border\)/.test(read(CSS_PATH))
+}
+
+/** Token names theme-a11y.css overrides or introduces, per theme. */
+export function overriddenTokens(): Record<Theme, string[]> {
+  const css = read(A11Y_CSS_PATH)
+  return {
+    light: Object.keys(parseBlock(css, ':root')).sort(),
+    dark: Object.keys(parseBlock(css, '\\.dark')).sort(),
+  }
+}
 
 export type Theme = 'light' | 'dark'
 
@@ -55,9 +116,12 @@ let cache: Record<Theme, Record<string, string>> | undefined
 /** `:root` and `.dark`, with `.dark` layered over `:root` the way the cascade does. */
 export function themeTokens(): Record<Theme, Record<string, string>> {
   if (!cache) {
-    const css = readFileSync(CSS_PATH, 'utf8').replace(/\r\n/g, '\n')
-    const root = parseBlock(css, ':root')
-    const dark = parseBlock(css, '\\.dark')
+    const base = read(CSS_PATH)
+    const overrides = read(A11Y_CSS_PATH)
+    // Source order: global.css, then theme-a11y.css. Within that, `.dark` layers
+    // over `:root` the way the cascade does.
+    const root = { ...parseBlock(base, ':root'), ...parseBlock(overrides, ':root') }
+    const dark = { ...parseBlock(base, '\\.dark'), ...parseBlock(overrides, '\\.dark') }
     cache = { light: root, dark: { ...root, ...dark } }
   }
   return cache
@@ -125,18 +189,28 @@ export function fieldSurfaces(theme: Theme): Record<string, Color> {
 
 /** How many `oklch()` declarations the stylesheet contains, in total. */
 export function oklchDeclarationCount(): number {
-  return [...readFileSync(CSS_PATH, 'utf8').matchAll(/oklch\(/g)].length
+  // The EFFECTIVE palette, not raw text. Now that the palette spans two files, a
+  // token shadcn defines and theme-a11y.css overrides appears twice on disk but
+  // is one declaration the browser resolves — and grepping both files would count
+  // the stock value that is never painted. Counted per block (`:root` and `.dark`
+  // separately, not merged into each other) so it matches what a reader sees.
+  const base = read(CSS_PATH)
+  const overrides = read(A11Y_CSS_PATH)
+  let n = 0
+  for (const selector of [':root', '\\.dark']) {
+    const block = { ...parseBlock(base, selector), ...parseBlock(overrides, selector) }
+    n += Object.values(block).filter((v) => v.startsWith('oklch')).length
+  }
+  return n
 }
 
 /** Every `oklch()` declaration in the file that sRGB cannot represent. */
 export function outOfGamutTokens(): Array<{ theme: Theme; name: string; value: string }> {
   const found: Array<{ theme: Theme; name: string; value: string }> = []
-  const css = readFileSync(CSS_PATH, 'utf8').replace(/\r\n/g, '\n')
-  for (const [theme, selector] of [
-    ['light', ':root'],
-    ['dark', '\\.dark'],
-  ] as const) {
-    for (const [name, value] of Object.entries(parseBlock(css, selector))) {
+  // The MERGED palette, not either file alone — an out-of-gamut stock value that
+  // theme-a11y.css replaces is not something a browser ever paints.
+  for (const theme of ['light', 'dark'] as const) {
+    for (const [name, value] of Object.entries(themeTokens()[theme])) {
       if (!value.startsWith('oklch')) continue
       if (!new Color(value).to('srgb').inGamut('srgb')) {
         found.push({ theme, name, value })

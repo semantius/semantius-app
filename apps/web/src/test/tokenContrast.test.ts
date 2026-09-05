@@ -6,6 +6,9 @@ import {
   oklchDeclarationCount,
   outOfGamutTokens,
   over,
+  overriddenTokens,
+  overrideWiring,
+  themeMapsInputBorder,
   token,
   type Theme,
 } from './lib/cssTokens'
@@ -35,6 +38,72 @@ function expectAtLeast(ratio: number, min: number, what: string) {
   ).toBeGreaterThanOrEqual(min)
 }
 
+/**
+ * Everything below measures the palette as the browser resolves it: stock shadcn
+ * from `global.css`, with `theme-a11y.css` layered over the top. That layering is
+ * a JS import order, not something CSS enforces, so it is the one part of the
+ * arrangement that can be lost silently — and losing it does not break a build,
+ * it just puts a 2.59:1 focus ring back in production.
+ *
+ * These three tests are the tripwire. They assert the WIRING, not a color, and
+ * they exist because the corrections used to live inside global.css's own `:root`
+ * block, where the next `shadcn --preset` apply would have quietly reverted them.
+ */
+describe('palette override wiring', () => {
+  it('main.tsx still imports theme-a11y.css, and still imports it last', () => {
+    const wiring = overrideWiring()
+    expect(
+      wiring.imported,
+      "main.tsx no longer imports './theme-a11y.css'. Every accessibility correction " +
+        'to the palette is in that file; without the import the app ships stock shadcn ' +
+        'contrast (focus ring 2.59:1, form controls with no boundary at all).',
+    ).toBe(true)
+    expect(
+      wiring.afterGlobalCss,
+      "'./theme-a11y.css' must be imported AFTER './global.css'. The overrides are " +
+        'plain `:root` / `.dark` blocks at the same specificity as shadcn\'s, so source ' +
+        'order is the only thing making them win.',
+    ).toBe(true)
+  })
+
+  it('global.css still maps --color-input-border in @theme inline', () => {
+    // The value lives in theme-a11y.css, but Tailwind only reads `@theme` from the
+    // entry that imports 'tailwindcss'. Lose this mapping and `border-input-border`
+    // — used at ~8 call sites — compiles to nothing, with no error anywhere.
+    expect(
+      themeMapsInputBorder(),
+      'global.css lost `--color-input-border: var(--input-border)` from @theme inline; ' +
+        'the border-input-border utility is now a silent no-op.',
+    ).toBe(true)
+  })
+
+  it('overrides exactly the tokens it claims to, in both themes', () => {
+    // Named rather than counted, so adding one is a deliberate edit here and
+    // removing one cannot pass unnoticed.
+    expect(overriddenTokens()).toEqual({
+      light: [
+        '--destructive',
+        '--destructive-foreground',
+        '--input-border',
+        '--muted-foreground',
+        '--ring',
+        '--sidebar-primary',
+        '--sidebar-ring',
+        '--skeleton',
+      ],
+      dark: [
+        '--destructive',
+        '--destructive-foreground',
+        '--input-border',
+        '--ring',
+        '--sidebar-primary',
+        '--sidebar-ring',
+        '--skeleton',
+      ],
+    })
+  })
+})
+
 describe('gamut', () => {
   it('flags the tokens that sRGB cannot represent, so nobody re-derives them naively', () => {
     const outOfGamut = outOfGamutTokens()
@@ -49,13 +118,16 @@ describe('gamut', () => {
   it('keeps the counts quoted in prose true', () => {
     // Both numbers are stated in cssTokens.ts's header and in CONTEXT-MEMORY.md
     // under "Accessibility — the mechanisms". They had already drifted once (the
-    // prose said 14 of 67 while the file held 13 of 69), in the one place whose
-    // whole job is keeping palette facts honest. Pin them so the next palette
-    // edit updates the prose instead of quietly invalidating it.
+    // prose said 14 of 67), in the one place whose whole job is keeping palette
+    // facts honest. Pin them so the next palette edit updates the prose instead
+    // of quietly invalidating it.
+    // 68, not the 69 quoted before the palette was split across two files: that
+    // figure came from grepping `oklch(` in global.css, which also matched one
+    // mention inside a comment. This counts resolved declarations.
     expect(
       oklchDeclarationCount(),
       'The oklch() declaration count changed — update it in cssTokens.ts and CONTEXT-MEMORY.md.',
-    ).toBe(69)
+    ).toBe(68)
     expect(
       outOfGamutTokens().length,
       'The out-of-gamut token count changed — update it in cssTokens.ts and CONTEXT-MEMORY.md.',
@@ -91,6 +163,35 @@ describe.each(THEMES)('%s theme', (theme) => {
         contrast(token(theme, '--ring'), token(theme, '--input-border')),
         1.5,
         '--ring vs --input-border',
+      )
+    })
+  })
+
+  describe('1.4.11 focus indicator inside the sidebar (--sidebar-ring)', () => {
+    // A separate token because the sidebar is a different surface from the page,
+    // and `ui/sidebar.tsx` wires its controls to `--sidebar-ring` rather than
+    // `--ring`. It was moved in lockstep with --ring and had ZERO assertions —
+    // exactly the shape of a token that drifts back to the shadcn default (2.59:1
+    // light) without anything noticing.
+    const sidebarRing = token(theme, '--sidebar-ring')
+    const surfaces: Record<string, string> = {
+      sidebar: token(theme, '--sidebar'),
+      'sidebar-accent (hover/active menu item)': token(theme, '--sidebar-accent'),
+    }
+
+    it.each(Object.keys(surfaces))('clears 3:1 against the %s', (name) => {
+      expectAtLeast(
+        contrast(sidebarRing, over(surfaces[name], bases.page)),
+        NON_TEXT,
+        `--sidebar-ring vs ${name}`,
+      )
+    })
+
+    it('is distinguishable from --sidebar-border, so focus reads as a change', () => {
+      expectAtLeast(
+        contrast(sidebarRing, over(token(theme, '--sidebar-border'), token(theme, '--sidebar'))),
+        1.5,
+        '--sidebar-ring vs --sidebar-border',
       )
     })
   })

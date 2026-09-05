@@ -14,6 +14,11 @@ import { BootFailure } from './components/BootFailure'
 import { SidebarPrefetch } from './components/layout/SidebarPrefetch'
 import { applyDevUrlToken } from './lib/devUrlToken'
 import './global.css'
+// MUST stay after './global.css'. These are the accessibility corrections to the
+// shadcn palette, kept out of global.css because a `--preset` apply rewrites that
+// file's token blocks. They win on source order alone, so the order of these two
+// lines IS the mechanism — src/test/tokenContrast.test.ts asserts it.
+import './theme-a11y.css'
 
 // Seed auth from a `#jwt=` URL fragment on localhost/preview builds, before the
 // router and AuthProvider read token storage. No-op + deny-by-default in prod.

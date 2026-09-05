@@ -11,12 +11,22 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* NOTE: --background, --sidebar, --skeleton, --border and --radius (in BOTH
-   :root and .dark below) are duplicated verbatim in apps/web/index.html as the
-   --al-* tokens of the boot skeleton overlay. That overlay paints before this
-   stylesheet exists (it ships in the JS bundle), so it cannot reference these
-   variables. Change one, change the other, or the overlay stops matching the
-   app it crossfades into. */
+/* The two blocks below are STOCK shadcn base-rhea output. Keep them that way.
+   This file is the `tailwind.css` target in components.json, so `shadcn init`
+   and a `--preset` apply rewrite them — anything hand-edited in here is
+   restored to the theme's value silently on the next CLI run.
+
+   The accessibility corrections to this palette therefore live in
+   `src/theme-a11y.css`, which the CLI knows nothing about, imported after this
+   file in main.tsx. Read its header before touching either. Overriding a token
+   here instead is the bug that file exists to prevent.
+
+   NOTE: --background, --sidebar, --border and --radius (in BOTH :root and .dark
+   below), plus --skeleton from theme-a11y.css, are duplicated verbatim in
+   apps/web/index.html as the --al-* tokens of the boot skeleton overlay. That
+   overlay paints before this stylesheet exists (it ships in the JS bundle), so
+   it cannot reference these variables. Change one, change the other, or the
+   overlay stops matching the app it crossfades into. */
 :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.147 0.004 49.25);
@@ -29,42 +39,14 @@
   --secondary: oklch(0.967 0.001 286.375);
   --secondary-foreground: oklch(0.21 0.006 285.885);
   --muted: oklch(0.97 0.001 106.424);
-  /* 4.5:1 against every surface it is used on, including the two that the
-     shadcn default (0.553) missed: --muted itself (4.41:1) and the
-     `placeholder:text-muted-foreground` on a bg-input/50 field (4.30:1). The
-     placeholder is the one axe can never see — a pseudo-element has no node to
-     inspect — and it is on every text input in the app. */
-  --muted-foreground: oklch(0.534 0.013 58.071);
+  --muted-foreground: oklch(0.553 0.013 58.071);
   --accent: oklch(0.97 0.001 106.424);
   --accent-foreground: oklch(0.216 0.006 56.043);
-  /* `text-destructive` is never painted on the page: ui/badge, ui/button and
-     ui/dropdown-menu all put it on a `bg-destructive/10` rest tint and a
-     `bg-destructive/20` hover/dark tint, made from this same color. At 0.577
-     that self-tinted pair was 3.99:1 and 3.31:1. Darkening the token darkens the
-     text and lightens nothing, so both clear 4.5:1 at 0.476. */
-  --destructive: oklch(0.476 0.245 27.325);
-  /* Was byte-identical to --destructive: a 1.00:1 pair sitting in the palette,
-     waiting for the first call site to use it. No call site does today, which is
-     the only reason it never showed up as a visible bug. */
-  --destructive-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.577 0.245 27.325);
   --border: oklch(0.923 0.003 48.717);
   --input: oklch(0.923 0.003 48.717);
-  /* Boundary of a form control (1.4.11). NOT --border: that token is shared with
-     cards, tables and separators, where a 3:1 hairline would be a heavy, app-wide
-     visual change. This one is scoped to inputs, so it can be as dark as the
-     criterion demands. Derived, not chosen: the darkest surface a control sits on
-     is bg-input/90 over the sidebar, and 0.61 is the first lightness that clears
-     3:1 against that AND against every page/card/popover/sidebar behind it.
-     See src/test/tokenContrast.test.ts — it recomputes the whole matrix. */
-  --input-border: oklch(0.61 0.003 48.717);
-  /* Focus indicator (1.4.11 + 2.4.7). The INDICATOR is the solid
-     `focus-visible:border-ring`; the `ring-ring/30` halo around it is decoration
-     (a 30%-opacity glow tops out near 2.1:1 no matter what --ring holds). At the
-     shadcn default 0.709 the border was 2.59:1 on the page and 2.11:1 against a
-     bg-input/90 fill. 0.45 clears 3:1 against every page/card/popover/sidebar and
-     every input fill, and stays ~2:1 away from --input-border so focus reads as a
-     state change rather than the same hairline. */
-  --ring: oklch(0.45 0.01 56.259);
+  --ring: oklch(0.709 0.01 56.259);
   --chart-1: oklch(0.845 0.143 164.978);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.596 0.145 163.225);
@@ -73,23 +55,12 @@
   --radius: 0.45rem;
   --sidebar: oklch(0.985 0.001 106.423);
   --sidebar-foreground: oklch(0.147 0.004 49.25);
-  /* Carries --sidebar-primary-foreground (and a white icon) on the module tile in
-     components/layout/ModuleSwitcher. At the shadcn default that pair was 3.07:1
-     light / 2.12:1 dark. NOTE: a module may override this background with its own
-     authored `logo_color`, which no token can reach — that contrast is a data
-     question, not a palette one. */
-  --sidebar-primary: oklch(0.529 0.194 149.214);
+  --sidebar-primary: oklch(0.627 0.194 149.214);
   --sidebar-primary-foreground: oklch(0.982 0.018 155.826);
   --sidebar-accent: oklch(0.97 0.001 106.424);
   --sidebar-accent-foreground: oklch(0.216 0.006 56.043);
   --sidebar-border: oklch(0.923 0.003 48.717);
-  --sidebar-ring: oklch(0.45 0.01 56.259);
-  /* Loading-placeholder fill. Deliberately NOT --muted: at oklch(0.97) on a
-     white page --muted gives a 1.09:1 contrast ratio (1.04:1 at the animate-
-     pulse trough, and 1.045:1 against the sidebar), which is below the
-     threshold most displays can resolve — a full-screen skeleton in that tone
-     reads as a blank white page. 1.39:1 here / 1.33:1 on the sidebar. */
-  --skeleton: oklch(0.89 0.003 106.42);
+  --sidebar-ring: oklch(0.709 0.01 56.259);
 }
 
 .dark {
@@ -107,21 +78,11 @@
   --muted-foreground: oklch(0.709 0.01 56.259);
   --accent: oklch(0.268 0.007 34.298);
   --accent-foreground: oklch(0.985 0.001 106.423);
-  /* 4.49:1 on its own /20 tint over a card — short of 4.5 by a hair, which is
-     still short. A two-thousandth lift clears it without a visible change. */
-  --destructive: oklch(0.71 0.191 22.216);
-  /* Near-black, not a second red: white on this destructive is 2.77:1. */
-  --destructive-foreground: oklch(0.147 0.004 49.25);
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.637 0.237 25.331);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  /* Same value works in both themes: a mid-lightness gray is the one band that
-     clears 3:1 against a white page and against a near-black one. */
-  --input-border: oklch(0.61 0.003 48.717);
-  /* Dark was NOT already conformant, contrary to a measurement that only looked at
-     the page and a bg-input/50 fill. Over a --card (where dialogs and sheets put
-     their forms) the old 0.553 gave 3.64:1, and against a bg-input/90 checkbox on a
-     card only 2.42:1. 0.78 clears 3:1 everywhere. */
-  --ring: oklch(0.78 0.013 58.071);
+  --ring: oklch(0.553 0.013 58.071);
   --chart-1: oklch(0.845 0.143 164.978);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.596 0.145 163.225);
@@ -129,15 +90,12 @@
   --chart-5: oklch(0.432 0.095 166.913);
   --sidebar: oklch(0.216 0.006 56.043);
   --sidebar-foreground: oklch(0.985 0.001 106.423);
-  --sidebar-primary: oklch(0.529 0.219 149.579);
+  --sidebar-primary: oklch(0.723 0.219 149.579);
   --sidebar-primary-foreground: oklch(0.982 0.018 155.826);
   --sidebar-accent: oklch(0.268 0.007 34.298);
   --sidebar-accent-foreground: oklch(0.985 0.001 106.423);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.78 0.013 58.071);
-  /* Dark fares better than light with --muted (1.30:1 on the page) but is still
-     weak on the sidebar (1.15:1); this lifts both to 1.50:1 / 1.33:1. */
-  --skeleton: oklch(0.31 0.007 34.298);
+  --sidebar-ring: oklch(0.553 0.013 58.071);
 }
 
 @theme inline {
@@ -159,6 +117,11 @@
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
+  /* --input-border is defined in src/theme-a11y.css, not above: it is our token,
+     not shadcn's. This MAPPING has to stay here, though — `@theme inline` is what
+     compiles the `border-input-border` utility used at ~8 call sites, and Tailwind
+     only reads it from the entry that imports 'tailwindcss'. Lose this line and
+     the utility silently resolves to nothing; tokenContrast.test.ts asserts it. */
   --color-input-border: var(--input-border);
   --color-ring: var(--ring);
   --color-chart-1: var(--chart-1);
@@ -194,7 +157,8 @@
    `@theme inline` compiles `bg-muted` to `background-color: var(--muted)`, so
    shadowing --muted here retargets the fill with zero specificity conflict —
    a call-site `bg-*` override still wins normally. --muted is unaffected
-   everywhere else, and skeletons have no children to inherit it. */
+   everywhere else, and skeletons have no children to inherit it.
+   --skeleton itself is defined in src/theme-a11y.css. */
 [data-slot='skeleton'] {
   --muted: var(--skeleton);
 }

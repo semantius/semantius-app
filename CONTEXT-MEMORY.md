@@ -227,7 +227,7 @@ and no fill": a confident false positive on the exact criterion being measured.
 Convert with a 1x1 canvas (it parses the full CSS `<color>` grammar), pulling alpha
 out by regex first, because `getImageData` round-trips a premultiplied buffer.
 
-**13 of the 69 `oklch()` declarations are outside the sRGB gamut** (`--primary`,
+**13 of the 68 `oklch()` declarations are outside the sRGB gamut** (`--primary`,
 `--destructive`, `--sidebar-primary`, the chart ramp). What a browser paints for
 those is the CSS gamut-mapping result, not a naive per-channel clamp, and the two
 differ by up to ~0.1 in contrast ratio — enough to move a pair across the 3:1 or
@@ -319,17 +319,46 @@ Combine with `&`: `?select=id,name&status=eq.active&order=created_at.desc&limit=
 - Never modify files in `src/components/ui/` — they are CLI-managed and upgradable
 - Config: `components.json` (points to `src/global.css`)
 - To customize: use `className` props at the call site (e.g., `<SheetContent className="border-l-0">`) — never modify `src/components/ui/*`
-- **`src/global.css` has one sanctioned exception, and only one.** The call-site rule
-  holds until a defect is in a CLI-owned file that **no call site can reach** — the
+
+#### The palette is TWO files — never correct a token in `global.css`
+
+**`src/global.css` is stock CLI output and must stay that way.** It is the
+`tailwind.css` target in `components.json`, so `shadcn init` and a `--preset` apply
+**rewrite its `:root` / `.dark` blocks**. A token corrected in place there is
+restored to the theme's value silently on the next CLI run — no error, no failing
+build, just a 2.59:1 focus ring back in production. That is exactly what happened
+once: the WCAG contrast work was edited into shadcn's own declarations.
+
+Accessibility corrections therefore live in **`src/theme-a11y.css`**, a file the CLI
+has no concept of, imported from `main.tsx` *immediately after* `global.css`. Both
+files use plain `:root` / `.dark` at the same specificity, so **source order is the
+entire mechanism** — the order of those two import lines is load-bearing.
+`src/test/tokenContrast.test.ts` asserts the import exists and is second (matching a
+real import statement with comments stripped: a bare `indexOf` on the specifier
+matched the explanatory comment above it and stayed green when the import was
+commented out).
+
+One line cannot move with it: `@theme inline { --color-input-border: var(--input-border) }`
+stays in `global.css`, because Tailwind only reads `@theme` from the entry that
+imports `'tailwindcss'`. Lose it and the `border-input-border` utility silently
+compiles to nothing — also asserted.
+
+**A theme switch is not free.** Every value in `theme-a11y.css` was derived against
+base-rhea's surfaces (the darkest being `bg-input/90` over `--sidebar`). A different
+palette moves those. Run `pnpm --filter @semantius/frontend a11y:tokens` — it reads
+the current palette and prints the minimum value each contrast-critical token needs.
+See "Switching the shadcn theme" in the root README.
+
+- **`src/global.css` has one other sanctioned exception.** The call-site rule holds
+  until a defect is in a CLI-owned file that **no call site can reach** — the
   `@layer utilities` block at the bottom of `global.css` exists for exactly that case
   (a 3:1 boundary on nine form surfaces, one of which is `ui/command.tsx`'s internally
   constructed `<InputGroup>`; the mobile-sidebar width; the Sheet/Dialog close-button
-  gutter). It is safe because shadcn only *appends* CSS variables to the
-  `components.json` `tailwind.css` target rather than regenerating it, so a
-  `shadcn add` will not wipe the block. Read the comment above that block before
-  adding to it — the specificity reasoning there is load-bearing and non-obvious
-  (see "Accessibility — the mechanisms" above). Reach for it only after confirming
-  no call site and no `ui-ext/` fork can do the job.
+  gutter). Unlike the token blocks it is *appended to* rather than rewritten by the
+  CLI, so it survives. Read the comment above that block before adding to it — the
+  specificity reasoning there is load-bearing and non-obvious (see "Accessibility —
+  the mechanisms" above). Reach for it only after confirming no call site and no
+  `ui-ext/` fork can do the job.
 
 #### `ui/` vs `ui-ext/` boundary (CRITICAL)
 

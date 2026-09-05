@@ -1,0 +1,134 @@
+/* Accessibility corrections to the shadcn palette.
+   ================================================
+
+   WHY THIS FILE EXISTS, AND WHY IT IS NOT IN global.css.
+
+   `global.css` is the `tailwind.css` target in `components.json`. That makes its
+   `:root` / `.dark` blocks CLI territory: `shadcn init` and a `--preset` apply
+   REWRITE them, because rewriting the palette is what applying a theme means.
+   These corrections were originally edited into those blocks in place, which
+   meant a theme switch would restore shadcn's values and silently take the
+   contrast work with it — a 2.59:1 focus ring back in production with nothing
+   to show it had happened.
+
+   So they live here, in a file the shadcn CLI has no concept of, loaded AFTER
+   `global.css` from `main.tsx`:
+
+       import './global.css'
+       import './theme-a11y.css'   <- must stay second
+
+   Both blocks below are unlayered `:root` / `.dark` at (0,1,0), identical to
+   shadcn's, so they win purely on source order. That ordering is the whole
+   mechanism, and `src/test/tokenContrast.test.ts` asserts the import is still
+   there and still second. If someone drops it, the suite goes red rather than
+   the app going quietly non-conformant.
+
+   WHAT THIS FILE DOES *NOT* GIVE YOU. It does not make the app theme-agnostic.
+   Every value here was derived against base-rhea's specific surfaces — the
+   darkest being `bg-input/90` over `--sidebar`. Switch to a palette with
+   different surfaces and these need re-deriving; they are not guaranteed to
+   still clear 3:1. `pnpm check` will tell you (tokenContrast.test.ts recomputes
+   the whole matrix from whatever the tokens currently hold), and
+   `scripts/derive-a11y-tokens.mjs` prints the new minimums. See "Switching the
+   shadcn theme" in the root README.
+
+   Stock shadcn base-rhea, measured, for reference — this is what is being
+   corrected, not a hypothetical:
+
+     form-control fill (bg-input/50) vs page, border-transparent   1.12:1  (needs 3)
+     focus ring --ring vs page                                     2.59:1  (needs 3)
+     focus ring --ring vs a bg-input/90 fill                       2.11:1  (needs 3)
+     ::placeholder on a field                                      4.30:1  (needs 4.5)
+     --muted-foreground on --muted                                 4.41:1  (needs 4.5)
+     text-destructive on its own /10 tint                          4.05:1  (needs 4.5)
+*/
+
+:root {
+  /* 4.5:1 against every surface it is used on, including the two that the
+     shadcn default (0.553) missed: --muted itself (4.41:1) and the
+     `placeholder:text-muted-foreground` on a bg-input/50 field (4.30:1). The
+     placeholder is the one axe can never see — a pseudo-element has no node to
+     inspect — and it is on every text input in the app. */
+  --muted-foreground: oklch(0.534 0.013 58.071);
+
+  /* `text-destructive` is never painted on the page: ui/badge, ui/button and
+     ui/dropdown-menu all put it on a `bg-destructive/10` rest tint and a
+     `bg-destructive/20` hover/dark tint, made from this same color. At 0.577
+     that self-tinted pair was 3.99:1 and 3.31:1. Darkening the token darkens the
+     text and lightens nothing, so both clear 4.5:1 at 0.476. */
+  --destructive: oklch(0.476 0.245 27.325);
+
+  /* Shadcn ships this byte-identical to --destructive: a 1.00:1 pair sitting in
+     the palette, waiting for the first call site to use it. No call site does
+     today, which is the only reason it never showed up as a visible bug. */
+  --destructive-foreground: oklch(0.985 0 0);
+
+  /* NEW TOKEN — not part of the shadcn palette. Boundary of a form control
+     (1.4.11). NOT --border: that token is shared with cards, tables and
+     separators, where a 3:1 hairline would be a heavy, app-wide visual change.
+     This one is scoped to inputs, so it can be as dark as the criterion demands.
+     Derived, not chosen: the darkest surface a control sits on is bg-input/90
+     over the sidebar, and 0.61 is the first lightness that clears 3:1 against
+     that AND against every page/card/popover/sidebar behind it.
+     Consumed as the `border-input-border` utility, which needs
+     `--color-input-border` in global.css's `@theme inline` — also asserted by
+     the test, since losing that mapping makes the utility a silent no-op. */
+  --input-border: oklch(0.61 0.003 48.717);
+
+  /* Focus indicator (1.4.11 + 2.4.7). The INDICATOR is the solid
+     `focus-visible:border-ring`; the `ring-ring/30` halo around it is decoration
+     (a 30%-opacity glow tops out near 2.1:1 no matter what --ring holds). At the
+     shadcn default 0.709 the border was 2.59:1 on the page and 2.11:1 against a
+     bg-input/90 fill. 0.45 clears 3:1 against every page/card/popover/sidebar and
+     every input fill, and stays ~2:1 away from --input-border so focus reads as a
+     state change rather than the same hairline. */
+  --ring: oklch(0.45 0.01 56.259);
+
+  /* Carries --sidebar-primary-foreground (and a white icon) on the module tile in
+     components/layout/ModuleSwitcher. At the shadcn default that pair was 3.07:1
+     light / 2.12:1 dark. NOTE: a module may override this background with its own
+     authored `logo_color`, which no token can reach — that contrast is a data
+     question, not a palette one. */
+  --sidebar-primary: oklch(0.529 0.194 149.214);
+
+  /* The focus indicator inside the sidebar. Tracks --ring for the same reason
+     --ring moved, against --sidebar and --sidebar-accent rather than the page. */
+  --sidebar-ring: oklch(0.45 0.01 56.259);
+
+  /* NEW TOKEN — not part of the shadcn palette. Loading-placeholder fill.
+     Deliberately NOT --muted: at oklch(0.97) on a white page --muted gives a
+     1.09:1 contrast ratio (1.04:1 at the animate-pulse trough, and 1.045:1
+     against the sidebar), which is below the threshold most displays can
+     resolve — a full-screen skeleton in that tone reads as a blank white page,
+     and was reported exactly that way. 1.39:1 here / 1.33:1 on the sidebar.
+     Routed onto every <Skeleton> by the `[data-slot='skeleton']` rule in
+     global.css, which shadows --muted rather than fighting background-color. */
+  --skeleton: oklch(0.89 0.003 106.42);
+}
+
+.dark {
+  /* 4.49:1 on its own /20 tint over a card — short of 4.5 by a hair, which is
+     still short. A two-thousandth lift clears it without a visible change. */
+  --destructive: oklch(0.71 0.191 22.216);
+
+  /* Near-black, not a second red: white on this destructive is 2.77:1. */
+  --destructive-foreground: oklch(0.147 0.004 49.25);
+
+  /* Same value works in both themes: a mid-lightness gray is the one band that
+     clears 3:1 against a white page and against a near-black one. */
+  --input-border: oklch(0.61 0.003 48.717);
+
+  /* Dark was NOT already conformant, contrary to a measurement that only looked at
+     the page and a bg-input/50 fill. Over a --card (where dialogs and sheets put
+     their forms) the old 0.553 gave 3.64:1, and against a bg-input/90 checkbox on a
+     card only 2.42:1. 0.78 clears 3:1 everywhere. */
+  --ring: oklch(0.78 0.013 58.071);
+
+  --sidebar-primary: oklch(0.529 0.219 149.579);
+
+  --sidebar-ring: oklch(0.78 0.013 58.071);
+
+  /* Dark fares better than light with --muted (1.30:1 on the page) but is still
+     weak on the sidebar (1.15:1); this lifts both to 1.50:1 / 1.33:1. */
+  --skeleton: oklch(0.31 0.007 34.298);
+}

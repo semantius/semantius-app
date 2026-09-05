@@ -247,6 +247,50 @@ cover:
 app owns (row reordering has a keyboard sensor); it is **not** confirmed for
 `react-grid-layout` inside the excluded dashboard.
 
+### Switching the shadcn theme
+
+**Stock shadcn is not WCAG AA**, and that is not specific to this project — the
+default `base-rhea` palette measures, on a white page:
+
+| | stock | needs |
+| --- | --- | --- |
+| form-control fill (`bg-input/50`), with `border-transparent` | 1.12:1 | 3:1 |
+| focus ring `--ring` vs the page | 2.59:1 | 3:1 |
+| focus ring vs a `bg-input/90` fill | 2.11:1 | 3:1 |
+| `::placeholder` on a field | 4.30:1 | 4.5:1 |
+| `--muted-foreground` on `--muted` | 4.41:1 | 4.5:1 |
+| `text-destructive` on its own `/10` tint | 4.05:1 | 4.5:1 |
+
+So the palette is **two files**, and the split is what keeps a theme switch safe:
+
+- `apps/web/src/global.css` — **stock CLI output, kept that way.** It is the
+  `tailwind.css` target in `components.json`, so `shadcn init` and a `--preset`
+  apply rewrite its `:root` / `.dark` blocks. Never correct a token here; it will
+  be silently restored on the next CLI run.
+- `apps/web/src/theme-a11y.css` — the corrections. The CLI knows nothing about
+  this file. `main.tsx` imports it immediately after `global.css`, so its
+  identical-specificity `:root` / `.dark` blocks win on source order.
+
+To switch theme:
+
+```bash
+npx shadcn@latest init --preset <new-preset>      # rewrites global.css only
+pnpm --filter @semantius/frontend a11y:tokens     # what the new surfaces need
+# edit apps/web/src/theme-a11y.css with the suggested values
+pnpm check                                        # the contrast matrix must pass
+```
+
+**A theme switch is not free.** Every value in `theme-a11y.css` was derived
+against base-rhea's specific surfaces — the darkest being `bg-input/90` over
+`--sidebar`. A different palette moves those, and the corrections are not
+guaranteed to still clear 3:1. What the arrangement guarantees is that the
+switch cannot break conformance *quietly*:
+`apps/web/src/test/tokenContrast.test.ts` recomputes the whole matrix from
+whatever the tokens currently hold, and separately asserts that the override file
+is still imported and still imported last. `a11y:tokens` then prints the minimum
+value each token needs, so re-deriving is one command rather than an
+investigation.
+
 ### How it is evaluated
 
 Three layers, because no single one can see everything:
