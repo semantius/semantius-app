@@ -38,8 +38,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <ModuleSwitcher onModuleChange={handleModuleChange} />
       </SidebarHeader>
       <SidebarContent>
-        <NavApps moduleId={selectedModuleId} moduleSlug={selectedModuleSlug} />
-        <NavBookmarks />
+        {/* 1.3.1 — the app had no <nav> landmark at all, so the skip link had
+            nothing named to skip past and "navigate by landmark" reached only
+            <main>. Labelled because a second nav (the account menu in the
+            footer) exists; unlabelled siblings are indistinguishable in a
+            landmark list. */}
+        <nav aria-label="Modules and apps" className="contents">
+          <NavApps moduleId={selectedModuleId} moduleSlug={selectedModuleSlug} />
+          <NavBookmarks />
+        </nav>
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={userData} />

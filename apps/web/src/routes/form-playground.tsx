@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { pageTitle } from '@/lib/pageTitle'
 import { useState, useEffect } from 'react'
 import { FormPlayground } from '../components/form/Playground'
 
@@ -7,6 +8,7 @@ interface FormPlaygroundSearch {
 }
 
 export const Route = createFileRoute('/form-playground')({
+  head: () => ({ meta: [{ title: pageTitle('Form playground') }] }),
   validateSearch: (search: Record<string, unknown>): FormPlaygroundSearch => {
     return {
       schema: search.schema as string | undefined,

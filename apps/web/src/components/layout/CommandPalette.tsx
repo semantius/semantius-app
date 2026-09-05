@@ -5,7 +5,6 @@ import { useAuth } from '@/hooks/useAuth'
 import { getApiConfig, createApiHeaders } from '@/lib/apiClient'
 import {
   Command,
-  CommandDialog,
   CommandEmpty,
   CommandGroup,
   CommandInput,
@@ -14,6 +13,10 @@ import {
   CommandSeparator,
 } from '@/components/ui/command'
 import { Skeleton } from '@/components/ui/skeleton'
+// Forked from ui/command.tsx: the registry CommandDialog renders its sr-only
+// <h2> title OUTSIDE the popup, so it lands in the page ahead of every route's
+// <h1> and leaves the dialog unnamed. See the file for the full reasoning.
+import { CommandDialog } from '@/components/ui-ext/command-dialog'
 
 // Lets non-keyboard callers (e.g. the "Quick navigation" menu entry) open the
 // palette without simulating a Ctrl/Cmd+K keystroke.

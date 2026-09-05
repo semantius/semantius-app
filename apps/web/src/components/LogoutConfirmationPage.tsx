@@ -1,7 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card'
 import { CheckCircle, LogIn } from 'lucide-react'
 import { hideAppLoader } from '@/lib/appLoader'
 
@@ -17,7 +17,7 @@ export function LogoutConfirmationPage() {
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/20">
             <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
           </div>
-          <CardTitle className="text-2xl">Successfully Logged Out</CardTitle>
+          <h1 data-slot="card-title" className="font-heading font-medium text-2xl">Successfully Logged Out</h1>
           <CardDescription>
             You have been successfully logged out of your account. Your session has been terminated securely.
           </CardDescription>

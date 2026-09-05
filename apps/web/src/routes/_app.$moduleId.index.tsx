@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { pageTitle } from '@/lib/pageTitle'
 import { useCallback, useState, useEffect } from 'react'
 import { NamedIcon } from '@/components/ui-ext/named-icon'
 import { AnalyticsDashboard, CubeProvider } from 'drizzle-cube/client'
@@ -13,6 +14,10 @@ import { getConfig } from '@/lib/config'
 import { getModuleDisplay } from '@/contexts/AuthContext'
 
 export const Route = createFileRoute('/_app/$moduleId/')({
+  // The module's display name lives in rpcUserInfo, which head() cannot reach;
+  // the slug is the one identifier available before the component renders and it
+  // is what the user typed in the URL bar anyway.
+  head: ({ params }) => ({ meta: [{ title: pageTitle(params.moduleId) }] }),
   validateSearch: () => ({}),
   component: ModuleHomeComponent,
 })

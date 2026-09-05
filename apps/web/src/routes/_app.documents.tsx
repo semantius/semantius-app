@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { pageTitle } from '@/lib/pageTitle'
 import { FileText, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -10,6 +11,7 @@ import {
 } from '@/components/ui/card'
 
 export const Route = createFileRoute('/_app/documents')({
+  head: () => ({ meta: [{ title: pageTitle('Documents') }] }),
   component: DocumentsComponent,
 })
 

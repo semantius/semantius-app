@@ -1,4 +1,5 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
+import { pageTitle } from '@/lib/pageTitle'
 import { useAuth } from '@/hooks/useAuth'
 import { useCallback, useEffect, useRef } from 'react'
 import { buildOAuthState } from '@/lib/oauthState'
@@ -6,6 +7,7 @@ import { AuthFailure } from '@/components/AuthFailure'
 import { hideAppLoader } from '@/lib/appLoader'
 
 export const Route = createFileRoute('/login')({
+  head: () => ({ meta: [{ title: pageTitle('Sign in') }] }),
   beforeLoad: async ({ context, search }) => {
     if (context.auth.isAuthenticated()) {
       throw redirect({

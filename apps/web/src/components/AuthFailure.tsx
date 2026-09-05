@@ -31,7 +31,9 @@ export function AuthFailure({
     <div className="flex h-screen items-center justify-center">
       <div className="max-w-md text-center">
         <AlertCircle className="mx-auto h-12 w-12 text-destructive" />
-        <h2 className="mt-4 text-xl font-semibold">{title}</h2>
+        {/* h1, not h2: this card IS the page on /login and /oauth2_callback —
+            there is no other heading above it to be a level below. */}
+        <h1 className="mt-4 text-xl font-semibold">{title}</h1>
         <p className="mt-2 text-muted-foreground">{description}</p>
         <div className="mt-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
           {message}

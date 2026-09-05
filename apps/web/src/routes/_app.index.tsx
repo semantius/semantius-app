@@ -1,25 +1,24 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
+import { pageTitle } from '@/lib/pageTitle'
 import { Loader2, Lock, LogOut } from 'lucide-react'
 import { NamedIcon } from '@/components/ui-ext/named-icon'
 import {
   Card,
   CardContent,
   CardDescription,
-  CardHeader,
   CardTitle,
 } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/hooks/useAuth'
-import { useModuleNavigate } from '@/hooks/useModuleNavigate'
-import { ApiErrorDisplay } from '@/components/ApiErrorDisplay'
 import { getModuleDisplay } from '@/contexts/AuthContext'
+import { moduleHomePath } from '@/lib/moduleHome'
 
 export const Route = createFileRoute('/_app/')({
+  head: () => ({ meta: [{ title: pageTitle('Modules') }] }),
   component: IndexComponent,
 })
 
 function IndexComponent() {
-  const navigateToModule = useModuleNavigate()
   const { rpcUserInfo } = useAuth()
 
   // Get user's permissions array for filtering
@@ -41,15 +40,6 @@ function IndexComponent() {
     // User must have at least one of view or edit permission
     return permissionsToCheck.some(permission => userPermissions.includes(permission))
   }) || []
-
-  const handleModuleClick = (module: typeof modules[0]) => {
-    navigateToModule({
-      homePage: module.home_page,
-      moduleId: module.id,
-      moduleName: module.module_name,
-      moduleSlug: module.module_slug,
-    })
-  }
 
   // Loading state
   if (!rpcUserInfo) {
@@ -103,12 +93,19 @@ function IndexComponent() {
           {modules.map((module) => {
             const { displayName, displayTitle } = getModuleDisplay(module)
             return (
+              // A module tile is a navigation target, so it is a link — not a
+              // <Card onClick>. The click-only card was unreachable by keyboard,
+              // drew no focus ring, announced as nothing, and could not be opened
+              // in a new tab (2.1.1, 2.4.7). The <Link> fills the card and carries
+              // the padding so the whole tile stays the hit area.
               <Card
                 key={module.id}
-                className="group cursor-pointer transition-all hover:shadow-lg hover:scale-[1.02] p-6"
-                onClick={() => handleModuleClick(module)}
+                className="group p-0 transition-all hover:shadow-lg hover:scale-[1.02] has-[a:focus-visible]:outline-2 has-[a:focus-visible]:outline-offset-2 has-[a:focus-visible]:outline-ring"
               >
-                <div className="flex items-center gap-4">
+                <Link
+                  to={moduleHomePath(module)}
+                  className="flex items-center gap-4 p-6 outline-none"
+                >
                   <div
                     className="flex size-16 items-center justify-center rounded-xl overflow-hidden shrink-0 shadow-md transition-transform group-hover:scale-110"
                     style={module.logo_color ? { backgroundColor: module.logo_color } : { backgroundColor: '#0000FF' }}
@@ -125,7 +122,7 @@ function IndexComponent() {
                       </CardDescription>
                     )}
                   </div>
-                </div>
+                </Link>
               </Card>
             )
           })}

@@ -7,7 +7,6 @@ import {
   CardDescription,
   CardFooter,
   CardHeader,
-  CardTitle,
 } from '@/components/ui/card'
 
 interface ErrorPageProps {
@@ -25,7 +24,7 @@ export function ErrorPage({ error, reset }: ErrorPageProps) {
               <AlertCircle className="h-12 w-12 text-destructive" />
             </div>
           </div>
-          <CardTitle className="text-center text-2xl">Oops! Something went wrong</CardTitle>
+          <h1 data-slot="card-title" className="font-heading font-medium text-center text-2xl">Oops! Something went wrong</h1>
           <CardDescription className="text-center">
             We encountered an unexpected error. Please try again.
           </CardDescription>

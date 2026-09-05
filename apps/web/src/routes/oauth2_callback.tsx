@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { pageTitle } from '@/lib/pageTitle'
 import { useAuth } from '@/hooks/useAuth'
 import { useEffect, useState } from 'react'
 import { AuthFailure } from '@/components/AuthFailure'
@@ -6,6 +7,7 @@ import { parseOAuthState } from '@/lib/oauthState'
 import { hideAppLoader } from '@/lib/appLoader'
 
 export const Route = createFileRoute('/oauth2_callback')({
+  head: () => ({ meta: [{ title: pageTitle('Completing sign-in') }] }),
   component: CallbackComponent,
 })
 

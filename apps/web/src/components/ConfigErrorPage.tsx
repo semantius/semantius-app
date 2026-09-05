@@ -5,7 +5,6 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from '@/components/ui/card'
 import { hideAppLoader } from '@/lib/appLoader'
 
@@ -26,7 +25,7 @@ export function ConfigErrorPage({ missingVars }: ConfigErrorPageProps) {
         <CardHeader>
           <div className="flex items-center gap-2 text-destructive">
             <AlertTriangle className="h-6 w-6" />
-            <CardTitle className="text-2xl">Configuration Error</CardTitle>
+            <h1 data-slot="card-title" className="font-heading font-medium text-2xl">Configuration Error</h1>
           </div>
           <CardDescription>
             OAuth configuration is missing or invalid

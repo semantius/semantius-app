@@ -1,5 +1,6 @@
 // routes/$moduleId.$table_name.$key.tsx
 import { createFileRoute, notFound, useParams } from '@tanstack/react-router'
+import { pageTitle } from '@/lib/pageTitle'
 import { lazy, Suspense, useMemo } from 'react'
 import { NotFoundPage } from '@/components/NotFoundPage'
 import { ViewSkeleton } from '@/components/ViewSkeleton'
@@ -28,6 +29,21 @@ export const Route = createFileRoute('/_app/$moduleId/$table_name')({
     }
     
     return { metadata }
+  },
+  // Titled from the entity's own plural label rather than the raw table name —
+  // the loader has already fetched the metadata by the time head() runs, so this
+  // costs nothing. Falls back to the table name if metadata ever lacks a label.
+  // `loaderData` is cast rather than inferred on purpose: referencing the
+  // inferred loader type from inside the same route definition is circular, and
+  // TypeScript resolves the cycle by widening loaderData to `never` — which then
+  // breaks Route.useLoaderData() in the component too.
+  head: ({ loaderData, params }) => {
+    const data = loaderData as { metadata?: EntityMetadata } | undefined
+    return {
+      meta: [
+        { title: pageTitle(data?.metadata?.table?.plural_label || params.table_name) },
+      ],
+    }
   },
   component: RouteComponent,
   // Show the content-area skeleton while the blocking loader runs, instead of

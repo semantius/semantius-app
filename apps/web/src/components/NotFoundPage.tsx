@@ -8,7 +8,6 @@ import {
   CardDescription,
   CardFooter,
   CardHeader,
-  CardTitle,
 } from '@/components/ui/card'
 import { hideAppLoader } from '@/lib/appLoader'
 
@@ -26,7 +25,7 @@ export function NotFoundPage() {
               <Search className="h-12 w-12 text-muted-foreground" />
             </div>
           </div>
-          <CardTitle className="text-center text-3xl">404 - Page Not Found</CardTitle>
+          <h1 data-slot="card-title" className="font-heading font-medium text-center text-3xl">404 - Page Not Found</h1>
           <CardDescription className="text-center">
             The page you're looking for doesn't exist or has been moved.
           </CardDescription>

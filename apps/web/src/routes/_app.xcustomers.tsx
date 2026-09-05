@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate, useRouterState } from '@tanstack/react-router'
+import { pageTitle } from '@/lib/pageTitle'
 import { useTable } from '@/hooks/useTable'
 import { useConfirmDelete } from '@/hooks/useConfirmDelete'
 import { useUserHasPermission } from '@/hooks/useUserPermissions'
@@ -49,6 +50,7 @@ import { useState } from 'react'
 type Customer = Record<string, unknown>
 
 export const Route = createFileRoute('/_app/xcustomers')({
+  head: () => ({ meta: [{ title: pageTitle('Customers') }] }),
   component: CustomersComponent,
 })
 
@@ -450,8 +452,11 @@ function CustomersComponent() {
 
           {/* Pagination controls */}
           {!isLoading && !error && customers && customers.length > 0 && (
-            <div className="flex items-center justify-between px-2 py-4">
-              <div className="flex-1 text-sm text-muted-foreground">
+            // 1.4.10 Reflow: a single non-wrapping flex line put the page controls
+            // ~63px past the card's right edge at 390px, with no scrollable
+            // ancestor to reach them.
+            <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-2 py-4">
+              <div className="text-sm text-muted-foreground">
                 Showing {pagination.pageIndex * pagination.pageSize + 1} to{' '}
                 {Math.min(
                   (pagination.pageIndex + 1) * pagination.pageSize,
@@ -459,15 +464,22 @@ function CustomersComponent() {
                 )}{' '}
                 customers
               </div>
-              <div className="flex items-center space-x-6 lg:space-x-8">
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-3 lg:gap-x-8">
                 <div className="flex items-center space-x-2">
-                  <p className="text-sm font-medium">Rows per page</p>
+                  {/* The adjacent <p> looked like a label but was not one — a
+                      <select> with no label announces as an unnamed combo box
+                      (4.1.2). Promoting it to a real <label htmlFor> costs
+                      nothing and keeps the same visual. */}
+                  <label htmlFor="xcustomers-page-size" className="text-sm font-medium">
+                    Rows per page
+                  </label>
                   <select
+                    id="xcustomers-page-size"
                     value={pagination.pageSize}
                     onChange={(e) => {
                       setPagination({ pageIndex: 0, pageSize: Number(e.target.value) })
                     }}
-                    className="h-8 w-[70px] rounded-md border border-input bg-background px-2 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    className="h-8 w-[70px] rounded-md border border-input-border bg-background px-2 py-1 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                   >
                     {[10, 20, 30, 40, 50].map((pageSize) => (
                       <option key={pageSize} value={pageSize}>
@@ -476,7 +488,7 @@ function CustomersComponent() {
                     ))}
                   </select>
                 </div>
-                <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                <div className="flex items-center justify-center text-sm font-medium whitespace-nowrap">
                   Page {pagination.pageIndex + 1}
                 </div>
                 <div className="flex items-center space-x-2">
@@ -525,7 +537,7 @@ function CustomersComponent() {
 
       {/* Sheet for viewing/editing customer - responsive: full screen on mobile */}
       <Sheet open={isOpen} onOpenChange={(open) => !open && handleSheetClose()}>
-        <SheetContent className="w-full sm:max-w-[540px] overflow-y-auto border-l-0">
+        <SheetContent className="data-[side=right]:w-full data-[side=right]:sm:max-w-[540px] overflow-y-auto border-l-0">
           <CustomerForm
             customer={selectedCustomer}
             mode={isNewMode ? 'create' : isEditMode ? 'edit' : 'view'}

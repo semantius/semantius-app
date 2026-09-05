@@ -1,6 +1,7 @@
 import { useNavigate } from '@tanstack/react-router'
 import { useAuth } from '@/hooks/useAuth'
 import { getApiConfig, createApiHeaders } from '@/lib/apiClient'
+import { moduleHomePath } from '@/lib/moduleHome'
 
 /**
  * Hook that returns a function to navigate to a module's home page.
@@ -18,16 +19,8 @@ export function useModuleNavigate() {
     moduleName: string
     moduleSlug: string
   }) => {
-    const { homePage, moduleSlug } = options
-    const trimmedHomePage = homePage?.trim() || ''
-
-    // If home_page is set and not just "/", navigate directly
-    if (trimmedHomePage && trimmedHomePage !== '/') {
-      navigate({ to: trimmedHomePage })
-      return
-    }
-
-    // home_page is "/" or empty — navigate to the module root using slug
-    navigate({ to: `/${moduleSlug}` })
+    // Destination logic lives in lib/moduleHome so the module tiles can render
+    // the same target as a real <Link href>; see moduleHomePath.
+    navigate({ to: moduleHomePath({ home_page: options.homePage, module_slug: options.moduleSlug }) })
   }
 }

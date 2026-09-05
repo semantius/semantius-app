@@ -33,7 +33,10 @@ function RouteComponent() {
       <Button onClick={handleOpenSidebar}>Open Sidebar</Button>
 
       <Sheet open={isDetailOpen} onOpenChange={(open) => !open && handleCloseSidebar()}>
-        <SheetContent className="border-l-0">
+        {/* data-[side=right]: is required, not decorative — see the note on
+            SheetContent in View.tsx: without the matching modifier the vendored
+            `data-[side=right]:w-3/4` wins and the sheet is 75% wide. */}
+        <SheetContent className="data-[side=right]:w-full sm:max-w-md border-l-0">
           <SheetHeader>
             <SheetTitle>Detail View</SheetTitle>
             <SheetDescription>
