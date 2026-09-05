@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { pageTitle } from '@/lib/pageTitle'
+import { hideAppLoader } from '@/lib/appLoader'
 import { useState, useEffect } from 'react'
 import { FormPlayground } from '../components/form/Playground'
 
@@ -21,6 +22,16 @@ function FormPlaygroundWrapper() {
   const { schema: schemaUrl } = Route.useSearch()
   const [initialSchema, setInitialSchema] = useState<string | undefined>(undefined)
   const [loading, setLoading] = useState(false)
+
+  // A standalone page outside the _app layout: nothing downstream will take the
+  // index.html boot overlay down, so this route must (see the hang invariant in
+  // CONTEXT-MEMORY.md). Both of its renders — the "Loading schema..." notice and
+  // the playground itself — are visible content, so it comes down on mount.
+  // Without this the playground sat behind the spinner on every visit, and the
+  // overlay swallowed every click on it.
+  useEffect(() => {
+    hideAppLoader()
+  }, [])
 
   useEffect(() => {
     if (!schemaUrl) {

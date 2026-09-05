@@ -38,7 +38,7 @@ Path alias: `@` → `apps/web/src` (configured in `vite.config.ts` and `tsconfig
 - `/login` — always calls `logIn(redirectTarget)` on mount (clears stale state, redirects to OAuth). Passes the `?redirect=` search param as OAuth `state` so it survives the round-trip. Renders nothing (the boot overlay covers the redirect) **unless `useAuth().error` is set** — a login that fails to start has no other surface, see the hang invariant below.
 - `/oauth2_callback` — the OAuth `redirectUri` (hardcoded to `${origin}/oauth2_callback` — no env var). Detects an active callback via `hadOAuthCode` (frozen at mount via `useState(() => new URLSearchParams(window.location.search).has('code'))`). After token exchange, reads the redirect target from `localStorage.getItem('ROCP_auth_state')` and navigates there. **Do NOT use `loginInProgress` here** — the library clears it before the token exchange completes.
 - `/_app` (`beforeLoad`) — redirects to `/login` if not authenticated; does NOT check `loginInProgress`.
-- **`loginInProgress`** is stored in **localStorage** (library default) — persists across tabs and sessions. It is cleared by the library *before* the token exchange completes, so it is **not a reliable indicator** in `/oauth2_callback`. Stale state is harmless: `/login` always calls `logIn()` which resets it via `clearStorage()`.
+- **`loginInProgress`** is stored in **localStorage** (library default) — persists across tabs and sessions. It is cleared by the library *before* the token exchange completes, so it is **not a reliable indicator** in `/oauth2_callback`. Stale state is harmless: `/login` always calls `logIn()` which resets it via `clearStorage()`. It also has to be **set** for the library to attempt the exchange at all: a visit to `/oauth2_callback?code=…` in a session that never started a login (a bookmarked or replayed callback URL, or a test that navigates there directly) makes **no token request** — the route's five-second fallback then restarts the login. A test of a *failed exchange* therefore has to go through the provider for real, and has to fail twice, because the callback auto-recovers from the first failure with one fresh `logIn()`; `apps/web/e2e/login-journey.spec.ts` does exactly that.
 - **Must register `/oauth2_callback` as allowed redirect URI** in your OAuth provider (Auth0, Keycloak, etc.).
 - **`useLayoutEffect` for `router.update()`** — `RouterContextUpdater` uses `useLayoutEffect` (not `useEffect`) to call `router.update()`. Layout effects run synchronously before paint and before any passive effects, ensuring the router context is always up-to-date before navigation fires. Using `useEffect` causes a race condition where the callback's navigate fires before `isAuthenticated: true` is visible to `_app.tsx` `beforeLoad`.
 
@@ -56,6 +56,14 @@ not a redirect that never happens, not a component that renders nothing.
 Enforced by `src/test/appLoaderInvariant.test.ts`, which fails any route module with a
 top-level `return null` and no `hideAppLoader` path. This is why a route that only ever
 returns `null` while a redirect is in flight still needs a failure branch.
+
+The other way to hang is a **standalone route that renders content and never calls it.**
+`/form-playground` did: the page was in the DOM, the accessibility tree looked complete,
+and the overlay sat on top swallowing every click (keyboard still worked, which is what
+made it confusing). Routes in `index.html`'s `plain` list have no `_app` layout or
+`ProtectedRoute` downstream, so each must reach `hideAppLoader()` itself, through the
+page component it renders, or through the plain route it hands off to — the same test's
+hand-off scan enforces that.
 
 **`hideAppLoader()` is not synchronous.** It drops `pointer-events` and `opacity` on the
 spot (so the real UI is usable immediately) but sets the terminal `hidden` attribute only
@@ -690,6 +698,12 @@ mocks.
 - **`node.id` on a `<form>` is the named CONTROL, not the attribute**, when a field
   is called "id". Use `getAttribute('id')` in any DOM-walking report or it prints
   `[object RadioNodeList]`.
+- **`agent-browser screenshot <path>` resolves a relative path against the daemon's
+  working directory, not the caller's** — it fails with "cannot find the path" for a
+  `screenshots/…` path that exists. Pass an absolute path. And a screenshot that shows
+  only the boot spinner while `snapshot` shows a full page is the overlay still up
+  (see the hang invariant), not a rendering problem: it also explains clicks that do
+  nothing while `focus` + `press Enter` work.
 
 **The tenant's serverless PostgREST answers the first request after an idle period
 with a 404**, and the app treats that as terminal: it renders an error card and

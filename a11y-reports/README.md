@@ -67,6 +67,12 @@ dotenvx run -- node scripts/a11y-sweep/run.mjs \
   --url "$(grep -oE 'https://\S+' .preview-url.md)" --label after-fixes --screenshots
 ```
 
+Or run it from CI: dispatch `.github/workflows/a11y.yml` with `sweep` on. It
+provisions a runner with `workplace/setup.sh`, deploys a preview of the chosen
+commit, runs the sweep against it and uploads `a11y-reports/` as an artifact —
+download the timestamped `.json` and `.txt` into this folder to keep the run. The
+job fails while any criterion is open, by design; the artifact is the result.
+
 Then diff `criteria[]` against the baseline.
 
 ## Reading the baseline

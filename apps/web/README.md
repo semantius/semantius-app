@@ -59,7 +59,8 @@ pnpm --filter @semantius/frontend exec eslint . --prune-suppressions
 
 # 4. The real login journey, in a real browser, against the test OIDC server.
 #    This is what makes the rest of the suite's `#jwt` session-seeding honest.
-#    It is in NO automated runner — not `pnpm check`, not CI.
+#    Not part of `pnpm check`; it runs in CI from .github/workflows/a11y.yml
+#    (on dispatch, weekly, and as a release gate called by docker-publish.yml).
 pnpm --filter @semantius/frontend test:e2e:install   # once
 pnpm --filter @semantius/frontend test:e2e
 

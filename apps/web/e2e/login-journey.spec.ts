@@ -80,15 +80,69 @@ test.describe('OAuth2 authorization-code login', () => {
     expect(consoleErrors, 'uncaught errors during the login journey').toEqual([])
   })
 
-  test('a failed token exchange surfaces an error instead of spinning forever', async ({ page }) => {
+  test('a callback with no login in progress restarts the login instead of hanging', async ({ page }) => {
+    // A code in the URL is not enough for react-oauth2-code-pkce to attempt the
+    // exchange: it does so only while its own `loginInProgress` flag is set, and
+    // a fresh session — a bookmarked or replayed callback URL — has no such flag.
+    // The route's five-second fallback then restarts the login rather than
+    // leaving the boot overlay up forever. Assert that path, and that no token
+    // request was made: an earlier version of this test navigated here and
+    // waited for the failed-exchange error page, which it could never reach,
+    // because this is the path it was actually on.
+    const tokenRequests: string[] = []
+    page.on('request', (request) => {
+      if (request.url().startsWith(`${IDP}/token`)) tokenRequests.push(request.url())
+    })
+
+    await page.goto('/oauth2_callback?code=not-from-any-login&state=%7B%7D')
+    await page.waitForURL((url) => url.origin === IDP, { timeout: 30_000 })
+
+    expect(new URL(page.url()).pathname).toBe('/authorize')
+    expect(tokenRequests).toEqual([])
+  })
+
+  test('a token exchange that keeps failing surfaces an error instead of looping', async ({ page }) => {
     // logIn() / logOut() in react-oauth2-code-pkce are fire-and-forget: the
     // library swallows its own rejection and the message surfaces ONLY as
     // useAuth().error. A callback that cannot complete therefore has exactly one
     // way to be visible — AuthFailure — and if that branch regresses the user
     // gets the boot overlay forever.
-    await page.route(`${IDP}/token`, (route) => route.fulfill({ status: 400, body: '{"error":"invalid_grant"}' }))
+    //
+    // The exchange has to be reached the real way, through the provider, so the
+    // library's loginInProgress flag and PKCE verifier are in place — and it has
+    // to fail TWICE. The callback route recovers from the first failure with one
+    // fresh logIn() (an expired or replayed code is the common case) and shows
+    // the error only when that attempt fails as well.
+    const tokenAttempts: number[] = []
+    await page.route(`${IDP}/token`, (route) => {
+      tokenAttempts.push(Date.now())
+      return route.fulfill({
+        status: 400,
+        contentType: 'application/json',
+        body: '{"error":"invalid_grant"}',
+      })
+    })
 
-    await page.goto('/oauth2_callback?code=deliberately-invalid&state=%7B%7D')
+    // The provider may show its form again on the second visit or, holding a
+    // session, redirect straight back; either way the exchange is what counts.
+    const signInIfAsked = async () => {
+      const username = page.locator('input[name="username"]')
+      const asked = await username.waitFor({ state: 'visible', timeout: 15_000 }).then(
+        () => true,
+        () => false,
+      )
+      if (!asked) return
+      await username.fill(USER.username)
+      await page.fill('input[name="password"]', USER.password)
+      await page.click('button[type="submit"]')
+    }
+
+    await page.goto('/')
+    await signInIfAsked()
+    await expect.poll(() => tokenAttempts.length, { timeout: 30_000 }).toBe(1)
+    // The automatic retry is a fresh logIn(): back to the provider once more.
+    await signInIfAsked()
+    await expect.poll(() => tokenAttempts.length, { timeout: 30_000 }).toBe(2)
 
     // Named, not just `level: 1`: every standalone page now carries an <h1>, so
     // "some h1 appeared" no longer distinguishes the failure page from any other
@@ -99,5 +153,7 @@ test.describe('OAuth2 authorization-code login', () => {
     await expect
       .poll(() => page.evaluate(() => document.getElementById('app-loader')?.hasAttribute('hidden') ?? true))
       .toBe(true)
+    // Still two once the error is up: one automatic retry, then a human, never a loop.
+    expect(tokenAttempts).toHaveLength(2)
   })
 })

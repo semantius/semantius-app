@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, dirname, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -78,5 +78,73 @@ describe('boot overlay variant', () => {
 
   it('uses the plain spinner only for standalone centered pages', () => {
     expect(plain.sort()).toEqual(['/form-playground', '/logout', '/logout-success'])
+  })
+})
+
+/**
+ * The plain-variant routes are standalone pages: no `_app` layout, no
+ * ProtectedRoute, nothing downstream that will take the overlay down for them.
+ * Each has to do it itself — in its own module, in the page component it
+ * renders (/logout-success delegates to LogoutConfirmationPage), or by handing
+ * off to another plain route that does (/logout shows "Logging out..." for a
+ * tick and then navigates to /logout-success, or leaves for the provider).
+ * /form-playground did none of these and sat behind the spinner on every
+ * visit; the `return null` scan above could not see it, because the route
+ * renders content.
+ */
+describe('standalone routes take the overlay down themselves', () => {
+  const SRC_DIR = join(ROUTES_DIR, '..')
+  const html = readFileSync(join(ROUTES_DIR, '..', '..', 'index.html'), 'utf8')
+  const plain = [...(html.match(/var plain = \[([^\]]*)\]/s)?.[1] ?? '').matchAll(/'([^']+)'/g)].map(
+    (m) => m[1],
+  )
+  const routeFileFor = (path: string) => join(ROUTES_DIR, `${path.slice(1)}.tsx`)
+
+  /** Source of the modules a route imports from src/components, one level deep. */
+  function importedComponentSources(routeFile: string): string[] {
+    const src = readFileSync(routeFile, 'utf8')
+    const out: string[] = []
+    for (const [, spec] of src.matchAll(/from\s+['"]([^'"]+)['"]/g)) {
+      let base: string | null = null
+      if (spec.startsWith('@/')) base = join(SRC_DIR, spec.slice(2))
+      else if (spec.startsWith('.')) base = join(dirname(routeFile), spec)
+      if (!base || !/components[\\/]/.test(base)) continue
+      const file = ['.tsx', '.ts', '/index.tsx'].map((ext) => base + ext).find((f) => existsSync(f))
+      if (file) out.push(readFileSync(file, 'utf8'))
+    }
+    return out
+  }
+
+  /**
+   * Everything that can take the overlay down for a route: its own source, the
+   * page components it imports, and — one hop only — the same for any other
+   * plain route it names as a string literal (a `navigate({ to: '/x' })`).
+   */
+  function overlaySources(path: string): string[] {
+    const routeFile = routeFileFor(path)
+    const src = readFileSync(routeFile, 'utf8')
+    const handoffs = plain.filter((other) => other !== path && src.includes(`'${other}'`))
+    return [
+      src,
+      ...importedComponentSources(routeFile),
+      ...handoffs.flatMap((other) => [
+        readFileSync(routeFileFor(other), 'utf8'),
+        ...importedComponentSources(routeFileFor(other)),
+      ]),
+    ]
+  }
+
+  it('resolves page components and hand-offs, so the scan below is not vacuous', () => {
+    expect(importedComponentSources(routeFileFor('/logout-success')).length).toBeGreaterThan(0)
+    // /logout reaches LogoutConfirmationPage only through /logout-success.
+    expect(overlaySources('/logout').length).toBeGreaterThan(1)
+  })
+
+  it.each(plain)('%s has a hideAppLoader() path in its route, its page component or its hand-off', (path) => {
+    expect(existsSync(routeFileFor(path)), `no route module for ${path}`).toBe(true)
+    expect(
+      overlaySources(path).some((s) => s.includes('hideAppLoader')),
+      `${path} renders a standalone page but nothing on its path calls hideAppLoader()`,
+    ).toBe(true)
   })
 })
