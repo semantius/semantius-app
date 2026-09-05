@@ -134,7 +134,7 @@ jobs:
     # The arm64 leg is emulated and slow, but not six-hours slow — the default
     # timeout would let a wedged QEMU build sit on a runner all afternoon.
     timeout-minutes: 60
-    needs: [guard, checks]
+    needs: [guard, checks, a11y]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
