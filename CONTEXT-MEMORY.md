@@ -318,7 +318,18 @@ Combine with `&`: `?select=id,name&status=eq.active&order=created_at.desc&limit=
 - Always install via CLI: `npx shadcn@latest add <component> -y` — never create manually
 - Never modify files in `src/components/ui/` — they are CLI-managed and upgradable
 - Config: `components.json` (points to `src/global.css`)
-- To customize: use `className` props at the call site (e.g., `<SheetContent className="border-l-0">`) — never modify `src/components/ui/*` or `src/global.css`
+- To customize: use `className` props at the call site (e.g., `<SheetContent className="border-l-0">`) — never modify `src/components/ui/*`
+- **`src/global.css` has one sanctioned exception, and only one.** The call-site rule
+  holds until a defect is in a CLI-owned file that **no call site can reach** — the
+  `@layer utilities` block at the bottom of `global.css` exists for exactly that case
+  (a 3:1 boundary on nine form surfaces, one of which is `ui/command.tsx`'s internally
+  constructed `<InputGroup>`; the mobile-sidebar width; the Sheet/Dialog close-button
+  gutter). It is safe because shadcn only *appends* CSS variables to the
+  `components.json` `tailwind.css` target rather than regenerating it, so a
+  `shadcn add` will not wipe the block. Read the comment above that block before
+  adding to it — the specificity reasoning there is load-bearing and non-obvious
+  (see "Accessibility — the mechanisms" above). Reach for it only after confirming
+  no call site and no `ui-ext/` fork can do the job.
 
 #### `ui/` vs `ui-ext/` boundary (CRITICAL)
 
