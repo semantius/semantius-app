@@ -25,12 +25,12 @@ import { join } from 'node:path'
 const SHELL = process.platform === 'win32'
 
 export class Browser {
-  constructor({ session = 'a11y-sweep', initScripts = [], timeoutMs = 180_000 } = {}) {
+  constructor({ session = 'a11y-audit', initScripts = [], timeoutMs = 180_000 } = {}) {
     this.session = session
     this.initScripts = initScripts
     this.timeoutMs = timeoutMs
     this.registeredInitScripts = false
-    this.tmp = mkdtempSync(join(tmpdir(), 'a11y-sweep-'))
+    this.tmp = mkdtempSync(join(tmpdir(), 'a11y-audit-'))
   }
 
   #run(args, { input, allowFailure = false } = {}) {

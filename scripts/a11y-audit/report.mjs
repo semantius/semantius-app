@@ -67,7 +67,7 @@ export function buildReport({ meta, cells }) {
       }
 
       // 1.3.1 / 2.4.6 heading structure. axe's page-has-heading-one is a
-      // best-practice rule and therefore outside the AA tag set this sweep runs,
+      // best-practice rule and therefore outside the AA tag set this audit runs,
       // which is exactly why it is checked here instead.
       bucket('1.3.1').observed += 1
       if (s.modalOpen) {
@@ -206,7 +206,7 @@ export function buildReport({ meta, cells }) {
   for (const cell of admissible) {
     const title = cell.structure?.title
     if (!title) continue
-    // The sweep runs signed in, so a route that redirects an authenticated user
+    // The audit runs signed in, so a route that redirects an authenticated user
     // away (e.g. /login -> /) reports the destination's title. That is not a
     // duplicate title, it is a route this run never actually rendered.
     if (cell.route.unauthenticated) continue
@@ -237,7 +237,7 @@ export function buildReport({ meta, cells }) {
   const criteria = CRITERIA.map((c) => {
     const data = acc.get(c.id)
     let status = STATUS.NOT_EVALUATED
-    let note = 'No automated check in this sweep covers this criterion.'
+    let note = 'No automated check in this audit covers this criterion.'
 
     if (data && data.observed > 0) {
       if (data.failures.length === 0) {
@@ -306,7 +306,7 @@ export function buildReport({ meta, cells }) {
 /** Human-readable digest, printed after a run and easy to paste into a PR. */
 export function formatSummary(report) {
   const lines = []
-  lines.push(`Accessibility sweep — ${report.meta.url}`)
+  lines.push(`Accessibility audit — ${report.meta.url}`)
   lines.push(
     `${report.meta.admissibleCells}/${report.meta.cells} cells admissible` +
       (report.meta.inconclusiveCells ? `, ${report.meta.inconclusiveCells} INCONCLUSIVE` : ''),

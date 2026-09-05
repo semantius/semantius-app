@@ -210,13 +210,13 @@ agent-browser skills get core --full # full, version-matched command reference
 agent-browser <command> --help
 ```
 
-## Commands the accessibility sweep depends on (0.27+)
+## Commands the accessibility audit depends on (0.27+)
 
-These four are what `scripts/a11y-sweep/` is built on and none of them existed in
+These four are what `scripts/a11y-audit/` is built on and none of them existed in
 this file before 0.27:
 
 ```bash
-# Viewport — the sweep walks 320/390/640/768/1024/1440 plus landscape 844x390.
+# Viewport — the audit walks 320/390/640/768/1024/1440 plus landscape 844x390.
 agent-browser set viewport 390 844
 
 # Theme — emulates the OS preference. This is the ONLY correct way to switch
@@ -242,7 +242,7 @@ agent-browser --init-script ./axe.js open https://example.com
 
 ```bash
 agent-browser storage local          # read localStorage
-agent-browser --session sweep open <url>   # isolated session, safe to run in parallel
+agent-browser --session audit open <url>   # isolated session, safe to run in parallel
 agent-browser close --all            # close every session
 ```
 

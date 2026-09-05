@@ -2,7 +2,7 @@
  * The route matrix, and how the parameterised ones are resolved.
  *
  * Seven of the app's routes carry params (`$moduleId`, `$table_name`, `$key`,
- * `$id`). Guessing values produces 404 pages that sweep clean and prove nothing,
+ * `$id`). Guessing values produces 404 pages that audit clean and prove nothing,
  * so they are resolved live against the same PostgREST endpoint the app uses,
  * with the same token.
  */
@@ -24,7 +24,7 @@ export const VIEWPORTS = [
 export const THEMES = ['light', 'dark']
 
 /**
- * Routes that are deliberately NOT swept, and why. Stating them here rather than
+ * Routes that are deliberately NOT audited, and why. Stating them here rather than
  * quietly omitting them is what keeps "zero violations" from being a claim about
  * pages nobody looked at.
  */
@@ -50,7 +50,7 @@ export async function resolveRoutes({ apiBaseUrl, token, fetchImpl = fetch }) {
 
   const modules = await get('/modules?select=id,module_name,module_slug,home_page&order=id')
   // Prefer a content module over the `_core` admin one: it has richer pages, and
-  // a sweep of the admin module alone would miss the grids most users see.
+  // a audit of the admin module alone would miss the grids most users see.
   const demoModule =
     modules.find((m) => m.module_slug && m.module_slug !== 'admin') ?? modules[0]
   if (!demoModule) throw new Error('no modules available to resolve routes against')

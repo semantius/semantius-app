@@ -14,7 +14,7 @@ name: Accessibility
 #                  whose login cannot be proven should not ship — and the server
 #                  lives in the same Cloudflare account as the previews.
 #
-#   sweep          scripts/a11y-sweep/ against a Cloudflare preview deployed from
+#   audit          scripts/a11y-audit/ against a Cloudflare preview deployed from
 #                  the same commit. It decrypts the committed .env
 #                  (DOTENV_PRIVATE_KEY is already a repository secret) for the
 #                  Cloudflare token and the tenant API key, takes about forty
@@ -26,20 +26,20 @@ name: Accessibility
 on:
   workflow_dispatch:
     inputs:
-      sweep:
-        description: 'Deploy a preview of this commit and run the route sweep against it'
+      audit:
+        description: 'Deploy a preview of this commit and run the route audit against it'
         type: boolean
         default: true
       label:
         description: 'Artifact label: a11y-reports/<stamp>-<label>.json'
         type: string
         default: ci
-  # No schedule. The sweep deploys a preview, needs the tenant up, takes over an
+  # No schedule. The audit deploys a preview, needs the tenant up, takes over an
   # hour and is red by design while criteria are open — a timer would spend all
   # of that with nobody waiting for the answer. Dispatch it when a run is wanted.
   workflow_call:
     inputs:
-      sweep:
+      audit:
         type: boolean
         default: false
       label:
@@ -84,10 +84,10 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-  sweep:
-    name: route sweep · deployed preview
+  audit:
+    name: route audit · deployed preview
     # On dispatch the input defaults to true; on a call it defaults to false.
-    if: ${{ inputs.sweep }}
+    if: ${{ inputs.audit }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
@@ -105,13 +105,13 @@ jobs:
       # The same provisioning every agent sandbox gets — agent-browser, dotenvx
       # and wrangler globally, Playwright's Chromium, then `pnpm install` — from
       # the one script that defines it, so a runner cannot drift from the
-      # sandboxes the sweep is developed in.
-      - name: Provision the sweep's tooling
+      # sandboxes the audit is developed in.
+      - name: Provision the audit's tooling
         env:
           DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
         run: bash workplace/setup.sh
 
-      # The sweep must measure the build under review, and the `#jwt` session
+      # The audit must measure the build under review, and the `#jwt` session
       # seeding it relies on is gated to *.workers.dev hosts, so a preview is
       # the only place it can run. Writing .preview-url.md is the deploy
       # script's last step; its absence is the deploy-failed signal.
@@ -122,15 +122,15 @@ jobs:
           dotenvx run -- bash workplace/deploy-wrangler.sh
           test -f .preview-url.md || { echo "::error::the preview deploy did not write .preview-url.md"; exit 1; }
 
-      - name: Sweep
+      - name: Audit
         env:
           DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
         run: |
           url="$(grep -oE 'https://\S+' .preview-url.md)"
-          echo "Swept $url" >> "$GITHUB_STEP_SUMMARY"
-          dotenvx run -- node scripts/a11y-sweep/run.mjs --url "$url" --label "$LABEL" --screenshots
+          echo "Audited $url" >> "$GITHUB_STEP_SUMMARY"
+          dotenvx run -- node scripts/a11y-audit/run.mjs --url "$url" --label "$LABEL" --screenshots
 
-      # Kept whether or not the sweep passed: a failing run is the one somebody
+      # Kept whether or not the audit passed: a failing run is the one somebody
       # needs to read. Cite a run by its timestamped filename — the git-ignored
       # latest.json is a local convenience, not a record.
       - name: Keep the run

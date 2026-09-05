@@ -87,7 +87,7 @@ function over(src, dst, alpha = 1) {
   )
 }
 
-/** Same hue and chroma, swept lightness — the axis a token is actually tuned on. */
+/** Same hue and chroma, lightness varied — the axis a token is actually tuned on. */
 function atLightness(value, l) {
   const c = new Color(value).to('oklch')
   return new Color('oklch', [l, c.coords[1], c.coords[2]])
@@ -200,7 +200,7 @@ function worst(candidate, req, p) {
   return { ratio: low, where }
 }
 
-/** Sweep lightness for the first value clearing `min` everywhere. */
+/** Walk lightness for the first value clearing `min` everywhere. */
 function solve(req, p, current) {
   const step = 0.001
   const darkFirst = worst(atLightness(current, 0.2), req, p).ratio >

@@ -1,12 +1,12 @@
-# Accessibility sweep artifacts
+# Accessibility audit artifacts
 
-One JSON file per run of `scripts/a11y-sweep/run.mjs`, plus a `.txt` digest.
+One JSON file per run of `scripts/a11y-audit/run.mjs`, plus a `.txt` digest.
 
 `run.mjs` also writes `latest.json`, a byte-identical copy of the run it just
 finished. That copy is **git-ignored and never committed** — it is a local
 convenience for `jq`-ing the most recent run, and committing it would put a
 second 363KB copy of an existing file in history under a name that goes stale
-the next time anyone sweeps. Cite a run by its timestamped filename.
+the next time anyone audits. Cite a run by its timestamped filename.
 
 Each file is keyed by **success criterion**, not by route, and uses the report
 vocabulary: `Supports` / `Partially Supports` / `Does Not Support` /
@@ -15,7 +15,7 @@ vocabulary: `Supports` / `Partially Supports` / `Does Not Support` /
 - A criterion nothing checked reads **Not Evaluated**, never `Supports`. A
   criterion no rule covers is simply absent from an axe payload; rendering
   absence as a pass would make the whole artifact a dishonest conformance claim.
-- A cell the sweep could not measure is **INCONCLUSIVE** and is excluded from
+- A cell the audit could not measure is **INCONCLUSIVE** and is excluded from
   every criterion's evidence. `summary.pass` is false whenever any cell is
   inconclusive, so an unmeasurable run cannot read as a clean one. The reasons
   are listed under `inconclusive[]`.
@@ -42,7 +42,7 @@ tell it apart from a real one.
 
 ## Outstanding: no post-fix run exists
 
-The sweep authenticates with a token minted from `SEMANTIUS_API_KEY`, and that
+The audit authenticates with a token minted from `SEMANTIUS_API_KEY`, and that
 key began returning `401 {"error":"Invalid API key"}` from
 `https://tests.semantius.cloud/token` part-way through the work. Every
 authenticated route is unreachable to the harness until it is reissued.
@@ -55,21 +55,21 @@ described the current tree.
 To produce the run that is missing:
 
 ```bash
-# 1. Confirm the key works BEFORE spending 40 minutes on a sweep.
+# 1. Confirm the key works BEFORE spending 40 minutes on a audit.
 dotenvx run --quiet -- node scripts/mint-token.mjs | head -c 12    # expect "eyJ..."
 
-# 2. Deploy the CURRENT tree; the sweep must measure the build under review.
+# 2. Deploy the CURRENT tree; the audit must measure the build under review.
 pnpm preview:wrangler
 
-# 3. Sweep. Tokens last one hour and the full matrix takes ~40 minutes, so mint
+# 3. Audit. Tokens last one hour and the full matrix takes ~40 minutes, so mint
 #    immediately before, and re-run rather than accept a tail of inconclusive cells.
-dotenvx run -- node scripts/a11y-sweep/run.mjs \
+dotenvx run -- node scripts/a11y-audit/run.mjs \
   --url "$(grep -oE 'https://\S+' .preview-url.md)" --label after-fixes --screenshots
 ```
 
-Or run it from CI: dispatch `.github/workflows/a11y.yml` with `sweep` on. It
+Or run it from CI: dispatch `.github/workflows/a11y.yml` with `audit` on. It
 provisions a runner with `workplace/setup.sh`, deploys a preview of the chosen
-commit, runs the sweep against it and uploads `a11y-reports/` as an artifact —
+commit, runs the audit against it and uploads `a11y-reports/` as an artifact —
 download the timestamped `.json` and `.txt` into this folder to keep the run. The
 job fails while any criterion is open, by design; the artifact is the result.
 

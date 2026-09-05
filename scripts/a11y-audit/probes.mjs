@@ -21,7 +21,7 @@ const HELPERS = readFileSync(new URL('./page-helpers.js', import.meta.url), 'utf
  * Admissibility gate. Nothing else in this file means anything unless this
  * passes: a page still under the boot overlay, or showing BootFailure, or that
  * threw during hydration, is not the page we set out to measure — and reporting
- * "0 violations" for it is how a sweep produces a confident lie.
+ * "0 violations" for it is how a audit produces a confident lie.
  *
  * The third state matters. A cell that fails this is INCONCLUSIVE, which maps to
  * "Not Evaluated" in the report, never to a pass.
@@ -29,7 +29,7 @@ const HELPERS = readFileSync(new URL('./page-helpers.js', import.meta.url), 'utf
 export const ADMISSIBILITY = `(() => {${HELPERS}
   const loader = document.getElementById('app-loader')
   // Every surface the app puts up INSTEAD of the page. Each of these renders a
-  // small, perfectly accessible error card, so a sweep that does not recognize
+  // small, perfectly accessible error card, so a audit that does not recognize
   // them reports "0 violations" for a route it never actually saw — the exact
   // failure mode the admissibility gate exists to prevent. A 404 from the user-
   // info RPC is transient and does this on any route.
@@ -74,7 +74,7 @@ export const AXE = `
     resultTypes: ['violations', 'incomplete'],
     // The drizzle-cube AnalyticsDashboard and the charts that only render inside
     // it are third-party and out of scope (see the plan's scope decision); the
-    // claim this sweep supports is scoped to what we own, and saying so in the
+    // claim this audit supports is scoped to what we own, and saying so in the
     // payload is how that stays honest rather than silently omitted.
     exclude: [['.dc-dashboard'], ['[data-dc-portlet]'], ['.react-grid-layout']],
   })

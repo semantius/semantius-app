@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * Tier 3 — the route × viewport × theme accessibility sweep.
+ * Tier 3 — the route × viewport × theme accessibility audit.
  *
- *   dotenvx run -- node scripts/a11y-sweep/run.mjs --url https://<preview>.workers.dev
+ *   dotenvx run -- node scripts/a11y-audit/run.mjs --url https://<preview>.workers.dev
  *
  * Runs against a DEPLOYED build, in a real browser, signed in with a real token.
  * That is the point: jsdom loads no CSS, so `sr-only` is invisible to it, contrast
@@ -152,7 +152,7 @@ async function main() {
   const args = parseArgs(process.argv.slice(2))
   if (args.help || !args.url) {
     console.log(
-      'usage: node scripts/a11y-sweep/run.mjs --url <deployed-url> [--token <jwt>]\n' +
+      'usage: node scripts/a11y-audit/run.mjs --url <deployed-url> [--token <jwt>]\n' +
         '       [--viewports 320,390] [--themes light,dark] [--routes index,settings]\n' +
         '       [--label before-contrast] [--screenshots] [--out a11y-reports]',
     )
@@ -228,9 +228,9 @@ async function main() {
             // answers the first request after an idle period with a 404 rather
             // than a 5xx or a wait, and the app treats that as terminal: it
             // renders an error card and never retries. Warming from here costs
-            // one request and keeps the sweep measuring pages instead of cold
+            // one request and keeps the audit measuring pages instead of cold
             // starts. (The app's own lack of a retry is a real robustness gap,
-            // but it is not what this sweep is here to measure.)
+            // but it is not what this audit is here to measure.)
             await warmApi(apiBaseUrl, token)
             browser.errors({ clear: true })
             opened = browser.open(url)
@@ -255,7 +255,7 @@ async function main() {
             if (!admissibility.loaderHidden) reasons.push('boot overlay never came down')
             if (admissibility.bootFailure) reasons.push(`blocking surface rendered: ${admissibility.bootFailureReason}`)
             if (!admissibility.rootHasContent) reasons.push('#root is empty')
-            // Assert the theme actually switched. A sweep that silently measures
+            // Assert the theme actually switched. A audit that silently measures
             // light twice reports dark as clean without ever rendering it.
             if ((theme === 'dark') !== admissibility.darkClass) {
               reasons.push(`theme did not apply (wanted ${theme}, .dark=${admissibility.darkClass})`)

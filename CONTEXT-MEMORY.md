@@ -257,7 +257,7 @@ repeat the modifier (`data-[side=right]:w-full`) or it silently renders at 75%.
 Same for `max-w-*`.
 
 **next-themes runs with `defaultTheme="system"`, so the only correct way to switch
-themes in a test or a sweep is to emulate the OS preference** (`agent-browser set
+themes in a test or a audit is to emulate the OS preference** (`agent-browser set
 media dark`). Writing the `semantius-ui-theme` storage key or toggling `.dark` by
 hand desynchronizes the provider from the DOM and measures a state no user can be
 in. Any harness that switches themes must also ASSERT the switch took effect;
@@ -698,7 +698,7 @@ projects, `node` and `browser`. The layers that do work:
    map is what makes our wrapper components visible at all; TanStack's `Link` must
    go in `linkComponents`, NOT `components` (mapping it to an anchor manufactures 22
    false positives by demanding an `href` prop it does not take).
-4. **`scripts/a11y-sweep/`** — a real browser against a deployed preview. Everything
+4. **`scripts/a11y-audit/`** — a real browser against a deployed preview. Everything
    else is a proxy for this.
 
 **There are exactly TWO substitutions the suite is allowed, named and counted in
@@ -723,7 +723,7 @@ suite. Nine families are already at zero. The remaining 40 are 13 internal mocks
 The target is zero, reached by moving those tests into a browser, not by writing better
 mocks.
 
-### The sweep harness — traps that cost hours
+### The audit harness — traps that cost hours
 
 - **`agent-browser` never returns if its stdio is a pipe.** Its per-session daemon
   inherits the pipe, so the pipe never closes and `spawnSync` waits forever even

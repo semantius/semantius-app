@@ -81,7 +81,7 @@ export const CRITERIA = [
 
 /**
  * The four criteria that have no machine pass condition, because each asks
- * whether something is GOOD rather than whether it is PRESENT. The sweep dumps
+ * whether something is GOOD rather than whether it is PRESENT. The audit dumps
  * the raw material for each into the run artifact so a reviewer skims a diff
  * instead of running a scheduled audit; none of them may report Supports on the
  * strength of that evidence alone.

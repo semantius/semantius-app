@@ -11,7 +11,7 @@
     "check": "pnpm --filter @semantius/frontend lint && pnpm --filter @semantius/frontend test",
     "test:browser": "pnpm --filter @semantius/frontend exec vitest run --project browser",
     "test:e2e": "pnpm --filter @semantius/frontend test:e2e",
-    "test:sweep": "dotenvx run -- node scripts/a11y-sweep/run.mjs",
+    "test:a11y-audit": "dotenvx run -- node scripts/a11y-audit/run.mjs",
     "test": "dotenvx run -- turbo test",
     "preview": "dotenvx run -- turbo preview",
     "preview:wrangler": "dotenvx run -- turbo preview:wrangler",

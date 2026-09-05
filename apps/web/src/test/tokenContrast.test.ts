@@ -17,7 +17,7 @@ import {
  * Tier 1 — the palette's contrast math, computed from `src/global.css` itself.
  *
  * This is the only layer that can check a color pair the browser never happens
- * to render during a sweep (a hover tint, a disabled state, a control on a
+ * to render during a audit (a hover tint, a disabled state, a control on a
  * surface no current route puts it on) and the only one that fails at the moment
  * a token is edited rather than at the next deploy.
  *

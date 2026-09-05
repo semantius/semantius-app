@@ -112,7 +112,7 @@ describe('InputEnum', () => {
 
   /**
    * Regressions from the a11y pass, each of which shipped and had to be undone.
-   * They are asserted here rather than left to the browser sweep because all
+   * They are asserted here rather than left to the browser audit because all
    * three are structural — visible in the rendered DOM, invisible on screen.
    */
   describe('ARIA wiring', () => {

@@ -121,7 +121,7 @@ jobs:
     uses: ./.github/workflows/checks.yml
 
   # The real OAuth login journey (apps/web/e2e/), from a11y.yml. Only that job
-  # runs here — `sweep` defaults to off on a call, because a forty-minute sweep
+  # runs here — `audit` defaults to off on a call, because an hour-long audit
   # that is red by design while criteria remain open is a report, not a gate.
   # The journey is the one place the app's actual login path is proven, which
   # is why it gates what ships; see the trade-off spelled out in a11y.yml.
