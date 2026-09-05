@@ -5,7 +5,7 @@ name: Accessibility
 #
 #   login-journey  The interactive OAuth round trip (apps/web/e2e/), the only
 #                  place the app's real login path runs. It is what keeps the
-#                  suite's `#jwt` session seeding honest. A build plus two
+#                  suite's `#jwt` session seeding honest. A build plus three
 #                  Playwright tests and no secrets: cheap enough to GATE a
 #                  release, and docker-publish.yml calls it beside checks.yml
 #                  for exactly that. The trade-off is deliberate: it depends on
@@ -34,9 +34,9 @@ on:
         description: 'Artifact label: a11y-reports/<stamp>-<label>.json'
         type: string
         default: ci
-  schedule:
-    # Weekly, Monday 04:23 UTC. Off the hour: GitHub throttles on-the-hour crons.
-    - cron: '23 4 * * 1'
+  # No schedule. The sweep deploys a preview, needs the tenant up, takes over an
+  # hour and is red by design while criteria are open — a timer would spend all
+  # of that with nobody waiting for the answer. Dispatch it when a run is wanted.
   workflow_call:
     inputs:
       sweep:
@@ -86,8 +86,8 @@ jobs:
 
   sweep:
     name: route sweep · deployed preview
-    # `inputs` is empty on a schedule, which is the other way this job is wanted.
-    if: ${{ inputs.sweep || github.event_name == 'schedule' }}
+    # On dispatch the input defaults to true; on a call it defaults to false.
+    if: ${{ inputs.sweep }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
