@@ -60,6 +60,16 @@ describe('APISelect', () => {
     expect(screen.getByRole('combobox')).not.toHaveAccessibleName(/clear selection/i)
   })
 
+  it('is announced by its label, not just "not by the clear button"', async () => {
+    // The negative assertion above passes on a trigger with NO name at all. This
+    // renders the real label element the id points at, so a broken
+    // aria-labelledby self-reference fails here.
+    renderSelect({ value: '1', 'aria-labelledby': 'owner-label' })
+    render(<span id="owner-label">Owner</span>)
+    await waitFor(() => expect(screen.getByRole('combobox')).toHaveTextContent('Ada'))
+    expect(screen.getByRole('combobox')).toHaveAccessibleName(/Owner/)
+  })
+
   it('shows no clear button when the field is not clearable', async () => {
     renderSelect({ value: '1', clearable: false })
     await waitFor(() => expect(screen.getByRole('combobox')).toHaveTextContent('Ada'))

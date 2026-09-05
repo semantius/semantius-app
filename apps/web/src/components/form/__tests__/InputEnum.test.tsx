@@ -229,6 +229,17 @@ describe('InputEnum', () => {
       expect(screen.getByRole('combobox')).not.toHaveAccessibleName(/clear selection/i)
     })
 
+    it('is announced by its label, not just "not by the clear button"', () => {
+      // The negative assertion above passes on a trigger with NO name at all.
+      // This is the one that fails if the aria-labelledby self-reference breaks.
+      render(
+        <TestWrapper defaultValue="Option 1">
+          <InputEnum name="option" label="Choose Option" />
+        </TestWrapper>
+      )
+      expect(screen.getByRole('combobox')).toHaveAccessibleName(/Choose Option/)
+    })
+
     it('points aria-controls at an element that actually exists', async () => {
       // cmdk's Command.List overwrites any id passed to it, so the id this
       // component generated pointed at nothing whenever the popup was open —

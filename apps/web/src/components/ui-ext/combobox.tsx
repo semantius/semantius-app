@@ -28,6 +28,15 @@ interface ComboboxProps {
   id?: string
   "aria-invalid"?: boolean
   "aria-describedby"?: string
+  /**
+   * `role="combobox"` is NOT a name-from-content role, so the selected value
+   * inside the trigger does not name it: without one of these the control has NO
+   * accessible name and axe reports `aria-input-field-name` (serious). One of
+   * them is required — a caller that supplies neither ships an unnamed control,
+   * which is why they are here rather than left to `...props`.
+   */
+  "aria-label"?: string
+  "aria-labelledby"?: string
   onBlur?: () => void
   className?: string
 }
@@ -43,6 +52,8 @@ export function Combobox({
   id,
   "aria-invalid": ariaInvalid,
   "aria-describedby": ariaDescribedBy,
+  "aria-label": ariaLabel,
+  "aria-labelledby": ariaLabelledBy,
   onBlur,
   className,
 }: ComboboxProps) {
@@ -82,8 +93,10 @@ export function Combobox({
     >
       {/* The clear button is a SIBLING of the trigger, not one of its children.
           Nesting a <button> inside the trigger <button> is invalid HTML and an
-          axe `nested-interactive` (serious) error, and it also pollutes the
-          trigger's accessible name, which is computed from its content. */}
+          axe `nested-interactive` (serious) error. (It does not pollute the
+          trigger's NAME here — `role="combobox"` is not a name-from-content
+          role, which is the same reason aria-label/aria-labelledby above are
+          required rather than optional.) */}
       <div className="relative w-full">
         <PopoverTrigger
           render={
@@ -97,6 +110,8 @@ export function Combobox({
               aria-haspopup="listbox"
               aria-invalid={ariaInvalid}
               aria-describedby={ariaDescribedBy}
+              aria-label={ariaLabel}
+              aria-labelledby={ariaLabelledBy}
               disabled={disabled}
               type="button"
               data-slot="combobox-trigger"

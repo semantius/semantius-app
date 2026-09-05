@@ -34,6 +34,26 @@ describe('Combobox', () => {
     expect(screen.queryByRole('button', { name: /clear selection/i })).not.toBeInTheDocument()
   })
 
+  it('takes its accessible name from aria-label', () => {
+    // The negative assertion above passes on a trigger with NO name at all, and
+    // this component USED to have exactly that: `role="combobox"` is not a
+    // name-from-content role, so the selected value inside the trigger does not
+    // name it, and there was no aria-label/aria-labelledby prop to supply one.
+    // Found by writing this assertion; the props were added in response.
+    render(<Combobox options={OPTIONS} value="Alpha" showClear id="pick" aria-label="Greek letter" />)
+    expect(screen.getByRole('combobox')).toHaveAccessibleName('Greek letter')
+  })
+
+  it('takes its accessible name from aria-labelledby', () => {
+    render(
+      <>
+        <span id="pick-label">Greek letter</span>
+        <Combobox options={OPTIONS} value="Alpha" id="pick" aria-labelledby="pick-label" />
+      </>,
+    )
+    expect(screen.getByRole('combobox')).toHaveAccessibleName('Greek letter')
+  })
+
   it('points aria-controls at an element that actually exists', async () => {
     // cmdk's Command.List overwrites any id passed to it, so the id this
     // component generated pointed at nothing whenever the popup was open — the
