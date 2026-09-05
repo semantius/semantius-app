@@ -22,6 +22,7 @@ interface StickyContainerProps extends ComponentProps<'div'> {
 export function StickyContainer({ sticky, className, children, ...props }: StickyContainerProps) {
   return (
     <div
+      data-slot="sticky-container"
       className={cn(
         // bg-background is required so scrolled content does not show through while pinned.
         // NB: the nearest scroll container must NOT have padding on the sticky edge — a

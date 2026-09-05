@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useContext } from 'react'
-import { useNavigate, useSearch } from '@tanstack/react-router'
+import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { type EntityMetadata, type TableMetadata } from '@/types/metadata'
 import { cn } from '@/lib/utils'
 import { formatNumberForDisplay, resolvePrecision } from '@/lib/number-format'
@@ -8,6 +8,7 @@ import { useTable } from '@/hooks/useTable'
 import { useUpdateRecord } from '@/hooks/useTableMutations'
 import { useConfirmDelete } from '@/hooks/useConfirmDelete'
 import { useUserHasPermission } from '@/hooks/useUserPermissions'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { ConfirmDeleteDialog } from '@/components/ConfirmDeleteDialog'
 import { buildPostgRESTSelect, AUTO_LABEL } from '@/lib/apiClient'
 import {
@@ -104,6 +105,23 @@ export interface DataTableViewProps {
   onEdit?: (record: RecordType) => void
   onEditModal?: (record: RecordType) => void
   editRoute?: string
+  /**
+   * Href of a record's own page. When supplied, the label column renders a real
+   * <Link> instead of plain text.
+   *
+   * Rows are opened by clicking anywhere on them, which is mouse-only: a <tr>
+   * takes no focus, fires no key events, and announces nothing (2.1.1). Rather
+   * than bolt `role="button"` onto the row — which would make every cell's
+   * content part of one enormous button label — the record's own name becomes
+   * the link, which is what it already reads as.
+   */
+  getRowHref?: (record: RecordType) => string | undefined
+  /**
+   * Whether that link carries the grid's current search params (page, sort,
+   * filters, the _pf/_pv parent filter). Mirrors whichever navigate() the row's
+   * click handler uses, so link and click land in the same place.
+   */
+  rowHrefPreservesSearch?: boolean
   canEdit?: boolean
   emptyMessage?: string
   emptyIcon?: React.ReactNode
@@ -256,12 +274,56 @@ function serializeFiltersForURL(filters: ExtendedColumnFilter<RecordType>[]): st
   return JSON.stringify(filters.map(({ filterId: _id, ...rest }) => rest))
 }
 
+
+/**
+ * The label column's cell. Renders the record's name as a real <Link> when the
+ * caller supplies an href, and as plain text otherwise (the grid is also used
+ * where rows do not open anything).
+ *
+ * This is what makes a row reachable without a mouse. The row's own onClick stays
+ * — it is a convenience, and `DataTableBodyRow` already ignores clicks that land
+ * on an <a>, so the two never both fire.
+ */
+function RecordLabelCell({
+  href,
+  preserveSearch,
+  text,
+  className,
+  style,
+  title,
+}: {
+  href?: string
+  preserveSearch?: boolean
+  text: string
+  className?: string
+  style?: React.CSSProperties
+  title?: string
+}) {
+  if (!href) {
+    return <div className={className} style={style} title={title}>{text}</div>
+  }
+  return (
+    <Link
+      to={href}
+      search={preserveSearch ? (prev) => prev : undefined}
+      className={cn(className, 'block rounded-sm hover:underline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring')}
+      style={style}
+      title={title}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {text}
+    </Link>
+  )
+}
+
 export function DataTableView({
   metadata,
   onRowClick,
   onEdit,
   onEditModal,
   editRoute,
+  getRowHref,
+  rowHrefPreservesSearch,
   canEdit = true,
   emptyMessage,
   emptyIcon: _emptyIcon,
@@ -277,6 +339,7 @@ export function DataTableView({
 
   const tableName = tableMetadata.table_name
   const primaryKeyColumn = tableMetadata.id_column
+  const isMobile = useIsMobile()
   const displayColumn = tableMetadata.label_column
   // When the schema declares an order_column, the grid is sorted by it (asc) and
   // rows can be drag-reordered. The column may not exist in `properties`, so it
@@ -615,6 +678,13 @@ export function DataTableView({
   // from metadata (same skip rules as the column build) so it is available while
   // building the columns, where pinned columns need an explicit size + truncation.
   const leftPinnedKeys = useMemo(() => {
+    // No sticky columns on a phone. The pinned set is sized in absolute pixels
+    // (PINNED_WIDTH_PX), so on a 390px viewport it takes 320 of the grid's 343
+    // available px: every other column is then permanently underneath it, and a
+    // focused header or cell control in one of them cannot be scrolled clear
+    // (2.4.11 — measured, not theorized). Horizontal scrolling with no sticky
+    // overlay is the usable behavior at that width.
+    if (isMobile) return [] as string[]
     if (!metadata.properties) return [] as string[]
     const keys: string[] = []
     for (const [key, property] of Object.entries(metadata.properties)) {
@@ -626,7 +696,7 @@ export function DataTableView({
     }
     const labelIndex = keys.indexOf(displayColumn)
     return labelIndex === 0 || labelIndex === 1 ? keys.slice(0, labelIndex + 1) : []
-  }, [metadata.properties, excludeColumns, displayColumn])
+  }, [metadata.properties, excludeColumns, displayColumn, isMobile])
 
   // --- Column definitions from metadata ---
   const columns = useMemo((): DataTableColumnDef<RecordType>[] => {
@@ -701,7 +771,7 @@ export function DataTableView({
           return (
             <DataTableColumnHeader className={isNumeric ? 'justify-end gap-0.5' : 'justify-start'}>
               <DataTableColumnTitle>{columnTitle}</DataTableColumnTitle>
-              {showSort && <DataTableColumnSortMenu className={isNumeric ? 'size-5' : undefined} />}
+              {showSort && <DataTableColumnSortMenu className={isNumeric ? 'size-6' : undefined} />}
             </DataTableColumnHeader>
           )
         },
@@ -756,6 +826,18 @@ export function DataTableView({
           }
 
           const text = String(value ?? '-')
+          if (key === displayColumn) {
+            return (
+              <RecordLabelCell
+                href={getRowHref?.(row.original)}
+                preserveSearch={rowHrefPreservesSearch}
+                text={text}
+                className={truncateClasses}
+                style={truncateStyle}
+                title={showTitle ? text : undefined}
+              />
+            )
+          }
           return <div className={truncateClasses} style={truncateStyle} title={showTitle ? text : undefined}>{text}</div>
         },
       })
@@ -885,7 +967,7 @@ export function DataTableView({
     }
 
     return cols
-  }, [metadata, excludeColumns, effectiveCanEdit, onEdit, editRoute, onEditModal, deleteConfirm, primaryKeyColumn, displayColumn, leftPinnedKeys, dndEnabled, getRowMenuItems])
+  }, [metadata, excludeColumns, effectiveCanEdit, onEdit, editRoute, onEditModal, deleteConfirm, primaryKeyColumn, displayColumn, leftPinnedKeys, dndEnabled, getRowMenuItems, getRowHref, rowHrefPreservesSearch])
 
   // Sticky pinning state: the label column (+ anything left of it, when in
   // position 1 or 2) on the left, and the row-actions column on the right.
@@ -935,16 +1017,16 @@ export function DataTableView({
             const v = row[primaryKeyColumn]
             return v !== undefined && v !== null ? String(v) : String(index)
           }}
-          initialState={{
-            // Pin the row-actions column to the right edge so the "..." menu
-            // stays visible without scrolling to the end of a wide table, plus
-            // the label column (and anything left of it) on the left when it
-            // sits in position 1 or 2 — see columnPinning memo above.
-            columnPinning,
-          }}
           state={{
             pagination,
             sorting,
+            // CONTROLLED, not initialState. useIsMobile() resolves in an effect, so
+            // its first render is always `false`; with pinning in initialState
+            // TanStack read that first value and kept it forever — a phone got the
+            // desktop pinning permanently, which is precisely the 2.4.11 failure
+            // this was meant to fix. Nothing changes pinning interactively, so a
+            // controlled value with no change handler is the right shape.
+            columnPinning,
           }}
           onPaginationChange={handlePaginationChange}
           onSortingChange={handleSortingChange}

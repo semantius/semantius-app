@@ -554,7 +554,7 @@ export function TableView({
               onChange={(e) => {
                 setPagination({ pageIndex: 0, pageSize: Number(e.target.value) })
               }}
-              className="h-8 w-[70px] rounded-md border border-input bg-background px-2 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className="h-8 w-[70px] rounded-md border border-input-border bg-background px-2 py-1 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >
               {[10, 15, 20, 25, 30, 40, 50].map((pageSize) => (
                 <option key={pageSize} value={pageSize}>

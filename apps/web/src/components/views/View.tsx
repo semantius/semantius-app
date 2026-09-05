@@ -428,6 +428,16 @@ export function View({ moduleId: _moduleId, table_name: _table_name, recordId: _
         onRowClick={(record) => navigateForEditMode('open', record)}
         onEdit={(record) => navigateForEditMode('open', record)}
         onEditModal={(record) => navigateForEditMode('open', record)}
+        // Same destinations navigateForEditMode('open') computes, expressed as an
+        // href so the record's name in the grid is a real link. A row that only
+        // has an onClick is unreachable by keyboard (2.1.1).
+        getRowHref={(record) => {
+          const id = String(record[idColumn])
+          return effectiveEditMode === 'page'
+            ? `${view_name}/${id}/view`
+            : `${view_name}/${id}`
+        }}
+        rowHrefPreservesSearch={effectiveEditMode !== 'page'}
         editRoute={editRoute}
         canEdit={canEdit}
         emptyMessage={`No ${metadata.table?.plural_label?.toLowerCase() || 'records'} found`}
@@ -445,7 +455,7 @@ export function View({ moduleId: _moduleId, table_name: _table_name, recordId: _
           // dedupes classes with identical modifiers, and the base attribute-scoped class
           // also out-specifies a plain `sm:max-w-*`. A bare `sm:max-w-[900px]` is therefore
           // silently ignored — the sidebar stays pinned at max-w-sm (384px).
-          className={`w-full border-l-0 ${useWideSidebar ? 'data-[side=right]:sm:max-w-[900px]' : 'data-[side=right]:sm:max-w-[540px]'}`}
+          className={`data-[side=right]:w-full border-l-0 ${useWideSidebar ? 'data-[side=right]:sm:max-w-[900px]' : 'data-[side=right]:sm:max-w-[540px]'}`}
           initialFocus={false}
         >
           <SheetHeader>

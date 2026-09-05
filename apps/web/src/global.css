@@ -29,14 +29,42 @@
   --secondary: oklch(0.967 0.001 286.375);
   --secondary-foreground: oklch(0.21 0.006 285.885);
   --muted: oklch(0.97 0.001 106.424);
-  --muted-foreground: oklch(0.553 0.013 58.071);
+  /* 4.5:1 against every surface it is used on, including the two that the
+     shadcn default (0.553) missed: --muted itself (4.41:1) and the
+     `placeholder:text-muted-foreground` on a bg-input/50 field (4.30:1). The
+     placeholder is the one axe can never see — a pseudo-element has no node to
+     inspect — and it is on every text input in the app. */
+  --muted-foreground: oklch(0.534 0.013 58.071);
   --accent: oklch(0.97 0.001 106.424);
   --accent-foreground: oklch(0.216 0.006 56.043);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.577 0.245 27.325);
+  /* `text-destructive` is never painted on the page: ui/badge, ui/button and
+     ui/dropdown-menu all put it on a `bg-destructive/10` rest tint and a
+     `bg-destructive/20` hover/dark tint, made from this same color. At 0.577
+     that self-tinted pair was 3.99:1 and 3.31:1. Darkening the token darkens the
+     text and lightens nothing, so both clear 4.5:1 at 0.476. */
+  --destructive: oklch(0.476 0.245 27.325);
+  /* Was byte-identical to --destructive: a 1.00:1 pair sitting in the palette,
+     waiting for the first call site to use it. No call site does today, which is
+     the only reason it never showed up as a visible bug. */
+  --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(0.923 0.003 48.717);
   --input: oklch(0.923 0.003 48.717);
-  --ring: oklch(0.709 0.01 56.259);
+  /* Boundary of a form control (1.4.11). NOT --border: that token is shared with
+     cards, tables and separators, where a 3:1 hairline would be a heavy, app-wide
+     visual change. This one is scoped to inputs, so it can be as dark as the
+     criterion demands. Derived, not chosen: the darkest surface a control sits on
+     is bg-input/90 over the sidebar, and 0.61 is the first lightness that clears
+     3:1 against that AND against every page/card/popover/sidebar behind it.
+     See src/test/tokenContrast.test.ts — it recomputes the whole matrix. */
+  --input-border: oklch(0.61 0.003 48.717);
+  /* Focus indicator (1.4.11 + 2.4.7). The INDICATOR is the solid
+     `focus-visible:border-ring`; the `ring-ring/30` halo around it is decoration
+     (a 30%-opacity glow tops out near 2.1:1 no matter what --ring holds). At the
+     shadcn default 0.709 the border was 2.59:1 on the page and 2.11:1 against a
+     bg-input/90 fill. 0.45 clears 3:1 against every page/card/popover/sidebar and
+     every input fill, and stays ~2:1 away from --input-border so focus reads as a
+     state change rather than the same hairline. */
+  --ring: oklch(0.45 0.01 56.259);
   --chart-1: oklch(0.845 0.143 164.978);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.596 0.145 163.225);
@@ -45,12 +73,17 @@
   --radius: 0.45rem;
   --sidebar: oklch(0.985 0.001 106.423);
   --sidebar-foreground: oklch(0.147 0.004 49.25);
-  --sidebar-primary: oklch(0.627 0.194 149.214);
+  /* Carries --sidebar-primary-foreground (and a white icon) on the module tile in
+     components/layout/ModuleSwitcher. At the shadcn default that pair was 3.07:1
+     light / 2.12:1 dark. NOTE: a module may override this background with its own
+     authored `logo_color`, which no token can reach — that contrast is a data
+     question, not a palette one. */
+  --sidebar-primary: oklch(0.529 0.194 149.214);
   --sidebar-primary-foreground: oklch(0.982 0.018 155.826);
   --sidebar-accent: oklch(0.97 0.001 106.424);
   --sidebar-accent-foreground: oklch(0.216 0.006 56.043);
   --sidebar-border: oklch(0.923 0.003 48.717);
-  --sidebar-ring: oklch(0.709 0.01 56.259);
+  --sidebar-ring: oklch(0.45 0.01 56.259);
   /* Loading-placeholder fill. Deliberately NOT --muted: at oklch(0.97) on a
      white page --muted gives a 1.09:1 contrast ratio (1.04:1 at the animate-
      pulse trough, and 1.045:1 against the sidebar), which is below the
@@ -74,11 +107,21 @@
   --muted-foreground: oklch(0.709 0.01 56.259);
   --accent: oklch(0.268 0.007 34.298);
   --accent-foreground: oklch(0.985 0.001 106.423);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.637 0.237 25.331);
+  /* 4.49:1 on its own /20 tint over a card — short of 4.5 by a hair, which is
+     still short. A two-thousandth lift clears it without a visible change. */
+  --destructive: oklch(0.71 0.191 22.216);
+  /* Near-black, not a second red: white on this destructive is 2.77:1. */
+  --destructive-foreground: oklch(0.147 0.004 49.25);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.553 0.013 58.071);
+  /* Same value works in both themes: a mid-lightness gray is the one band that
+     clears 3:1 against a white page and against a near-black one. */
+  --input-border: oklch(0.61 0.003 48.717);
+  /* Dark was NOT already conformant, contrary to a measurement that only looked at
+     the page and a bg-input/50 fill. Over a --card (where dialogs and sheets put
+     their forms) the old 0.553 gave 3.64:1, and against a bg-input/90 checkbox on a
+     card only 2.42:1. 0.78 clears 3:1 everywhere. */
+  --ring: oklch(0.78 0.013 58.071);
   --chart-1: oklch(0.845 0.143 164.978);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.596 0.145 163.225);
@@ -86,12 +129,12 @@
   --chart-5: oklch(0.432 0.095 166.913);
   --sidebar: oklch(0.216 0.006 56.043);
   --sidebar-foreground: oklch(0.985 0.001 106.423);
-  --sidebar-primary: oklch(0.723 0.219 149.579);
+  --sidebar-primary: oklch(0.529 0.219 149.579);
   --sidebar-primary-foreground: oklch(0.982 0.018 155.826);
   --sidebar-accent: oklch(0.268 0.007 34.298);
   --sidebar-accent-foreground: oklch(0.985 0.001 106.423);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.553 0.013 58.071);
+  --sidebar-ring: oklch(0.78 0.013 58.071);
   /* Dark fares better than light with --muted (1.30:1 on the page) but is still
      weak on the sidebar (1.15:1); this lifts both to 1.50:1 / 1.33:1. */
   --skeleton: oklch(0.31 0.007 34.298);
@@ -116,6 +159,7 @@
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
+  --color-input-border: var(--input-border);
   --color-ring: var(--ring);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
@@ -155,6 +199,111 @@
   --muted: var(--skeleton);
 }
 
+/* 1.4.11 Non-text Contrast — give every filled form control a perceivable
+   boundary.
+   The shadcn `base-rhea` primitives all draw themselves as `border border-transparent
+   bg-input/50` (or /90): the fill IS the affordance. Measured with colorjs.io that
+   fill is 1.12:1 against a white page (1.17:1 dark) — no boundary at all. Nine
+   surfaces are affected: input, textarea, select-trigger, input-group, checkbox,
+   radio-group-item, switch, ui-ext/number-input and the `inputSurfaceClassName`
+   triggers (combobox, enum, reference, date, date-time).
+
+   Why here and not in the components:
+   - Seven of the nine live in `components/ui/`, which is shadcn-CLI-owned; a
+     `shadcn add --overwrite` silently reverts a hand-edit and takes the fix with it.
+   - Forking them into `ui-ext/` cannot reach all nine either: `ui/command.tsx`
+     constructs its own `<InputGroup>` internally, so the command-palette search
+     field is unreachable from any call site. A fix that misses it would report the
+     criterion as met while a shipped input still has no boundary.
+   - The `[data-slot] { --token: … }` variable-shadow trick (see --skeleton above)
+     does NOT work here: `border-transparent` compiles to the literal `transparent`,
+     not to a var() this could retarget.
+
+   Why `@layer utilities` and why it lands where it does in the cascade: this rule
+   and `.border-transparent` have identical specificity (0,1,0), and this block sits
+   after `@import 'tailwindcss'` in the same layer, so it wins on source order.
+
+   Which variants still beat it, and which do NOT — verify this in the BUILT css,
+   never by reading the class name. Tailwind v4 compiles variants two different
+   ways and only one of them adds specificity:
+
+   - A *pseudo-class / attribute* variant appends a real compound, so it is (0,2,0)
+     and overrides this rule:
+       .focus-visible\:border-ring:focus-visible
+       .aria-invalid\:border-destructive[aria-invalid=true]
+     Focus and invalid states therefore keep working, as does SchemaForm's view
+     mode (`[&_[data-slot=input]]:border-transparent`, a descendant selector).
+   - A `data-*` STATE variant compiles through `:where()`, which contributes
+     ZERO specificity, so it is only (0,1,0) — the same as this rule, and earlier
+     in the layer, which means this rule would silently WIN:
+       .data-checked\:border-primary:where([data-checked]:not([data-checked=false]))
+       .data-unchecked\:border-transparent:where([data-unchecked]:not(…))
+     That is exactly what painted a gray hairline around a checked checkbox.
+
+   So state-dependent slots are excluded by *matching*, not by out-specifying:
+   `:not(:where([data-checked]))` keeps the rule at (0,1,0) — `:not()` takes the
+   specificity of its most specific argument, and `:where()` is zero — so the
+   checked state is simply not selected, while every (0,2,0) stateful variant
+   above still overrides the unchecked state. Escalating to (0,2,0) here would be
+   a bug: it would out-specify `focus-visible:border-ring` and
+   `aria-invalid:border-destructive` and strip the control's focus and invalid
+   indicators.
+
+   The one thing this defeats is a bare `border-*` utility passed at a call site on
+   one of these slots; use a variant or a descendant selector there. */
+@layer utilities {
+  [data-slot='input'],
+  [data-slot='textarea'],
+  [data-slot='select-trigger'],
+  [data-slot='input-group'],
+  [data-slot='radio-group-item'],
+  [data-slot='combobox-trigger'] {
+    border-color: var(--input-border);
+  }
+
+  /* Checkbox and Switch tie their border to state: checked borrows --primary,
+     unchecked needs the boundary. Both `data-checked:border-primary` and
+     `data-unchecked:border-transparent` are (0,1,0) (see the `:where()` note
+     above), so the checked state has to be excluded by the selector rather than
+     overridden — and the guard has to stay specificity-neutral so focus-visible
+     and aria-invalid still win. */
+  [data-slot='checkbox']:not(:where([data-checked])),
+  [data-slot='switch']:not(:where([data-checked])) {
+    border-color: var(--input-border);
+  }
+
+  /* 1.4.10 — the MOBILE SIDEBAR's width.
+     `ui/sheet.tsx` ships `data-[side=left]:w-3/4` / `data-[side=right]:w-3/4`,
+     which compiles to `[data-side=left].w-3\/4` — specificity (0,2,0). The
+     sidebar sets its width with a plain `w-(--sidebar-width)` at (0,1,0), and
+     tailwind-merge cannot dedupe the pair either, because a variant-prefixed
+     class and a bare one are different group keys to it. The vendored 75% wins
+     both ways, so the mobile sidebar renders at three quarters of the viewport
+     instead of its declared 18rem.
+     The app's own Sheet call sites fix this by repeating the `data-[side=…]:`
+     modifier so tailwind-merge does dedupe; `ui/sidebar.tsx` is CLI-owned and
+     cannot, so it is matched here by the `data-mobile` attribute it already
+     sets, at the same (0,2,0) and later in the layer.
+     The slot is `sidebar`, NOT `sheet-content`: `ui/sheet.tsx` writes
+     `data-slot="sheet-content"` BEFORE spreading `{...props}`, and
+     `ui/sidebar.tsx` passes `data-slot="sidebar"` through that spread, so the
+     later value wins and the rendered element never carries `sheet-content`. */
+  [data-slot='sidebar'][data-mobile='true'] {
+    width: var(--sidebar-width);
+    max-width: 100%;
+  }
+
+  /* 1.4.10 — the Sheet/Dialog close button is `absolute top-4 right-4`, so it
+     floats over whatever the header renders. At 390px a title of any length runs
+     straight underneath it (measured: ~20px of overlap). The header is CLI-owned,
+     so reserve the gutter here — and only when a close button is actually
+     rendered, since `showCloseButton={false}` is common. */
+  [data-slot='sheet-content']:has(> [data-slot='sheet-close']) > [data-slot='sheet-header'],
+  [data-slot='dialog-content']:has(> [data-slot='dialog-close']) > [data-slot='dialog-header'] {
+    padding-right: 3.5rem;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -184,6 +333,17 @@
   }
   html {
     @apply font-sans;
+    /* 2.4.11 Focus Not Obscured, page level.
+       Two surfaces are sticky over the document scroll: the 4rem app header at
+       the top, and StickyContainer's form action bar at the bottom. Without
+       scroll-padding, a control scrolled into view by Tab lands exactly
+       underneath one of them and is invisible while focused. This is the
+       browser-level lever for it; the equivalent for the data grid's own scroll
+       container (sticky header + pinned columns) is computed in
+       niko-table/core/data-table.tsx, because those widths are only known at
+       runtime. */
+    scroll-padding-top: 4rem;
+    scroll-padding-bottom: 5rem;
   }
 }
 
@@ -231,6 +391,31 @@
   grid-column: 1 / span 4;
 }
 
+/* 1.4.10 Reflow — one column on a narrow container.
+   The base grid is 4 columns at ANY width, so on a 390px phone (or inside a
+   Sheet, which is narrower still) a `span-1` field is ~85px wide and a `span-2`
+   ~160px: too narrow to read the value in, let alone edit it. Below 30rem of
+   container width every field takes the full row instead. This is a container
+   query, not a media query, because the same form renders both on the page and
+   inside a 540px Sheet — the viewport does not tell you how wide the form is. */
+@container (max-width: 30rem) {
+  .grid-custom {
+    grid-template-columns: minmax(0, 1fr);
+    column-gap: 0;
+  }
+
+  .span-1,
+  .span-2,
+  .span-4,
+  .span-8,
+  .span-1.start-1,
+  .span-2.start-1,
+  .span-4.start-1,
+  .span-8.start-1 {
+    grid-column: 1 / -1;
+  }
+}
+
 @container (min-width: 640px) {
   .grid-custom {
     grid-template-columns: repeat(8, minmax(0, 1fr));
@@ -243,4 +428,56 @@
   .span-8.start-1 {
     grid-column: 1 / span 8;
   }
+}
+/* 2.2.2 Pause, Stop, Hide — respect a reduced-motion preference.
+   Nothing in `src/` carried a `motion-reduce:` variant, and the app animates
+   indefinitely in at least one place a user cannot escape: `ui/skeleton.tsx`
+   pulses for as long as a load takes, and a stalled load makes that permanent.
+   `index.html` already establishes this pattern for the boot overlay's own
+   skeleton (see its prefers-reduced-motion block) — this is the same rule for
+   everything the bundle renders.
+
+   Durations are collapsed rather than set to `none` so that code waiting on a
+   `transitionend` still gets one. `hideAppLoader()` depends on exactly that, and
+   carries its own 300ms timer for the case where the event never arrives. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* 1.4.10 — how far the sticky form footer bleeds past its container's padding.
+   The bar needs to reach the container edges while pinned, or content scrolls
+   through the gap beside it. It lives in two containers with different padding:
+   a Sheet/Dialog (p-6) and the standalone record page (p-4). A fixed `-mx-6`
+   was correct in the first and 8px too wide in the second, where it pushed the
+   page past the viewport on both sides at EVERY width. */
+[data-slot='sticky-container'] {
+  --sticky-bleed: 0px;
+}
+
+[data-slot='sheet-content'] [data-slot='sticky-container'],
+[data-slot='dialog-content'] [data-slot='sticky-container'] {
+  --sticky-bleed: 1.5rem;
+}
+
+/* 2.4.11 Focus Not Obscured, inside an overlay.
+   The `html { scroll-padding-* }` above only governs the document scroll. A form
+   inside a Sheet or Dialog scrolls in its OWN container, and that container has
+   the same sticky action bar pinned to its bottom edge, so Tab lands a control
+   exactly underneath it. Applying the padding to the overlay and to any element
+   inside it is safe: scroll-padding is inert on anything that is not itself a
+   scroll container. */
+[data-slot='sheet-content'],
+[data-slot='sheet-content'] > *,
+[data-slot='sheet-content'] > * > *,
+[data-slot='dialog-content'],
+[data-slot='dialog-content'] > *,
+[data-slot='dialog-content'] > * > * {
+  scroll-padding-bottom: 6rem;
 }

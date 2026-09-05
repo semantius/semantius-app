@@ -13,8 +13,8 @@ export function interpolate(template: string, obj: Record<string, unknown>): str
 /**
  * Surface classes that make a non-`<input>` form control (combobox / enum /
  * reference / date / date-time trigger) match the base shadcn `Input` fill in
- * `ui/input.tsx`: the `bg-input/50` filled look with a transparent border and no
- * hover/expanded color shift. Apply it on a `<Button variant="ghost">` trigger —
+ * `ui/input.tsx`: the `bg-input/50` filled look with a 3:1 `--input-border` boundary
+ * (1.4.11) and no hover/expanded color shift. Apply it on a `<Button variant="ghost">` trigger —
  * the Button base already supplies the same radius, focus ring, `disabled:opacity-50`
  * and aria-invalid states as `Input`, so the trigger renders identically to a plain
  * text field and field appearance is driven by the theme token (not by some fields
@@ -25,4 +25,4 @@ export function interpolate(template: string, obj: Record<string, unknown>): str
  * (that file is shadcn-CLI-owned and cannot import from here).
  */
 export const inputSurfaceClassName =
-  "bg-input/50 hover:bg-input/50 aria-expanded:bg-input/50 dark:hover:bg-input/50 border-transparent"
+  "bg-input/50 hover:bg-input/50 aria-expanded:bg-input/50 dark:hover:bg-input/50 border-input-border"

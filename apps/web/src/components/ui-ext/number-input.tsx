@@ -75,6 +75,10 @@ export function NumberInput({
 
   return (
     <NumericFormat
+      // Marks this as an input slot so the global 1.4.11 boundary rule in global.css
+      // and SchemaForm's view-mode `[&_[data-slot=input]]` flattening both apply here,
+      // exactly as they do to the base <Input>.
+      data-slot="input"
       id={id}
       name={name}
       value={numericValue}
