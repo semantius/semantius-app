@@ -77,9 +77,10 @@ hand-off scan enforces that.
 
 **`hideAppLoader()` is not synchronous.** It drops `pointer-events` and `opacity` on the
 spot (so the real UI is usable immediately) but sets the terminal `hidden` attribute only
-on `transitionend`, with a 300ms timer as the fallback for reduced-motion, hidden tabs and
-**jsdom, which never fires `transitionend`**. A test that asserts `[hidden]` right after
-render will fail; assert the fade started, then `await waitFor(...)` for `hidden`. It is
+on `transitionend`, with a 300ms timer as the fallback for every case where that event
+never arrives — a reduced-motion preference, a hidden tab, a `display:none` subtree, an
+element with no transition declared at all. A test that asserts `[hidden]` right after
+render will fail; assert the fade started, then poll for `hidden`. It is
 idempotent by a `data-hiding` marker — render-phase call sites and StrictMode double
 effects both re-enter it.
 
@@ -165,8 +166,15 @@ serves from the identity provider — so router-pushing it rendered a module vie
 "fixing itself" on refresh once the request finally reached the proxy. Entries therefore
 carry an optional **`target`** (`'default' | 'redirect' | 'newtab'`, resolved by
 `resolveMenuTarget()` in `lib/userMenu.ts`): `default` keeps the original rule (absolute url
-leaves the SPA, relative one routes in-app), `redirect` forces `window.location.assign()`,
-`newtab` a `window.open()`. The built-in `self_hosted` `/idp/*` entries declare `redirect`,
+leaves the SPA, relative one routes in-app), `redirect` renders a plain `<a href>`, `newtab`
+an `<a href target="_blank" rel="noopener noreferrer">`. **Only the in-app case is scripted**
+(`router.history.push`) — anything that leaves the SPA is a real link, not a click handler
+calling `window.location.assign()` / `window.open()`, which is what it used to be. A link is
+what a screen reader announces as a link, what middle-click and "open in new tab" work on,
+and what a test can read off the DOM instead of observing by replacing `window.location`.
+Note that `<a href>` inside a `DropdownMenuItem` trips `jsx-a11y/anchor-has-content`: the
+content arrives through Base UI's `render` merge, which the rule cannot follow — suppressed
+inline at the three call sites. The built-in `self_hosted` `/idp/*` entries declare `redirect`,
 and `VITE_UI_CUSTOMIZER` accepts the key per entry. Auto-detection is not possible — the
 router happily matches these paths — so any menu url answered by a different server behind
 the same origin must be marked explicitly. It is an **enum, not a boolean**: "leaves the
@@ -414,11 +422,21 @@ Key API differences when writing/migrating call sites (full rules: `.agents/skil
 - **Select**: `SelectValue` still accepts `placeholder`, but with no `items` on the Root it renders the **raw value**, not the item label — where label≠value use a children fn `<SelectValue>{(v) => labels[v]}</SelectValue>`. `onValueChange` is now `(value: string | null, details)` (null-guard); `position` prop removed.
 - **DropdownMenuItem uses `onClick`, NOT `onSelect`**: Radix's `DropdownMenuItem` had a custom `onSelect` selection prop; Base UI's `Menu.Item` does not. `onSelect={…}` silently binds to the **native DOM `onSelect`** (text-selection) event, which never fires on click — tsc accepts it (valid DOM prop) so it's a **silent no-op** (e.g. menu items that "do nothing"). Use `onClick` (it also carries `shiftKey` natively). This is **only** for `DropdownMenuItem`; `CommandItem` (cmdk) and `<Calendar>` (react-day-picker) keep their real `onSelect`.
 - **DropdownMenu groups**: `DropdownMenuLabel` maps to Base UI `Menu.GroupLabel` and **must** be inside a `<DropdownMenuGroup>` (Radix allowed it standalone). A bare `<DropdownMenuLabel>` throws at runtime: `Base UI: MenuGroupContext is missing` (tsc does NOT catch it). Same for `DropdownMenuRadioItem` → needs `<DropdownMenuRadioGroup>`. Wrap the label (and ideally the items it heads) in a group.
+- **`<Button nativeButton={false} render={<a|Link/>}>` announces a LINK as a BUTTON.**
+  Base UI's `Button` takes `nativeButton={false}` to mean "the thing I render is not a
+  native `<button>`, so add the button role and keyboard behavior" — and it does exactly
+  that, stamping `role="button"` and `tabindex="0"` onto the anchor. `getByRole('link')`
+  then finds nothing and a screen reader says "button" for something that navigates. For a
+  control that goes to a URL, use shadcn's documented `className={buttonVariants({…})}` on
+  the `<a>`/`<Link>` instead; keep `nativeButton={false}` for a genuinely non-anchor render
+  target. Four call sites had this (ErrorPage, NotFoundPage, LogoutConfirmationPage,
+  ErrorBoundary). Inside a menu it is different — `DropdownMenuItem render={<a href>}`
+  correctly keeps `role="menuitem"`, which is the right role there.
 - **Dialog/Sheet**: no `onOpenAutoFocus` — use `initialFocus={false}` to skip auto-focus.
 - **Calendar** (react-day-picker v10): no `initialFocus` prop.
 - **CSS vars** on Positioner/Popup: `--radix-*-trigger-width` → `--anchor-width`, `--radix-*-transform-origin` → `--transform-origin`, `--radix-popover-content-available-width` → `--available-width`. Tailwind v4 uses `(--var)` not `[--var]`.
 - **State data-attrs** differ: Radix `data-[state=open]` → Base UI `data-[popup-open]` (menu/popover triggers) or `data-[panel-open]` (collapsible trigger). Put the `group/x` marker on the element that actually receives the attribute (the trigger, not a wrapper).
-- **Tests**: jsdom needs a `ResizeObserver` polyfill (in `src/test/setup.ts`) — Base UI overlays use it at mount; checkbox state is `aria-checked`/`data-checked`, not `data-state="checked"`.
+- **Tests**: checkbox state is `aria-checked`/`data-checked`, not `data-state="checked"`. Base UI overlays use `ResizeObserver` at mount, which is one of the reasons component tests run in a real browser rather than a simulated DOM — there is nothing to polyfill.
 
 #### Form field surface consistency (CRITICAL for new input controls)
 
@@ -629,22 +647,30 @@ Keep at most one full-UI-login smoke test (against a registered domain) to prove
 
 ### Accessibility testing — four layers, and why none of them is optional
 
-**jsdom cannot host axe, and never will.** It loads no CSS. `sr-only` is therefore
-invisible to it, every contrast check has nothing to measure, and — the trap —
-axe's own `bypass` rule PASSES a page with no skip link at all, as long as it has a
-`<main>`. An "axe test" in jsdom checks that a page has some attributes, not that it
-is usable. The layers that do work:
+**A simulated DOM cannot host axe, and jsdom never will.** It loads no CSS.
+`sr-only` is therefore invisible to it, every contrast check has nothing to
+measure, and — the trap — axe's own `bypass` rule PASSES a page with no skip link
+at all, as long as it has a `<main>`. An "axe test" there checks that a page has
+some attributes, not that it is usable. That is why jsdom is gone from this repo
+entirely (asserted by `substitutions.test.ts`) and there are exactly two Vitest
+projects, `node` and `browser`. The layers that do work:
 
 1. **Token math in node** (`apps/web/src/test/tokenContrast.test.ts`) — parses
    `global.css` itself, so it fails the moment a token moves. It reaches pairs no
    route happens to render (a hover tint, a control on a surface nothing currently
    puts it on) and is the only layer that can.
 2. **Component tests in a real Chromium** — the `browser` project in
-   `apps/web/vite.config.ts` runs `components/form/__tests__/**` and
-   `components/ui-ext/**/*.test.tsx` through Playwright as part of `pnpm check`
-   (so `checks.yml` installs Chromium first, and a fresh clone needs
-   `pnpm --filter @semantius/frontend test:e2e:install` once). No polyfills, real
-   CSS (`src/test/setup.browser.ts` loads the stylesheets in `main.tsx` order).
+   `apps/web/vite.config.ts` runs **every `src/**/*.test.tsx`** plus the three
+   `.ts` tests that touch a `window` (`appLoader`, `config`, `apiClient`) through
+   Playwright as part of `pnpm check` (so `checks.yml` installs Chromium first,
+   and a fresh clone needs `pnpm --filter @semantius/frontend test:e2e:install`
+   once). Everything else runs in `node`. No polyfills, real CSS
+   (`src/test/setup.browser.ts` loads the stylesheets in `main.tsx` order).
+   Its `maxWorkers` is capped at 4: a browser worker is a real page, and at
+   Vitest's core-scaled default the machine rather than the code decided whether
+   a CodeMirror mount or a DevTools-protocol probe finished in time. The two
+   projects therefore need distinct `sequence.groupOrder`, which Vitest requires
+   whenever projects differ in worker count.
    Every control test renders through `components/form/__tests__/harness.tsx` —
    the real `FormProvider` with a real TanStack Form instance — and asserts the
    computed accessible name and description. Two traps, both invisible:
@@ -656,10 +682,18 @@ is usable. The layers that do work:
      Chrome computes "Choose Option Option 1". `src/test/chromeAccessibleName.ts`
      reads Chrome's own tree over the DevTools protocol; assert with that, and do
      not "fix" the component to match the library.
-   - **`cdp()` addresses the orchestrator page, but a test renders inside an
-     iframe**, so `DOM.querySelector` on `DOM.getDocument`'s root finds nothing
-     and the next call fails with "Could not find node with given id". Fetch the
-     document with `pierce: true` and match by `backendNodeId`.
+   - **`cdp()` addresses the whole browser target, but a test renders inside an
+     iframe of the orchestrator page**, so `DOM.querySelector` on
+     `DOM.getDocument`'s root finds nothing and the next call fails with "Could
+     not find node with given id". Use **`DOM.performSearch`** (after one
+     `DOM.getDocument({ depth: 0 })` to prime the domain) — it searches every
+     document of the target and returns only the matches. Do NOT walk
+     `DOM.getDocument({ depth: -1, pierce: true })`: that transfers the entire
+     tree of a page holding one live iframe per concurrently-running test file,
+     and it intermittently blew the 20s test timeout once the browser project
+     grew. Do not call `DOM.enable` either — it subscribes the session to every
+     mutation in every one of those frames. Mark the element with a
+     **per-call unique** attribute value; sibling frames probe concurrently.
 3. **`eslint-plugin-jsx-a11y`** — static defects. Its `settings.jsx-a11y.components`
    map is what makes our wrapper components visible at all; TanStack's `Link` must
    go in `linkComponents`, NOT `components` (mapping it to an anchor manufactures 22
@@ -677,9 +711,16 @@ top-level `window.location` navigation, which destroys a component test's contex
 **The journey does NOT prove PKCE is cryptographically correct** — the test server
 does not enforce PKCE — and nothing else in the suite does either.
 
-**`vi.mock` of anything inside `src/` is a known defect, not a technique.** The
-current 13 are frozen in `substitutions.test.ts`; a new one fails the suite. The
-target is zero, reached by moving those tests into a browser, not by writing better
+**`vi.mock` of anything inside `src/` is a known defect, not a technique — and so
+is every other thing a test supplies in place of the real one.**
+`substitutions.test.ts` inventories fifteen families (module mocks internal and
+external, `window.location`, `window.open`, `matchMedia`, `ResizeObserver`,
+`fetch`, `crypto`/`isSecureContext`, `vi.stubEnv`, fake timers, a hand-built boot
+overlay, a disabled pointer-events check, a silenced console, `vi.resetModules`,
+`fireEvent.change`), frozen per file; a new instance in ANY of them fails the
+suite. Nine families are already at zero. The remaining 40 are 13 internal mocks,
+3 external, 20 stubbed fetches, 2 overlay fixtures and 2 synthetic change events.
+The target is zero, reached by moving those tests into a browser, not by writing better
 mocks.
 
 ### The sweep harness — traps that cost hours

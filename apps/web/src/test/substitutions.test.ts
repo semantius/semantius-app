@@ -53,8 +53,7 @@ const SKIP_DIRS = new Set(['node_modules', 'dist', '.turbo', 'coverage', 'playwr
 /**
  * Directories whose whole contents are test material even when the filename
  * carries no `.test.`/`.spec.` marker. Without this, every pattern below is
- * escaped by moving the offending lines into a helper — which is exactly where
- * `src/test/apiTestUtils.ts` and `src/test/setup.ts` already keep theirs.
+ * escaped by moving the offending lines into a helper.
  */
 const TEST_DIRS = new Set(['test', 'tests', '__tests__', '__mocks__', 'e2e'])
 const CODE_FILE = /\.[cm]?[jt]sx?$/
@@ -252,7 +251,10 @@ const FAMILIES: { key: string; what: string; patterns: RegExp[] }[] = [
   {
     key: 'app-loader-stand-in',
     what: "a hand-built stand-in for index.html's boot overlay",
-    patterns: [/innerHTML\s*=\s*['"`][^'"`]*id="app-loader"/g],
+    // Both spellings: the innerHTML blob and the createElement form that
+    // replaced it. Matching only the first would have let the same stand-in
+    // survive a refactor while the count read zero.
+    patterns: [/innerHTML\s*=\s*['"`][^'"`]*id="app-loader"/g, /\.id\s*=\s*['"]app-loader['"]/g],
   },
   {
     key: 'pointer-events-check-off',
@@ -281,11 +283,10 @@ const FAMILIES: { key: string; what: string; patterns: RegExp[] }[] = [
  * an approved practice. Numbers may be lowered, never raised; a file that is not
  * listed must have zero.
  *
- * Notes on counts that include a restore (see COUNTING RULE above):
- *  - `ErrorBoundary.test.tsx` window-location 3 = `delete` + the stub + the restore.
- *  - `NavUser.test.tsx` window-location 2 = the stub + the restore.
- *  - `apiClient.interceptor.test.ts` fetch 3 = 2 stubs + the restore.
- *  - `ErrorBoundary.test.tsx` console-silenced 2 = the silencer + the restore.
+ * A family with no entry here must have none anywhere. Nine of the fifteen are
+ * in that state: window.location, window.open, matchMedia, ResizeObserver,
+ * crypto/isSecureContext, vi.stubEnv, fake timers, the pointer-events override
+ * and a silenced console are all gone, and adding one back fails this file.
  */
 const FROZEN: Record<string, Record<string, number>> = {
   'module-mock-external': {
@@ -293,53 +294,23 @@ const FROZEN: Record<string, Record<string, number>> = {
     'src/components/layout/NavUser.test.tsx': 1,
     'src/routes/login.test.tsx': 1,
   },
-  'window-location': {
-    'src/components/ErrorBoundary.test.tsx': 3,
-    'src/components/layout/NavUser.test.tsx': 2,
-  },
-  'window-open': {
-    'src/components/layout/NavUser.test.tsx': 1,
-  },
-  'match-media': {
-    'src/components/layout/ModuleSwitcher.test.tsx': 1,
-    'src/components/layout/NavUser.test.tsx': 1,
-  },
-  'resize-observer': {
-    'src/components/layout/ModuleSwitcher.test.tsx': 1,
-    'src/test/setup.ts': 1,
-  },
+  // Every one of these is a stubbed API call, and every one is waiting on the
+  // same thing: a test session against the real tenant.
   fetch: {
     'src/hooks/useTable.test.tsx': 1,
     'src/hooks/useTableMutations.test.tsx': 9,
-    'src/lib/apiClient.interceptor.test.ts': 3,
-    'src/lib/config.test.ts': 10,
-  },
-  'secure-context': {
-    'src/lib/config.test.ts': 5,
-    'src/routes/login.test.tsx': 3,
-  },
-  'build-env': {
-    'src/lib/apiClient.test.ts': 26,
-    'src/test/apiTestUtils.ts': 3,
-  },
-  'fake-timers': {
-    'src/lib/appLoader.test.ts': 1,
+    // 1 install + 1 restore. The install is load-bearing — the interceptor
+    // captures whatever fetch it finds at import time, so a spy is the only way
+    // to see what it forwards.
+    'src/lib/apiClient.interceptor.test.ts': 2,
+    'src/lib/config.test.ts': 8,
   },
   'app-loader-stand-in': {
     'src/lib/appLoader.test.ts': 1,
     'src/routes/login.test.tsx': 1,
   },
-  'pointer-events-check-off': {
-    'src/components/layout/NavUser.test.tsx': 1,
-  },
-  'console-silenced': {
-    'src/components/ErrorBoundary.test.tsx': 2,
-  },
-  'module-registry-reset': {
-    'src/lib/apiClient.interceptor.test.ts': 1,
-  },
   'synthetic-change-event': {
-    'src/components/form/__tests__/SchemaForm.test.tsx': 3,
+    'src/components/form/__tests__/SchemaForm.test.tsx': 2,
   },
 }
 
@@ -357,8 +328,12 @@ const FROZEN_INTERNAL_MOCKS: Record<string, string[]> = {
   'src/routes/login.test.tsx': ['@/hooks/useAuth'],
 }
 
-/** Sum of every frozen count, plus the 13 internal mocks. Only ever goes down. */
-const FROZEN_TOTAL = 96
+/**
+ * Sum of every frozen count, plus the 13 internal mocks. Only ever goes down.
+ * It was 96 when this scanner was written; removing jsdom took it to 40, because
+ * most of what was frozen existed only to describe a browser to a fake one.
+ */
+const FROZEN_TOTAL = 40
 
 describe('test substitutions', () => {
   // This file quotes the patterns it looks for — in its regexes and in its prose —
@@ -387,7 +362,7 @@ describe('test substitutions', () => {
   it('also scans test helpers that carry no .test. in their name', () => {
     // Without this the whole ratchet is escaped by moving the offending lines one
     // file sideways, which is where two of the frozen entries already live.
-    expect(code.has('src/test/apiTestUtils.ts')).toBe(true)
+    expect(code.has('src/test/runtimeConfig.ts')).toBe(true)
     expect(code.has('src/components/form/__tests__/harness.tsx')).toBe(true)
   })
 
@@ -466,7 +441,7 @@ describe('test substitutions', () => {
   )
 
   it('counts external module mocks, which are frozen too', () => {
-    const frozen = FROZEN['module-mock-external']
+    const frozen = FROZEN['module-mock-external'] ?? {}
     const violations: string[] = []
     for (const [file, source] of code) {
       const external = [...source.matchAll(MOCK_WITH_SPECIFIER)].filter(([, s]) => !isInternal(s))
@@ -488,6 +463,22 @@ describe('test substitutions', () => {
     // The plan's target is 0. This is not it; it is the number that has to come
     // down, asserted as an upper bound so it cannot quietly go back up.
     expect(total).toBeLessThanOrEqual(FROZEN_TOTAL)
+  })
+
+  it('keeps jsdom out of the project entirely', () => {
+    // The families above are all instances of one thing: the suite describing a
+    // browser instead of using one. jsdom is what made that possible and what
+    // made it look reasonable — a test could stub `window.location` because
+    // jsdom's is a plain object, and could pass an axe check with no CSS loaded.
+    // Removing the stubs while leaving the environment in place would only mean
+    // waiting for the next one, so the environment is asserted gone here rather
+    // than left to a config file nobody re-reads.
+    const config = readFileSync(join(APP_ROOT, 'vite.config.ts'), 'utf8')
+    expect(stripComments(config)).not.toMatch(/jsdom/)
+
+    const pkg = JSON.parse(readFileSync(join(APP_ROOT, 'package.json'), 'utf8'))
+    const deps = { ...pkg.dependencies, ...pkg.devDependencies }
+    expect(Object.keys(deps)).not.toContain('jsdom')
   })
 
   it('names the two substitutions the suite is allowed to make', () => {

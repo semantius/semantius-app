@@ -1,6 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { AlertTriangle } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button'
 import {
   Card,
   CardContent,
@@ -36,11 +36,6 @@ class ErrorBoundary extends Component<Props, State> {
     this.setState({ error, errorInfo })
   }
 
-  handleReset = () => {
-    this.setState({ hasError: false, error: undefined, errorInfo: undefined })
-    window.location.href = '/'
-  }
-
   render() {
     if (this.state.hasError) {
       return (
@@ -61,9 +56,17 @@ class ErrorBoundary extends Component<Props, State> {
               )}
             </CardContent>
             <CardFooter>
-              <Button onClick={this.handleReset}>
+              {/*
+                A real link, not a button that assigns window.location. The
+                boundary can catch an error thrown from inside the router, so
+                this stays a plain <a> — a document load that rebuilds
+                everything, which is the point of returning home from here — and
+                deliberately not a TanStack <Link>, which would need the router
+                that may be what just failed.
+              */}
+              <a href="/" className={buttonVariants()}>
                 Return to Home
-              </Button>
+              </a>
             </CardFooter>
           </Card>
         </div>

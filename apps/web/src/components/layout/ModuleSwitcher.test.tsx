@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import { describe, it, expect, beforeAll, vi } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { ModuleSwitcher } from './ModuleSwitcher'
 import { SidebarProvider } from '@/components/ui/sidebar'
 
@@ -29,30 +29,6 @@ vi.mock('@/hooks/useModuleNavigate', () => ({
 }))
 
 describe('ModuleSwitcher', () => {
-  beforeAll(() => {
-    // Mock ResizeObserver
-    global.ResizeObserver = class ResizeObserver {
-      observe() { }
-      unobserve() { }
-      disconnect() { }
-    }
-
-    // Mock matchMedia
-    Object.defineProperty(window, 'matchMedia', {
-      writable: true,
-      value: vi.fn().mockImplementation(query => ({
-        matches: false,
-        media: query,
-        onchange: null,
-        addListener: vi.fn(), // deprecated
-        removeListener: vi.fn(), // deprecated
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-        dispatchEvent: vi.fn(),
-      })),
-    })
-  })
-
   /** A row as PostgREST returns it, which is what useModules maps. */
   function moduleRow(overrides: Record<string, unknown> = {}) {
     return {

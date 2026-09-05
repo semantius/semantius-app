@@ -114,12 +114,14 @@ describe('SchemaForm', () => {
         expect(errors.length).toBeGreaterThanOrEqual(1)
       })
 
-      // Fix the errors. Set values with fireEvent.change (one synchronous event)
-      // rather than user.type: the empty submit above scheduled the app's
-      // setTimeout(100) "scroll/focus to first error" logic, which under load fires
-      // mid-typing and steals focus, dropping characters (name would arrive as "J").
-      // fireEvent.change is atomic and immune to that race. It also sidesteps the
-      // jsdom + userEvent '@' focus-drift bug on the type="email" input.
+      // Fix the errors. These two use fireEvent.change rather than user.type,
+      // and the reason is the APP, not the test environment: the empty submit
+      // above scheduled SchemaForm's own setTimeout(100) "scroll and focus the
+      // first error" (SchemaForm.tsx ~404 and ~471), which fires mid-typing and
+      // steals focus — "John Doe" arrives as "J". A real user hits the same
+      // race; typing is just faster here. One synchronous change event is
+      // immune to it. The alternative is to wait out that timer first, which
+      // would test the wait rather than the recovery.
       const emailInput = screen.getByLabelText(/email/i)
       fireEvent.change(nameInput, { target: { value: 'John Doe' } })
       fireEvent.change(emailInput, { target: { value: 'john@example.com' } })
@@ -162,15 +164,15 @@ describe('SchemaForm', () => {
       const onSubmit = vi.fn()
       render(<SchemaForm schema={basicSchema} onSubmit={onSubmit} />)
 
-      // Fill in required fields.
-      // fireEvent.change is used for the email field to avoid a jsdom + userEvent
-      // focus-tracking bug where the '@' character can cause focus to drift when
-      // user.type() is called on a type="email" input after typing in another field.
+      // Fill in required fields. Both typed for real: nothing has scheduled the
+      // focus-stealing timer in this test, and the '@' drift that once forced
+      // fireEvent.change here was a jsdom + userEvent bug that a real Chromium
+      // does not have.
       const nameInput = screen.getByLabelText(/name/i)
       const emailInput = screen.getByLabelText(/email/i)
       await user.clear(nameInput)
       await user.type(nameInput, 'John Doe')
-      fireEvent.change(emailInput, { target: { value: 'john@example.com' } })
+      await user.type(emailInput, 'john@example.com')
 
       const submitButton = screen.getByRole('button', { name: /submit/i })
       await user.click(submitButton)

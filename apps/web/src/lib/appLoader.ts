@@ -9,8 +9,8 @@
  * the real UI underneath is interactive immediately, the opacity flip drives the
  * 180ms CSS crossfade, and `hidden` (the terminal state callers and tests rely
  * on) is only set once that transition ends. The timeout is the fallback for
- * environments where `transitionend` never fires — reduced-motion, a hidden tab,
- * jsdom.
+ * every case where `transitionend` never fires — a reduced-motion preference, a
+ * hidden tab, a display:none subtree.
  *
  * Idempotent: call sites include render-phase calls and StrictMode double
  * effects, so re-entry must not restart the fade or double-register listeners.

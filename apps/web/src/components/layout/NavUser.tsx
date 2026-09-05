@@ -75,34 +75,17 @@ export function NavUser({
   })
   const hasFavorites = (bookmarks?.length ?? 0) > 0
 
-  const handleMenuClick = (entry: UserMenuEntry) => {
-    switch (resolveMenuTarget(entry)) {
-      case 'newtab':
-        // noopener also implies noreferrer in modern browsers, but both are
-        // spelled out — the opened page must never reach back via window.opener.
-        window.open(entry.url, '_blank', 'noopener,noreferrer')
-        return
-      case 'redirect':
-        // A real document navigation, same tab: an absolute URL, or a
-        // same-origin path another server answers (`/idp/*` is proxied to the
-        // IdP, and the router's catch-all would otherwise swallow it).
-        // assign() rather than `location.href = url`: identical navigation, but
-        // an assignment to a value from outside the component trips
-        // react-hooks/immutability.
-        window.location.assign(entry.url)
-        return
-      case 'spa':
-        // history.push, not navigate({ search }): these are pre-built URLs with
-        // a query string, and TanStack's search serializer JSON-encodes values
-        // that parse as JSON (an org slug like "1002" would become %221002%22).
-        router.history.push(entry.url)
-        return
-    }
-  }
-
-  const handleLogout = () => {
-    // Navigate to /logout route which handles the logout flow
-    window.location.href = '/logout'
+  // Only the in-app case is scripted. A `redirect` or `newtab` entry leaves the
+  // SPA, and leaving the SPA is what an anchor is for: the browser handles the
+  // navigation, middle-click and "open in new tab" work, assistive technology
+  // announces a link instead of a button, and the behavior is expressed in the
+  // DOM where a test can read it rather than in a call a test can only observe
+  // by replacing `window.location`.
+  const pushInApp = (entry: UserMenuEntry) => {
+    // history.push, not navigate({ search }): these are pre-built URLs with a
+    // query string, and TanStack's search serializer JSON-encodes values that
+    // parse as JSON (an org slug like "1002" would become %221002%22).
+    router.history.push(entry.url)
   }
 
   return (
@@ -149,16 +132,60 @@ export function NavUser({
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              {menuEntries.map((entry) => (
+              {menuEntries.map((entry) => {
+                const key = `${entry.title}:${entry.url}`
+                const target = resolveMenuTarget(entry)
+
+                if (target === 'newtab') {
+                  // noopener also implies noreferrer in modern browsers, but both
+                  // are spelled out — the opened page must never reach back via
+                  // window.opener.
+                  return (
+                    <DropdownMenuItem
+                      key={key}
+                      render={
+                        // The anchor's content comes from DropdownMenuItem's
+                        // children: Base UI's `render` prop merges them into the
+                        // element it renders. anchor-has-content reads the JSX
+                        // literally, sees an `<a />` with no children of its own,
+                        // and cannot follow that — the accessible name is
+                        // asserted in NavUser.test.tsx instead.
+                        // eslint-disable-next-line jsx-a11y/anchor-has-content
+                        <a href={entry.url} target="_blank" rel="noopener noreferrer" />
+                      }
+                    >
+                      {entry.title}
+                    </DropdownMenuItem>
+                  )
+                }
+
+                if (target === 'redirect') {
+                  // A document navigation, same tab: an absolute URL, or a
+                  // same-origin path another server answers (`/idp/*` is proxied
+                  // to the IdP, and the router's catch-all would otherwise
+                  // swallow it). Deliberately a plain <a>, not a <Link>.
+                  return (
+                    <DropdownMenuItem
+                      key={key}
+                      render={
+                        // Content comes from the children, via `render` — see above.
+                        // eslint-disable-next-line jsx-a11y/anchor-has-content
+                        <a href={entry.url} />
+                      }
+                    >
+                      {entry.title}
+                    </DropdownMenuItem>
+                  )
+                }
+
                 // Base UI's Menu.Item has no onSelect — that prop silently binds
                 // to the native text-selection event and never fires on click.
-                <DropdownMenuItem
-                  key={`${entry.title}:${entry.url}`}
-                  onClick={() => handleMenuClick(entry)}
-                >
-                  {entry.title}
-                </DropdownMenuItem>
-              ))}
+                return (
+                  <DropdownMenuItem key={key} onClick={() => pushInApp(entry)}>
+                    {entry.title}
+                  </DropdownMenuItem>
+                )
+              })}
               {hasFavorites && (
                 <DropdownMenuItem
                   render={
@@ -173,7 +200,16 @@ export function NavUser({
               )}
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogout}>
+            {/*
+              A plain <a>, not a TanStack <Link>: `/logout` is an in-app route,
+              so a <Link> would push it into the SPA and leave AuthProviderWrapper
+              and the QueryClient mounted while logout.tsx wipes storage. The
+              document load is the behavior this has always had, and the one that
+              guarantees nothing survives the sign-out.
+            */}
+            {/* Content comes from the children, via `render` — see above. */}
+            {/* eslint-disable-next-line jsx-a11y/anchor-has-content */}
+            <DropdownMenuItem render={<a href="/logout" />}>
               <LogOut />
               Log out
             </DropdownMenuItem>

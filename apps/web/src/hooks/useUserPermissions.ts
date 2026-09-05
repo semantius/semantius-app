@@ -1,55 +1,37 @@
 /**
- * Permission checking utilities
- * 
- * These functions work with user permissions from /rpc/get_userinfo
+ * Permission checking hooks.
+ *
+ * These read the user permissions that `/rpc/get_userinfo` returns; the rules
+ * themselves are pure functions in `@/lib/permissions`, tested there without a
+ * React tree.
  */
 
 import { useAuth } from '@/hooks/useAuth'
+import { hasAllPermissions, hasAnyPermission, hasPermission } from '@/lib/permissions'
 
 /**
- * Hook to check if the current user has a specific permission
+ * Whether the current user holds a specific permission.
  * @param name - The permission to check (e.g., "customers.edit")
- * @returns true if user has the permission, false otherwise
  */
 export function useUserHasPermission(name: string): boolean {
   const { rpcUserInfo } = useAuth()
-  
-  if (!rpcUserInfo) return false
-  
-  const permissions = rpcUserInfo.permissions as string[] | undefined
-  if (!permissions || !Array.isArray(permissions)) return false
-  
-  return permissions.includes(name)
+  return hasPermission(rpcUserInfo, name)
 }
 
 /**
- * Hook to check if the current user has ANY of the specified permissions
- * @param names - Array of permissions to check (e.g., ["customers.edit", "customers.delete"])
- * @returns true if user has at least one of the permissions, false otherwise
+ * Whether the current user holds AT LEAST ONE of the given permissions.
+ * @param names - Permissions to check (e.g., ["customers.edit", "customers.delete"])
  */
 export function useUserHasAnyPermission(names: string[]): boolean {
   const { rpcUserInfo } = useAuth()
-  
-  if (!rpcUserInfo || names.length === 0) return false
-  
-  const permissions = rpcUserInfo.permissions as string[] | undefined
-  if (!permissions || !Array.isArray(permissions)) return false
-  
-  return names.some(name => permissions.includes(name))
+  return hasAnyPermission(rpcUserInfo, names)
 }
 
 /**
- * Hook to check if the current user has ALL of the specified permissions
- * @param names - Array of permissions to check (e.g., ["customers.edit", "customers.delete"])
- * @returns true if user has all of the permissions, false otherwise
+ * Whether the current user holds ALL of the given permissions.
+ * @param names - Permissions to check (e.g., ["customers.edit", "customers.delete"])
  */
 export function useUserHasAllPermissions(names: string[]): boolean {
   const { rpcUserInfo } = useAuth()
-  
-  if (!rpcUserInfo || names.length === 0) return false
-  
-  const permissions = rpcUserInfo.permissions as string[] | undefined
-  if (!permissions || !Array.isArray(permissions)) return false
-  
-  return names.every(name => permissions.includes(name))
+  return hasAllPermissions(rpcUserInfo, names)
 }

@@ -6,19 +6,31 @@ import { playwright } from '@vitest/browser-playwright'
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import { fileURLToPath, URL } from 'node:url'
 
-// Component tests that run in a real Chromium — the `browser` project below —
-// rather than in jsdom. Everything under these globs is excluded from the
-// `unit` project so nothing runs twice.
+// There are exactly two environments, and which one a test runs in follows what
+// the code under test touches — not the folder it sits in:
 //
-// What qualifies: a test of a component whose behavior depends on things jsdom
-// does not have — layout, real CSS, focus management, ResizeObserver, pointer
-// capture, a code-split editor actually mounting. The form controls are all of
-// that (Base UI popovers, CodeMirror, react-day-picker), and src/test/setup.ts
-// shows the price of faking it: four polyfills before a popover will open. Move
-// a test here when it starts needing a fifth.
+//   * touches a `window` or a `document`  ->  `browser`, a real Chromium
+//   * touches neither                     ->  `node`
+//
+// jsdom is not the third option. For a test that needs no DOM it is dead weight;
+// for one that does it is a hand-written description of a browser, and the app
+// then gets "verified" against that description. The old `unit` project needed
+// four polyfills (ResizeObserver, pointer capture, scrollIntoView) before a Base
+// UI popover would mount, and every test that stubbed `window.location` did so
+// because jsdom made it possible.
+//
+// JSX is the practical dividing line: a `*.test.tsx` renders a component, so it
+// needs a document. Three `.ts` tests do too, and are named individually.
 const BROWSER_TESTS = [
-  'src/components/form/__tests__/**/*.test.tsx',
-  'src/components/ui-ext/**/*.test.tsx',
+  'src/**/*.test.tsx',
+  // `hideAppLoader()` walks a real element and waits on a real `transitionend`.
+  'src/lib/appLoader.test.ts',
+  // `initConfig()`'s secure-context gate reads `window.isSecureContext`, and
+  // returns `null` where there is no `window` — under node it would pass by
+  // being skipped.
+  'src/lib/config.test.ts',
+  // Drives `getApiConfig()` through the runtime config channel, `window.__ENV__`.
+  'src/lib/apiClient.test.ts',
 ]
 
 // e2e/ is Playwright's, not Vitest's. Vitest's default glob picks up *.spec.ts
@@ -70,9 +82,15 @@ export default defineConfig(({ mode }) => ({
       {
         extends: true,
         test: {
-          name: 'unit',
-          environment: 'jsdom',
-          setupFiles: './src/test/setup.ts',
+          name: 'node',
+          environment: 'node',
+          // The two projects have different worker counts, which Vitest allows
+          // only when they run in separate groups. Node first: it is seconds,
+          // and its failures are the cheapest to read.
+          sequence: { groupOrder: 0 },
+          // No setup file: nothing here renders, so there is nothing to clean up
+          // and no jest-dom matcher to register. A test that reaches for one is
+          // in the wrong project.
           pool: 'forks',
           exclude: [...EXCLUDE, ...BROWSER_TESTS],
         },
@@ -83,6 +101,15 @@ export default defineConfig(({ mode }) => ({
           name: 'browser',
           include: BROWSER_TESTS,
           exclude: EXCLUDE,
+          // Each worker is a real browser context rendering a real page, not a
+          // worker thread evaluating a DOM in JS. Vitest's default scales with
+          // core count (11 here), and at that width the machine, not the code,
+          // decides whether a test passes: CodeMirror mounts missed a 5s
+          // waitFor and the DevTools-protocol accessible-name probe hung out to
+          // the 20s ceiling — both intermittently, both green when run alone.
+          // Capped low enough that a failure means a defect.
+          maxWorkers: 4,
+          sequence: { groupOrder: 1 },
           setupFiles: './src/test/setup.browser.ts',
           browser: {
             enabled: true,

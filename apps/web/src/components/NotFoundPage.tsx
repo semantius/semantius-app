@@ -1,7 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { Home, Search } from 'lucide-react'
 import { useEffect } from 'react'
-import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button'
 import {
   Card,
   CardContent,
@@ -36,10 +36,18 @@ export function NotFoundPage() {
           </p>
         </CardContent>
         <CardFooter className="flex justify-center">
-          <Button nativeButton={false} render={<Link to="/" />}>
+          {/*
+            Styled as a button, but it is a LINK: it goes to a URL. Wrapping it
+            in <Button nativeButton={false}> stamps role="button" over the
+            anchor, so assistive technology announces "button" for something
+            that navigates — and the user loses every link affordance the
+            browser gives for free. buttonVariants() is shadcn's documented way
+            to get the look without the wrong role.
+          */}
+          <Link to="/" className={buttonVariants()}>
             <Home className="h-4 w-4 mr-2" />
             Back to Home
-          </Button>
+          </Link>
         </CardFooter>
       </Card>
     </div>

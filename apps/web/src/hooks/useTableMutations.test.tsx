@@ -60,12 +60,12 @@ function createWrapper() {
 
 describe('useCreateRecord', () => {
   beforeEach(() => {
-    global.fetch = vi.fn()
+    globalThis.fetch = vi.fn()
   })
 
   it('should create a record successfully', async () => {
     const mockResponse = [{ id: 1, email: 'test@example.com' }]
-    global.fetch = vi.fn().mockResolvedValue({
+    globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => mockResponse,
     })
@@ -78,7 +78,7 @@ describe('useCreateRecord', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-    expect(global.fetch).toHaveBeenCalledWith(
+    expect(globalThis.fetch).toHaveBeenCalledWith(
       'https://api.test.com/customers',
       expect.objectContaining({
         method: 'POST',
@@ -93,7 +93,7 @@ describe('useCreateRecord', () => {
   })
 
   it('should handle errors when creating a record', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
+    globalThis.fetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 400,
       statusText: 'Bad Request',
@@ -113,12 +113,12 @@ describe('useCreateRecord', () => {
 
 describe('useUpdateRecord', () => {
   beforeEach(() => {
-    global.fetch = vi.fn()
+    globalThis.fetch = vi.fn()
   })
 
   it('should update a record successfully', async () => {
     const mockResponse = [{ id: 1, email: 'updated@example.com' }]
-    global.fetch = vi.fn().mockResolvedValue({
+    globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => mockResponse,
     })
@@ -131,7 +131,7 @@ describe('useUpdateRecord', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-    expect(global.fetch).toHaveBeenCalledWith(
+    expect(globalThis.fetch).toHaveBeenCalledWith(
       'https://api.test.com/customers?id=eq.1',
       expect.objectContaining({
         method: 'PATCH',
@@ -146,7 +146,7 @@ describe('useUpdateRecord', () => {
   })
 
   it('should handle errors when updating a record', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
+    globalThis.fetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 404,
       statusText: 'Not Found',
@@ -166,11 +166,11 @@ describe('useUpdateRecord', () => {
 
 describe('useDeleteRecord', () => {
   beforeEach(() => {
-    global.fetch = vi.fn()
+    globalThis.fetch = vi.fn()
   })
 
   it('should delete a record successfully', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
+    globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({}),
     })
@@ -183,7 +183,7 @@ describe('useDeleteRecord', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-    expect(global.fetch).toHaveBeenCalledWith(
+    expect(globalThis.fetch).toHaveBeenCalledWith(
       'https://api.test.com/customers?id=eq.1',
       expect.objectContaining({
         method: 'DELETE',
@@ -192,7 +192,7 @@ describe('useDeleteRecord', () => {
   })
 
   it('should handle errors when deleting a record', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
+    globalThis.fetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 404,
       statusText: 'Not Found',

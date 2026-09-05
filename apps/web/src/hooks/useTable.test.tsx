@@ -3,7 +3,7 @@ import { renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useTable } from './useTable'
 import { useAuth } from '@/hooks/useAuth'
-import { setupMockApiConfig } from '@/test/apiTestUtils'
+import { configureApp } from '@/test/runtimeConfig'
 
 // Mock the useAuth hook
 vi.mock('@/hooks/useAuth', () => ({
@@ -25,8 +25,10 @@ describe('useTable', () => {
     })
     vi.clearAllMocks()
 
-    // Setup API configuration using test utility
-    await setupMockApiConfig()
+    // The app's real runtime config channel, `window.__ENV__` — not vi.stubEnv,
+    // which is inert in a browser bundle where Vite has already inlined every
+    // import.meta.env read.
+    await configureApp()
 
     // Default mock for useAuth
     vi.mocked(useAuth).mockReturnValue({
@@ -86,7 +88,7 @@ describe('useTable', () => {
   })
 
   it('adds Supabase apikey header when API_TYPE is supabase', async () => {
-    await setupMockApiConfig({
+    await configureApp({
       type: 'supabase',
       supabaseApiKey: 'supabase-key',
     })

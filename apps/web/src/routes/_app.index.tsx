@@ -8,7 +8,7 @@ import {
   CardDescription,
   CardTitle,
 } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button'
 import { useAuth } from '@/hooks/useAuth'
 import { getModuleDisplay } from '@/contexts/AuthContext'
 import { moduleHomePath } from '@/lib/moduleHome'
@@ -78,14 +78,19 @@ function IndexComponent() {
               Your account doesn&apos;t have permissions for any module yet.
               Please contact your administrator to request access.
             </p>
-            <Button
-              variant="outline"
-              className="mt-6"
-              onClick={() => { window.location.href = '/logout' }}
+            {/*
+              A real link. `/logout` is an in-app route, but the plain <a> is
+              deliberate: signing out must be a document load, so nothing —
+              AuthProviderWrapper, the QueryClient, any cached row — survives it.
+              A TanStack <Link> would push it into the SPA instead.
+            */}
+            <a
+              href="/logout"
+              className={buttonVariants({ variant: 'outline', className: 'mt-6' })}
             >
               <LogOut className="mr-2 h-4 w-4" />
               Sign in with a different account
-            </Button>
+            </a>
           </CardContent>
         </Card>
       ) : (

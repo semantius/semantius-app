@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { NavUser } from './NavUser'
 import { SidebarProvider } from '@/components/ui/sidebar'
 import type { UserMenuEntry } from '@/lib/userMenu'
@@ -33,20 +33,25 @@ vi.mock('@/lib/config', () => ({
   getConfig: () => ({ uiCustomizer: { user: { menu: MENU } } }),
 }))
 
-// jsdom cannot navigate, so window.location.assign() is replaced wholesale for
-// this file (same pattern as ErrorBoundary.test.tsx) — otherwise the click logs
-// a "Not implemented: navigation" error and the call is unobservable. Same for
-// window.open, which jsdom leaves unimplemented.
-const assignSpy = vi.fn()
-const openSpy = vi.fn()
-const realLocation = window.location
+// Nothing here replaces `window.location`, `window.open` or `matchMedia`, and
+// nothing disables userEvent's pointer-events check. This file runs in a real
+// Chromium, where those exist — and the three menu targets a test used to
+// observe by spying on them are now expressed in the DOM instead:
+//
+//   target: newtab   -> <a href target="_blank" rel="noopener noreferrer">
+//   target: redirect -> <a href>
+//   in-app           -> a menu item that calls router.history.push
+//
+// Which means the first two are asserted by reading attributes off a link
+// rather than by clicking and hoping a spy recorded it. Following a link is the
+// browser's job, not this suite's — and a test must NOT click these, because a
+// real browser would then navigate the test frame away.
 
 const user = { name: 'Wei Chen', email: 'admin@test.com', avatar: '' }
 
 /** Open the avatar popover and return a click helper for its items. */
 async function openMenu() {
-  // Base UI guards against clicks on elements jsdom reports as pointer-events:none.
-  const ui = userEvent.setup({ pointerEventsCheck: 0 })
+  const ui = userEvent.setup()
   render(
     <SidebarProvider>
       <NavUser user={user} />
@@ -54,55 +59,25 @@ async function openMenu() {
   )
   const trigger = screen.getByRole('button')
   await ui.click(trigger)
-  // The popup mounts in a portal a tick after the click. Generous timeouts here
-  // and on each `it` below: in the full-suite run this file's first render pays
-  // the import cost and gets close to vitest's 5s default.
-  await waitFor(() => expect(screen.getByText('Log out')).toBeInTheDocument(), { timeout: 10_000 })
+  // The popup mounts in a portal a tick after the click.
+  await waitFor(() => expect(screen.getByText('Log out')).toBeInTheDocument())
   return ui
 }
 
 describe('NavUser — configuration-driven menu', () => {
-  beforeAll(() => {
-    Object.defineProperty(window, 'location', {
-      configurable: true,
-      writable: true,
-      value: { ...realLocation, origin: realLocation.origin, href: realLocation.href, assign: assignSpy },
-    })
-    Object.defineProperty(window, 'open', { configurable: true, writable: true, value: openSpy })
-    Object.defineProperty(window, 'matchMedia', {
-      writable: true,
-      value: vi.fn().mockImplementation((query) => ({
-        matches: false,
-        media: query,
-        onchange: null,
-        addListener: vi.fn(),
-        removeListener: vi.fn(),
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-        dispatchEvent: vi.fn(),
-      })),
-    })
-  })
-
-  afterAll(() => {
-    Object.defineProperty(window, 'location', { configurable: true, writable: true, value: realLocation })
-  })
-
   beforeEach(() => {
     pushSpy.mockClear()
-    assignSpy.mockClear()
-    openSpy.mockClear()
     mockPermissions.mockReturnValue([])
   })
 
-  it('hides a permission-gated entry from a user without the permission', { timeout: 20_000 }, async () => {
+  it('hides a permission-gated entry from a user without the permission', async () => {
     await openMenu()
 
     expect(screen.getByText('Settings')).toBeInTheDocument()
     expect(screen.queryByText('Platform')).not.toBeInTheDocument()
   })
 
-  it('shows a permission-gated entry to a user who holds the permission', { timeout: 20_000 }, async () => {
+  it('shows a permission-gated entry to a user who holds the permission', async () => {
     mockPermissions.mockReturnValue(['admin'])
 
     await openMenu()
@@ -110,7 +85,7 @@ describe('NavUser — configuration-driven menu', () => {
     expect(screen.getByText('Platform')).toBeInTheDocument()
   })
 
-  it('pushes the exact configured URL for an in-app entry', { timeout: 20_000 }, async () => {
+  it('pushes the exact configured URL for an in-app entry', async () => {
     const ui = await openMenu()
 
     await ui.click(screen.getByText('Settings'))
@@ -119,30 +94,42 @@ describe('NavUser — configuration-driven menu', () => {
     expect(pushSpy).toHaveBeenCalledWith('/settings?orgid=acme')
   })
 
-  it('does a document navigation, not a router push, for target: redirect', { timeout: 20_000 }, async () => {
-    const ui = await openMenu()
-
-    await ui.click(screen.getByText('Account'))
-
-    // /idp is proxied to another server: a router push would match the SPA's
-    // catch-all module route and 404 until the user hit refresh.
-    expect(assignSpy).toHaveBeenCalledWith('/idp/account')
-    expect(pushSpy).not.toHaveBeenCalled()
-  })
-
-  it('opens a new tab for target: newtab, leaving the current page alone', { timeout: 20_000 }, async () => {
-    const ui = await openMenu()
-
-    await ui.click(screen.getByText('Docs'))
-
-    expect(openSpy).toHaveBeenCalledWith('/docs', '_blank', 'noopener,noreferrer')
-    expect(assignSpy).not.toHaveBeenCalled()
-    expect(pushSpy).not.toHaveBeenCalled()
-  })
-
-  it('still renders Log out below the configured entries', { timeout: 20_000 }, async () => {
+  it('renders target: redirect as a link, so the browser leaves the SPA', async () => {
     await openMenu()
 
-    expect(screen.getByText('Log out')).toBeInTheDocument()
+    // /idp is proxied to another server: a router push would match the SPA's
+    // catch-all module route and 404 until the user hit refresh. A link is a
+    // document navigation by construction — there is no push to suppress.
+    const account = screen.getByRole('menuitem', { name: 'Account' })
+    expect(account).toHaveAttribute('href', '/idp/account')
+    expect(account.tagName).toBe('A')
+    expect(account).not.toHaveAttribute('target')
+    expect(pushSpy).not.toHaveBeenCalled()
+  })
+
+  it('renders target: newtab as a link that cannot reach back through window.opener', async () => {
+    await openMenu()
+
+    const docs = screen.getByRole('menuitem', { name: 'Docs' })
+    expect(docs).toHaveAttribute('href', '/docs')
+    expect(docs).toHaveAttribute('target', '_blank')
+    expect(docs).toHaveAttribute('rel', 'noopener noreferrer')
+    expect(pushSpy).not.toHaveBeenCalled()
+  })
+
+  it('renders an in-app entry as a menu item, not a link', async () => {
+    await openMenu()
+
+    // The counterpart to the two above: `Settings` is relative and carries no
+    // target, so it must NOT become an anchor — an href would take the browser
+    // out of the SPA on a route the router owns.
+    expect(screen.getByRole('menuitem', { name: 'Settings' })).not.toHaveAttribute('href')
+  })
+
+  it('offers Log out as a link to /logout, below the configured entries', async () => {
+    await openMenu()
+
+    // A document load, so nothing survives the sign-out.
+    expect(screen.getByRole('menuitem', { name: 'Log out' })).toHaveAttribute('href', '/logout')
   })
 })

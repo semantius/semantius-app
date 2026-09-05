@@ -5,8 +5,7 @@ import { cdp } from 'vitest/browser'
  * browser's accessibility tree over the DevTools protocol — not re-derived in
  * JavaScript.
  *
- * Usable only in the `browser` Vitest project (see vite.config.ts); `cdp()`
- * has nothing to return in jsdom.
+ * Usable only in the `browser` Vitest project (see vite.config.ts).
  *
  * WHY. Every JavaScript implementation of the accessible-name algorithm is an
  * approximation of what browsers do, and they disagree at the edges. The one
@@ -21,53 +20,52 @@ import { cdp } from 'vitest/browser'
  */
 export async function chromeAccessibleName(element: Element): Promise<string> {
   const session = cdp()
-  // The protocol addresses nodes by id, not by reference; a throwaway
-  // attribute is the bridge from this element to a node it can resolve.
+  // The protocol addresses nodes by id, not by reference; a throwaway attribute
+  // is the bridge from this element to a node it can resolve. The value is
+  // unique per call because `cdp()` addresses the whole browser target and test
+  // files run in sibling iframes of one page — two files probing at the same
+  // moment would otherwise match each other's marker.
   const marker = 'data-chrome-accessible-name-probe'
-  element.setAttribute(marker, '')
+  const token = `p${Math.random().toString(36).slice(2)}`
+  element.setAttribute(marker, token)
   try {
+    // No DOM.enable: DOM.getDocument primes the domain on its own, and enabling
+    // it subscribes this session to every DOM mutation in the whole browser
+    // target — every other test file's renders included.
     await session.send('Accessibility.enable')
-    // Vitest runs a test file inside an iframe of its orchestrator page, and
-    // `DOM.querySelector` does not cross frame boundaries — it would search the
-    // orchestrator and come back empty. Fetch the whole tree pierced through
-    // frames instead and find the marker by hand.
-    const { root } = (await session.send('DOM.getDocument', { depth: -1, pierce: true })) as {
-      root: DomNode
+    // DOM.performSearch searches every document of the target, iframes included,
+    // and returns just the matches. The obvious alternative — DOM.getDocument
+    // with `{ depth: -1, pierce: true }` and a hand-written walk — transfers the
+    // ENTIRE tree of the orchestrator page, which holds one iframe per test file
+    // currently running. That is what it did, and with the browser project grown
+    // to ~47 files it started intermittently blowing the 20s test timeout.
+    //
+    // DOM.getDocument({ depth: 0 }) first is not optional: the DOM domain has no
+    // document to search until the root has been requested at least once.
+    await session.send('DOM.getDocument', { depth: 0 })
+    const search = (await session.send('DOM.performSearch', {
+      query: `[${marker}="${token}"]`,
+    })) as { searchId: string; resultCount: number }
+
+    try {
+      if (search.resultCount === 0) {
+        throw new Error('chromeAccessibleName: the element was not found in the DevTools DOM tree')
+      }
+      const { nodeIds } = (await session.send('DOM.getSearchResults', {
+        searchId: search.searchId,
+        fromIndex: 0,
+        toIndex: search.resultCount,
+      })) as { nodeIds: number[] }
+
+      const { nodes } = (await session.send('Accessibility.getPartialAXTree', {
+        nodeId: nodeIds[0],
+        fetchRelatives: false,
+      })) as { nodes: Array<{ name?: { value?: string } }> }
+      return nodes[0]?.name?.value ?? ''
+    } finally {
+      await session.send('DOM.discardSearchResults', { searchId: search.searchId })
     }
-    const backendNodeId = findMarked(root, marker)
-    if (backendNodeId === undefined) {
-      throw new Error('chromeAccessibleName: the element was not found in the DevTools DOM tree')
-    }
-    const { nodes } = (await session.send('Accessibility.getPartialAXTree', {
-      backendNodeId,
-      fetchRelatives: false,
-    })) as { nodes: Array<{ name?: { value?: string } }> }
-    return nodes[0]?.name?.value ?? ''
   } finally {
     element.removeAttribute(marker)
   }
-}
-
-/** The subset of a DevTools `DOM.Node` this file walks. */
-interface DomNode {
-  backendNodeId: number
-  /** Flat `[name, value, name, value, …]`, as the protocol sends it. */
-  attributes?: string[]
-  children?: DomNode[]
-  shadowRoots?: DomNode[]
-  contentDocument?: DomNode
-}
-
-function findMarked(node: DomNode, marker: string): number | undefined {
-  const attrs = node.attributes ?? []
-  for (let i = 0; i < attrs.length; i += 2) {
-    if (attrs[i] === marker) return node.backendNodeId
-  }
-  const below = [...(node.children ?? []), ...(node.shadowRoots ?? [])]
-  if (node.contentDocument) below.push(node.contentDocument)
-  for (const child of below) {
-    const found = findMarked(child, marker)
-    if (found !== undefined) return found
-  }
-  return undefined
 }

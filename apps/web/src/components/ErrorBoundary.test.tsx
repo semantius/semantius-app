@@ -1,6 +1,5 @@
-import { describe, it, expect, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi, type MockInstance } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { userEvent } from '@testing-library/user-event'
 import ErrorBoundary from '@/components/ErrorBoundary'
 
 // Component that throws an error
@@ -12,13 +11,16 @@ function ThrowError({ shouldThrow }: { shouldThrow: boolean }) {
 }
 
 describe('ErrorBoundary', () => {
-  // Suppress console.error for these tests since we expect errors
-  const originalError = console.error
+  // React logs every caught error, and so does componentDidCatch. A call-through
+  // spy (no mockImplementation) leaves console.error doing its real job — it only
+  // records that it was called — so the boundary's own logging stays observable
+  // instead of being replaced by a stub that swallows it.
+  let consoleError: MockInstance<typeof console.error>
   beforeAll(() => {
-    console.error = vi.fn()
+    consoleError = vi.spyOn(console, 'error')
   })
   afterAll(() => {
-    console.error = originalError
+    consoleError.mockRestore()
   })
 
   it('renders children when there is no error', () => {
@@ -36,9 +38,22 @@ describe('ErrorBoundary', () => {
         <ThrowError shouldThrow={true} />
       </ErrorBoundary>
     )
-    
+
     expect(screen.getByText('Something went wrong')).toBeInTheDocument()
     expect(screen.getByText(/An unexpected error occurred/i)).toBeInTheDocument()
+  })
+
+  it('logs the error it caught', () => {
+    consoleError.mockClear()
+    render(
+      <ErrorBoundary>
+        <ThrowError shouldThrow={true} />
+      </ErrorBoundary>
+    )
+
+    expect(
+      consoleError.mock.calls.some((args) => String(args[0]).includes('ErrorBoundary caught an error')),
+    ).toBe(true)
   })
 
   it('displays error details when an error is caught', () => {
@@ -47,45 +62,24 @@ describe('ErrorBoundary', () => {
         <ThrowError shouldThrow={true} />
       </ErrorBoundary>
     )
-    
+
     // ErrorBoundary uses ApiErrorDisplay which shows the error message directly
     expect(screen.getByText(/Test error message/)).toBeInTheDocument()
   })
 
-  it('provides a return to home button', () => {
+  it('offers a real link home, not a scripted navigation', () => {
     render(
       <ErrorBoundary>
         <ThrowError shouldThrow={true} />
       </ErrorBoundary>
     )
-    
-    const homeButton = screen.getByRole('button', { name: /return to home/i })
-    expect(homeButton).toBeInTheDocument()
-  })
 
-  it('navigates to home when reset button is clicked', async () => {
-    const user = userEvent.setup()
-    
-    // Mock window.location.href
-    const originalLocation = window.location
-    // @ts-expect-error - Mocking window.location for testing
-    delete window.location
-    // @ts-expect-error - Mocking window.location for testing
-    window.location = { href: '' }
-    
-    render(
-      <ErrorBoundary>
-        <ThrowError shouldThrow={true} />
-      </ErrorBoundary>
-    )
-    
-    const homeButton = screen.getByRole('button', { name: /return to home/i })
-    await user.click(homeButton)
-    
-    expect(window.location.href).toBe('/')
-    
-    // Restore original location
-    // @ts-expect-error - Restoring mocked window.location
-    window.location = originalLocation
+    // The old version of this test deleted window.location, replaced it with a
+    // plain object, clicked, and asserted that object's `href` — which verified
+    // the stub, not the app. In a real browser `Location` cannot be replaced at
+    // all. What is ours to test is that the control is a link to `/`; following
+    // it is the browser's job.
+    const home = screen.getByRole('link', { name: /return to home/i })
+    expect(home).toHaveAttribute('href', '/')
   })
 })

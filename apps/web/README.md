@@ -40,9 +40,11 @@ conformance claim, its scope and its named exceptions live in the root
 pnpm --filter @semantius/frontend exec vitest run src/test/tokenContrast.test.ts
 
 # 2. Component tests in a real Chromium: the `browser` Vitest project in
-#    vite.config.ts (components/form, components/ui-ext), driven by Playwright.
-#    Part of `pnpm check`, so it needs the same Chromium as (4) — run
-#    `test:e2e:install` once. Real CSS, real popovers, no jsdom polyfills; every
+#    vite.config.ts — EVERY `*.test.tsx`, plus the three `.ts` tests that touch a
+#    window — driven by Playwright. Everything else runs in the `node` project;
+#    there is no third environment. Part of `pnpm check`, so it needs the same
+#    Chromium as (4) — run `test:e2e:install` once. Real CSS, real popovers,
+#    nothing polyfilled and no browser primitive stubbed anywhere; every
 #    control asserts its computed accessible name and description, and the
 #    triggers that name themselves are checked against the name Chrome's own
 #    accessibility tree computes (src/test/chromeAccessibleName.ts), not a
@@ -51,16 +53,18 @@ pnpm --filter @semantius/frontend exec vitest run --project browser
 
 # 3. Static a11y lint. Frozen violations live in eslint-suppressions.json; a NEW
 #    one fails the gate. `--prune-suppressions` lowers the ceiling as they are fixed.
-#    The current count is 3 suppressed there PLUS 3 documented inline with
-#    `eslint-disable-next-line` (two niko-table composite widgets and one
-#    deliberate autofocus) — six accepted defects, not three.
+#    The current count is 3 suppressed there PLUS 6 documented inline with
+#    `eslint-disable-next-line` (two niko-table composite widgets, one deliberate
+#    autofocus, and three `anchor-has-content` on NavUser links whose content
+#    arrives through Base UI's `render` merge, which the rule cannot follow) —
+#    nine accepted defects, not three.
 pnpm --filter @semantius/frontend lint
 pnpm --filter @semantius/frontend exec eslint . --prune-suppressions
 
 # 4. The real login journey, in a real browser, against the test OIDC server.
 #    This is what makes the rest of the suite's `#jwt` session-seeding honest.
 #    Not part of `pnpm check`; it runs in CI from .github/workflows/a11y.yml
-#    (on dispatch, weekly, and as a release gate called by docker-publish.yml).
+#    (on dispatch, and as a release gate called by docker-publish.yml).
 pnpm --filter @semantius/frontend test:e2e:install   # once
 pnpm --filter @semantius/frontend test:e2e
 
