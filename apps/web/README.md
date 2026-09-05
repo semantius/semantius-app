@@ -24,6 +24,51 @@ pnpm test
 pnpm lint
 ```
 
+## Accessibility and responsive checks
+
+**Three automated layers** (1-2 and 4 below), plus **one end-to-end journey** (3)
+that is not a layer of the analysis but the thing that keeps the rest honest. The
+conformance claim, its scope and its named exceptions live in the root
+[README](../../README.md#accessibility) — this is just where the commands are.
+
+```bash
+# 1. Token contrast + source-scan invariants. Part of `pnpm check`; fails the
+#    moment a palette token moves out of range, on every surface a control can
+#    sit on — including pairs no current route happens to render.
+#    NOT `test -- <path>`: the `--` is consumed by pnpm and the path never
+#    reaches vitest, so that form silently runs the whole ~51s suite instead.
+pnpm --filter @semantius/frontend exec vitest run src/test/tokenContrast.test.ts
+
+# 2. Static a11y lint. Frozen violations live in eslint-suppressions.json; a NEW
+#    one fails the gate. `--prune-suppressions` lowers the ceiling as they are fixed.
+#    The current count is 3 suppressed there PLUS 3 documented inline with
+#    `eslint-disable-next-line` (two niko-table composite widgets and one
+#    deliberate autofocus) — six accepted defects, not three.
+pnpm --filter @semantius/frontend lint
+pnpm --filter @semantius/frontend exec eslint . --prune-suppressions
+
+# 3. The real login journey, in a real browser, against the test OIDC server.
+#    This is what makes the rest of the suite's `#jwt` session-seeding honest.
+#    It is in NO automated runner — not `pnpm check`, not CI.
+pnpm --filter @semantius/frontend test:e2e:install   # once
+pnpm --filter @semantius/frontend test:e2e
+
+# 4. The route x viewport x theme sweep, against a DEPLOYED preview (from the repo root).
+pnpm preview:wrangler
+dotenvx run -- node scripts/a11y-sweep/run.mjs --url "$(grep -oE 'https://\S+' .preview-url.md)"
+```
+
+The sweep **should not** be pointed at localhost as a substitute for the preview.
+It *can* be — the `#jwt` bootstrap's host gate (`urlTokenAllowed` in
+`lib/devUrlToken.ts`) explicitly allows `localhost` and `127.0.0.1` alongside
+`*.workers.dev`. The reason not to is that a dev server is not the artifact being
+shipped: the whole point of the sweep is to measure a real build, with the real
+production CSS, at the URL the claim is about.
+
+`scripts/a11y-sweep/` lives at the repo root and is **not covered by `pnpm
+check`** — nothing lints or typechecks it. A change there is verified only by
+running it.
+
 ## Configuration
 
 - Environment variables: `.env` (see `.env.example` for template)

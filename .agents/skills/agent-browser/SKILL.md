@@ -198,6 +198,54 @@ agent-browser -p ios close
 
 **Real devices:** Works with physical iOS devices if pre-configured. Use `--device "<UDID>"` where UDID is from `xcrun xctrace list devices`.
 
+## Version and the authoritative reference
+
+This file documents the commands this repo actually uses. It is a summary, not the
+reference — the CLI ships its own version-matched guide, and that is the thing to
+read when something here disagrees with reality:
+
+```bash
+agent-browser --version              # pinned by workplace/setup.sh; 0.27.0 at time of writing
+agent-browser skills get core --full # full, version-matched command reference
+agent-browser <command> --help
+```
+
+## Commands the accessibility sweep depends on (0.27+)
+
+These four are what `scripts/a11y-sweep/` is built on and none of them existed in
+this file before 0.27:
+
+```bash
+# Viewport — the sweep walks 320/390/640/768/1024/1440 plus landscape 844x390.
+agent-browser set viewport 390 844
+
+# Theme — emulates the OS preference. This is the ONLY correct way to switch
+# themes in this app: next-themes runs with defaultTheme="system", so it listens
+# for prefers-color-scheme. Writing the `semantius-ui-theme` storage key or
+# hand-toggling the `.dark` class desynchronizes the provider from the DOM and
+# tests a state no user can be in.
+agent-browser set media dark
+agent-browser set media light
+
+# Batch — many commands in one browser round-trip.
+# ARGUMENT MODE STRIPS SINGLE QUOTES, which silently mangles any JS payload.
+# Always feed it JSON on stdin instead.
+echo '["open https://example.com", "get title"]' | agent-browser batch --bail
+
+# Init scripts — run before the first navigation of every page in the session.
+# This is how a large library (axe-core is ~600KB) gets into the page: passing it
+# through `eval -b` fails on payloads that size.
+agent-browser --init-script ./axe.js open https://example.com
+```
+
+## Storage and per-session isolation
+
+```bash
+agent-browser storage local          # read localStorage
+agent-browser --session sweep open <url>   # isolated session, safe to run in parallel
+agent-browser close --all            # close every session
+```
+
 ## Ref Lifecycle (Important)
 
 Refs (`@e1`, `@e2`, etc.) are invalidated when the page changes. Always re-snapshot after:

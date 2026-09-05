@@ -222,6 +222,100 @@ Key features:
 - `precision` keyword for decimal place validation
 - Used by the form components to drive field rendering and validation
 
+## Accessibility
+
+**Target: WCAG 2.2 Level AA. The honest shape of this claim is _supports with
+exceptions_, and the exceptions are named below.** A bare "conforms to WCAG 2.2
+AA" would be worth less than nothing here: an omitted exception reads as a claim
+that the excepted part conforms too.
+
+### Scope
+
+The claim covers the routes and components in this repository. It does **not**
+cover:
+
+- **The drizzle-cube `AnalyticsDashboard`** rendered on `/<module>/` — third-party,
+  ships its own `dc-*` design tokens outside this app's palette, and lays out with
+  `react-grid-layout`. It is excluded from the automated sweep and nothing here
+  asserts anything about it. It is still a route users visit; scoping it out bounds
+  the work, not the user's experience.
+- **`apps/web/src/charts/`**, which only renders inside that dashboard.
+- **`/form-playground`**, a developer tool with no accessibility or responsive
+  requirement.
+
+2.5.7 Dragging Movements is confirmed satisfied for the dnd-kit interactions this
+app owns (row reordering has a keyboard sensor); it is **not** confirmed for
+`react-grid-layout` inside the excluded dashboard.
+
+### How it is evaluated
+
+Three layers, because no single one can see everything:
+
+| Layer | Runs | Answers |
+| --- | --- | --- |
+| Token contrast (`apps/web/src/test/tokenContrast.test.ts`) | node, in `pnpm check` | Is the palette itself conformant, on every surface a control can sit on — including pairs no current route happens to render? |
+| Lint (`eslint-plugin-jsx-a11y`) | `pnpm lint` | Are there static ARIA/markup defects? Frozen violations live in `apps/web/eslint-suppressions.json` (3) with a further 3 documented inline as `eslint-disable-next-line`; a new one fails the gate. |
+| Route sweep (`scripts/a11y-sweep/`) | a real browser, against a deployed preview | axe-core plus the things axe cannot see: `::placeholder` contrast, rendered focus indicators, 320px reflow measured on descendants, 2.4.11 focus-not-obscured, `<title>` uniqueness, `<h1>` presence. |
+
+```bash
+# Against a deployed preview (needs SEMANTIUS_API_KEY via dotenvx):
+pnpm preview:wrangler
+dotenvx run -- node scripts/a11y-sweep/run.mjs --url "$(grep -oE 'https://\S+' .preview-url.md)"
+```
+
+The sweep walks 16 routes x 6 viewports (320/390/640/768/1024/1440) x light and
+dark, plus a landscape phone (844x390), and writes a JSON artifact per run to
+`a11y-reports/`. Output is keyed by **success criterion**, not by route, using the
+report vocabulary: Supports / Partially Supports / Does Not Support / Not
+Applicable / **Not Evaluated**.
+
+Two rules make that output trustworthy:
+
+- **A criterion nothing checked reads Not Evaluated, never Supports.** A criterion
+  no rule covers is simply absent from an axe payload; rendering absence as a pass
+  is the one thing that would make this a dishonest claim.
+- **A page the sweep could not measure is INCONCLUSIVE, not a pass.** If the boot
+  overlay never came down, the app rendered an error surface, the theme did not
+  actually switch, or the page threw, that cell is excluded and the run fails.
+
+### Known limitations
+
+- **29 of the 55 criteria report Not Evaluated, for two different reasons — and
+  the difference matters.**
+  - **Four** have no machine pass condition, because each asks whether something
+    is *good* rather than whether it is *present*: 1.1.1 (is the alt text
+    accurate), 2.4.3 (is the focus order meaningful), 2.4.6 (is the heading
+    descriptive), 4.1.3 (does the announcement say something useful). For these
+    four, and **only** these four, the sweep emits the raw material — every alt
+    string, the tab order per route, every heading, every live region — into the
+    run artifact, so they are reviewed by reading a diff rather than by running a
+    scheduled audit. **Reviewing that evidence is not the same as a
+    screen-reader pass, and nothing here claims one was run.**
+  - The other **25** are Not Evaluated because **no check covers them at all**.
+    They carry no evidence in the artifact (`evidenceCount` is 0 for 51 of the 55
+    criteria). Not Evaluated means exactly that — not "passed quietly".
+- There are **no scheduled manual accessibility passes and no named owner** for
+  them. That is deliberate: a cadence nobody runs decays into a claim nobody can
+  support. Everything automatable is automated instead — 2.4.11 included, which is
+  usually written off as manual.
+- The sweep sees only the routes it visits in the states it reaches. Modal flows,
+  error states and empty-vs-populated grids need cases that are not yet written.
+- The module tile's background can be overridden per module by authored
+  `logo_color` data. No palette check can reach that; its contrast is a data
+  question.
+
+## Browser and device support
+
+- Modern evergreen browsers (Chrome, Edge, Firefox, Safari). The UI uses
+  `oklch()` colors, CSS container queries, `:has()` and `inert`.
+- Phones and tablets from **320px** wide. Below `48rem` (Tailwind's `md:`) the
+  sidebar becomes a sheet, form fields go to a single column, and data-grid column
+  pinning is disabled — at that width a pinned column consumes most of the viewport
+  and puts everything else permanently underneath it.
+- Both light and dark themes, following the OS preference by default
+  (`prefers-color-scheme`) with an explicit override in the account menu.
+- `prefers-reduced-motion` is honored globally.
+
 ## Browser Automation (agent-browser)
 
 `agent-browser` provides headless browser control for AI agents — navigation, clicks, form fills, snapshots, and screenshots.

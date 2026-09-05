@@ -182,6 +182,77 @@ registered in **all seven** places. Missing any one fails late and confusingly (
    "Optional extras" list). An operator configures from the README, not from the source;
    a var that exists only in code and `.env.example` is undiscoverable.
 
+### Accessibility — the mechanisms, and the traps around them
+
+**The `[data-slot]` variable-shadow trick has a hard limit, and `border-transparent`
+is past it.** `global.css` retargets skeleton fills by shadowing `--muted` on
+`[data-slot='skeleton']`, which works only because `bg-muted` compiles to
+`background-color: var(--muted)`. `border-transparent` compiles to the LITERAL
+`transparent` — there is no variable to shadow. The lever that does work there is
+an **`@layer utilities` rule placed after `@import 'tailwindcss'`**: it matches the
+plain utility's (0,1,0) specificity and wins on source order, while every stateful
+variant (`focus-visible:`, `aria-invalid:`, `data-checked:`, an arbitrary
+`[&_…]` descendant selector) is one class higher and still overrides it. That is
+what gives every filled form control a 3:1 boundary without hand-editing nine
+CLI-owned files. Same technique, three more uses in that block: the mobile
+sidebar's width, the Sheet/Dialog close-button gutter, and the sticky-footer bleed.
+
+**A CLI-owned component is sometimes unreachable from any call site.**
+`ui/command.tsx` constructs its own `<InputGroup>` internally, so the
+command-palette search field cannot be fixed by passing a className anywhere. When
+that happens the options are a CSS rule (above) or a fork into `ui-ext/`.
+`ui-ext/command-dialog.tsx` is such a fork, and it exists because the registry
+`CommandDialog` renders its `sr-only` `<h2>` as a SIBLING of the popup — so it
+lands in the page ahead of every route's `<h1>` and leaves the dialog unnamed.
+
+**Tailwind width/height classes carrying a `data-[…]:` modifier are invisible to
+tailwind-merge.** `data-[side=right]:w-3/4` (shipped by `ui/sheet.tsx`) and a
+call-site `w-full` are different group keys to tailwind-merge, so BOTH survive —
+and the modifier version then out-specifies the bare one. A Sheet call site must
+repeat the modifier (`data-[side=right]:w-full`) or it silently renders at 75%.
+Same for `max-w-*`.
+
+**next-themes runs with `defaultTheme="system"`, so the only correct way to switch
+themes in a test or a sweep is to emulate the OS preference** (`agent-browser set
+media dark`). Writing the `semantius-ui-theme` storage key or toggling `.dark` by
+hand desynchronizes the provider from the DOM and measures a state no user can be
+in. Any harness that switches themes must also ASSERT the switch took effect;
+otherwise it measures light twice and reports dark as clean.
+
+**Chrome returns computed colors in the space they were authored in.** This palette
+is `oklch()`, so `getComputedStyle` hands back `oklch(…)` and `oklab(… / 0.5)` —
+never `rgb()`. Any in-page contrast measurement that parses only `rgba()` returns
+null for every color here, which reads downstream as "this control has no border
+and no fill": a confident false positive on the exact criterion being measured.
+Convert with a 1x1 canvas (it parses the full CSS `<color>` grammar), pulling alpha
+out by regex first, because `getImageData` round-trips a premultiplied buffer.
+
+**13 of the 69 `oklch()` declarations are outside the sRGB gamut** (`--primary`,
+`--destructive`, `--sidebar-primary`, the chart ramp). What a browser paints for
+those is the CSS gamut-mapping result, not a naive per-channel clamp, and the two
+differ by up to ~0.1 in contrast ratio — enough to move a pair across the 3:1 or
+4.5:1 line. Compute with colorjs.io's `toGamut({ method: 'css' })`, never by
+clamping. **Both counts are asserted** in
+`apps/web/src/test/tokenContrast.test.ts` — they had already drifted once, so a
+palette edit now fails the suite until this sentence and `cssTokens.ts` are
+updated with it.
+
+**`position: sticky` and `scroll-padding` are a pair.** Anything sticky over a
+scroll container hides whatever the browser scrolls to that edge, a focused control
+included (2.4.11). Every scroll container with a sticky edge needs matching
+`scroll-padding`: `html` for the app header and the form action bar, the
+Sheet/Dialog for that same bar inside an overlay, and the data grid's own container
+for its sticky header and pinned columns — computed at runtime in
+`niko-table/core/data-table.tsx`, because the pinned width comes from the column
+model. Where the sticky surface is wider than the space left over, padding cannot
+help; that is why column pinning is disabled below `md`.
+
+**TanStack Table's `columnPinning` must be CONTROLLED, not `initialState`, when it
+depends on a hook that resolves asynchronously.** `useIsMobile()` returns `false` on
+its first render (its state starts `undefined` and an effect fills it in), so
+`initialState` captured the desktop value and kept it forever: a phone got desktop
+pinning permanently. `state` re-reads it.
+
 ### Routing Conventions
 
 - File-based routing in `src/routes/`
@@ -479,6 +550,74 @@ If `mint-token.mjs` fails, **stop and fix that first** — do not fall back to a
 **Gating (deny-by-default, both must hold; see `urlTokenAllowed` in `devUrlToken.ts`):** (1) a non-empty build-time `VITE_CONTROL_PLANE_ORG` — production has none (it derives the tenant from the subdomain at runtime via `getTenantName()` in `lib/config.ts`), so this is an unforgeable test-build marker; **and** (2) host is `localhost`/`127.0.0.1` or `*.workers.dev`. Production satisfies neither, so it ignores `#jwt` entirely.
 
 Keep at most one full-UI-login smoke test (against a registered domain) to prove the real OAuth integration still works.
+
+### Accessibility testing — three layers, and why none of them is optional
+
+**jsdom cannot host axe, and never will.** It loads no CSS. `sr-only` is therefore
+invisible to it, every contrast check has nothing to measure, and — the trap —
+axe's own `bypass` rule PASSES a page with no skip link at all, as long as it has a
+`<main>`. An "axe test" in jsdom checks that a page has some attributes, not that it
+is usable. The layers that do work:
+
+1. **Token math in node** (`apps/web/src/test/tokenContrast.test.ts`) — parses
+   `global.css` itself, so it fails the moment a token moves. It reaches pairs no
+   route happens to render (a hover tint, a control on a surface nothing currently
+   puts it on) and is the only layer that can.
+2. **`eslint-plugin-jsx-a11y`** — static defects. Its `settings.jsx-a11y.components`
+   map is what makes our wrapper components visible at all; TanStack's `Link` must
+   go in `linkComponents`, NOT `components` (mapping it to an anchor manufactures 22
+   false positives by demanding an `href` prop it does not take).
+3. **`scripts/a11y-sweep/`** — a real browser against a deployed preview. Everything
+   else is a proxy for this.
+
+**There are exactly TWO substitutions the suite is allowed, named and counted in
+`apps/web/src/test/substitutions.test.ts`:** the OIDC test server (a real provider,
+not a mock — the app's auth code runs against it unmodified), and `#jwt` session
+seeding. The second is a genuine bypass, and it is only honest because
+`apps/web/e2e/login-journey.spec.ts` drives the real interactive login once, for
+real. That has to be Playwright: `react-oauth2-code-pkce` starts login with a full
+top-level `window.location` navigation, which destroys a component test's context.
+**The journey does NOT prove PKCE is cryptographically correct** — the test server
+does not enforce PKCE — and nothing else in the suite does either.
+
+**`vi.mock` of anything inside `src/` is a known defect, not a technique.** The
+current 13 are frozen in `substitutions.test.ts`; a new one fails the suite. The
+target is zero, reached by moving those tests into a browser, not by writing better
+mocks.
+
+### The sweep harness — traps that cost hours
+
+- **`agent-browser` never returns if its stdio is a pipe.** Its per-session daemon
+  inherits the pipe, so the pipe never closes and `spawnSync` waits forever even
+  though the command itself finished in milliseconds. Wire every stream to a real
+  FILE. This is the most confusing failure mode in the harness, because the
+  identical command returns instantly in a terminal.
+- **`batch` in argument mode strips single quotes** (mangling any JS payload — use
+  JSON on stdin), and **`eval -b` fails on a 580KB payload**, so axe goes in with
+  `--init-script`. That registers ONCE per session; re-passing it on every `open`
+  registers duplicates that each re-parse axe.
+- **`eval` runs in a shared global scope**, so probe helpers declared with `const`
+  at the top level collide on the second call (`Identifier '__x' has already been
+  declared`). Wrap every probe, helpers included, in its own IIFE.
+- **Overflow must be measured on DESCENDANTS against the viewport.** `AppLayout`
+  applies `overflow-x-hidden` twice, so `documentElement.scrollWidth` reports a
+  clean page over content that is genuinely cut off. Skip anything inside an `<svg>`
+  (its children report SVG-space boxes) and anything under a scrollable ancestor
+  (that content is reachable).
+- **A probe that walks the whole document must respect `inert` / `aria-hidden`.**
+  When a Sheet opens, Base UI marks the page behind it inert; enumerating it anyway
+  reports every control on the page as obscured by the overlay — a description of a
+  modal working correctly.
+- **`node.id` on a `<form>` is the named CONTROL, not the attribute**, when a field
+  is called "id". Use `getAttribute('id')` in any DOM-walking report or it prints
+  `[object RadioNodeList]`.
+
+**The tenant's serverless PostgREST answers the first request after an idle period
+with a 404**, and the app treats that as terminal: it renders an error card and
+never retries. Any browser harness must warm the API from node first and retry the
+navigation, or a run turns into cells that were never measured. The admissibility
+gate has to recognize that error surface by name — otherwise it reports "0
+violations" for a page that only ever showed an error card.
 
 ### API Testing Workflow
 
