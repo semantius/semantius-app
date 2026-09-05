@@ -1,7 +1,12 @@
 # Accessibility sweep artifacts
 
 One JSON file per run of `scripts/a11y-sweep/run.mjs`, plus a `.txt` digest.
-`latest.json` is a copy of the most recent run kept here, not a separate one.
+
+`run.mjs` also writes `latest.json`, a byte-identical copy of the run it just
+finished. That copy is **git-ignored and never committed** — it is a local
+convenience for `jq`-ing the most recent run, and committing it would put a
+second 363KB copy of an existing file in history under a name that goes stale
+the next time anyone sweeps. Cite a run by its timestamped filename.
 
 Each file is keyed by **success criterion**, not by route, and uses the report
 vocabulary: `Supports` / `Partially Supports` / `Does Not Support` /
