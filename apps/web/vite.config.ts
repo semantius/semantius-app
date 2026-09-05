@@ -78,6 +78,11 @@ export default defineConfig(({ mode }) => ({
     // a value no healthy test approaches, so a timeout means a hang, not
     // contention.
     testTimeout: 20_000,
+    // Declared at the ROOT, not inside a project: a root globalSetup provides to
+    // every project, and both need the token — the browser tests seed a session
+    // with it, the node ones send it as a bearer. Declared inside `browser` it
+    // would provide only there.
+    globalSetup: ['./src/test/globalSetup.ts'],
     projects: [
       {
         extends: true,
