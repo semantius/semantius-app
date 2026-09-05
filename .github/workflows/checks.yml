@@ -42,13 +42,20 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      # The `browser` Vitest project (apps/web/vite.config.ts) runs the form
+      # component tests in a real Chromium through Playwright. Without the
+      # browser it fails at startup, before a single test — a clear message,
+      # but a red gate for a reason that is not the code.
+      - name: Install Chromium for the browser tests
+        run: pnpm --filter @semantius/frontend test:e2e:install
+
       # `pnpm check` is the single definition of what "the checks" are — the
       # same command release.sh runs locally and AGENTS.md tells you to run.
       # Change the commands in package.json, not here, or the gates drift apart.
       #
       # Deliberately not root `pnpm test`: that is `dotenvx run -- turbo test`,
-      # and .env is not committed, so dotenvx would inject nothing and the
-      # failure would look like a secrets problem. These jsdom unit tests need
-      # no secrets.
+      # which needs DOTENV_PRIVATE_KEY to decrypt the committed .env, and a
+      # missing key would make a test failure look like a secrets problem.
+      # These tests need no secrets.
       - name: Lint and test
         run: pnpm check

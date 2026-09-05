@@ -26,7 +26,7 @@ pnpm lint
 
 ## Accessibility and responsive checks
 
-**Three automated layers** (1-2 and 4 below), plus **one end-to-end journey** (3)
+**Four automated layers** (1, 2, 3 and 5 below), plus **one end-to-end journey** (4)
 that is not a layer of the analysis but the thing that keeps the rest honest. The
 conformance claim, its scope and its named exceptions live in the root
 [README](../../README.md#accessibility) — this is just where the commands are.
@@ -39,7 +39,17 @@ conformance claim, its scope and its named exceptions live in the root
 #    reaches vitest, so that form silently runs the whole ~51s suite instead.
 pnpm --filter @semantius/frontend exec vitest run src/test/tokenContrast.test.ts
 
-# 2. Static a11y lint. Frozen violations live in eslint-suppressions.json; a NEW
+# 2. Component tests in a real Chromium: the `browser` Vitest project in
+#    vite.config.ts (components/form, components/ui-ext), driven by Playwright.
+#    Part of `pnpm check`, so it needs the same Chromium as (4) — run
+#    `test:e2e:install` once. Real CSS, real popovers, no jsdom polyfills; every
+#    control asserts its computed accessible name and description, and the
+#    triggers that name themselves are checked against the name Chrome's own
+#    accessibility tree computes (src/test/chromeAccessibleName.ts), not a
+#    JavaScript approximation of it.
+pnpm --filter @semantius/frontend exec vitest run --project browser
+
+# 3. Static a11y lint. Frozen violations live in eslint-suppressions.json; a NEW
 #    one fails the gate. `--prune-suppressions` lowers the ceiling as they are fixed.
 #    The current count is 3 suppressed there PLUS 3 documented inline with
 #    `eslint-disable-next-line` (two niko-table composite widgets and one
@@ -47,13 +57,13 @@ pnpm --filter @semantius/frontend exec vitest run src/test/tokenContrast.test.ts
 pnpm --filter @semantius/frontend lint
 pnpm --filter @semantius/frontend exec eslint . --prune-suppressions
 
-# 3. The real login journey, in a real browser, against the test OIDC server.
+# 4. The real login journey, in a real browser, against the test OIDC server.
 #    This is what makes the rest of the suite's `#jwt` session-seeding honest.
 #    It is in NO automated runner — not `pnpm check`, not CI.
 pnpm --filter @semantius/frontend test:e2e:install   # once
 pnpm --filter @semantius/frontend test:e2e
 
-# 4. The route x viewport x theme sweep, against a DEPLOYED preview (from the repo root).
+# 5. The route x viewport x theme sweep, against a DEPLOYED preview (from the repo root).
 pnpm preview:wrangler
 dotenvx run -- node scripts/a11y-sweep/run.mjs --url "$(grep -oE 'https://\S+' .preview-url.md)"
 ```

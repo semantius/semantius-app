@@ -293,11 +293,12 @@ investigation.
 
 ### How it is evaluated
 
-Three layers, because no single one can see everything:
+Four layers, because no single one can see everything:
 
 | Layer | Runs | Answers |
 | --- | --- | --- |
 | Token contrast (`apps/web/src/test/tokenContrast.test.ts`) | node, in `pnpm check` | Is the palette itself conformant, on every surface a control can sit on — including pairs no current route happens to render? |
+| Component tests in Chromium (the `browser` Vitest project in `apps/web/vite.config.ts`) | Playwright-driven Chromium, in `pnpm check` | Is every form control named, described and operable as actually rendered — real CSS, real popovers, the code-split editors mounted — and, for the triggers that name themselves, what name does Chrome's own accessibility tree compute? |
 | Lint (`eslint-plugin-jsx-a11y`) | `pnpm lint` | Are there static ARIA/markup defects? Frozen violations live in `apps/web/eslint-suppressions.json` (3) with a further 3 documented inline as `eslint-disable-next-line`; a new one fails the gate. |
 | Route sweep (`scripts/a11y-sweep/`) | a real browser, against a deployed preview | axe-core plus the things axe cannot see: `::placeholder` contrast, rendered focus indicators, 320px reflow measured on descendants, 2.4.11 focus-not-obscured, `<title>` uniqueness, `<h1>` presence. |
 

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { screen } from '@testing-library/react'
 import { InputDateTime } from '../InputDateTime'
+import { chromeAccessibleName } from '@/test/chromeAccessibleName'
 import { renderControl } from './harness'
 
 describe('InputDateTime', () => {
@@ -23,17 +24,24 @@ describe('InputDateTime', () => {
     // itself through aria-labelledby = "<label id> <own id>", so the field is
     // announced first and the chosen date — or the placeholder — second.
     //
-    // Only the label half is asserted. Chrome's accessibility tree computes
-    // "Event Time Select date" for this markup (checked over the DevTools
-    // protocol), but dom-accessibility-api — what jest-dom and Testing Library
-    // compute names with — treats the self-reference as a cycle and drops it,
-    // so it reports "Event Time" alone. Asserting the value half here would
-    // encode that limitation as the contract, and the label half is the part
-    // that fails when the aria-labelledby wiring breaks.
+    // jest-dom sees only the label half: dom-accessibility-api treats the
+    // self-reference as a cycle and drops it, so it reports "Event Time"
+    // alone. The full name is asserted against Chrome's own accessibility tree
+    // in the next test; encoding the library's answer here would make its
+    // limitation the contract.
     renderControl(<InputDateTime name="datetime" label="Event Time" />)
     expect(screen.getByRole('button', { name: /^Event Time/ })).toHaveAccessibleName(
       /^Event Time\b/,
     )
+  })
+
+  it('announces the field name, then the current value', async () => {
+    // Chrome's accessibility tree, not a JavaScript approximation of it.
+    renderControl(<InputDateTime name="datetime" label="Event Time" />, {
+      defaultValues: { datetime: '2024-01-15T12:00:00.000Z' },
+    })
+    const trigger = screen.getByRole('button', { name: /^Event Time/ })
+    expect(await chromeAccessibleName(trigger)).toBe('Event Time January 15th, 2024')
   })
 
   it('names the time half after the field', () => {

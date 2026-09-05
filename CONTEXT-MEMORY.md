@@ -609,7 +609,7 @@ If `mint-token.mjs` fails, **stop and fix that first** — do not fall back to a
 
 Keep at most one full-UI-login smoke test (against a registered domain) to prove the real OAuth integration still works.
 
-### Accessibility testing — three layers, and why none of them is optional
+### Accessibility testing — four layers, and why none of them is optional
 
 **jsdom cannot host axe, and never will.** It loads no CSS. `sr-only` is therefore
 invisible to it, every contrast check has nothing to measure, and — the trap —
@@ -621,11 +621,32 @@ is usable. The layers that do work:
    `global.css` itself, so it fails the moment a token moves. It reaches pairs no
    route happens to render (a hover tint, a control on a surface nothing currently
    puts it on) and is the only layer that can.
-2. **`eslint-plugin-jsx-a11y`** — static defects. Its `settings.jsx-a11y.components`
+2. **Component tests in a real Chromium** — the `browser` project in
+   `apps/web/vite.config.ts` runs `components/form/__tests__/**` and
+   `components/ui-ext/**/*.test.tsx` through Playwright as part of `pnpm check`
+   (so `checks.yml` installs Chromium first, and a fresh clone needs
+   `pnpm --filter @semantius/frontend test:e2e:install` once). No polyfills, real
+   CSS (`src/test/setup.browser.ts` loads the stylesheets in `main.tsx` order).
+   Every control test renders through `components/form/__tests__/harness.tsx` —
+   the real `FormProvider` with a real TanStack Form instance — and asserts the
+   computed accessible name and description. Two traps, both invisible:
+   - **`toHaveAccessibleName` / `getByRole({ name })` drop an element that names
+     itself.** dom-accessibility-api adds the current node to its consulted set
+     before walking `aria-labelledby`, so the "<label id> <own id>" pattern the
+     enum and date-time triggers use (field name first, current value second)
+     reports the label alone — and a regex assertion passes without noticing.
+     Chrome computes "Choose Option Option 1". `src/test/chromeAccessibleName.ts`
+     reads Chrome's own tree over the DevTools protocol; assert with that, and do
+     not "fix" the component to match the library.
+   - **`cdp()` addresses the orchestrator page, but a test renders inside an
+     iframe**, so `DOM.querySelector` on `DOM.getDocument`'s root finds nothing
+     and the next call fails with "Could not find node with given id". Fetch the
+     document with `pierce: true` and match by `backendNodeId`.
+3. **`eslint-plugin-jsx-a11y`** — static defects. Its `settings.jsx-a11y.components`
    map is what makes our wrapper components visible at all; TanStack's `Link` must
    go in `linkComponents`, NOT `components` (mapping it to an anchor manufactures 22
    false positives by demanding an `href` prop it does not take).
-3. **`scripts/a11y-sweep/`** — a real browser against a deployed preview. Everything
+4. **`scripts/a11y-sweep/`** — a real browser against a deployed preview. Everything
    else is a proxy for this.
 
 **There are exactly TWO substitutions the suite is allowed, named and counted in

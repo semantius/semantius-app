@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { InputEnum } from '../InputEnum'
+import { chromeAccessibleName } from '@/test/chromeAccessibleName'
 import { renderControl } from './harness'
 
 describe('InputEnum', () => {
@@ -137,15 +138,21 @@ describe('InputEnum', () => {
       // The negative assertion above passes on a trigger with NO name at all.
       // This is the one that fails if the aria-labelledby reference breaks.
       //
-      // Only the label half is asserted. The trigger also names itself
-      // ("<label id> <own id>") so the current value follows the field name —
-      // Chrome's accessibility tree computes "Choose Option Option 1" for this
-      // markup (checked over the DevTools protocol) — but dom-accessibility-api,
-      // which jest-dom and Testing Library compute names with, treats the
-      // self-reference as a cycle and drops it. Asserting the value half here
-      // would encode that limitation as the contract.
+      // jest-dom sees only the label half: the trigger also names itself
+      // ("<label id> <own id>") so the current value follows the field name,
+      // but dom-accessibility-api treats the self-reference as a cycle and
+      // drops it. The full name is asserted against Chrome's accessibility
+      // tree in the next test.
       renderControl(<InputEnum name="option" label="Choose Option" />, withValue('Option 1'))
       expect(screen.getByRole('combobox')).toHaveAccessibleName(/^Choose Option\b/)
+    })
+
+    it('announces the field name, then the current value', async () => {
+      // Chrome's accessibility tree, not a JavaScript approximation of it.
+      renderControl(<InputEnum name="option" label="Choose Option" />, withValue('Option 1'))
+      expect(await chromeAccessibleName(screen.getByRole('combobox'))).toBe(
+        'Choose Option Option 1',
+      )
     })
 
     it('points aria-controls at an element that actually exists', async () => {
