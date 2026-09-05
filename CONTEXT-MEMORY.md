@@ -190,12 +190,30 @@ is past it.** `global.css` retargets skeleton fills by shadowing `--muted` on
 `background-color: var(--muted)`. `border-transparent` compiles to the LITERAL
 `transparent` — there is no variable to shadow. The lever that does work there is
 an **`@layer utilities` rule placed after `@import 'tailwindcss'`**: it matches the
-plain utility's (0,1,0) specificity and wins on source order, while every stateful
-variant (`focus-visible:`, `aria-invalid:`, `data-checked:`, an arbitrary
-`[&_…]` descendant selector) is one class higher and still overrides it. That is
-what gives every filled form control a 3:1 boundary without hand-editing nine
-CLI-owned files. Same technique, three more uses in that block: the mobile
-sidebar's width, the Sheet/Dialog close-button gutter, and the sticky-footer bleed.
+plain utility's (0,1,0) specificity and wins on source order. That is what gives
+every filled form control a 3:1 boundary without hand-editing nine CLI-owned files.
+
+**But only SOME variants outrank it, and the difference is invisible in the class
+name.** Tailwind v4 compiles variants two ways:
+
+- a pseudo-class / attribute variant appends a real compound and IS (0,2,0), so it
+  still overrides — `.focus-visible\:border-ring:focus-visible`,
+  `.aria-invalid\:border-destructive[aria-invalid=true]`, and an arbitrary `[&_…]`
+  descendant selector;
+- a **`data-*` STATE variant compiles through `:where()`, which contributes ZERO
+  specificity**, so `data-checked:` / `data-unchecked:` are only (0,1,0) — the same
+  as the rule and EARLIER in the layer, meaning the rule silently WINS. That painted
+  a gray hairline around every checked checkbox.
+
+State-dependent slots are therefore excluded by *matching*, not by out-specifying:
+`:not(:where([data-checked]))` keeps the rule at (0,1,0). Escalating to (0,2,0)
+instead is a bug — it out-specifies focus-visible and aria-invalid and strips those
+indicators. **Verify this in the BUILT css, never by reading the class name.**
+
+Two other rules use the same block: the mobile sidebar's width and the Sheet/Dialog
+close-button gutter. The sticky-footer bleed, the Sheet/Dialog `scroll-padding` and
+the single-column form `@container` query are **unlayered** further down `global.css`,
+not in that block.
 
 **A CLI-owned component is sometimes unreachable from any call site.**
 `ui/command.tsx` constructs its own `<InputGroup>` internally, so the
