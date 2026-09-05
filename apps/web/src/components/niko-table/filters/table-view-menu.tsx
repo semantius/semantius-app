@@ -66,7 +66,10 @@ export function TableViewMenu<TData>({
         render={
           <Button
             aria-label="Toggle columns"
-            role="combobox"
+            // NOT role="combobox": this opens a checklist of columns, it has no
+            // text value and no listbox to own. PopoverTrigger already sets
+            // aria-expanded and aria-haspopup, which is the whole contract for a
+            // disclosure button.
             variant="outline"
             size="sm"
             className="ml-auto hidden h-8 lg:flex"

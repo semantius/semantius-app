@@ -127,15 +127,19 @@ export function ApiKeysCard() {
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : apiKeys && apiKeys.length > 0 ? (
-            <div className="rounded-md border">
-              <table className="w-full text-sm">
+            // overflow-x-auto: five columns do not fit a 320px card, and without
+            // a scroll container the table is simply clipped at the card edge
+            // with no way to reach the rest of it (1.4.10).
+            <div className="overflow-x-auto rounded-md border">
+              <table className="w-full min-w-125 text-sm">
+                <caption className="sr-only">API keys</caption>
                 <thead>
                   <tr className="border-b bg-muted/50">
-                    <th className="px-4 py-2 text-left font-medium">Name</th>
-                    <th className="px-4 py-2 text-left font-medium">Key</th>
-                    <th className="px-4 py-2 text-left font-medium">Created</th>
-                    <th className="px-4 py-2 text-left font-medium">Last Used</th>
-                    <th className="px-4 py-2 text-right font-medium">Actions</th>
+                    <th scope="col" className="px-4 py-2 text-left font-medium">Name</th>
+                    <th scope="col" className="px-4 py-2 text-left font-medium">Key</th>
+                    <th scope="col" className="px-4 py-2 text-left font-medium">Created</th>
+                    <th scope="col" className="px-4 py-2 text-left font-medium">Last Used</th>
+                    <th scope="col" className="px-4 py-2 text-right font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -155,6 +159,7 @@ export function ApiKeysCard() {
                         <Button
                           variant="ghost"
                           size="icon-xs"
+                          aria-label={`Revoke API key ${key.description}`}
                           onClick={() => setDeleteTarget(key)}
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
@@ -189,6 +194,11 @@ export function ApiKeysCard() {
             onKeyDown={(e) => {
               if (e.key === 'Enter') handleCreate()
             }}
+            // The dialog mounts only when it opens, so this is the modal's
+            // initial focus target — the behavior a dialog is supposed to have —
+            // not an autofocus that hijacks a page load, which is what the rule
+            // guards against.
+            // eslint-disable-next-line jsx-a11y/no-autofocus
             autoFocus
           />
           {createMutation.error && (
@@ -234,7 +244,13 @@ export function ApiKeysCard() {
             <code className="block w-full rounded-md bg-muted p-3 pr-12 font-mono text-sm break-all">
               {newApiKey}
             </code>
-            <Button variant="ghost" size="icon" className="absolute right-1 top-1" onClick={handleCopy}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute right-1 top-1"
+              aria-label={copied ? 'API key copied' : 'Copy API key'}
+              onClick={handleCopy}
+            >
               {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
             </Button>
           </div>
@@ -247,6 +263,7 @@ export function ApiKeysCard() {
               variant="ghost"
               size="icon"
               className="absolute right-1 top-1"
+              aria-label={copiedEnv ? 'CLI configuration copied' : 'Copy CLI configuration'}
               onClick={async () => {
                 await navigator.clipboard.writeText(`SEMANTIUS_API_KEY=${newApiKey}\nSEMANTIUS_ORG=${orgName}`)
                 setCopiedEnv(true)

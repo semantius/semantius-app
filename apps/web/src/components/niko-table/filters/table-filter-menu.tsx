@@ -1116,6 +1116,12 @@ function TableFilterItem<TData>({
 
   return (
     <SortableItem value={filter.filterId} asChild>
+      {/* Backspace/Delete removes this row while focus is anywhere inside it.
+          The handler is on a `tabIndex={-1}` <li>, so it is reached by real
+          keyboard focus travelling up from the row's own controls — the rule
+          cannot distinguish that from a click handler on a static element, which
+          is the case it exists to catch. */}
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
       <li
         id={filterItemId}
         tabIndex={-1}
@@ -1248,7 +1254,6 @@ function FilterTextNumberInput<TData>({
       id={inputId}
       type={isNumber ? FILTER_VARIANTS.NUMBER : FILTER_VARIANTS.TEXT}
       aria-label={`${columnMeta?.label} filter value`}
-      aria-describedby={`${inputId}-description`}
       inputMode={isNumber ? "numeric" : undefined}
       placeholder={columnMeta?.placeholder ?? "Enter a value..."}
       className="h-8 w-full rounded"

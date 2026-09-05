@@ -3,6 +3,7 @@
 import React from "react"
 import { cn } from "@/lib/utils"
 import { Table } from "@/components/ui/table"
+import { useDataTable } from "./data-table-context"
 
 /**
  * Extracts height from Tailwind arbitrary values (e.g., h-[600px], max-h-[400px]).
@@ -93,6 +94,33 @@ export function DataTable({
   const finalHeight = height ?? parsed.height
   const finalMaxHeight = maxHeight ?? parsed.maxHeight ?? finalHeight
 
+  // 2.4.11 Focus Not Obscured.
+  //
+  // Pinned columns are `position: sticky` and paint OVER the columns scrolling
+  // beneath them. When focus moves to a header button or a cell control in a
+  // scrolled-away column, the browser scrolls it to the container's edge — which
+  // is precisely where the pinned column sits — and the focused control ends up
+  // entirely behind it. Measured on a 390px viewport: every column header past
+  // the pinned one was completely hidden while focused.
+  //
+  // `scroll-padding` is the mechanism CSS provides for exactly this: it tells the
+  // scrolling machinery that the first N pixels of the container are spoken for,
+  // so scrollIntoView stops short of them. The value has to be computed, because
+  // it is the sum of the pinned columns' widths and those come from the column
+  // model at runtime.
+  const { table } = useDataTable()
+  const { scrollPaddingLeft, scrollPaddingRight } = React.useMemo(() => {
+    const visible = table?.getVisibleLeafColumns?.() ?? []
+    let left = 0
+    let right = 0
+    for (const column of visible) {
+      const pinned = column.getIsPinned()
+      if (pinned === "left") left += column.getSize()
+      else if (pinned === "right") right += column.getSize()
+    }
+    return { scrollPaddingLeft: left || undefined, scrollPaddingRight: right || undefined }
+  }, [table])
+
   return (
     <div
       data-slot="table-container"
@@ -113,6 +141,12 @@ export function DataTable({
       style={{
         height: finalHeight,
         maxHeight: finalMaxHeight,
+        scrollPaddingLeft,
+        scrollPaddingRight,
+        // The header is `sticky top-0`; without this a focused control in the
+        // first visible row scrolls to exactly underneath it. 2.5rem is the
+        // header row's height at every density this table renders at.
+        scrollPaddingTop: '2.5rem',
       }}
     >
       <Table className="w-full">{children}</Table>

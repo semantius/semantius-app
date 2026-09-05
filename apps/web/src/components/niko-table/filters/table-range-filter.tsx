@@ -90,8 +90,8 @@ export function TableRangeFilter<TData>({
         id={`${inputId}-min`}
         type="number"
         aria-label={`${meta?.label} minimum value`}
-        aria-valuemin={min}
-        aria-valuemax={max}
+        // The bounds are carried by the native min/max below. aria-valuemin/max
+        // belong to role=spinbutton/slider and were being announced to nobody here.
         data-slot="range-min"
         inputMode="numeric"
         placeholder={min.toString()}
@@ -106,8 +106,6 @@ export function TableRangeFilter<TData>({
         id={`${inputId}-max`}
         type="number"
         aria-label={`${meta?.label} maximum value`}
-        aria-valuemin={min}
-        aria-valuemax={max}
         data-slot="range-max"
         inputMode="numeric"
         placeholder={max.toString()}

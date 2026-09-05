@@ -115,6 +115,12 @@ function TableSortItem({
 
   return (
     <SortableItem value={sort.id} asChild>
+      {/* Backspace/Delete removes this row while focus is anywhere inside it.
+          The handler is on a `tabIndex={-1}` <li>, so it is reached by real
+          keyboard focus travelling up from the row's own controls — the rule
+          cannot distinguish that from a click handler on a static element, which
+          is the case it exists to catch. */}
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
       <li
         id={sortItemId}
         tabIndex={-1}

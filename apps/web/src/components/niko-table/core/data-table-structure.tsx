@@ -58,6 +58,19 @@ function pinnedEdgeClasses(edge: false | "left" | "right"): string {
     : cn(base, "after:right-full after:bg-linear-to-l niko-pin-edge-right")
 }
 
+// Maps a column's TanStack sort state onto the aria-sort values a <th> may carry.
+// Returns undefined for a column that cannot be sorted at all — aria-sort="none"
+// on such a column advertises a sorting affordance that does not exist.
+function ariaSortFor(
+  column: Column<unknown, unknown>,
+): "ascending" | "descending" | "none" | undefined {
+  if (!column.getCanSort()) return undefined
+  const sorted = column.getIsSorted()
+  if (sorted === "asc") return "ascending"
+  if (sorted === "desc") return "descending"
+  return "none"
+}
+
 // ============================================================================
 // ScrollEvent Type
 // ============================================================================
@@ -119,6 +132,13 @@ export const DataTableHeader = React.memo(function DataTableHeader({
               <TableHead
                 key={header.id}
                 style={headerStyle}
+                // 1.3.1 — sort state was conveyed by an icon only. aria-sort is
+                // the one attribute a screen reader reads to say "sorted
+                // ascending" when the user lands on a column, and it belongs on
+                // the <th>, not on the control inside it. "none" is emitted only
+                // for columns that CAN sort; on a non-sortable column the
+                // attribute must be absent, not "none".
+                aria-sort={ariaSortFor(header.column as Column<unknown, unknown>)}
                 className={cn(
                   header.column.getIsPinned() && "bg-background",
                   pinnedEdgeClasses(getPinnedEdge(header.column as Column<unknown, unknown>)),
