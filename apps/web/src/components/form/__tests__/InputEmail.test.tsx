@@ -1,78 +1,49 @@
 import { describe, it, expect } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { useForm } from '@tanstack/react-form'
 import { InputEmail } from '../InputEmail'
-import { FormProvider } from '../FormContext'
-import type { FormContextValue } from '../FormContext'
+import { renderControl } from './harness'
 
 describe('InputEmail', () => {
-  function TestWrapper({ 
-    children, 
-    defaultValue,
-    inputMode = 'default',
-    validatorFn = () => undefined
-  }: { 
-    children: React.ReactNode
-    defaultValue?: string
-    inputMode?: string
-    validatorFn?: (value: any) => string | undefined
-  }) {
-    const form = useForm({
-      defaultValues: { email: defaultValue || '' },
-      onSubmit: async () => {},
-    })
-
-    const mockContext: FormContextValue = {
-      form,
-      schema: { 
-        type: 'object', 
-        properties: {
-          email: { type: 'string', format: 'email', inputMode }
-        },
-        required: inputMode === 'required' ? ['email'] : []
-      },
-      validateField: validatorFn,
-    }
-
-    return <FormProvider value={mockContext}>{children}</FormProvider>
+  const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  const formatValidator = ({ value }: { value: string }) => {
+    if (!value) return undefined
+    return !EMAIL.test(value) ? 'must match format "email"' : undefined
   }
 
   it('should render email input type', () => {
-    const { container } = render(
-      <TestWrapper>
-        <InputEmail name="email" />
-      </TestWrapper>
+    const { container } = renderControl(<InputEmail name="email" />)
+    expect(container.querySelector('input')).toHaveAttribute('type', 'email')
+  })
+
+  it('is named by its label', () => {
+    renderControl(<InputEmail name="email" label="Work email" />)
+    expect(screen.getByRole('textbox', { name: 'Work email' })).toBeInTheDocument()
+  })
+
+  it('references its description from aria-describedby', () => {
+    renderControl(<InputEmail name="email" label="Work email" description="We never share this" />)
+    expect(screen.getByRole('textbox', { name: 'Work email' })).toHaveAccessibleDescription(
+      'We never share this',
     )
-    const input = container.querySelector('input')
-    expect(input).toHaveAttribute('type', 'email')
   })
 
   it('should show required indicator when required', () => {
-    render(
-      <TestWrapper inputMode="required">
-        <InputEmail name="email" label="Email" inputMode="required" />
-      </TestWrapper>
-    )
+    renderControl(<InputEmail name="email" label="Email" inputMode="required" />)
     expect(screen.getByText('*')).toBeInTheDocument()
   })
 
   it('should validate required field', async () => {
     const user = userEvent.setup()
-    render(
-      <TestWrapper 
+    renderControl(
+      <InputEmail
+        name="email"
+        label="Email"
         inputMode="required"
-        validatorFn={(value) => !value ? 'must not be empty' : undefined}
-      >
-        <InputEmail 
-          name="email" 
-          label="Email" 
-          inputMode="required"
-          validators={{
-            onBlur: ({ value }) => !value ? 'must not be empty' : undefined,
-          }}
-        />
-      </TestWrapper>
+        validators={{
+          onBlur: ({ value }) => (!value ? 'must not be empty' : undefined),
+        }}
+      />,
     )
 
     const input = screen.getByLabelText(/email/i)
@@ -86,27 +57,7 @@ describe('InputEmail', () => {
 
   it('should detect invalid email format', async () => {
     const user = userEvent.setup()
-    render(
-      <TestWrapper
-        validatorFn={(value) => {
-          if (!value) return undefined
-          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-          return !emailRegex.test(value) ? 'must match format "email"' : undefined
-        }}
-      >
-        <InputEmail 
-          name="email" 
-          label="Email"
-          validators={{
-            onBlur: ({ value }) => {
-              if (!value) return undefined
-              const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-              return !emailRegex.test(value) ? 'must match format "email"' : undefined
-            },
-          }}
-        />
-      </TestWrapper>
-    )
+    renderControl(<InputEmail name="email" label="Email" validators={{ onBlur: formatValidator }} />)
 
     const input = screen.getByLabelText(/email/i)
     await user.type(input, 'invalid-email')
@@ -119,27 +70,7 @@ describe('InputEmail', () => {
 
   it('should accept valid email', async () => {
     const user = userEvent.setup()
-    render(
-      <TestWrapper
-        validatorFn={(value) => {
-          if (!value) return undefined
-          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-          return !emailRegex.test(value) ? 'must match format "email"' : undefined
-        }}
-      >
-        <InputEmail 
-          name="email" 
-          label="Email"
-          validators={{
-            onBlur: ({ value }) => {
-              if (!value) return undefined
-              const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-              return !emailRegex.test(value) ? 'must match format "email"' : undefined
-            },
-          }}
-        />
-      </TestWrapper>
-    )
+    renderControl(<InputEmail name="email" label="Email" validators={{ onBlur: formatValidator }} />)
 
     const input = screen.getByLabelText(/email/i) as HTMLInputElement
     await user.type(input, 'user@example.com')
@@ -152,11 +83,9 @@ describe('InputEmail', () => {
   })
 
   it('should handle default value', () => {
-    const { container } = render(
-      <TestWrapper defaultValue="default@example.com">
-        <InputEmail name="email" />
-      </TestWrapper>
-    )
+    const { container } = renderControl(<InputEmail name="email" />, {
+      defaultValues: { email: 'default@example.com' },
+    })
     const input = container.querySelector('input') as HTMLInputElement
     expect(input.value).toBe('default@example.com')
   })

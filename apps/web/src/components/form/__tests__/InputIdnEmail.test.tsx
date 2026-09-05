@@ -1,33 +1,29 @@
 import { describe, it, expect } from 'vitest'
-import { render } from '@testing-library/react'
-import { useForm } from '@tanstack/react-form'
+import { screen } from '@testing-library/react'
 import { InputIdnEmail } from '../InputIdnEmail'
-import { FormProvider } from '../FormContext'
-import type { FormContextValue } from '../FormContext'
+import { renderControl } from './harness'
 
 describe('InputIdnEmail', () => {
-  function TestWrapper({ children }: { children: React.ReactNode }) {
-    const form = useForm({
-      defaultValues: { email: '' },
-      onSubmit: async () => {},
-    })
-
-    const mockContext: FormContextValue = {
-      form,
-      schema: { type: 'object', properties: {} },
-      validateField: () => undefined,
-    }
-
-    return <FormProvider value={mockContext}>{children}</FormProvider>
-  }
-
   it('should render idn-email input', () => {
-    const { container } = render(
-      <TestWrapper>
-        <InputIdnEmail name="email" />
-      </TestWrapper>
+    const { container } = renderControl(<InputIdnEmail name="email" />)
+    expect(container.querySelector('input')).toHaveAttribute('type', 'email')
+  })
+
+  it('is named by its label', () => {
+    renderControl(<InputIdnEmail name="email" label="Contact address" />)
+    expect(screen.getByRole('textbox', { name: 'Contact address' })).toBeInTheDocument()
+  })
+
+  it('references its description from aria-describedby', () => {
+    renderControl(
+      <InputIdnEmail
+        name="email"
+        label="Contact address"
+        description="Unicode local parts are accepted"
+      />,
     )
-    const input = container.querySelector('input')
-    expect(input).toHaveAttribute('type', 'email')
+    expect(screen.getByRole('textbox', { name: 'Contact address' })).toHaveAccessibleDescription(
+      'Unicode local parts are accepted',
+    )
   })
 })

@@ -1,33 +1,29 @@
 import { describe, it, expect } from 'vitest'
-import { render } from '@testing-library/react'
-import { useForm } from '@tanstack/react-form'
+import { screen } from '@testing-library/react'
 import { InputUriTemplate } from '../InputUriTemplate'
-import { FormProvider } from '../FormContext'
-import type { FormContextValue } from '../FormContext'
+import { renderControl } from './harness'
 
 describe('InputUriTemplate', () => {
-  function TestWrapper({ children }: { children: React.ReactNode }) {
-    const form = useForm({
-      defaultValues: { template: '' },
-      onSubmit: async () => {},
-    })
-
-    const mockContext: FormContextValue = {
-      form,
-      schema: { type: 'object', properties: {} },
-      validateField: () => undefined,
-    }
-
-    return <FormProvider value={mockContext}>{children}</FormProvider>
-  }
-
   it('should render uri-template input', () => {
-    const { container } = render(
-      <TestWrapper>
-        <InputUriTemplate name="template" />
-      </TestWrapper>
+    const { container } = renderControl(<InputUriTemplate name="template" />)
+    expect(container.querySelector('input')).toHaveAttribute('type', 'text')
+  })
+
+  it('is named by its label', () => {
+    renderControl(<InputUriTemplate name="template" label="URI template" />)
+    expect(screen.getByRole('textbox', { name: 'URI template' })).toBeInTheDocument()
+  })
+
+  it('references its description from aria-describedby', () => {
+    renderControl(
+      <InputUriTemplate
+        name="template"
+        label="URI template"
+        description="RFC 6570 URI Template"
+      />,
     )
-    const input = container.querySelector('input')
-    expect(input).toHaveAttribute('type', 'text')
+    expect(screen.getByRole('textbox', { name: 'URI template' })).toHaveAccessibleDescription(
+      'RFC 6570 URI Template',
+    )
   })
 })

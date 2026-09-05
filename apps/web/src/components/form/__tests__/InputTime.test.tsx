@@ -1,33 +1,27 @@
 import { describe, it, expect } from 'vitest'
-import { render } from '@testing-library/react'
-import { useForm } from '@tanstack/react-form'
 import { InputTime } from '../InputTime'
-import { FormProvider } from '../FormContext'
-import type { FormContextValue } from '../FormContext'
+import { renderControl } from './harness'
 
 describe('InputTime', () => {
-  function TestWrapper({ children }: { children: React.ReactNode }) {
-    const form = useForm({
-      defaultValues: { time: '' },
-      onSubmit: async () => {},
-    })
-
-    const mockContext: FormContextValue = {
-      form,
-      schema: { type: 'object', properties: {} },
-      validateField: () => undefined,
-    }
-
-    return <FormProvider value={mockContext}>{children}</FormProvider>
-  }
+  // `<input type="time">` has no ARIA role, so there is nothing for getByRole
+  // to find; locate it by type and assert the COMPUTED name, which is still the
+  // point (a label association alone is not).
+  const timeInput = (container: HTMLElement) => container.querySelector('input[type="time"]')
 
   it('should render time input', () => {
-    const { container } = render(
-      <TestWrapper>
-        <InputTime name="time" />
-      </TestWrapper>
+    const { container } = renderControl(<InputTime name="time" />)
+    expect(container.querySelector('input')).toHaveAttribute('type', 'time')
+  })
+
+  it('is named by its label', () => {
+    const { container } = renderControl(<InputTime name="time" label="Start time" />)
+    expect(timeInput(container)).toHaveAccessibleName('Start time')
+  })
+
+  it('references its description from aria-describedby', () => {
+    const { container } = renderControl(
+      <InputTime name="time" label="Start time" description="24-hour clock" />,
     )
-    const input = container.querySelector('input')
-    expect(input).toHaveAttribute('type', 'time')
+    expect(timeInput(container)).toHaveAccessibleDescription('24-hour clock')
   })
 })

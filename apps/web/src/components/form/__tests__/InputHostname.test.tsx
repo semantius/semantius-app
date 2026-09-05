@@ -1,72 +1,57 @@
 import { describe, it, expect } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { useForm } from '@tanstack/react-form'
 import { InputHostname } from '../InputHostname'
-import { FormProvider } from '../FormContext'
-import type { FormContextValue } from '../FormContext'
+import { renderControl } from './harness'
 
 describe('InputHostname', () => {
-  function TestWrapper({ 
-    children, 
-    inputMode = 'default',
-    validatorFn = () => undefined
-  }: { 
-    children: React.ReactNode
-    inputMode?: string
-    validatorFn?: (value: any) => string | undefined
-  }) {
-    const form = useForm({
-      defaultValues: { hostname: '' },
-      onSubmit: async () => {},
-    })
-
-    const mockContext: FormContextValue = {
-      form,
-      schema: { 
-        type: 'object', 
-        properties: {
-          hostname: { type: 'string', format: 'hostname', inputMode }
-        },
-        required: inputMode === 'required' ? ['hostname'] : []
-      },
-      validateField: validatorFn,
-    }
-
-    return <FormProvider value={mockContext}>{children}</FormProvider>
+  const HOSTNAME = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/i
+  const formatValidator = ({ value }: { value: string }) => {
+    if (!value) return undefined
+    return !HOSTNAME.test(value) ? 'must match format "hostname"' : undefined
   }
 
   it('should render hostname input', () => {
-    const { container } = render(
-      <TestWrapper>
-        <InputHostname name="hostname" />
-      </TestWrapper>
-    )
+    const { container } = renderControl(<InputHostname name="hostname" />)
     const input = container.querySelector('input')
     expect(input).toHaveAttribute('type', 'text')
     expect(input).toHaveAttribute('placeholder', 'example.com')
   })
 
-  it('should show required indicator when required', () => {
-    render(
-      <TestWrapper inputMode="required">
-        <InputHostname name="hostname" label="Hostname" inputMode="required" />
-      </TestWrapper>
+  it('is named by its label', () => {
+    renderControl(<InputHostname name="hostname" label="Server Hostname" />)
+    expect(screen.getByRole('textbox', { name: 'Server Hostname' })).toBeInTheDocument()
+  })
+
+  it('references its description from aria-describedby', () => {
+    renderControl(
+      <InputHostname
+        name="hostname"
+        label="Server Hostname"
+        description="Enter the server hostname"
+      />,
     )
+    expect(screen.getByRole('textbox', { name: 'Server Hostname' })).toHaveAccessibleDescription(
+      'Enter the server hostname',
+    )
+  })
+
+  it('should show required indicator when required', () => {
+    renderControl(<InputHostname name="hostname" label="Hostname" inputMode="required" />)
     expect(screen.getByText('*')).toBeInTheDocument()
   })
 
   it('should validate required field', async () => {
     const user = userEvent.setup()
-    render(
-      <TestWrapper inputMode="required" validatorFn={(value) => !value || value.trim() === '' ? 'must not be empty' : undefined}
-      >
-        <InputHostname name="hostname" 
-          label="Hostname"inputMode="required" validators={{
-            onBlur: ({ value }) => !value || value.trim() === '' ? 'must not be empty' : undefined,
-          }}
-        />
-      </TestWrapper>
+    renderControl(
+      <InputHostname
+        name="hostname"
+        label="Hostname"
+        inputMode="required"
+        validators={{
+          onBlur: ({ value }) => (!value || value.trim() === '' ? 'must not be empty' : undefined),
+        }}
+      />,
     )
 
     const input = screen.getByLabelText(/hostname/i)
@@ -80,26 +65,8 @@ describe('InputHostname', () => {
 
   it('should detect invalid hostname format', async () => {
     const user = userEvent.setup()
-    render(
-      <TestWrapper
-        validatorFn={(value) => {
-          if (!value) return undefined
-          const hostnameRegex = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/i
-          return !hostnameRegex.test(value) ? 'must match format "hostname"' : undefined
-        }}
-      >
-        <InputHostname 
-          name="hostname" 
-          label="Hostname"
-          validators={{
-            onBlur: ({ value }) => {
-              if (!value) return undefined
-              const hostnameRegex = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/i
-              return !hostnameRegex.test(value) ? 'must match format "hostname"' : undefined
-            },
-          }}
-        />
-      </TestWrapper>
+    renderControl(
+      <InputHostname name="hostname" label="Hostname" validators={{ onBlur: formatValidator }} />,
     )
 
     const input = screen.getByLabelText(/hostname/i)
@@ -113,26 +80,8 @@ describe('InputHostname', () => {
 
   it('should accept valid hostname', async () => {
     const user = userEvent.setup()
-    render(
-      <TestWrapper
-        validatorFn={(value) => {
-          if (!value) return undefined
-          const hostnameRegex = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/i
-          return !hostnameRegex.test(value) ? 'must match format "hostname"' : undefined
-        }}
-      >
-        <InputHostname 
-          name="hostname" 
-          label="Hostname"
-          validators={{
-            onBlur: ({ value }) => {
-              if (!value) return undefined
-              const hostnameRegex = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/i
-              return !hostnameRegex.test(value) ? 'must match format "hostname"' : undefined
-            },
-          }}
-        />
-      </TestWrapper>
+    renderControl(
+      <InputHostname name="hostname" label="Hostname" validators={{ onBlur: formatValidator }} />,
     )
 
     const input = screen.getByLabelText(/hostname/i) as HTMLInputElement
@@ -146,14 +95,12 @@ describe('InputHostname', () => {
   })
 
   it('should display label and description', () => {
-    render(
-      <TestWrapper>
-        <InputHostname 
-          name="hostname" 
-          label="Server Hostname" 
-          description="Enter the server hostname"
-        />
-      </TestWrapper>
+    renderControl(
+      <InputHostname
+        name="hostname"
+        label="Server Hostname"
+        description="Enter the server hostname"
+      />,
     )
     expect(screen.getByText('Server Hostname')).toBeInTheDocument()
     expect(screen.getByText('Enter the server hostname')).toBeInTheDocument()

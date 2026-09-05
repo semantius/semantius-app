@@ -309,113 +309,72 @@ All input controls must have comprehensive tests that validate:
 
 ### Mandatory Test Template
 
-Use this template for all input control tests:
+Every control test renders through `__tests__/harness.tsx`: `renderControl()` wraps
+the control in the real `FormProvider` with a real TanStack Form instance, exactly
+as `SchemaForm` does. Do not add a per-file `TestWrapper` — that is how 26 files
+drifted apart, and most of them carried a `validatorFn` for the context's
+`validateField` that no control ever reads. The validation a control shows comes
+from its own `validators` prop, which is what the template passes.
 
 ```typescript
 import { describe, it, expect } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { useForm } from '@tanstack/react-form'
 import { InputControlName } from '../InputControlName'
-import { FormProvider } from '../FormContext'
-import type { FormContextValue } from '../FormContext'
+import { renderControl } from './harness'
 
 describe('InputControlName', () => {
-  function TestWrapper({
-    children,
-    required = false,
-    validatorFn = () => undefined
-  }: {
-    children: React.ReactNode
-    required?: boolean
-    validatorFn?: (value: any) => string | undefined
-  }) {
-    const form = useForm({
-      defaultValues: { fieldName: '' },
-      onSubmit: async () => {},
-    })
-
-    const mockContext: FormContextValue = {
-      form,
-      schema: {
-        type: 'object',
-        properties: {
-          fieldName: { type: 'string', format: 'specific-format', required }
-        },
-        required: required ? ['fieldName'] : []
-      },
-      validateField: validatorFn,
-    }
-
-    return <FormProvider value={mockContext}>{children}</FormProvider>
+  const formatValidator = ({ value }: { value: string }) => {
+    if (!value) return undefined
+    return isInvalidFormat(value) ? 'must match format "specific-format"' : undefined
   }
 
   // 1. Rendering Test
   it('should render with correct type/structure', () => {
-    const { container } = render(
-      <TestWrapper>
-        <InputControlName name="fieldName" />
-      </TestWrapper>
-    )
-    const element = container.querySelector('[type="..."]') // or other selector
-    expect(element).toBeTruthy()
+    const { container } = renderControl(<InputControlName name="fieldName" />)
+    expect(container.querySelector('[type="..."]')).toBeTruthy() // or other selector
   })
 
   // 1b. Accessible Name Test — the one assertion that catches a label pointing
   //     at nothing. getByLabelText would NOT: it checks the association, not the
   //     computed name, so it passes on a control that announces as unnamed.
-  it('should be named by its label', () => {
-    render(
-      <TestWrapper>
-        <InputControlName name="fieldName" label="Field label" />
-      </TestWrapper>
-    )
+  it('is named by its label', () => {
+    renderControl(<InputControlName name="fieldName" label="Field label" />)
     expect(screen.getByRole('textbox', { name: 'Field label' })).toBeInTheDocument()
   })
 
   // 1c. Description Association Test — description AND error are additive; a
   //     control that references only one of them drops the other.
-  it('should reference its description from aria-describedby', () => {
-    render(
-      <TestWrapper>
-        <InputControlName name="fieldName" label="Field label" description="Help text" />
-      </TestWrapper>
+  it('references its description from aria-describedby', () => {
+    renderControl(
+      <InputControlName name="fieldName" label="Field label" description="Help text" />,
     )
-    expect(screen.getByRole('textbox', { name: 'Field label' }))
-      .toHaveAccessibleDescription('Help text')
+    expect(screen.getByRole('textbox', { name: 'Field label' })).toHaveAccessibleDescription(
+      'Help text',
+    )
   })
 
   // 2. Required Indicator Test
   it('should show required indicator (*) when required', () => {
-    render(
-      <TestWrapper required>
-        <InputControlName name="fieldName" label="Field" required />
-      </TestWrapper>
-    )
+    renderControl(<InputControlName name="fieldName" label="Field" inputMode="required" />)
     expect(screen.getByText('*')).toBeInTheDocument()
   })
 
   // 3. Required Validation Test
   it('should validate required field and show error when empty', async () => {
     const user = userEvent.setup()
-    render(
-      <TestWrapper
-        required
-        validatorFn={(value) => !value || value.trim() === '' ? 'must not be empty' : undefined}
-      >
-        <InputControlName
-          name="fieldName"
-          label="Field"
-          required
-          validators={{
-            onBlur: ({ value }) => !value || value.trim() === '' ? 'must not be empty' : undefined,
-          }}
-        />
-      </TestWrapper>
+    renderControl(
+      <InputControlName
+        name="fieldName"
+        label="Field"
+        inputMode="required"
+        validators={{
+          onBlur: ({ value }) => (!value || value.trim() === '' ? 'must not be empty' : undefined),
+        }}
+      />,
     )
 
-    const input = screen.getByLabelText(/field/i)
-    await user.click(input)
+    await user.click(screen.getByLabelText(/field/i))
     await user.tab()
 
     await waitFor(() => {
@@ -426,29 +385,11 @@ describe('InputControlName', () => {
   // 4. Invalid Value Detection Test
   it('should detect invalid format and show error', async () => {
     const user = userEvent.setup()
-    render(
-      <TestWrapper
-        validatorFn={(value) => {
-          if (!value) return undefined
-          // Add format-specific validation logic
-          return isInvalidFormat(value) ? 'must match format "specific-format"' : undefined
-        }}
-      >
-        <InputControlName
-          name="fieldName"
-          label="Field"
-          validators={{
-            onBlur: ({ value }) => {
-              if (!value) return undefined
-              return isInvalidFormat(value) ? 'must match format "specific-format"' : undefined
-            },
-          }}
-        />
-      </TestWrapper>
+    renderControl(
+      <InputControlName name="fieldName" label="Field" validators={{ onBlur: formatValidator }} />,
     )
 
-    const input = screen.getByLabelText(/field/i)
-    await user.type(input, 'invalid-value')
+    await user.type(screen.getByLabelText(/field/i), 'invalid-value')
     await user.tab()
 
     await waitFor(() => {
@@ -459,24 +400,8 @@ describe('InputControlName', () => {
   // 5. Valid Value Acceptance Test
   it('should accept valid values without error', async () => {
     const user = userEvent.setup()
-    render(
-      <TestWrapper
-        validatorFn={(value) => {
-          if (!value) return undefined
-          return isInvalidFormat(value) ? 'must match format "specific-format"' : undefined
-        }}
-      >
-        <InputControlName
-          name="fieldName"
-          label="Field"
-          validators={{
-            onBlur: ({ value }) => {
-              if (!value) return undefined
-              return isInvalidFormat(value) ? 'must match format "specific-format"' : undefined
-            },
-          }}
-        />
-      </TestWrapper>
+    renderControl(
+      <InputControlName name="fieldName" label="Field" validators={{ onBlur: formatValidator }} />,
     )
 
     const input = screen.getByLabelText(/field/i) as HTMLInputElement
@@ -491,17 +416,34 @@ describe('InputControlName', () => {
 
   // 6. Label/Description Test
   it('should display label and description', () => {
-    render(
-      <TestWrapper>
-        <InputControlName
-          name="fieldName"
-          label="Field Label"
-          description="Field description"
-        />
-      </TestWrapper>
+    renderControl(
+      <InputControlName name="fieldName" label="Field Label" description="Field description" />,
     )
     expect(screen.getByText('Field Label')).toBeInTheDocument()
     expect(screen.getByText('Field description')).toBeInTheDocument()
   })
+
+  // 7. Default Value Test
+  it('should handle default value', () => {
+    const { container } = renderControl(<InputControlName name="fieldName" />, {
+      defaultValues: { fieldName: 'seeded' },
+    })
+    expect((container.querySelector('input') as HTMLInputElement).value).toBe('seeded')
+  })
 })
 ```
+
+Pick the role that fits the control: `textbox` for the text-family inputs, textareas
+and the CodeMirror editors (`.cm-content` is `role="textbox"`; use `findByRole`, the
+editor is code-split), `checkbox` for `InputBoolean`, `combobox` for `InputEnum` and
+the reference picker, `button` for the date-time trigger. `<input type="time">` has
+no ARIA role at all — locate it by type and assert `toHaveAccessibleName` on it.
+
+**Triggers that name themselves show only their label under jest-dom.** `InputEnum`
+and `DateTimePicker` set `aria-labelledby="<label id> <own id>"` so the field name is
+announced first and the current value second; Chrome's accessibility tree computes
+"Choose Option Option 1" for that markup. `dom-accessibility-api`, which jest-dom and
+Testing Library compute names with, treats the self-reference as a cycle and drops
+it, so those two tests assert the label half (`/^Choose Option\b/`) and say why. Do
+not change the component to satisfy the library, and do not assert the library's
+answer as the contract.

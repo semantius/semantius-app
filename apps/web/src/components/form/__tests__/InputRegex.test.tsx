@@ -1,33 +1,25 @@
 import { describe, it, expect } from 'vitest'
-import { render } from '@testing-library/react'
-import { useForm } from '@tanstack/react-form'
+import { screen } from '@testing-library/react'
 import { InputRegex } from '../InputRegex'
-import { FormProvider } from '../FormContext'
-import type { FormContextValue } from '../FormContext'
+import { renderControl } from './harness'
 
 describe('InputRegex', () => {
-  function TestWrapper({ children }: { children: React.ReactNode }) {
-    const form = useForm({
-      defaultValues: { regex: '' },
-      onSubmit: async () => {},
-    })
-
-    const mockContext: FormContextValue = {
-      form,
-      schema: { type: 'object', properties: {} },
-      validateField: () => undefined,
-    }
-
-    return <FormProvider value={mockContext}>{children}</FormProvider>
-  }
-
   it('should render regex input', () => {
-    const { container } = render(
-      <TestWrapper>
-        <InputRegex name="regex" />
-      </TestWrapper>
+    const { container } = renderControl(<InputRegex name="regex" />)
+    expect(container.querySelector('input')).toHaveAttribute('type', 'text')
+  })
+
+  it('is named by its label', () => {
+    renderControl(<InputRegex name="regex" label="Pattern" />)
+    expect(screen.getByRole('textbox', { name: 'Pattern' })).toBeInTheDocument()
+  })
+
+  it('references its description from aria-describedby', () => {
+    renderControl(
+      <InputRegex name="regex" label="Pattern" description="ECMA-262 regular expression" />,
     )
-    const input = container.querySelector('input')
-    expect(input).toHaveAttribute('type', 'text')
+    expect(screen.getByRole('textbox', { name: 'Pattern' })).toHaveAccessibleDescription(
+      'ECMA-262 regular expression',
+    )
   })
 })

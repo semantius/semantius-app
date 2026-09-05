@@ -1,33 +1,29 @@
 import { describe, it, expect } from 'vitest'
-import { render } from '@testing-library/react'
-import { useForm } from '@tanstack/react-form'
+import { screen } from '@testing-library/react'
 import { InputRelativeJsonPointer } from '../InputRelativeJsonPointer'
-import { FormProvider } from '../FormContext'
-import type { FormContextValue } from '../FormContext'
+import { renderControl } from './harness'
 
 describe('InputRelativeJsonPointer', () => {
-  function TestWrapper({ children }: { children: React.ReactNode }) {
-    const form = useForm({
-      defaultValues: { pointer: '' },
-      onSubmit: async () => {},
-    })
-
-    const mockContext: FormContextValue = {
-      form,
-      schema: { type: 'object', properties: {} },
-      validateField: () => undefined,
-    }
-
-    return <FormProvider value={mockContext}>{children}</FormProvider>
-  }
-
   it('should render relative-json-pointer input', () => {
-    const { container } = render(
-      <TestWrapper>
-        <InputRelativeJsonPointer name="pointer" />
-      </TestWrapper>
+    const { container } = renderControl(<InputRelativeJsonPointer name="pointer" />)
+    expect(container.querySelector('input')).toHaveAttribute('type', 'text')
+  })
+
+  it('is named by its label', () => {
+    renderControl(<InputRelativeJsonPointer name="pointer" label="Relative pointer" />)
+    expect(screen.getByRole('textbox', { name: 'Relative pointer' })).toBeInTheDocument()
+  })
+
+  it('references its description from aria-describedby', () => {
+    renderControl(
+      <InputRelativeJsonPointer
+        name="pointer"
+        label="Relative pointer"
+        description="Relative to the current location"
+      />,
     )
-    const input = container.querySelector('input')
-    expect(input).toHaveAttribute('type', 'text')
+    expect(screen.getByRole('textbox', { name: 'Relative pointer' })).toHaveAccessibleDescription(
+      'Relative to the current location',
+    )
   })
 })

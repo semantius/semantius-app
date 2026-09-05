@@ -1,71 +1,53 @@
 import { describe, it, expect } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { useForm } from '@tanstack/react-form'
 import { InputUri } from '../InputUri'
-import { FormProvider } from '../FormContext'
-import type { FormContextValue } from '../FormContext'
+import { renderControl } from './harness'
 
 describe('InputUri', () => {
-  function TestWrapper({ 
-    children, 
-    inputMode = 'default',
-    validatorFn = () => undefined
-  }: { 
-    children: React.ReactNode
-    inputMode?: string
-    validatorFn?: (value: any) => string | undefined
-  }) {
-    const form = useForm({
-      defaultValues: { uri: '' },
-      onSubmit: async () => {},
-    })
-
-    const mockContext: FormContextValue = {
-      form,
-      schema: { 
-        type: 'object', 
-        properties: {
-          uri: { type: 'string', format: 'uri', inputMode }
-        },
-        required: inputMode === 'required' ? ['uri'] : []
-      },
-      validateField: validatorFn,
+  const formatValidator = ({ value }: { value: string }) => {
+    if (!value) return undefined
+    try {
+      new URL(value)
+      return undefined
+    } catch {
+      return 'must match format "uri"'
     }
-
-    return <FormProvider value={mockContext}>{children}</FormProvider>
   }
 
   it('should render uri input', () => {
-    const { container } = render(
-      <TestWrapper>
-        <InputUri name="uri" />
-      </TestWrapper>
+    const { container } = renderControl(<InputUri name="uri" />)
+    expect(container.querySelector('input')).toHaveAttribute('type', 'url')
+  })
+
+  it('is named by its label', () => {
+    renderControl(<InputUri name="uri" label="Website" />)
+    expect(screen.getByRole('textbox', { name: 'Website' })).toBeInTheDocument()
+  })
+
+  it('references its description from aria-describedby', () => {
+    renderControl(<InputUri name="uri" label="Website" description="Include the scheme" />)
+    expect(screen.getByRole('textbox', { name: 'Website' })).toHaveAccessibleDescription(
+      'Include the scheme',
     )
-    const input = container.querySelector('input')
-    expect(input).toHaveAttribute('type', 'url')
   })
 
   it('should show required indicator when required', () => {
-    render(
-      <TestWrapper inputMode="required">
-        <InputUri name="uri" label="Website" inputMode="required" />
-      </TestWrapper>
-    )
+    renderControl(<InputUri name="uri" label="Website" inputMode="required" />)
     expect(screen.getByText('*')).toBeInTheDocument()
   })
 
   it('should validate required field', async () => {
     const user = userEvent.setup()
-    render(
-      <TestWrapper inputMode="required" validatorFn={(value) => !value || value.trim() === '' ? 'must not be empty' : undefined}
-      >
-        <InputUri name="uri" 
-          label="Website"inputMode="required" validators={{
-            onBlur: ({ value }) => !value || value.trim() === '' ? 'must not be empty' : undefined,
-          }}
-        />
-      </TestWrapper>
+    renderControl(
+      <InputUri
+        name="uri"
+        label="Website"
+        inputMode="required"
+        validators={{
+          onBlur: ({ value }) => (!value || value.trim() === '' ? 'must not be empty' : undefined),
+        }}
+      />,
     )
 
     const input = screen.getByLabelText(/website/i)
@@ -79,35 +61,7 @@ describe('InputUri', () => {
 
   it('should detect invalid URI format', async () => {
     const user = userEvent.setup()
-    render(
-      <TestWrapper
-        validatorFn={(value) => {
-          if (!value) return undefined
-          try {
-            new URL(value)
-            return undefined
-          } catch {
-            return 'must match format "uri"'
-          }
-        }}
-      >
-        <InputUri 
-          name="uri" 
-          label="Website"
-          validators={{
-            onBlur: ({ value }) => {
-              if (!value) return undefined
-              try {
-                new URL(value)
-                return undefined
-              } catch {
-                return 'must match format "uri"'
-              }
-            },
-          }}
-        />
-      </TestWrapper>
-    )
+    renderControl(<InputUri name="uri" label="Website" validators={{ onBlur: formatValidator }} />)
 
     const input = screen.getByLabelText(/website/i)
     await user.type(input, 'not-a-url')
@@ -120,35 +74,7 @@ describe('InputUri', () => {
 
   it('should accept valid URI', async () => {
     const user = userEvent.setup()
-    render(
-      <TestWrapper
-        validatorFn={(value) => {
-          if (!value) return undefined
-          try {
-            new URL(value)
-            return undefined
-          } catch {
-            return 'must match format "uri"'
-          }
-        }}
-      >
-        <InputUri 
-          name="uri" 
-          label="Website"
-          validators={{
-            onBlur: ({ value }) => {
-              if (!value) return undefined
-              try {
-                new URL(value)
-                return undefined
-              } catch {
-                return 'must match format "uri"'
-              }
-            },
-          }}
-        />
-      </TestWrapper>
-    )
+    renderControl(<InputUri name="uri" label="Website" validators={{ onBlur: formatValidator }} />)
 
     const input = screen.getByLabelText(/website/i) as HTMLInputElement
     await user.type(input, 'https://example.com/path')

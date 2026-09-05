@@ -1,88 +1,65 @@
 import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
-import { useForm } from '@tanstack/react-form'
+import { screen } from '@testing-library/react'
 import { InputText } from '../InputText'
-import { FormProvider } from '../FormContext'
-import type { FormContextValue } from '../FormContext'
+import { renderControl } from './harness'
 
 describe('InputText', () => {
-  function TestWrapper({ children, defaultValue }: { children: React.ReactNode, defaultValue?: string }) {
-    const form = useForm({
-      defaultValues: { testField: defaultValue || '' },
-      onSubmit: async () => {},
-    })
-
-    const mockContext: FormContextValue = {
-      form,
-      schema: { type: 'object', properties: {} },
-      validateField: () => undefined,
-    }
-
-    return (
-      <FormProvider value={mockContext}>
-        {children}
-      </FormProvider>
-    )
-  }
-
   it('should render with label', () => {
-    render(
-      <TestWrapper>
-        <InputText name="testField" label="Username" />
-      </TestWrapper>
-    )
+    renderControl(<InputText name="testField" label="Username" />)
     expect(screen.getByText('Username')).toBeInTheDocument()
   })
 
-  it('should show required indicator', () => {
-    render(
-      <TestWrapper>
-        <InputText name="testField" label="Username" inputMode="required" />
-      </TestWrapper>
+  it('is named by its label', () => {
+    renderControl(<InputText name="testField" label="Username" />)
+    expect(screen.getByRole('textbox', { name: 'Username' })).toBeInTheDocument()
+  })
+
+  it('references its description from aria-describedby', () => {
+    renderControl(
+      <InputText name="testField" label="Username" description="Enter your username" />,
     )
+    expect(screen.getByRole('textbox', { name: 'Username' })).toHaveAccessibleDescription(
+      'Enter your username',
+    )
+  })
+
+  it('should show required indicator', () => {
+    renderControl(<InputText name="testField" label="Username" inputMode="required" />)
     expect(screen.getByText('*')).toBeInTheDocument()
   })
 
   it('should display description', () => {
-    render(
-      <TestWrapper>
-        <InputText name="testField" description="Enter your username" />
-      </TestWrapper>
-    )
+    renderControl(<InputText name="testField" description="Enter your username" />)
     expect(screen.getByText('Enter your username')).toBeInTheDocument()
   })
 
   it('should execute validator and show error', async () => {
-    const { container } = render(
-      <TestWrapper>
-        <InputText 
-          name="testField" 
-          label="Username"
-          validators={{
-            onBlur: ({ value }) => value ? undefined : 'This field is required'
-          }}
-        />
-      </TestWrapper>
+    const { container } = renderControl(
+      <InputText
+        name="testField"
+        label="Username"
+        validators={{
+          onBlur: ({ value }) => (value ? undefined : 'This field is required'),
+        }}
+      />,
     )
-    
+
     const input = container.querySelector('input')
-    
+
     // Trigger blur to run validation
     input?.focus()
     input?.blur()
-    
+
     // Wait for validation
-    await new Promise(resolve => setTimeout(resolve, 100))
-    
+    await new Promise((resolve) => setTimeout(resolve, 100))
+
     expect(screen.queryByText('This field is required')).toBeInTheDocument()
   })
 
   it('should handle default value', () => {
-    const { container } = render(
-      <TestWrapper defaultValue="default text">
-        <InputText name="testField" />
-      </TestWrapper>
-    )
+    const { container } = renderControl(<InputText name="testField" />, {
+      defaultValues: { testField: 'default text' },
+    })
     const input = container.querySelector('input') as HTMLInputElement
     expect(input.value).toBe('default text')
   })

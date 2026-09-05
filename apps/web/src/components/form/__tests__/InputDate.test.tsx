@@ -1,105 +1,72 @@
 import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
-import { useForm } from '@tanstack/react-form'
+import { screen } from '@testing-library/react'
 import { InputDate } from '../InputDate'
-import { FormProvider } from '../FormContext'
-import type { FormContextValue } from '../FormContext'
+import { renderControl } from './harness'
 
 describe('InputDate', () => {
-  function TestWrapper({ 
-    children, 
-    defaultValue,
-    inputMode = 'default'
-  }: { 
-    children: React.ReactNode
-    defaultValue?: string
-    inputMode?: string
-  }) {
-    const form = useForm({
-      defaultValues: { date: defaultValue || '' },
-      onSubmit: async () => {},
-    })
-
-    const mockContext: FormContextValue = {
-      form,
-      schema: { 
-        type: 'object', 
-        properties: {
-          date: { type: 'string', format: 'date', inputMode }
-        },
-        required: inputMode === 'required' ? ['date'] : []
-      },
-      validateField: (value: any) => {
-        if (inputMode === 'required' && !value) {
-          return 'must not be empty'
-        }
-        return undefined
-      },
-    }
-
-    return <FormProvider value={mockContext}>{children}</FormProvider>
-  }
-
   it('should render date picker button and input', () => {
-    const { container } = render(
-      <TestWrapper>
-        <InputDate name="date" />
-      </TestWrapper>
+    const { container } = renderControl(<InputDate name="date" />)
+    expect(container.querySelector('button')).toBeTruthy()
+    expect(screen.getByPlaceholderText('Pick a date')).toBeInTheDocument()
+  })
+
+  it('is named by its label', () => {
+    // The displayed value is a readonly <input> — the only labelable element in
+    // the picker, so that is where <label htmlFor> lands.
+    renderControl(<InputDate name="date" label="Birth Date" />)
+    expect(screen.getByRole('textbox', { name: 'Birth Date' })).toBeInTheDocument()
+  })
+
+  it('names the calendar trigger after the field', () => {
+    // The trigger is icon-only, so its name has to say WHICH date it opens — a
+    // form with three date fields would otherwise announce "Choose date" thrice.
+    renderControl(<InputDate name="date" label="Birth Date" />)
+    expect(
+      screen.getByRole('button', { name: 'Choose Birth Date from calendar' }),
+    ).toBeInTheDocument()
+  })
+
+  it('references its description from aria-describedby', () => {
+    renderControl(
+      <InputDate name="date" label="Birth Date" description="Select your birth date" />,
     )
-    const button = container.querySelector('button')
-    expect(button).toBeTruthy()
-    const input = screen.getByPlaceholderText('Pick a date')
-    expect(input).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Birth Date' })).toHaveAccessibleDescription(
+      'Select your birth date',
+    )
   })
 
   it('should show required indicator when field is required', () => {
-    render(
-      <TestWrapper inputMode="required">
-        <InputDate name="date" label="Date" inputMode="required" />
-      </TestWrapper>
-    )
+    renderControl(<InputDate name="date" label="Date" inputMode="required" />)
     expect(screen.getByText('*')).toBeInTheDocument()
   })
 
   it('should support validation via validators prop', () => {
-    render(
-      <TestWrapper inputMode="required">
-        <InputDate name="date" 
-          label="Date"inputMode="required" validators={{
-            onBlur: () => 'must not be empty'
-          }}
-        />
-      </TestWrapper>
+    renderControl(
+      <InputDate
+        name="date"
+        label="Date"
+        inputMode="required"
+        validators={{
+          onBlur: () => 'must not be empty',
+        }}
+      />,
     )
     // Test that the component accepts validators prop without error
-    const input = screen.getByPlaceholderText('Pick a date')
-    expect(input).toBeInTheDocument()
-    const button = screen.getByRole('button')
-    expect(button).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Pick a date')).toBeInTheDocument()
+    expect(screen.getByRole('button')).toBeInTheDocument()
   })
 
   it('should display label and description', () => {
-    render(
-      <TestWrapper>
-        <InputDate 
-          name="date" 
-          label="Birth Date" 
-          description="Select your birth date"
-        />
-      </TestWrapper>
+    renderControl(
+      <InputDate name="date" label="Birth Date" description="Select your birth date" />,
     )
     expect(screen.getByText('Birth Date')).toBeInTheDocument()
     expect(screen.getByText('Select your birth date')).toBeInTheDocument()
   })
 
   it('should handle default value', () => {
-    render(
-      <TestWrapper defaultValue="2024-01-15">
-        <InputDate name="date" />
-      </TestWrapper>
-    )
+    renderControl(<InputDate name="date" />, { defaultValues: { date: '2024-01-15' } })
     // Date should be formatted and displayed in the input field
-    const input = screen.getByDisplayValue(/Jan/)
-    expect(input).toBeInTheDocument()
+    expect(screen.getByDisplayValue(/Jan/)).toBeInTheDocument()
   })
 })

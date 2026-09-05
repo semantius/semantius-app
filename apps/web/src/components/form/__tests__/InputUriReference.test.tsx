@@ -1,33 +1,25 @@
 import { describe, it, expect } from 'vitest'
-import { render } from '@testing-library/react'
-import { useForm } from '@tanstack/react-form'
+import { screen } from '@testing-library/react'
 import { InputUriReference } from '../InputUriReference'
-import { FormProvider } from '../FormContext'
-import type { FormContextValue } from '../FormContext'
+import { renderControl } from './harness'
 
 describe('InputUriReference', () => {
-  function TestWrapper({ children }: { children: React.ReactNode }) {
-    const form = useForm({
-      defaultValues: { uriRef: '' },
-      onSubmit: async () => {},
-    })
-
-    const mockContext: FormContextValue = {
-      form,
-      schema: { type: 'object', properties: {} },
-      validateField: () => undefined,
-    }
-
-    return <FormProvider value={mockContext}>{children}</FormProvider>
-  }
-
   it('should render uri-reference input', () => {
-    const { container } = render(
-      <TestWrapper>
-        <InputUriReference name="uriRef" />
-      </TestWrapper>
+    const { container } = renderControl(<InputUriReference name="uriRef" />)
+    expect(container.querySelector('input')).toHaveAttribute('type', 'text')
+  })
+
+  it('is named by its label', () => {
+    renderControl(<InputUriReference name="uriRef" label="URI reference" />)
+    expect(screen.getByRole('textbox', { name: 'URI reference' })).toBeInTheDocument()
+  })
+
+  it('references its description from aria-describedby', () => {
+    renderControl(
+      <InputUriReference name="uriRef" label="URI reference" description="May be relative" />,
     )
-    const input = container.querySelector('input')
-    expect(input).toHaveAttribute('type', 'text')
+    expect(screen.getByRole('textbox', { name: 'URI reference' })).toHaveAccessibleDescription(
+      'May be relative',
+    )
   })
 })

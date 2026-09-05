@@ -1,83 +1,54 @@
 import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { useForm } from '@tanstack/react-form'
 import { InputDuration } from '../InputDuration'
-import { FormProvider } from '../FormContext'
-import type { FormContextValue } from '../FormContext'
+import { renderControl } from './harness'
 
 describe('InputDuration', () => {
-  function TestWrapper({ 
-    children, 
-    inputMode = 'default' 
-  }: { 
-    children: React.ReactNode
-    inputMode?: string
-  }) {
-    const form = useForm({
-      defaultValues: { duration: '' },
-      onSubmit: async () => {},
-    })
-
-    const mockContext: FormContextValue = {
-      form,
-      schema: { 
-        type: 'object', 
-        properties: {
-          duration: { type: 'string', format: 'duration', inputMode }
-        },
-        required: inputMode === 'required' ? ['duration'] : []
-      },
-      validateField: (value: any) => {
-        if (inputMode === 'required' && !value) {
-          return 'must not be empty'
-        }
-        return undefined
-      },
-    }
-
-    return <FormProvider value={mockContext}>{children}</FormProvider>
-  }
-
   it('should render duration input with text type', () => {
-    const { container } = render(
-      <TestWrapper>
-        <InputDuration name="duration" />
-      </TestWrapper>
-    )
-    const input = container.querySelector('input')
-    expect(input).toHaveAttribute('type', 'text')
+    const { container } = renderControl(<InputDuration name="duration" />)
+    expect(container.querySelector('input')).toHaveAttribute('type', 'text')
   })
 
   it('should have placeholder text', () => {
-    render(
-      <TestWrapper>
-        <InputDuration name="duration" />
-      </TestWrapper>
+    renderControl(<InputDuration name="duration" />)
+    expect(screen.getByPlaceholderText('P3Y6M4DT12H30M5S')).toBeInTheDocument()
+  })
+
+  it('is named by its label', () => {
+    renderControl(<InputDuration name="duration" label="Video Duration" />)
+    expect(screen.getByRole('textbox', { name: 'Video Duration' })).toBeInTheDocument()
+  })
+
+  it('references its description from aria-describedby', () => {
+    renderControl(
+      <InputDuration
+        name="duration"
+        label="Video Duration"
+        description="Enter duration in ISO 8601 format"
+      />,
     )
-    const input = screen.getByPlaceholderText('P3Y6M4DT12H30M5S')
-    expect(input).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Video Duration' })).toHaveAccessibleDescription(
+      'Enter duration in ISO 8601 format',
+    )
   })
 
   it('should show required indicator when field is required', () => {
-    render(
-      <TestWrapper inputMode="required">
-        <InputDuration name="duration" label="Duration" inputMode="required" />
-      </TestWrapper>
-    )
+    renderControl(<InputDuration name="duration" label="Duration" inputMode="required" />)
     expect(screen.getByText('*')).toBeInTheDocument()
   })
 
   it('should support validation via validators prop', () => {
-    render(
-      <TestWrapper inputMode="required">
-        <InputDuration name="duration" 
-          label="Duration"inputMode="required" validators={{
-            onBlur: () => 'must not be empty',
-            onSubmit: () => 'must not be empty'
-          }}
-        />
-      </TestWrapper>
+    renderControl(
+      <InputDuration
+        name="duration"
+        label="Duration"
+        inputMode="required"
+        validators={{
+          onBlur: () => 'must not be empty',
+          onSubmit: () => 'must not be empty',
+        }}
+      />,
     )
     // Test that the component accepts validators prop without error
     expect(screen.getByLabelText(/duration/i)).toBeInTheDocument()
@@ -85,11 +56,7 @@ describe('InputDuration', () => {
 
   it('should accept valid duration format input', async () => {
     const user = userEvent.setup()
-    render(
-      <TestWrapper>
-        <InputDuration name="duration" label="Duration" />
-      </TestWrapper>
-    )
+    renderControl(<InputDuration name="duration" label="Duration" />)
 
     const input = screen.getByLabelText(/duration/i) as HTMLInputElement
     await user.type(input, 'P1Y2M3DT4H5M6S')
@@ -97,14 +64,12 @@ describe('InputDuration', () => {
   })
 
   it('should display label and description', () => {
-    render(
-      <TestWrapper>
-        <InputDuration 
-          name="duration" 
-          label="Video Duration" 
-          description="Enter duration in ISO 8601 format"
-        />
-      </TestWrapper>
+    renderControl(
+      <InputDuration
+        name="duration"
+        label="Video Duration"
+        description="Enter duration in ISO 8601 format"
+      />,
     )
     expect(screen.getByText('Video Duration')).toBeInTheDocument()
     expect(screen.getByText('Enter duration in ISO 8601 format')).toBeInTheDocument()

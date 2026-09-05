@@ -1,49 +1,17 @@
 import { describe, it, expect } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { useForm } from '@tanstack/react-form'
 import { InputNumber } from '../InputNumber'
-import { FormProvider } from '../FormContext'
-import type { FormContextValue } from '../FormContext'
+import { renderControl } from './harness'
 
 describe('InputNumber', () => {
-  function TestWrapper({ 
-    children, 
-    defaultValue,
-    inputMode = 'default',
-    validatorFn = () => undefined
-  }: { 
-    children: React.ReactNode
-    defaultValue?: number
-    inputMode?: string
-    validatorFn?: (value: any) => string | undefined
-  }) {
-    const form = useForm({
-      defaultValues: { age: defaultValue },
-      onSubmit: async () => {},
-    })
-
-    const mockContext: FormContextValue = {
-      form,
-      schema: { 
-        type: 'object', 
-        properties: {
-          age: { type: 'number', inputMode }
-        },
-        required: inputMode === 'required' ? ['age'] : []
-      },
-      validateField: validatorFn,
-    }
-
-    return <FormProvider value={mockContext}>{children}</FormProvider>
+  const numberValidator = ({ value }: { value: unknown }) => {
+    if (value === undefined || value === '') return undefined
+    return isNaN(Number(value)) ? 'must be a number' : undefined
   }
 
   it('should render number input type', () => {
-    const { container } = render(
-      <TestWrapper>
-        <InputNumber name="age" />
-      </TestWrapper>
-    )
+    const { container } = renderControl(<InputNumber name="age" />)
     const input = container.querySelector('input')
     // NOT type="number". The control is built on react-number-format, which
     // needs a TEXT input to render grouped/formatted values and control the
@@ -53,36 +21,41 @@ describe('InputNumber', () => {
     expect(input).toHaveAttribute('inputmode', 'decimal')
   })
 
+  it('is named by its label', () => {
+    renderControl(<InputNumber name="age" label="Age" />)
+    expect(screen.getByRole('textbox', { name: 'Age' })).toBeInTheDocument()
+  })
+
+  it('references its description from aria-describedby', () => {
+    renderControl(<InputNumber name="age" label="Age" description="Whole years" />)
+    expect(screen.getByRole('textbox', { name: 'Age' })).toHaveAccessibleDescription('Whole years')
+  })
+
   it('should handle number values', () => {
-    const { container } = render(
-      <TestWrapper defaultValue={42}>
-        <InputNumber name="age" />
-      </TestWrapper>
-    )
+    const { container } = renderControl(<InputNumber name="age" />, {
+      defaultValues: { age: 42 },
+    })
     const input = container.querySelector('input') as HTMLInputElement
     expect(input.value).toBe('42')
   })
 
   it('should show required indicator when required', () => {
-    render(
-      <TestWrapper inputMode="required">
-        <InputNumber name="age" label="Age" inputMode="required" />
-      </TestWrapper>
-    )
+    renderControl(<InputNumber name="age" label="Age" inputMode="required" />)
     expect(screen.getByText('*')).toBeInTheDocument()
   })
 
   it('should validate required field', async () => {
     const user = userEvent.setup()
-    render(
-      <TestWrapper inputMode="required" validatorFn={(value) => value === undefined || value === null || value === '' ? 'must not be empty' : undefined}
-      >
-        <InputNumber name="age" 
-          label="Age"inputMode="required" validators={{
-            onBlur: ({ value }) => value === undefined || value === null || value === '' ? 'must not be empty' : undefined,
-          }}
-        />
-      </TestWrapper>
+    renderControl(
+      <InputNumber
+        name="age"
+        label="Age"
+        inputMode="required"
+        validators={{
+          onBlur: ({ value }) =>
+            value === undefined || value === null || value === '' ? 'must not be empty' : undefined,
+        }}
+      />,
     )
 
     const input = screen.getByLabelText(/age/i)
@@ -95,25 +68,7 @@ describe('InputNumber', () => {
   })
 
   it('should detect invalid number format', async () => {
-    render(
-      <TestWrapper
-        validatorFn={(value) => {
-          if (value === undefined || value === '') return undefined
-          return isNaN(Number(value)) ? 'must be a number' : undefined
-        }}
-      >
-        <InputNumber 
-          name="age" 
-          label="Age"
-          validators={{
-            onBlur: ({ value }) => {
-              if (value === undefined || value === '') return undefined
-              return isNaN(Number(value)) ? 'must be a number' : undefined
-            },
-          }}
-        />
-      </TestWrapper>
-    )
+    renderControl(<InputNumber name="age" label="Age" validators={{ onBlur: numberValidator }} />)
 
     const input = screen.getByLabelText(/age/i) as HTMLInputElement
     expect(input.type).toBe('text')
@@ -129,25 +84,7 @@ describe('InputNumber', () => {
 
   it('should accept valid number', async () => {
     const user = userEvent.setup()
-    render(
-      <TestWrapper
-        validatorFn={(value) => {
-          if (value === undefined || value === '') return undefined
-          return isNaN(Number(value)) ? 'must be a number' : undefined
-        }}
-      >
-        <InputNumber 
-          name="age" 
-          label="Age"
-          validators={{
-            onBlur: ({ value }) => {
-              if (value === undefined || value === '') return undefined
-              return isNaN(Number(value)) ? 'must be a number' : undefined
-            },
-          }}
-        />
-      </TestWrapper>
-    )
+    renderControl(<InputNumber name="age" label="Age" validators={{ onBlur: numberValidator }} />)
 
     const input = screen.getByLabelText(/age/i) as HTMLInputElement
     await user.type(input, '25')
@@ -160,11 +97,9 @@ describe('InputNumber', () => {
   })
 
   it('should handle default value', () => {
-    const { container } = render(
-      <TestWrapper defaultValue={99}>
-        <InputNumber name="age" />
-      </TestWrapper>
-    )
+    const { container } = renderControl(<InputNumber name="age" />, {
+      defaultValues: { age: 99 },
+    })
     const input = container.querySelector('input') as HTMLInputElement
     expect(input.value).toBe('99')
   })

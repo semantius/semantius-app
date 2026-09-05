@@ -1,71 +1,24 @@
 import { describe, it, expect } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { useForm } from '@tanstack/react-form'
 import { InputEnum } from '../InputEnum'
-import { FormProvider } from '../FormContext'
-import type { FormContextValue } from '../FormContext'
+import { renderControl } from './harness'
 
 describe('InputEnum', () => {
-  function TestWrapper({ 
-    children, 
-    defaultValue,
-    inputMode = 'default',
-    validatorFn = () => undefined,
-    formMode
-  }: { 
-    children: React.ReactNode
-    defaultValue?: string
-    inputMode?: string
-    validatorFn?: (value: any) => string | undefined
-    formMode?: FormContextValue['formMode']
-  }) {
-    const form = useForm({
-      defaultValues: { option: defaultValue || '' },
-      onSubmit: async () => {},
-    })
-
-    const mockContext: FormContextValue = {
-      form,
-      schema: { 
-        type: 'object', 
-        properties: {
-          option: { 
-            type: 'string',
-            enum: ['Option 1', 'Option 2', 'Option 3'],
-            inputMode 
-          }
-        },
-        required: inputMode === 'required' ? ['option'] : []
-      },
-      validateField: validatorFn,
-      formMode,
-    }
-
-    return <FormProvider value={mockContext}>{children}</FormProvider>
-  }
+  const withValue = (option: string) => ({ defaultValues: { option } })
 
   it('should render combobox trigger', () => {
-    render(
-      <TestWrapper>
-        <InputEnum name="option" />
-      </TestWrapper>
-    )
-    const trigger = screen.getByRole('combobox')
-    expect(trigger).toBeInTheDocument()
+    renderControl(<InputEnum name="option" />)
+    expect(screen.getByRole('combobox')).toBeInTheDocument()
   })
 
   it('should display enum options when opened', async () => {
     const user = userEvent.setup()
-    render(
-      <TestWrapper>
-        <InputEnum name="option" />
-      </TestWrapper>
-    )
-    
+    renderControl(<InputEnum name="option" />)
+
     const trigger = screen.getByRole('combobox')
     await user.click(trigger)
-    
+
     // Verify popover opened (aria-expanded)
     await waitFor(() => {
       expect(trigger).toHaveAttribute('aria-expanded', 'true')
@@ -73,73 +26,48 @@ describe('InputEnum', () => {
   })
 
   it('should show required indicator when field is required', () => {
-    render(
-      <TestWrapper inputMode="required">
-        <InputEnum name="option" label="Choose Option" inputMode="required" />
-      </TestWrapper>
-    )
+    renderControl(<InputEnum name="option" label="Choose Option" inputMode="required" />)
     expect(screen.getByText('*')).toBeInTheDocument()
   })
 
   it('should show clear button for non-required enum field', () => {
-    render(
-      <TestWrapper defaultValue="Option 1">
-        <InputEnum name="option" inputMode="default" />
-      </TestWrapper>
-    )
+    renderControl(<InputEnum name="option" inputMode="default" />, withValue('Option 1'))
     expect(screen.getByRole('button', { name: /clear selection/i })).toBeInTheDocument()
   })
 
   it('should NOT show clear button for required enum field', () => {
-    render(
-      <TestWrapper defaultValue="Option 1" inputMode="required">
-        <InputEnum name="option" inputMode="required" />
-      </TestWrapper>
-    )
+    renderControl(<InputEnum name="option" inputMode="required" />, withValue('Option 1'))
     expect(screen.queryByRole('button', { name: /clear selection/i })).not.toBeInTheDocument()
   })
 
-  it('should validate required field on submit', async () => {
-    render(
-      <TestWrapper inputMode="required" validatorFn={(value) => !value || value === '' ? 'must not be empty' : undefined}
-      >
-        <InputEnum name="option" 
-          label="Choose Option" inputMode="required" validators={{
-            onSubmit: ({ value }) => !value || value === '' ? 'must not be empty' : undefined,
-          }}
-        />
-      </TestWrapper>
+  it('should validate required field on submit', () => {
+    renderControl(
+      <InputEnum
+        name="option"
+        label="Choose Option"
+        inputMode="required"
+        validators={{
+          onSubmit: ({ value }) => (!value || value === '' ? 'must not be empty' : undefined),
+        }}
+      />,
     )
 
-    const trigger = screen.getByRole('combobox')
-    expect(trigger).toBeInTheDocument()
+    expect(screen.getByRole('combobox')).toBeInTheDocument()
   })
 
   it('should display current value in trigger', () => {
-    render(
-      <TestWrapper defaultValue="Option 2">
-        <InputEnum name="option" />
-      </TestWrapper>
-    )
-    
-    const trigger = screen.getByRole('combobox')
-    expect(trigger).toHaveTextContent('Option 2')
+    renderControl(<InputEnum name="option" />, withValue('Option 2'))
+    expect(screen.getByRole('combobox')).toHaveTextContent('Option 2')
   })
 
   it('should select an option and update value', async () => {
     const user = userEvent.setup()
-    render(
-      <TestWrapper inputMode="required">
-        <InputEnum name="option" 
-          label="Choose Option" inputMode="required"
-        />
-      </TestWrapper>
-    )
+    renderControl(<InputEnum name="option" label="Choose Option" inputMode="required" />)
 
     const trigger = screen.getByRole('combobox')
     // Verify initial state shows placeholder
     expect(trigger).toHaveTextContent('Select an option')
-    
+
     // Verify the trigger opens on click
     await user.click(trigger)
     await waitFor(() => {
@@ -147,50 +75,34 @@ describe('InputEnum', () => {
     })
   })
 
-  it('should NOT show error for empty non-required enum field', async () => {
-    render(
-      <TestWrapper
+  it('should NOT show error for empty non-required enum field', () => {
+    const allowed = ['Option 1', 'Option 2', 'Option 3']
+    renderControl(
+      <InputEnum
+        name="option"
+        label="Choose Option"
         inputMode="default"
-        validatorFn={(value) => {
-          if (!value || value === '') return undefined
-          const validOptions = ['Option 1', 'Option 2', 'Option 3']
-          return validOptions.includes(value) ? undefined : 'must be equal to one of the allowed values'
+        validators={{
+          onBlur: ({ value }) => {
+            if (!value || value === '') return undefined
+            return allowed.includes(value) ? undefined : 'must be equal to one of the allowed values'
+          },
         }}
-      >
-        <InputEnum 
-          name="option" 
-          label="Choose Option"
-          inputMode="default"
-          validators={{
-            onBlur: ({ value }) => {
-              if (!value || value === '') return undefined
-              const validOptions = ['Option 1', 'Option 2', 'Option 3']
-              return validOptions.includes(value) ? undefined : 'must be equal to one of the allowed values'
-            },
-          }}
-        />
-      </TestWrapper>
+      />,
     )
 
-    const trigger = screen.getByRole('combobox')
-    expect(trigger).toBeInTheDocument()
-    
+    expect(screen.getByRole('combobox')).toBeInTheDocument()
     expect(screen.queryByText(/must not be empty/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/must be equal to one of the allowed values/i)).not.toBeInTheDocument()
   })
 
   it('should clear value when clear button is clicked', async () => {
     const user = userEvent.setup()
-    render(
-      <TestWrapper defaultValue="Option 1" inputMode="default">
-        <InputEnum name="option" inputMode="default" />
-      </TestWrapper>
-    )
+    renderControl(<InputEnum name="option" inputMode="default" />, withValue('Option 1'))
 
     expect(screen.getByRole('combobox')).toHaveTextContent('Option 1')
-    
-    const clearBtn = screen.getByRole('button', { name: /clear selection/i })
-    await user.click(clearBtn)
+
+    await user.click(screen.getByRole('button', { name: /clear selection/i }))
 
     await waitFor(() => {
       expect(screen.getByRole('combobox')).toHaveTextContent('Select an option')
@@ -207,11 +119,7 @@ describe('InputEnum', () => {
       // A <button> inside a <button> is invalid HTML and axe `nested-interactive`
       // (serious). It got there because the clear control was one of the
       // PopoverTrigger's children.
-      render(
-        <TestWrapper defaultValue="Option 1">
-          <InputEnum name="option" label="Choose Option" />
-        </TestWrapper>
-      )
+      renderControl(<InputEnum name="option" label="Choose Option" />, withValue('Option 1'))
       const trigger = screen.getByRole('combobox')
       const clear = screen.getByRole('button', { name: /clear selection/i })
       expect(trigger.contains(clear)).toBe(false)
@@ -221,23 +129,23 @@ describe('InputEnum', () => {
       // The trigger self-references in aria-labelledby, so its name is computed
       // from its content — anything nested inside it gets read out as part of
       // the field's name.
-      render(
-        <TestWrapper defaultValue="Option 1">
-          <InputEnum name="option" label="Choose Option" />
-        </TestWrapper>
-      )
+      renderControl(<InputEnum name="option" label="Choose Option" />, withValue('Option 1'))
       expect(screen.getByRole('combobox')).not.toHaveAccessibleName(/clear selection/i)
     })
 
     it('is announced by its label, not just "not by the clear button"', () => {
       // The negative assertion above passes on a trigger with NO name at all.
-      // This is the one that fails if the aria-labelledby self-reference breaks.
-      render(
-        <TestWrapper defaultValue="Option 1">
-          <InputEnum name="option" label="Choose Option" />
-        </TestWrapper>
-      )
-      expect(screen.getByRole('combobox')).toHaveAccessibleName(/Choose Option/)
+      // This is the one that fails if the aria-labelledby reference breaks.
+      //
+      // Only the label half is asserted. The trigger also names itself
+      // ("<label id> <own id>") so the current value follows the field name —
+      // Chrome's accessibility tree computes "Choose Option Option 1" for this
+      // markup (checked over the DevTools protocol) — but dom-accessibility-api,
+      // which jest-dom and Testing Library compute names with, treats the
+      // self-reference as a cycle and drops it. Asserting the value half here
+      // would encode that limitation as the contract.
+      renderControl(<InputEnum name="option" label="Choose Option" />, withValue('Option 1'))
+      expect(screen.getByRole('combobox')).toHaveAccessibleName(/^Choose Option\b/)
     })
 
     it('points aria-controls at an element that actually exists', async () => {
@@ -245,11 +153,7 @@ describe('InputEnum', () => {
       // component generated pointed at nothing whenever the popup was open —
       // the exact aria-valid-attr-value failure the attribute was added to avoid.
       const user = userEvent.setup()
-      render(
-        <TestWrapper>
-          <InputEnum name="option" label="Choose Option" />
-        </TestWrapper>
-      )
+      renderControl(<InputEnum name="option" label="Choose Option" />)
       const trigger = screen.getByRole('combobox')
       expect(trigger).not.toHaveAttribute('aria-controls')
 
@@ -262,24 +166,21 @@ describe('InputEnum', () => {
     })
 
     it('references its description in edit mode', () => {
-      render(
-        <TestWrapper>
-          <InputEnum name="option" label="Choose Option" description="Pick one" />
-        </TestWrapper>
-      )
-      const id = screen.getByRole('combobox').getAttribute('aria-describedby')
+      renderControl(<InputEnum name="option" label="Choose Option" description="Pick one" />)
+      const trigger = screen.getByRole('combobox')
+      const id = trigger.getAttribute('aria-describedby')
       expect(id).toBe('option-description')
       expect(document.getElementById(id!)).not.toBeNull()
+      expect(trigger).toHaveAccessibleDescription('Pick one')
     })
 
     it('omits aria-describedby in view mode, where the description is not rendered', () => {
       // SchemaForm forces readonly in view mode but still renders the control,
       // while FormDescription returns null — so the reference dangled on every
       // read-only record and for every user without edit permission.
-      render(
-        <TestWrapper formMode="view">
-          <InputEnum name="option" label="Choose Option" description="Pick one" inputMode="readonly" />
-        </TestWrapper>
+      renderControl(
+        <InputEnum name="option" label="Choose Option" description="Pick one" inputMode="readonly" />,
+        { formMode: 'view' },
       )
       expect(screen.getByRole('combobox')).not.toHaveAttribute('aria-describedby')
       expect(document.getElementById('option-description')).toBeNull()

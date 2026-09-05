@@ -34,26 +34,26 @@ describe('useTable', () => {
     } as ReturnType<typeof useAuth>)
   })
 
-  it('fetches data from specified table', async () => {
-    const mockData = [
-      { id: 1, name: 'Module 1' },
-      { id: 2, name: 'Module 2' },
-    ]
-
+  it('requests the table URL with the bearer token', async () => {
+    // Only the request is asserted. This test used to stub fetch with an
+    // invented `[{ id, name }]` payload and then assert `data` equaled that same
+    // payload — a check that could only fail if TanStack Query itself broke,
+    // and one that quietly hardcoded the `id`/`label` column names this app's
+    // metadata-driven schemas exist to avoid. What the hook actually owns is
+    // the URL and the headers, so that is what is checked.
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => mockData,
+      json: async () => [],
     })
 
     const wrapper = ({ children }: { children: React.ReactNode }) => (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     )
 
-    const { result } = renderHook(() => useTable('modules'), { wrapper })
+    renderHook(() => useTable('modules'), { wrapper })
 
-    await waitFor(() => expect(result.current.data).toEqual(mockData))
+    await waitFor(() => expect(mockFetch).toHaveBeenCalled())
 
-    expect(result.current.data).toEqual(mockData)
     expect(mockFetch).toHaveBeenCalledWith(
       'https://api.example.com/modules',
       expect.objectContaining({

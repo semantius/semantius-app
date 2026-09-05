@@ -1,33 +1,25 @@
 import { describe, it, expect } from 'vitest'
-import { render } from '@testing-library/react'
-import { useForm } from '@tanstack/react-form'
+import { screen } from '@testing-library/react'
 import { InputJsonPointer } from '../InputJsonPointer'
-import { FormProvider } from '../FormContext'
-import type { FormContextValue } from '../FormContext'
+import { renderControl } from './harness'
 
 describe('InputJsonPointer', () => {
-  function TestWrapper({ children }: { children: React.ReactNode }) {
-    const form = useForm({
-      defaultValues: { pointer: '' },
-      onSubmit: async () => {},
-    })
-
-    const mockContext: FormContextValue = {
-      form,
-      schema: { type: 'object', properties: {} },
-      validateField: () => undefined,
-    }
-
-    return <FormProvider value={mockContext}>{children}</FormProvider>
-  }
-
   it('should render json-pointer input', () => {
-    const { container } = render(
-      <TestWrapper>
-        <InputJsonPointer name="pointer" />
-      </TestWrapper>
+    const { container } = renderControl(<InputJsonPointer name="pointer" />)
+    expect(container.querySelector('input')).toHaveAttribute('type', 'text')
+  })
+
+  it('is named by its label', () => {
+    renderControl(<InputJsonPointer name="pointer" label="Pointer" />)
+    expect(screen.getByRole('textbox', { name: 'Pointer' })).toBeInTheDocument()
+  })
+
+  it('references its description from aria-describedby', () => {
+    renderControl(
+      <InputJsonPointer name="pointer" label="Pointer" description="RFC 6901 JSON Pointer" />,
     )
-    const input = container.querySelector('input')
-    expect(input).toHaveAttribute('type', 'text')
+    expect(screen.getByRole('textbox', { name: 'Pointer' })).toHaveAccessibleDescription(
+      'RFC 6901 JSON Pointer',
+    )
   })
 })
