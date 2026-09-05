@@ -102,6 +102,10 @@ function axeCoverage() {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
+// Tokens from the client_credentials exchange last one hour (mint-token.mjs).
+// 40 minutes leaves room for the slowest cell to finish on the old token.
+const REMINT_AFTER_MS = 40 * 60_000
+
 /**
  * Wait for the app to finish booting before measuring anything.
  *
@@ -156,7 +160,8 @@ async function main() {
   }
 
   const baseUrl = args.url.replace(/\/+$/, '')
-  const token = args.token ?? (await mintToken())
+  let token = args.token ?? (await mintToken())
+  let mintedAt = Date.now()
   const apiBaseUrl = await resolveApiBaseUrl()
   const { routes, resolution } = await resolveRoutes({ apiBaseUrl, token })
 
@@ -193,6 +198,17 @@ async function main() {
           const label = `${route.id} @ ${viewport.name} / ${theme}`
           process.stdout.write(`[${index}/${total}] ${label} ... `)
 
+          // A token lives one hour and the full matrix takes longer than that at
+          // ~20s a cell, so a run that mints once ends in a tail of INCONCLUSIVE
+          // cells that measure the token, not the app (145 of 224 in one discarded
+          // run). Re-mint well inside the hour; every cell opens its own URL, so
+          // the fresh token takes effect on the next navigation. A token handed
+          // in with --token is the caller's to keep alive.
+          if (!args.token && Date.now() - mintedAt > REMINT_AFTER_MS) {
+            token = await mintToken()
+            mintedAt = Date.now()
+            process.stdout.write('(token re-minted) ')
+          }
           // The token rides in the hash, never the query string: a fragment is
           // not sent to the server and so cannot be logged. devUrlToken.ts reads
           // it, seeds storage and strips it.
