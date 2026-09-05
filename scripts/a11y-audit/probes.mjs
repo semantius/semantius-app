@@ -21,7 +21,7 @@ const HELPERS = readFileSync(new URL('./page-helpers.js', import.meta.url), 'utf
  * Admissibility gate. Nothing else in this file means anything unless this
  * passes: a page still under the boot overlay, or showing BootFailure, or that
  * threw during hydration, is not the page we set out to measure — and reporting
- * "0 violations" for it is how a audit produces a confident lie.
+ * "0 violations" for it is how an audit produces a confident lie.
  *
  * The third state matters. A cell that fails this is INCONCLUSIVE, which maps to
  * "Not Evaluated" in the report, never to a pass.
@@ -29,14 +29,19 @@ const HELPERS = readFileSync(new URL('./page-helpers.js', import.meta.url), 'utf
 export const ADMISSIBILITY = `(() => {${HELPERS}
   const loader = document.getElementById('app-loader')
   // Every surface the app puts up INSTEAD of the page. Each of these renders a
-  // small, perfectly accessible error card, so a audit that does not recognize
+  // small, perfectly accessible error card, so an audit that does not recognize
   // them reports "0 violations" for a route it never actually saw — the exact
   // failure mode the admissibility gate exists to prevent. A 404 from the user-
   // info RPC is transient and does this on any route.
   const blockingSurfaces = [
     'Application Failed to Start',
     'Configuration Error',
+    // Both wordings of the same surface: 'from API' is the tenant's PostgREST
+    // (its cold-start 404), 'from OAuth provider' is the identity provider's
+    // userinfo endpoint (a 429 when a run loads pages faster than it allows).
+    // A run that knew only the first counted nineteen 429 cards as pages.
     'Failed to fetch user information from API',
+    'Failed to fetch user information from OAuth provider',
     'Oops! Something went wrong',
   ]
   const text = document.body.textContent || ''

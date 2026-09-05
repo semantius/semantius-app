@@ -40,31 +40,38 @@ tell it apart from a real one.
 | --- | --- | --- |
 | `20260905T122344-baseline.json` | After the Level-A fixes and the `--ring` / `--input-border` work, **before** the 1.4.3 palette change | 16 routes x {390, 1440} x {light, dark}. 55/64 cells admissible; the 9 inconclusive ones are the tenant API's cold-start 404 (see below). This is the baseline the color change is meant to be diffed against. |
 
-## Outstanding: no post-fix run exists
+## Outstanding: the post-fix run is still to be kept
 
-The audit authenticates with a token minted from `SEMANTIUS_API_KEY`, and that
-key began returning `401 {"error":"Invalid API key"}` from
-`https://tests.semantius.cloud/token` part-way through the work. Every
-authenticated route is unreachable to the harness until it is reissued.
+Three runs after the fixes were discarded rather than kept, each for a reason the
+bar above names, and each changed the harness:
 
-Two runs were attempted after the fixes and both were discarded rather than kept:
-one ran against a build that had already been superseded, and one ran past its
-token's one-hour expiry and finished with 145 of 224 cells inconclusive. Neither
-described the current tree.
+- one ran against a build that had already been superseded;
+- one minted its token once and ran past the hour, ending with 145 of 224 cells
+  inconclusive — `run.mjs` now re-mints inside the hour;
+- one (2026-09-05 22:13, 224 cells, 31 minutes, 0 inconclusive) looked clean and
+  was not: the identity provider had rate-limited the userinfo call on 19 cells
+  (`429`), the app rendered "Failed to fetch user information from OAuth
+  provider", and the admissibility probe — which knew only the PostgREST wording
+  of that card — counted the error cards as pages. `probes.mjs` now recognizes
+  both wordings and `run.mjs` waits 3s → 60s between retries so a limit window
+  can pass. That run also exposed a real regression the token test had missed:
+  dark-mode placeholders at 2.72:1, because `theme-a11y.css` corrected
+  `--muted-foreground` in `:root` only, and its `:root` block outranks
+  `global.css`'s `.dark` by source order. Fixed, with the test's cascade model;
+  see CONTEXT-MEMORY.md, "The order cuts both ways".
 
 To produce the run that is missing:
 
 ```bash
-# 1. Confirm the key works BEFORE spending 40 minutes on a audit.
+# 1. Confirm the key works BEFORE spending half an hour on an audit.
 dotenvx run --quiet -- node scripts/mint-token.mjs | head -c 12    # expect "eyJ..."
 
 # 2. Deploy the CURRENT tree; the audit must measure the build under review.
 pnpm preview:wrangler
 
-# 3. Audit. Tokens last one hour and the full matrix takes ~40 minutes, so mint
-#    immediately before, and re-run rather than accept a tail of inconclusive cells.
-dotenvx run -- node scripts/a11y-audit/run.mjs \
-  --url "$(grep -oE 'https://\S+' .preview-url.md)" --label after-fixes --screenshots
+# 3. Audit. 224 cells take about 31 minutes. The run re-mints its own token and
+#    retries a cell that rendered an error surface with growing waits.
+pnpm test:a11y-audit --url "$(grep -oE 'https://\S+' .preview-url.md)" --label after-fixes --screenshots
 ```
 
 Or run it from CI: dispatch `.github/workflows/a11y.yml` with `audit` on. It

@@ -50,7 +50,7 @@ export async function resolveRoutes({ apiBaseUrl, token, fetchImpl = fetch }) {
 
   const modules = await get('/modules?select=id,module_name,module_slug,home_page&order=id')
   // Prefer a content module over the `_core` admin one: it has richer pages, and
-  // a audit of the admin module alone would miss the grids most users see.
+  // an audit of the admin module alone would miss the grids most users see.
   const demoModule =
     modules.find((m) => m.module_slug && m.module_slug !== 'admin') ?? modules[0]
   if (!demoModule) throw new Error('no modules available to resolve routes against')

@@ -106,6 +106,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 // 40 minutes leaves room for the slowest cell to finish on the old token.
 const REMINT_AFTER_MS = 40 * 60_000
 
+// Waits between retries of a cell that rendered a blocking surface. The last
+// value is long enough for a one-minute rate-limit window to pass.
+const RETRY_BACKOFF_MS = [3_000, 10_000, 30_000, 60_000]
+
 /**
  * Wait for the app to finish booting before measuring anything.
  *
@@ -223,7 +227,7 @@ async function main() {
           // resolves it; if it does not, the cell stays INCONCLUSIVE, which is
           // still not a pass. Anything else — a real page error, the wrong theme
           // — is not retried, because a retry would only hide it.
-          for (let attempt = 0; attempt < 4; attempt++) {
+          for (let attempt = 0; attempt < RETRY_BACKOFF_MS.length + 1; attempt++) {
             // Wake the tenant API from Node first. Its serverless PostgREST
             // answers the first request after an idle period with a 404 rather
             // than a 5xx or a wait, and the app treats that as terminal: it
@@ -245,7 +249,11 @@ async function main() {
               browser.setMedia(theme)
               browser.setViewport(viewport.width, viewport.height)
             }
-            await sleep(1500)
+            // Growing, because the second cause of a blocking surface is the
+            // identity provider rate-limiting userinfo (429) when pages load
+            // every few seconds; a fixed 1.5s retry just re-asks inside the same
+            // window and then poisons the next cells too.
+            await sleep(RETRY_BACKOFF_MS[attempt] ?? RETRY_BACKOFF_MS.at(-1))
           }
 
           const reasons = []
@@ -255,7 +263,7 @@ async function main() {
             if (!admissibility.loaderHidden) reasons.push('boot overlay never came down')
             if (admissibility.bootFailure) reasons.push(`blocking surface rendered: ${admissibility.bootFailureReason}`)
             if (!admissibility.rootHasContent) reasons.push('#root is empty')
-            // Assert the theme actually switched. A audit that silently measures
+            // Assert the theme actually switched. An audit that silently measures
             // light twice reports dark as clean without ever rendering it.
             if ((theme === 'dark') !== admissibility.darkClass) {
               reasons.push(`theme did not apply (wanted ${theme}, .dark=${admissibility.darkClass})`)
