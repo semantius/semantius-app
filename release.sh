@@ -92,10 +92,17 @@ fi
 # simply moves from here to CI — after the tag exists, which is the worse place
 # to find it. Deliberately noisy for that reason.
 if [ "${SKIP_TESTS:-0}" = "1" ]; then
-  echo "release: WARNING - lint and tests skipped (SKIP_TESTS=1)" >&2
+  echo "release: WARNING - lint, tests and build skipped (SKIP_TESTS=1)" >&2
 else
   echo "release: running lint + unit tests (pnpm check)..."
   pnpm check || die "pnpm check failed - fix it before releasing (the tag would fail CI anyway)"
+  # `pnpm check` runs no typecheck of its own — vitest transpiles without one —
+  # so a test file that has stopped compiling sails through it and only fails
+  # inside the image build, fifteen minutes after the tag exists. The build is
+  # `vite build && tsc -b --noEmit`; a minute here moves that failure to before
+  # the tag.
+  echo "release: building (pnpm build)..."
+  pnpm build || die "pnpm build failed - fix it before releasing (the image build would fail anyway)"
 fi
 
 pkg_version() { sed -n 's/^  "version": "\(.*\)",$/\1/p' package.json | head -1; }

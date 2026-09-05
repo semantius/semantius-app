@@ -1,0 +1,154 @@
+name: Accessibility
+
+# The two real-browser checks that `pnpm check` cannot carry, defined once and
+# called from anywhere — the same rule as checks.yml.
+#
+#   login-journey  The interactive OAuth round trip (apps/web/e2e/), the only
+#                  place the app's real login path runs. It is what keeps the
+#                  suite's `#jwt` session seeding honest. A build plus two
+#                  Playwright tests and no secrets: cheap enough to GATE a
+#                  release, and docker-publish.yml calls it beside checks.yml
+#                  for exactly that. The trade-off is deliberate: it depends on
+#                  test-oidc-server.ma532.workers.dev answering, so an outage
+#                  there blocks a release. That is the right failure — a build
+#                  whose login cannot be proven should not ship — and the server
+#                  lives in the same Cloudflare account as the previews.
+#
+#   sweep          scripts/a11y-sweep/ against a Cloudflare preview deployed from
+#                  the same commit. It decrypts the committed .env
+#                  (DOTENV_PRIVATE_KEY is already a repository secret) for the
+#                  Cloudflare token and the tenant API key, takes about forty
+#                  minutes, and exits 1 by design while any criterion is still
+#                  Partially Supports or any cell is INCONCLUSIVE. It REPORTS:
+#                  the run's JSON is the artifact and the job status is the
+#                  headline. It does not gate a release — a gate that is red for
+#                  a known reason teaches everyone to click past it.
+on:
+  workflow_dispatch:
+    inputs:
+      sweep:
+        description: 'Deploy a preview of this commit and run the route sweep against it'
+        type: boolean
+        default: true
+      label:
+        description: 'Artifact label: a11y-reports/<stamp>-<label>.json'
+        type: string
+        default: ci
+  schedule:
+    # Weekly, Monday 04:23 UTC. Off the hour: GitHub throttles on-the-hour crons.
+    - cron: '23 4 * * 1'
+  workflow_call:
+    inputs:
+      sweep:
+        type: boolean
+        default: false
+      label:
+        type: string
+        default: ci
+
+jobs:
+  login-journey:
+    name: e2e · real OAuth login
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.22.0'
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        run: pnpm --filter @semantius/frontend test:e2e:install
+
+      # playwright.config.ts builds the app with `--mode e2e` under its own
+      # environment (the test identity provider, an explicit empty control-plane
+      # URL), so nothing here reads .env and nothing needs a secret.
+      - name: Login journey
+        run: pnpm --filter @semantius/frontend test:e2e
+
+      - name: Keep the trace of a failed journey
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: login-journey-report
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          retention-days: 7
+          if-no-files-found: ignore
+
+  sweep:
+    name: route sweep · deployed preview
+    # `inputs` is empty on a schedule, which is the other way this job is wanted.
+    if: ${{ inputs.sweep || github.event_name == 'schedule' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      LABEL: ${{ inputs.label || 'ci' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.22.0'
+          cache: pnpm
+
+      # The same provisioning every agent sandbox gets — agent-browser, dotenvx
+      # and wrangler globally, Playwright's Chromium, then `pnpm install` — from
+      # the one script that defines it, so a runner cannot drift from the
+      # sandboxes the sweep is developed in.
+      - name: Provision the sweep's tooling
+        env:
+          DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
+        run: bash workplace/setup.sh
+
+      # The sweep must measure the build under review, and the `#jwt` session
+      # seeding it relies on is gated to *.workers.dev hosts, so a preview is
+      # the only place it can run. Writing .preview-url.md is the deploy
+      # script's last step; its absence is the deploy-failed signal.
+      - name: Deploy a preview of this commit
+        env:
+          DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
+        run: |
+          dotenvx run -- bash workplace/deploy-wrangler.sh
+          test -f .preview-url.md || { echo "::error::the preview deploy did not write .preview-url.md"; exit 1; }
+
+      - name: Sweep
+        env:
+          DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
+        run: |
+          url="$(grep -oE 'https://\S+' .preview-url.md)"
+          echo "Swept $url" >> "$GITHUB_STEP_SUMMARY"
+          dotenvx run -- node scripts/a11y-sweep/run.mjs --url "$url" --label "$LABEL" --screenshots
+
+      # Kept whether or not the sweep passed: a failing run is the one somebody
+      # needs to read. Cite a run by its timestamped filename — the git-ignored
+      # latest.json is a local convenience, not a record.
+      - name: Keep the run
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: a11y-report
+          path: |
+            a11y-reports
+            !a11y-reports/latest.json
+            .preview-url.md
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Digest
+        if: always()
+        run: |
+          latest="$(ls -t a11y-reports/*-"$LABEL".txt 2>/dev/null | head -1)"
+          if [ -n "$latest" ]; then
+            { echo '```'; cat "$latest"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
