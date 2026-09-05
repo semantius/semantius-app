@@ -17,7 +17,7 @@ import {
  * Tier 1 — the palette's contrast math, computed from `src/global.css` itself.
  *
  * This is the only layer that can check a color pair the browser never happens
- * to render during a audit (a hover tint, a disabled state, a control on a
+ * to render during an audit (a hover tint, a disabled state, a control on a
  * surface no current route puts it on) and the only one that fails at the moment
  * a token is edited rather than at the next deploy.
  *
@@ -95,12 +95,26 @@ describe('palette override wiring', () => {
         '--destructive',
         '--destructive-foreground',
         '--input-border',
+        '--muted-foreground',
         '--ring',
         '--sidebar-primary',
         '--sidebar-ring',
         '--skeleton',
       ],
     })
+  })
+
+  it('re-states every :root override in .dark, because source order cuts both ways', () => {
+    // theme-a11y.css's :root block comes after global.css's .dark block, and both
+    // match <html class="dark"> at (0,1,0). A token set in :root here and not in
+    // .dark therefore replaces shadcn's DARK value with a light-mode color. That
+    // shipped once: --muted-foreground was corrected in :root only, dark-mode
+    // placeholders dropped to 2.72:1, and this suite passed them at 5.49:1
+    // because its cascade model layered .dark over :root. The model is fixed
+    // (themeTokens in lib/cssTokens.ts); this pins the file-shape rule so the
+    // next :root-only correction fails here instead of in an audit.
+    const { light, dark } = overriddenTokens()
+    expect(light.filter((t) => !dark.includes(t)), 'set in :root but not in .dark').toEqual([])
   })
 })
 

@@ -23,6 +23,13 @@
    there and still second. If someone drops it, the suite goes red rather than
    the app going quietly non-conformant.
 
+   THE ORDER CUTS BOTH WAYS. Because this file's :root block also comes after
+   global.css's .dark block, a token set here in :root ALONE overrides shadcn's
+   dark value too — the dark theme then gets a light-mode color. Every token set
+   in :root below is therefore set in .dark as well, re-stating the stock value
+   where dark needs no correction. tokenContrast.test.ts asserts that, and
+   models the cascade in source order across all four blocks.
+
    WHAT THIS FILE DOES *NOT* GIVE YOU. It does not make the app theme-agnostic.
    Every value here was derived against base-rhea's specific surfaces — the
    darkest being `bg-input/90` over `--sidebar`. Switch to a palette with
@@ -107,6 +114,16 @@
 }
 
 .dark {
+  /* The stock dark value, re-stated. Not a correction — a consequence of how
+     this file works: its :root block comes AFTER global.css's .dark block and
+     both match <html class="dark"> at the same specificity, so the light-mode
+     0.534 above would win on the dark theme too and paint placeholders at
+     2.72:1 on a dark field. It did, for one deploy; the audit caught it and the
+     token test could not, because its cascade model layered .dark over :root.
+     Rule, enforced in tokenContrast.test.ts: every token this file sets in
+     :root is set here as well. */
+  --muted-foreground: oklch(0.709 0.01 56.259);
+
   /* Dark paints text-destructive on a /30 self-tint too: the button variant is
      `dark:bg-destructive/20` at rest and `dark:hover:bg-destructive/30` on hover
      (ui/button.tsx), and at the earlier 0.71 that hover state was 3.74:1 over a

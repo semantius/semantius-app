@@ -113,16 +113,31 @@ function parseBlock(css: string, selector: string): Record<string, string> {
 
 let cache: Record<Theme, Record<string, string>> | undefined
 
-/** `:root` and `.dark`, with `.dark` layered over `:root` the way the cascade does. */
+/**
+ * The palette per theme, resolved the way the browser resolves it.
+ *
+ * All four blocks — global.css `:root`, global.css `.dark`, theme-a11y.css
+ * `:root`, theme-a11y.css `.dark` — are unlayered selectors of specificity
+ * (0,1,0) that all match `<html class="dark">`, so on the dark theme the LAST
+ * declaration in source order wins across the four; it is not `.dark` layered
+ * over `:root`. A token theme-a11y.css sets in `:root` but not in `.dark`
+ * therefore overrides the stock DARK value too. The earlier model here layered
+ * `.dark` over `:root` and read the stock dark value for such a token, so this
+ * suite passed dark `--muted-foreground` at 5.49:1 while the browser painted the
+ * light-mode value at 2.72:1 — the audit found it, the test could not.
+ */
 export function themeTokens(): Record<Theme, Record<string, string>> {
   if (!cache) {
     const base = read(CSS_PATH)
     const overrides = read(A11Y_CSS_PATH)
-    // Source order: global.css, then theme-a11y.css. Within that, `.dark` layers
-    // over `:root` the way the cascade does.
-    const root = { ...parseBlock(base, ':root'), ...parseBlock(overrides, ':root') }
-    const dark = { ...parseBlock(base, '\\.dark'), ...parseBlock(overrides, '\\.dark') }
-    cache = { light: root, dark: { ...root, ...dark } }
+    const baseRoot = parseBlock(base, ':root')
+    const baseDark = parseBlock(base, '\\.dark')
+    const overRoot = parseBlock(overrides, ':root')
+    const overDark = parseBlock(overrides, '\\.dark')
+    cache = {
+      light: { ...baseRoot, ...overRoot },
+      dark: { ...baseRoot, ...baseDark, ...overRoot, ...overDark },
+    }
   }
   return cache
 }

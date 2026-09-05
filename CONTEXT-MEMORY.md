@@ -257,7 +257,7 @@ repeat the modifier (`data-[side=right]:w-full`) or it silently renders at 75%.
 Same for `max-w-*`.
 
 **next-themes runs with `defaultTheme="system"`, so the only correct way to switch
-themes in a test or a audit is to emulate the OS preference** (`agent-browser set
+themes in a test or an audit is to emulate the OS preference** (`agent-browser set
 media dark`). Writing the `semantius-ui-theme` storage key or toggling `.dark` by
 hand desynchronizes the provider from the DOM and measures a state no user can be
 in. Any harness that switches themes must also ASSERT the switch took effect;
@@ -381,6 +381,17 @@ entire mechanism** — the order of those two import lines is load-bearing.
 real import statement with comments stripped: a bare `indexOf` on the specifier
 matched the explanatory comment above it and stayed green when the import was
 commented out).
+
+**The order cuts both ways.** Because `theme-a11y.css`'s `:root` block also comes after
+`global.css`'s `.dark` block, and every one of the four blocks matches
+`<html class="dark">` at (0,1,0), a token corrected in `:root` **alone** replaces shadcn's
+dark value with the light-mode color. `--muted-foreground` shipped that way for one
+preview: dark placeholders at 2.72:1 while `tokenContrast.test.ts` reported 5.49:1,
+because its palette model layered `.dark` over `:root` instead of following source
+order across all four blocks. The audit caught it; the test could not. Both are
+fixed: the model resolves in source order, and a test pins the file-shape rule —
+**every token set in `theme-a11y.css`'s `:root` is set in its `.dark` too**, re-stating
+the stock value where dark needs no correction.
 
 One line cannot move with it: `@theme inline { --color-input-border: var(--input-border) }`
 stays in `global.css`, because Tailwind only reads `@theme` from the entry that

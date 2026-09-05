@@ -59,13 +59,24 @@ function parseBlock(css, selector) {
 
 const read = (p) => readFileSync(p, 'utf8').replace(/\r\n/g, '\n')
 
-/** The palette as the browser resolves it: stock, with theme-a11y.css over it. */
+/**
+ * The palette as the browser resolves it. Source order across all four blocks,
+ * not `.dark` over `:root`: on the dark theme every block matches
+ * <html class="dark"> at (0,1,0), so a token theme-a11y.css sets in :root alone
+ * overrides the stock dark value as well. See themeTokens() in
+ * src/test/lib/cssTokens.ts for the regression the old model hid.
+ */
 function palette() {
   const base = read(GLOBAL_CSS)
   const over = read(A11Y_CSS)
-  const root = { ...parseBlock(base, ':root'), ...parseBlock(over, ':root') }
-  const dark = { ...parseBlock(base, '\\.dark'), ...parseBlock(over, '\\.dark') }
-  return { light: root, dark: { ...root, ...dark } }
+  const baseRoot = parseBlock(base, ':root')
+  const baseDark = parseBlock(base, '\\.dark')
+  const overRoot = parseBlock(over, ':root')
+  const overDark = parseBlock(over, '\\.dark')
+  return {
+    light: { ...baseRoot, ...overRoot },
+    dark: { ...baseRoot, ...baseDark, ...overRoot, ...overDark },
+  }
 }
 
 // ------------------------------------------------------------------ color ---
