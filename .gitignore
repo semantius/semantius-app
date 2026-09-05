@@ -52,3 +52,7 @@ test-results
 # The a11y audit writes a byte-identical copy of its newest run here; cite runs
 # by their timestamped filename instead (see a11y-reports/README.md).
 a11y-reports/latest.json
+
+# The audit's --screenshots output: one PNG per cell, regenerated on every run and
+# uploaded as a CI artifact. Cite a run by its JSON; the pictures are not a record.
+a11y-reports/screenshots/
