@@ -361,18 +361,22 @@ GHCR and creates the GitHub Release.
 
 ### `.env` File (CRITICAL — read before every deploy)
 
-The encrypted `.env` file is **not committed in `main`** — it was deleted in commit `114aed6`. If `.env` is missing at session start, `dotenvx run` injects 0 variables and `CLOUDFLARE_API_TOKEN` will be empty, causing deployment to fail with `Error: CLOUDFLARE_API_TOKEN is not set`.
+The encrypted `.env` file **is committed in `main`** and arrives with a normal checkout. It was
+deleted once in `114aed6` and restored in `4f8a05e`; only the four real secrets
+(`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `NOTIFY_WEBHOOK_URL`, `SEMANTIUS_API_KEY`) are
+`encrypted:` values, the rest is public config. Committing it is deliberate — it is what lets CI
+decrypt with the `DOTENV_PRIVATE_KEY` repository secret instead of duplicating each secret into
+GitHub.
 
-**Always restore before deploying:**
+> **Never "restore" it from an old commit.** `git show 9ef17da:.env` is the *pre-deletion* copy and
+> is missing variables the current file has (`VITE_CONTROL_PLANE_ORG` among them) — redirecting it
+> over `.env` silently downgrades the environment. If `.env` really is absent, take it from `HEAD`:
+> `git checkout HEAD -- .env`.
+
+If `.env` is missing, `dotenvx run` injects 0 variables and `CLOUDFLARE_API_TOKEN` is empty, so a
+deploy fails with `Error: CLOUDFLARE_API_TOKEN is not set`. Verify decryption with:
 
 ```bash
-# Check whether .env exists
-ls .env 2>/dev/null || echo "MISSING — restore it"
-
-# Restore from git history (the last commit that had it)
-git show 9ef17da:.env > .env
-
-# Verify decryption works (DOTENV_PRIVATE_KEY must be set in environment)
 dotenvx run -- printenv CLOUDFLARE_API_TOKEN
 ```
 
@@ -413,9 +417,29 @@ k6 load tests live in `apps/load-tests` (an **app**, not a package — it export
 - **Exit code 99 = thresholds crossed** (the run still completed) — `load-test.sh`'s `run_k6` treats 99 as success so orchestration continues.
 - k6 built-in `http_*` metrics are tagged at request time (before the status is known), so a **response-status breakdown needs a custom `Counter` incremented after the response**, not a request tag. Non-200 bodies are logged once per status **per VU** (VUs are isolated JS runtimes with no shared state — per-VU is the tightest dedup possible in-script). Per-request-type latency/error rows come from trivially-true thresholds on `{name:...}`-tagged metrics.
 
-### Test Accounts (interactive / human use only)
+### Test Accounts and the test OIDC server
 
-These credentials and the `test-oidc-server` token endpoint below are for **a human manually exercising the UI** — they are **not** for automated tests or for fetching tokens in scripts. For any programmatic/agent flow use the API-key exchange in **Automated Test Auth** instead.
+`test-oidc-server.ma532.workers.dev` **exists to be tested against.** It is a real OIDC provider —
+discovery document, RS256-signed tokens, JWKS, `authorization_code` + `client_credentials` +
+`password` grants, working `/userinfo` — and it is what lets the app's *real* auth code run under
+test with nothing stubbed. Point a test build's `VITE_OAUTH_CONFIG` at
+`https://test-oidc-server.ma532.workers.dev/.well-known/openid-configuration` and the whole flow
+works. Two properties matter and are verified:
+
+- **It does not restrict `redirect_uri`.** `http://localhost:5173/oauth2_callback` (or any other) is
+  accepted and echoed back. The `invalid_redirect` failure described further down is the *production*
+  control-plane IdP rejecting unregistered preview domains — it does not apply here. Do not assume
+  otherwise without testing it.
+- **It does not enforce PKCE.** The authorization code is a base64 JSON blob carrying no
+  `code_challenge`, and `/token` issues a token for a deliberately wrong `code_verifier`. So a test
+  against it proves the app *completes* the round trip and handles the callback; it does not prove
+  the app's PKCE implementation is cryptographically correct. Nothing else covers that.
+
+The narrower rule that actually matters: **the `/getaccesstoken` shortcut below is for a human
+clicking around**, not for scripts. For any programmatic/agent flow that just needs a bearer token,
+use the API-key exchange in **Automated Test Auth** — it is the supported path and does not depend on
+this server. That is a statement about the shortcut endpoint, not about the server, which is the
+correct IdP for automated browser tests of the login flow itself.
 
 | User         | Username | Email          | Password      | Role         |
 | ------------ | -------- | -------------- | ------------- | ------------ |
@@ -423,7 +447,7 @@ These credentials and the `test-oidc-server` token endpoint below are for **a hu
 | Maria Garcia | `user2`  | sales@test.com | `password456` | Sales access |
 | Wei Chen     | `user3`  | admin@test.com | `password789` | Admin        |
 
-Interactive-only token endpoint: `https://test-oidc-server.ma532.workers.dev/getaccesstoken?user_id=<username>&client_id=public-client`. Tokens expire after 1 hour.
+Token shortcut for interactive use: `https://test-oidc-server.ma532.workers.dev/getaccesstoken?user_id=<username>&client_id=public-client`. Tokens expire after 1 hour. Scripts should use the API-key exchange instead; browser tests of the login flow should drive the real `/authorize` form (fields `username` / `password`, POSTs to `/authorize`, 302s to the redirect URI with `?code=`).
 
 ### Opening ANY logged-in page (screenshots, browser checks, E2E) — MANDATORY procedure
 

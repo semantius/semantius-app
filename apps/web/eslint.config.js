@@ -2,6 +2,7 @@ import js from '@eslint/js'
 import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
+import jsxA11y from 'eslint-plugin-jsx-a11y'
 import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
@@ -18,10 +19,65 @@ export default defineConfig([
       // ("plugins key defined as an array of strings"). Use the flat variant.
       reactHooks.configs.flat['recommended-latest'],
       reactRefresh.configs.vite,
+      // `flatConfigs` (plural) — the singular `configs.recommended` is the
+      // legacy eslintrc shape and ESLint 9 rejects it.
+      jsxA11y.flatConfigs.recommended,
     ],
     languageOptions: {
       ecmaVersion: 2020,
       globals: globals.browser,
+    },
+    settings: {
+      // jsx-a11y ignores any capitalized JSX name it cannot resolve to an
+      // intrinsic element, so without this map the rules simply skip most of our
+      // markup. Measured contribution: it surfaces 5 findings that are otherwise
+      // invisible — three `role="combobox"` elements missing required ARIA props
+      // and two `aria-valuemin/max` on a textbox. Add an entry whenever a
+      // component wraps an intrinsic element; a missing entry is a silent hole,
+      // never an error.
+      //
+      // What it does NOT buy, verified with an isolated probe: a click-only
+      // `<TableRow onClick>` stays invisible even mapped to 'tr', because `tr`'s
+      // implicit role `row` counts as neither interactive nor non-interactive, so
+      // no-static-element-interactions and no-noninteractive-element-interactions
+      // both skip it. A raw `<tr onClick>` is equally unflagged. Keyboard-
+      // unreachable table rows have to be caught in the browser, not here.
+      'jsx-a11y': {
+        components: {
+          // shadcn primitives (components/ui)
+          Button: 'button',
+          Input: 'input',
+          Textarea: 'textarea',
+          Label: 'label',
+          Table: 'table',
+          TableHeader: 'thead',
+          TableBody: 'tbody',
+          TableFooter: 'tfoot',
+          TableRow: 'tr',
+          TableHead: 'th',
+          TableCell: 'td',
+          Breadcrumb: 'nav',
+          BreadcrumbList: 'ol',
+          BreadcrumbItem: 'li',
+          BreadcrumbSeparator: 'li',
+          SidebarInset: 'main',
+          SidebarRail: 'button',
+          SidebarMenu: 'ul',
+          SidebarMenuItem: 'li',
+          SidebarMenuSub: 'ul',
+          SidebarMenuSubItem: 'li',
+          // our own (components/ui-ext)
+          Combobox: 'button',
+          BookmarkIcon: 'button',
+        },
+        // TanStack Router's <Link> is deliberately NOT in `components` above.
+        // Mapping it to 'a' makes anchor-is-valid/anchor-has-content demand an
+        // `href` prop it does not take, manufacturing 22 false positives on a
+        // component that renders a perfectly valid <a href>. `linkComponents` is
+        // the mechanism that actually fits: it tells the anchor rules which prop
+        // carries the destination.
+        linkComponents: [{ name: 'Link', linkAttribute: 'to' }],
+      },
     },
   },
   {
