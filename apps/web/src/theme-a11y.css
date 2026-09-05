@@ -107,9 +107,16 @@
 }
 
 .dark {
-  /* 4.49:1 on its own /20 tint over a card — short of 4.5 by a hair, which is
-     still short. A two-thousandth lift clears it without a visible change. */
-  --destructive: oklch(0.71 0.191 22.216);
+  /* Dark paints text-destructive on a /30 self-tint too: the button variant is
+     `dark:bg-destructive/20` at rest and `dark:hover:bg-destructive/30` on hover
+     (ui/button.tsx), and at the earlier 0.71 that hover state was 3.74:1 over a
+     card — the last pair the palette work had left uncovered. 0.804 is the first
+     lightness that clears 4.5:1 on the /10, /20 and /30 tints over every surface
+     (scripts/derive-a11y-tokens.mjs, which lists /30 for dark only; no light
+     call site paints it). Every other pair this token sits in gains contrast as
+     it lightens: --destructive-foreground is near-black here, and text and
+     boundaries sit on dark surfaces. */
+  --destructive: oklch(0.804 0.191 22.216);
 
   /* Near-black, not a second red: white on this destructive is 2.77:1. */
   --destructive-foreground: oklch(0.147 0.004 49.25);

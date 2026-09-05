@@ -261,6 +261,18 @@ describe.each(THEMES)('%s theme', (theme) => {
       expectAtLeast(contrast(token(theme, '--destructive'), tint), TEXT, `text-destructive on /20 over ${name}`)
     })
 
+    // Dark steps the button variant up a tint — `dark:bg-destructive/20` at
+    // rest, `dark:hover:bg-destructive/30` on hover (ui/button.tsx). /30 is the
+    // hardest self-tint to clear and was the last pair nothing asserted: 3.74:1
+    // before --destructive was lifted to 0.804 in theme-a11y.css. No light call
+    // site paints /30, so it is not asserted there.
+    describe.runIf(theme === 'dark')('the dark-only /30 hover tint', () => {
+      it.each(Object.keys(bases))('destructive text on its /30 tint over the %s', (name) => {
+        const tint = over(token(theme, '--destructive'), bases[name], 0.3)
+        expectAtLeast(contrast(token(theme, '--destructive'), tint), TEXT, `text-destructive on /30 over ${name}`)
+      })
+    })
+
     it('destructive-foreground is readable on destructive', () => {
       // These two were byte-identical in :root — a 1.00:1 pair sitting in the
       // palette waiting for the first call site to use it.

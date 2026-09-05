@@ -120,10 +120,18 @@ function fields(p) {
  * Adding a token here is how you extend the guarantee — keep it in step with
  * tokenContrast.test.ts, which asserts the same pairs.
  */
-function requirements(p) {
+function requirements(p, theme) {
   const b = bases(p)
   const f = fields(p)
   const surfacesFor = (obj) => Object.entries(obj).map(([n, v]) => [n, v])
+
+  // The tints `text-destructive` is actually painted on, per theme, from
+  // ui/badge.tsx, ui/button.tsx and ui/dropdown-menu.tsx: /10 rest and /20
+  // hover in light; in dark the button variant moves up a step
+  // (`dark:bg-destructive/20`, `dark:hover:bg-destructive/30`) while badge and
+  // menu items keep /10. Listing /30 for light too would over-constrain a
+  // tint no light call site renders.
+  const destructiveTints = theme === 'dark' ? [0.1, 0.2, 0.3] : [0.1, 0.2]
 
   return [
     {
@@ -160,10 +168,10 @@ function requirements(p) {
     {
       token: '--destructive',
       min: TEXT,
-      why: 'text-destructive on its own /10 and /20 tints (1.4.3)',
-      // Self-tinted: darkening the token darkens the text and barely moves the
-      // tint, which is why this one converges at all.
-      againstSelfTint: [0.1, 0.2],
+      why: `text-destructive on its own ${destructiveTints.map((a) => `/${a * 100}`).join(', ')} tints (1.4.3)`,
+      // Self-tinted: moving the token away from the surface moves the text and
+      // barely moves the tint, which is why this one converges at all.
+      againstSelfTint: destructiveTints,
       against: [],
     },
     {
@@ -225,7 +233,7 @@ console.log('Surfaces come from global.css; values from theme-a11y.css layered o
 for (const theme of ['light', 'dark']) {
   console.log(`\x1b[1m${theme} theme\x1b[0m`)
   const pal = p[theme]
-  for (const req of requirements(pal)) {
+  for (const req of requirements(pal, theme)) {
     const current = pal[req.token]
     if (!current) {
       console.log(`  ${req.token.padEnd(20)} NOT DEFINED`)
