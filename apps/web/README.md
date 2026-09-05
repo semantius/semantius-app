@@ -68,19 +68,19 @@ pnpm --filter @semantius/frontend exec eslint . --prune-suppressions
 pnpm --filter @semantius/frontend test:e2e:install   # once
 pnpm --filter @semantius/frontend test:e2e
 
-# 5. The route x viewport x theme sweep, against a DEPLOYED preview (from the repo root).
+# 5. The route x viewport x theme audit, against a DEPLOYED preview (from the repo root).
 pnpm preview:wrangler
-dotenvx run -- node scripts/a11y-sweep/run.mjs --url "$(grep -oE 'https://\S+' .preview-url.md)"
+dotenvx run -- node scripts/a11y-audit/run.mjs --url "$(grep -oE 'https://\S+' .preview-url.md)"
 ```
 
-The sweep **should not** be pointed at localhost as a substitute for the preview.
+The audit **should not** be pointed at localhost as a substitute for the preview.
 It *can* be — the `#jwt` bootstrap's host gate (`urlTokenAllowed` in
 `lib/devUrlToken.ts`) explicitly allows `localhost` and `127.0.0.1` alongside
 `*.workers.dev`. The reason not to is that a dev server is not the artifact being
-shipped: the whole point of the sweep is to measure a real build, with the real
+shipped: the whole point of the audit is to measure a real build, with the real
 production CSS, at the URL the claim is about.
 
-`scripts/a11y-sweep/` lives at the repo root and is **not covered by `pnpm
+`scripts/a11y-audit/` lives at the repo root and is **not covered by `pnpm
 check`** — nothing lints or typechecks it. A change there is verified only by
 running it.
 

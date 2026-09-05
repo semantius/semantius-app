@@ -115,7 +115,7 @@ export default defineConfig(({ mode }) => ({
             enabled: true,
             headless: true,
             provider: playwright(),
-            // Chromium only: it is what the accessibility sweep and the
+            // Chromium only: it is what the accessibility audit and the
             // Playwright login journey run on, so a finding here can be
             // reproduced there. `pnpm test:e2e:install` fetches it.
             instances: [{ browser: 'chromium' }],
