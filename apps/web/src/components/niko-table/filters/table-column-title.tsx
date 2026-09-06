@@ -44,13 +44,19 @@ export function TableColumnTitle<TData, TValue>({
     return <div className={baseClassName}>{content}</div>
   }
 
+  // 2.5.8 Target Size. Height is already 24px (a 20px line box + py-0.5), so
+  // the dimension that fails is WIDTH: `w-full` is only a maximum inside a
+  // flex header, and a two-letter title ("Id") in a right-aligned numeric
+  // column shrank to 16px — with the 24px sort icon 2px away, so the spacing
+  // exception did not apply either. Measured on the 320px preview, not
+  // theorized; the first diagnosis ("add min-h-6") would have changed nothing.
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
         baseClassName,
-        "w-full text-left rounded-sm outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+        "min-h-6 min-w-6 w-full text-left rounded-sm outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
       )}
     >
       {content}

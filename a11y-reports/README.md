@@ -41,6 +41,14 @@ tell it apart from a real one.
 | --- | --- | --- |
 | `20260905T122344-baseline.json` | After the Level-A fixes and the `--ring` / `--input-border` work, **before** the 1.4.3 palette change | 16 routes x {390, 1440} x {light, dark}. 55/64 views measured; the 9 cantTell ones are the tenant API's cold-start 404 (see below). This is the baseline the color change is meant to be diffed against. |
 | `20260905T230332-after-fixes.json` | The `feat/a11y-wcag-aa-mobile` tip (commit 30, dark `--muted-foreground` restored), preview `feataywcag-20260905232649` | The first kept post-fix run. 16 routes x 7 viewports x {light, dark} = 224 views, 220 measured; the 4 cantTell are three provider `429` cards (now caught by the probe) and one failed navigation. Against the baseline at 390/1440: `2.4.1` and `1.4.11` → Supports; `1.4.3` 38 → 2 findings; `1.4.10` 11 → 0; `2.4.11` 300 → 14; `2.4.7` 16 → 3; `1.3.1` 7 → 4; `2.5.8` 2 → 2; `2.4.2` still one title collision. Seven criteria remain Partially Supports across the full matrix, most of it at 320. `node scripts/a11y-audit/diff.mjs` reproduces this. |
+| `20260906T115727-status.json` | Same tree as `after-fixes` plus the `/xcustomers` exclusion NOT yet applied, preview `feataywcag-20260906112124` | 224 views, 221 measured, 3 cantTell. Kept as the last run before the audit vocabulary changed (`cells` / `INCONCLUSIVE` / `admissible` in its `.txt`) and as the run `a11y-audit-review.md` re-derived its numbers from. |
+
+**The "of N views" denominators in all three kept runs are wrong for any
+criterion two probes touch.** `report.mjs` counted a view once per *probe*, not
+once per view, until 2026-09-06, so `1.3.1` and `1.4.3` say "of 440" / "of 442"
+over a 224-view set. The counting is a `Set` now; the artifacts are not
+regenerable from what they store, so they keep their numbers. Read those
+denominators as ≤ half.
 
 ## The runs that were discarded, and what each changed
 

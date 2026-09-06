@@ -323,7 +323,16 @@ Let the row wrap, or shrink the button below `sm:`. Verify at 320.
 > 320px is not a phone target. WCAG 1.4.10 requires a width equivalent to 320 CSS
 > px — **1280px at 400% zoom**. The user is someone zooming a laptop.
 
-### 4.2 Target size · 2.5.8 · 6 findings — OPEN, measure on the preview first (diagnosis wrong on first pass)
+### 4.2 Target size · 2.5.8 · 6 findings — MEASURED and APPLIED
+
+Measured on the preview at 320: every title button is **24px tall** (20px line
+box + `py-0.5`), so `min-h-6` would indeed have changed nothing. The dimension
+that fails is **width**: the sorted "Id" title in the `justify-end gap-0.5`
+numeric header is **16 × 24**, and the 24 × 24 sort-icon button sits **2px**
+away, so neither the size rule nor the spacing exception holds. `w-full` is only
+a maximum inside a flex header; a two-letter title shrinks to its text. Fix:
+`min-w-6` (and `min-h-6`, to state the rule) on the button variant in
+`filters/table-column-title.tsx`. Awaiting the run.
 
 The element is right: `components/niko-table/filters/table-column-title.tsx:48-57`,
 matching the report's selector
@@ -388,7 +397,17 @@ What is still live: the call site's **`sm:max-w-md`** (448px) loses to
 collapse, and it then out-specifies the bare class. **85.7% of the intended
 width, at ≥640px only.** Fix by repeating the modifier at the call site.
 
-### 4.3e niko-table column-title button — UNVERIFIED
+### 4.3e niko-table column-title button — RESOLVED, verified in source
+
+The recovered plan's ⚠ read "column title `<button>` *(library-level only)*".
+What that meant: the fix was made in niko-table, not at any call site. That is
+the whole path — `filters/table-column-title.tsx` renders a `<button>` exactly
+when it is given `onClick`, `components/data-table-column-title.tsx` passes one
+exactly when `column.getCanSort()`, and every grid header in the app comes from
+that component through `DataTableColumnHeader`. So a sortable header title IS a
+real button (keyboard-operable, named by its text) and a non-sortable one is a
+`<div>`, everywhere. Nothing is left to do here; the only open question about
+that element is its target size, which is §4.2.
 
 ### 4.3g Two caveats carried from the deleted plan — OPEN
 
@@ -499,7 +518,7 @@ to prove the 300ms fallback fires where `transitionend` never does; and
 
 ## 6. Housekeeping
 
-### 6.1 The audit's double-counted coverage — APPLIED, unagreed
+### 6.1 The audit's double-counted coverage — APPLIED; README note and third-run row DONE
 
 `report.mjs` incremented `observed` once per **probe**, not once per view, so a
 criterion two probes touch reported twice the views that exist — 3.1.1 claimed
@@ -620,7 +639,7 @@ earlier draft claimed all five were non-blocking and that was false.
 | 1 | Is it acceptable that `pnpm check` writes to the real tenant on every run? | §5.2 | nothing — investigate any time |
 | 2 | Restore the dropped test coverage (`useTable`'s no-message-field case, `ProtectedRoute` 7 → 4) or accept it? | §5.2 | nothing |
 | 3 | Push the 44 commits to `origin/main`, and delete the merged branch? | §6.4 | **Order step 13 IS this decision** |
-| 4 | Resolve or drop the unverified niko-table column-title item | §4.3e | **Order step 7** — it can be investigated, not landed |
+| 4 | ~~Resolve or drop the unverified niko-table column-title item~~ resolved: verified in source | §4.3e | nothing |
 | 5 | How should `window.__ENV__` express "explicitly empty" vs "not set"? | §3.2 | **Order step 10's §3.2 half** |
 
 ## Order
@@ -632,8 +651,8 @@ earlier draft claimed all five were non-blocking and that was false.
    change in ahead of the run, so one 31-minute run measures all of them.
 5. Re-run the audit → confirm §4.0's expected 5 criteria and 1 cantTell, and
    what 4.1 / 4.3 / 4.5 are left with.
-6. §4.2 — **measure before fixing** — on that preview.
-7. §4.3e (resolve or drop).
+6. ~~§4.2~~ measured on the first preview, fixed (width, not height), in the run.
+7. ~~§4.3e~~ RESOLVED — verified in source, nothing to land.
 8. §4.5 triage; §4.4 upstream issue.
 9. §4.3 — whatever 2.4.11 has left after step 4, then the layout decision.
 10. §3.1, §3.2 — the two data-layer decisions.
@@ -642,7 +661,6 @@ earlier draft claimed all five were non-blocking and that was false.
 12. ~~§6.6~~ DONE.
 13. §6.4 — pushed; read the first CI run's result.
 14. ~~§4.3f~~ DONE.
-15. §6.1 — the one-line note in `a11y-reports/README.md`, plus a row for the
-    third run it does not list.
+15. ~~§6.1~~ DONE.
 16. §6.5 — the three verifications nobody has done.
 17. §6.2 — write `ACCESSIBILITY.md` from the final run. Delete this file.
