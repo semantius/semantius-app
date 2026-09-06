@@ -297,7 +297,6 @@ const FROZEN: Record<string, Record<string, number>> = {
   // Every one of these is a stubbed API call, and every one is waiting on the
   // same thing: a test session against the real tenant.
   fetch: {
-    'src/hooks/useTableMutations.test.tsx': 9,
     // 1 install + 1 restore. The install is load-bearing — the interceptor
     // captures whatever fetch it finds at import time, so a spy is the only way
     // to see what it forwards.
@@ -315,25 +314,26 @@ const FROZEN: Record<string, Record<string, number>> = {
 
 /**
  * Internal module mocks are frozen by SPECIFIER, not by count: which module is
- * replaced matters more than how many times. 12 in total.
+ * replaced matters more than how many times. 9 in total.
  */
 const FROZEN_INTERNAL_MOCKS: Record<string, string[]> = {
   'src/components/ProtectedRoute.test.tsx': ['@/hooks/useAuth', '@/lib/appLoader'],
   'src/components/customers/CustomerForm.test.tsx': ['@/hooks/useTableMutations'],
   'src/components/layout/ModuleSwitcher.test.tsx': ['@/hooks/useModuleNavigate', '@/hooks/useTable'],
   'src/components/layout/NavUser.test.tsx': ['@/hooks/useAuth', '@/hooks/useTable', '@/lib/config'],
-  'src/hooks/useTableMutations.test.tsx': ['./useAuth', '@/lib/apiClient', '@/lib/config'],
   'src/routes/login.test.tsx': ['@/hooks/useAuth'],
 }
 
 /**
- * Sum of every frozen count, plus the 12 internal mocks. Only ever goes down.
+ * Sum of every frozen count, plus the 9 internal mocks. Only ever goes down.
  * It was 96 when this scanner was written; removing jsdom took it to 40, because
  * most of what was frozen existed only to describe a browser to a fake one.
- * `useTable` then went to the real tenant with the run's real token (a replaced
- * fetch and a mocked `useAuth`, gone), which is 38.
+ * The two data hooks then went to the real tenant with the run's real token:
+ * `useTable` (a replaced fetch, a mocked `useAuth`) took it to 38, and
+ * `useTableMutations` (nine replaced fetches and three mocked modules of ours)
+ * to 26.
  */
-const FROZEN_TOTAL = 38
+const FROZEN_TOTAL = 26
 
 describe('test substitutions', () => {
   // This file quotes the patterns it looks for — in its regexes and in its prose —
