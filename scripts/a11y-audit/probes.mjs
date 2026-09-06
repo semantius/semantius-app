@@ -274,9 +274,17 @@ export const CONTROL_CONTRAST = `(() => {${HELPERS}
     }
   }
   const active = document.activeElement
-  for (const el of controls.slice(0, 12)) {
-    try { el.focus({ preventScroll: true }) } catch { continue }
-    if (document.activeElement !== el) continue
+  // The blind spot, named: a control that does not TAKE focus — inside a modal
+  // that traps it, an inert subtree, a disabled-by-script element — produces no
+  // indicator to measure, and a page of such controls used to read as "present
+  // but none produced a measurable focus indicator", a 2.4.7 failure describing
+  // nothing wrong. They are reported here so the report can tell "no indicator"
+  // from "could not look".
+  const sampled = controls.slice(0, 12)
+  const unfocusable = []
+  for (const el of sampled) {
+    try { el.focus({ preventScroll: true }) } catch { unfocusable.push(__label(el)); continue }
+    if (document.activeElement !== el) { unfocusable.push(__label(el)); continue }
     const style = getComputedStyle(el)
     const outside = __effectiveBg(el.parentElement || document.body)
     const borderParsed = __parse(style.borderTopColor)
@@ -299,7 +307,7 @@ export const CONTROL_CONTRAST = `(() => {${HELPERS}
     })
   }
   try { if (active && active.focus) active.focus({ preventScroll: true }) } catch { /* ignore */ }
-  return JSON.stringify({ controlsFound: controls.length, boundary, indicator })
+  return JSON.stringify({ controlsFound: controls.length, sampled: sampled.length, unfocusable, boundary, indicator })
 })()`
 
 /**

@@ -21,7 +21,7 @@ name: Accessibility
 #                  (DOTENV_PRIVATE_KEY is already a repository secret) for the
 #                  Cloudflare token and the tenant API key, takes about forty
 #                  minutes, and exits 1 by design while any criterion is still
-#                  Partially Supports or any cell is INCONCLUSIVE. It REPORTS:
+#                  Partially Supports or any view is cantTell. It REPORTS:
 #                  the run's JSON is the artifact and the job status is the
 #                  headline. It does not gate a release — a gate that is red for
 #                  a known reason teaches everyone to click past it.

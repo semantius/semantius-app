@@ -10,11 +10,11 @@ covers, and which are excluded — is in
 | --- | --- |
 | **Evidence** | `a11y-reports/20260905T230332-after-fixes.json` |
 | **Build audited** | preview `feataywcag-20260905232649`, branch `feat/a11y-wcag-aa-mobile` |
-| **Coverage** | 16 routes × 7 viewports × 2 themes = 224 cells, **220 admissible** |
+| **Coverage** | 16 routes × 7 viewports × 2 themes = 224 views, **220 measured** |
 | **Result** | 19 Supports · 7 Partially Supports · 29 Not Evaluated (of 55 A + AA criteria) |
 
 The run does not read as a pass, and is not meant to: `summary.pass` is false
-whenever any criterion is Partially Supports or any cell is inconclusive.
+whenever any criterion is Partially Supports or any view is cantTell.
 
 ---
 
@@ -22,7 +22,7 @@ whenever any criterion is Partially Supports or any cell is inconclusive.
 
 Ordered by how much of the app they touch.
 
-### 2.4.11 Focus Not Obscured (Minimum) — AA — 64 findings across 24 of 220 cells
+### 2.4.11 Focus Not Obscured (Minimum) — AA — 64 findings across 24 of 220 views
 
 A focused control ends up underneath a sticky surface. Three groups:
 
@@ -39,7 +39,7 @@ Sheet/Dialog and the grid container — but where the sticky surface is taller t
 the space left over, padding cannot move the control clear. **This is the one
 open item that may end in a design decision rather than a CSS fix.**
 
-### 2.4.7 Focus Visible — AA — 13 findings across 13 of 94 cells
+### 2.4.7 Focus Visible — AA — 13 findings across 13 of 94 views
 
 One route, `xcustomers-record`, at every viewport: *"5 control(s) present but none
 produced a measurable focus indicator."*
@@ -50,7 +50,7 @@ produces this exact message with nothing wrong. One route, one message repeated
 13 times, on a demo route — the shape of a measurement artifact, not of 13
 defects.
 
-### 1.3.1 Info and Relationships — A — 14 findings across 14 of 440 cells
+### 1.3.1 Info and Relationships — A — 14 findings across 14 of 440 views
 
 `h1 → h3` heading jump on the string `"No Portlets"`, on `module-home`, every
 viewport and both themes.
@@ -59,7 +59,7 @@ viewport and both themes.
 nowhere in `apps/web/src`. Fixing it means an upstream report, a version bump, or
 a wrapper — not an edit to a component in this repo.
 
-### 1.4.3 Contrast (Minimum) — AA — 7 findings across 7 of 440 cells
+### 1.4.3 Contrast (Minimum) — AA — 7 findings across 7 of 440 views
 
 One button below 4.5:1 on `module-home`, light theme only. The offending node is
 `.dc\:inline-flex.dc\:px-4.dc\:py-2` — the `dc:` prefix is drizzle-cube's Tailwind
@@ -70,7 +70,7 @@ namespace. **Also vendor**, same package, same remedy.
 > rather than suppressed for that reason: excluded from the claim is not the same
 > as absent from the product.
 
-### 1.4.10 Reflow — AA — 5 findings across 5 of 220 cells — **320 only**
+### 1.4.10 Reflow — AA — 5 findings across 5 of 220 views — **320 only**
 
 One button per page extends past the viewport with nothing able to scroll to it:
 
@@ -87,7 +87,7 @@ narrower one.)
 
 Small, real, and ours.
 
-### 2.5.8 Target Size (Minimum) — AA — 6 findings across 6 of 220 cells
+### 2.5.8 Target Size (Minimum) — AA — 6 findings across 6 of 220 views
 
 One node, under 24px tall:
 `.justify-end > .truncate.font-semibold.focus-visible\:outline-offset-2` — the
@@ -184,7 +184,7 @@ question.
 
 ## What passes, and on how much evidence
 
-| Criterion | Level | Cells checked |
+| Criterion | Level | Views checked |
 | --- | --- | --- |
 | 1.2.1 Audio-only and Video-only (Prerecorded) | A | 220 |
 | 1.2.2 Captions (Prerecorded) | A | 220 |
@@ -206,7 +206,7 @@ question.
 | 1.4.12 Text Spacing | AA | 220 |
 | 3.1.2 Language of Parts | AA | 220 |
 
-Cell counts differ per criterion because each is checked by the probes that can
+View counts differ per criterion because each is checked by the probes that can
 speak to it: 1.4.11 only where a form control is rendered, 3.1.1 on every
 document in both themes, 2.4.1 wherever a landmark structure exists.
 
@@ -230,8 +230,8 @@ make its numbers mean anything:
 - **A criterion nothing checked reads Not Evaluated, never Supports.** A criterion
   no rule covers is simply absent from an axe payload; rendering absence as a pass
   is the one thing that would make this document a dishonest claim.
-- **A page the audit could not measure is INCONCLUSIVE, not a pass**, and is
-  excluded from every criterion's evidence. A run with inconclusive cells cannot
+- **A view the audit could not measure is cantTell, not a pass**, and is
+  excluded from every criterion's evidence. A run with cantTell views cannot
   read as a clean one.
 
 The commands, with their traps, are in
@@ -257,7 +257,7 @@ node scripts/a11y-audit/diff.mjs <older>.json <newer>.json
 
 1. Deploy a preview of the tree you want to describe and run the audit against
    it. A run against a superseded deploy answers a question nobody asked.
-2. Decide whether the run is **keepable** — it finished, its inconclusive count
+2. Decide whether the run is **keepable** — it finished, its cantTell count
    is small and each one is explained, and `meta.url` is the preview that was
    current. The bar is spelled out in
    [a11y-reports/README.md](a11y-reports/README.md). Delete a run that does not

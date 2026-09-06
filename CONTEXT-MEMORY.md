@@ -145,26 +145,54 @@ Two endpoints the app cannot boot without fail for reasons that have nothing to
 do with the request: the identity provider's `/userinfo` answers **429** when
 pages load a few seconds apart, and the tenant's serverless PostgREST answers
 **404** to the first request after an idle period (a reload fixes it). Both used
-to render a terminal error card.
+to render a terminal error card — and the table route's loader turned every
+failure of `get_schema` into a **404 page**, so a rate limit told the user the
+table did not exist.
 
-`lib/transientFailure.ts` is the single policy — which statuses are worth
-repeating (408, 425, 429, 5xx; never a 400/401/403/422, which the server
-understood and refused), exponential backoff with **full jitter**, `Retry-After`
-honored in both forms and capped, and a **bounded** four attempts so an endpoint
-that is really gone still produces an error the user can act on.
+**`lib/retry.ts` owns the policy, and the fetch interceptor in `lib/apiClient.ts`
+applies it to every request** — both branches, relative and absolute, vendor
+code included — so coverage is by construction and a new call site cannot
+forget it. **TanStack Query's `retry` is `false` in `main.tsx` for that reason:
+a second retry there would stack on the transport's.** The two lines landed in
+one commit and must stay in agreement.
 
-- `withRetry(send, opts)` is the loop over a caller-supplied request function,
-  which is what makes the policy testable in `node` with no fetch, no server and
-  no clock. `fetchWithRetry` is the one-line application of it.
-- **A 404 is retried only where a cold start can produce one** (`coldStart404`),
-  because everywhere else a 404 means the thing is not there.
-- `AuthContext`'s two boot fetches use it; the query client's `retry` in
-  `main.tsx` is a predicate over `isTransientError` (which reads the status off
-  `error.cause` — the data hooks put it there alongside PostgREST's body).
-  **Mutations deliberately do not retry.**
-- Proven in `e2e/transient-failures.spec.ts`, which needs its own Playwright
-  project (see Testing) because the failure has to be injected into a request
-  that would otherwise have SUCCEEDED.
+- **The budget is ~10s of TOTAL elapsed time** (`MAX_ELAPSED_MS`), with a
+  ceiling of six attempts inside it. `Retry-After` is obeyed in full when it
+  fits and ENDS the attempt when it does not — a server asking for 30s is
+  telling us to give up, and clamping it to 5s (as this once did) is a request
+  the server said not to make yet. Exponential backoff with **full jitter**.
+- **The exceptions are by method and URL, in `retryPolicyFor()`, not by
+  omission at a call site.** A `GET` is a read: `408/425/429/5xx` and a network
+  error are repeated. A `POST …/rpc/…` under the API base is a PostgREST function
+  call — how the app READS `get_schema` and `get_userinfo`, but also how
+  `useRpcMutation` writes — so only `425/429/502/503` are repeated: answers a
+  server gives before running anything. A `500`, a `504` or a network error may
+  have run the function, and a repeated write is a duplicate. `POST`/`PATCH`/
+  `DELETE` on a table are never repeated. A body that cannot be replayed (a
+  stream) is never repeated.
+- **A 404 is a cold start only under the API base, and only when it is BARE.**
+  PostgREST's own 404 carries a JSON body with a `code` (`PGRST205`, `PGRST202`,
+  `42P01`); `isDefinitiveNotFound` reads the body (off a clone) and stops the
+  retry, which is what keeps a genuinely missing table from costing the whole
+  budget. The cold-start 404 comes from the layer in front of a sleeping backend
+  and has no such body.
+- **`refreshSchemaCache` is the one deliberate bypass** — it calls the original
+  fetch captured before interception, and its failure is swallowed on purpose.
+- **Every thrower puts `status` (and where it has one, `url`) on `error.cause`**
+  alongside the server's body: `useTable`, `callRpc`, the three mutations and
+  `AuthContext.responseError()`. `statusOf(err)` reads it and answers
+  `undefined` when it cannot tell — never a guess. The table route's loader maps
+  a 404 to `notFound()` and rethrows everything else, which lands on the router's
+  `defaultErrorComponent` (`components/RouteErrorPage.tsx`). **Its Try Again
+  calls `router.invalidate()`** — the boundary's own `reset` only clears the
+  boundary, the match underneath still holds the error, and the button would do
+  nothing.
+- Proven twice: `lib/retry.test.ts` in `node` (the loop over a supplied `send()`,
+  with an injected clock so budget and backoff are asserted, not waited) and
+  `e2e/transient-failures.spec.ts`, which needs its own Playwright project (see
+  Testing) because the failure has to be injected into a request that would
+  otherwise have SUCCEEDED — and which counts, per request shape, how many times
+  the network saw a request the built app made.
 
 ### PKCE Requires a Secure Context (boot gate)
 
@@ -533,7 +561,7 @@ The image is **environment-agnostic**: the Vite bundle is compiled against place
 - **Placeholder guard is the linchpin:** `apps/web/public/config.js` ships `window.__ENV__` with all values as `__VITE_X__` placeholder tokens. `runtimeEnv()` treats any `__…__` token as absent. So in **dev / Vercel / Cloudflare** (where nothing rewrites `config.js`) the app falls back to `import.meta.env` and behaves exactly as before. Only the Docker entrypoint replaces the tokens. **Do not "simplify" this guard away** — it is what keeps the non-Docker builds unchanged.
 - **`config.js` is loaded by a plain, blocking `<script src="/config.js">` in `index.html` `<head>`** (before the deferred app module) so `window.__ENV__` exists at boot.
 - **`gen-config.sh` generates `config.js`** at container start, written to **`/usr/share/nginx/html/config.js`** by `docker/docker-entrypoint.sh`, installed as **`/docker-entrypoint.d/40-gen-config.sh`** — the nginx image's own entrypoint runs every `/docker-entrypoint.d/*.sh` before starting nginx, so nginx's ENTRYPOINT/CMD stay untouched. Precedence per key: **real env var > `docker/.env` file > OIDC discovery (OAuth endpoints only) > built-in default**. Keep its `CANONICAL_VARS` list in sync with `apps/web/public/config.js`.
-- **The image never proxies.** `docker/nginx.conf` is static serving + SPA fallback (`try_files $uri $uri/ /index.html`) + cache headers (`no-store` on `/config.js` and `/index.html`, immutable on `/assets/`) and stops there — the SPA must be pointed at an absolute `VITE_API_BASE_URL`. A same-origin `/api` prefix is **not** available; `runtimeEnv()`'s interceptor rewrites relative URLs onto `VITE_API_BASE_URL`, which is what makes an absolute value mandatory here.
+- **The image never proxies.** `docker/nginx.conf` is static serving + SPA fallback (`try_files $uri $uri/ /index.html`) + cache headers (`no-store` on `/config.js` and `/index.html`, immutable on `/assets/`) and stops there — the SPA must be pointed at an absolute `VITE_API_BASE_URL`. A same-origin `/api` prefix is **not** available; the fetch interceptor in `lib/apiClient.ts` (not `runtimeEnv()`, which is a pure accessor) rewrites relative URLs onto `VITE_API_BASE_URL`, which is what makes an absolute value mandatory here.
 - **OIDC discovery runs in the SPA, not in `gen-config.sh`.** Set **`VITE_OAUTH_CONFIG`** (a `.well-known/openid-configuration` URL, now a `VITE_`-prefixed passthrough var, formerly the Docker-only `OIDC_CONFIG`) and `initConfig()` in `lib/config.ts` fetches it at boot, filling any blank `VITE_OAUTH_*_ENDPOINT` + scope (explicit env values win). It runs only on the self-hosted path (when `VITE_API_BASE_URL` is set); the control-plane path builds endpoints from the tenant slug instead. A failed discovery fetch sets `_configError`, which `main.tsx` turns into a **blocking** boot screen (hard-fail). This keeps `gen-config.sh` a dependency-free env→JS emitter (**neither Dockerfile `apk add`s curl/jq**) and unifies discovery across dev/Vercel/Cloudflare/Docker. The interactive `apps/web/scripts/genconfig.js` still writes explicit endpoints into a build-time `.env` and is unaffected.
 - **`docker/.env` is a Docker-only file, NOT a Vite env file.** It is git-ignored (holds real values); only `docker/.env.example` is committed (and baked into the image as the default `/config/.env`). The bare-name `.env` needs its own `.gitignore` entry (`docker/.env`) because the repo's `.env.*` rule does not match a suffix-less `.env` — add one for any further sibling folder.
 - **The image builds with no secrets.** CI (`.github/workflows/docker-publish.yml`) pushes to `ghcr.io/semantius/semantius-app` on a version tag, publishing a **multi-arch manifest (`linux/amd64` + `linux/arm64`)** via `docker/build-push-action` `platforms:` + a `setup-qemu-action` step. The arm64 leg builds under QEMU emulation (the runner is amd64), so it is noticeably slower — expected, not a hang. `sem-schema` is consumed from source (its `exports` point at `src/index.ts`), so only `pnpm --filter=@semantius/frontend build` runs — no package pre-build. Build stage is `node:22-slim` (Debian/glibc) to avoid musl native-binary issues with the Tailwind v4 oxide / lightningcss binaries.
@@ -855,7 +883,7 @@ non-secure LAN origin), not by writing better mocks.
 **The tenant's serverless PostgREST answers the first request after an idle period
 with a 404**, and the app treats that as terminal: it renders an error card and
 never retries. Any browser harness must warm the API from node first and retry the
-navigation, or a run turns into cells that were never measured. The admissibility
+navigation, or a run turns into views that were never measured. The admissibility
 gate has to recognize that error surface by name — otherwise it reports "0
 violations" for a page that only ever showed an error card.
 
@@ -874,6 +902,40 @@ Always inspect API responses with `curl` before implementing — never assume re
 - Missing auth → `"missing authentication credentials: required authorization bearer token in JWT format"`
 - Bad token → `"signature error"`
 - Missing table → `code: "42P01"`, `"relation \"public.x\" does not exist"`
+
+### Working in this checkout — environment quirks
+
+- **`core.autocrlf=true` on a worktree that is mostly LF, with a few CRLF files
+  stored as CRLF** (`DataTableView.tsx`, `View.tsx`, the `_app.*.tsx` routes among
+  them). The "LF will be replaced by CRLF" warning on every commit is noise. But a
+  script that rewrites a CRLF-stored file with LF endings produces a whole-file
+  diff — read the file's existing line ending and write it back the same way, and
+  restore a file from a byte copy, not `git checkout --`.
+- **Two sessions may share this checkout.** Never `git commit` without pathspecs;
+  never stage with `-A`.
+- **A temporary file under `src/routes/` is picked up by the TanStack Router
+  plugin the moment a build starts** — it regenerates `routeTree.gen.ts` around it
+  and a concurrent `vite build` fails on the phantom route. Put scratch copies in
+  the scratchpad directory, never next to the file they copy.
+- **The `tests-ops` MCP connector cannot manage API keys from an agent session**:
+  its token expires and its key tools are blocked by the permission classifier.
+  Mint tokens with `scripts/mint-token.mjs` instead.
+- **`Retry-After` is invisible cross-origin unless the server exposes it.** It is
+  not a CORS-safelisted response header, and the API and identity provider are
+  cross-origin, so `headers.get('retry-after')` is null unless the response also
+  carries `Access-Control-Expose-Headers: Retry-After`. A test fixture that sends
+  the header without exposing it tests a browser that hides it.
+
+### Ideas already tried and rejected — do not re-propose
+
+jsdom in any project; polyfilling a browser API to make a test pass; stubbing
+`window.location`; axe in jsdom; isolated component tests with invented props;
+`/form-playground` as a test surface; MSW with recorded fixtures; deleting
+Playwright; a pre-push hook; seeding `loginInProgress` to fake a failed token
+exchange; routing the test token through `#jwt` instead of `globalSetup`; a
+timer on the audit; a single-token audit run; a retry in react-query stacked on
+the transport's; a `Retry-After` clamp (the budget decides, see Transient
+Failures).
 
 ### Known Gotchas
 

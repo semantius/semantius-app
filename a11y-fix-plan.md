@@ -17,18 +17,17 @@ see §6.2.
 
 | | |
 | --- | --- |
-| Branch | **`main`** — the `feat/a11y-wcag-aa-mobile` work was fast-forwarded onto it |
-| Unpushed | **44 commits** ahead of `origin/main` |
-| Stale branch | `feat/a11y-wcag-aa-mobile` still exists, identical to main, safe to delete |
-| Valid audit run | **none.** The newest artifact predates the `/xcustomers` exclusion; two later runs were stopped mid-flight |
-| Uncommitted | `README.md` (a11y section cut to a link) · `ACCESSIBILITY.md` · `a11y-fix-plan.md` · the `view` rename in 6 `scripts/a11y-audit/*.mjs` · the whole §6.6a `docker-vo` cleanup (`.gitignore`, `CONTEXT-MEMORY.md`, `docker/Dockerfile`, `docker/README.md`, `docker/docker-compose.yml`, `docker/nginx.conf`) |
+| Branch | **`main`**, level with `origin/main` — the 44 commits were pushed and the first CI run is on GitHub (§6.4: check it) |
+| Stale branch | `feat/a11y-wcag-aa-mobile` still exists, identical to the pushed history, safe to delete |
+| Valid audit run | **none yet.** The newest artifact predates the `/xcustomers` exclusion; the run after Order step 5 is the first valid one |
+| In flight | Order steps 1–4 and 6–7 applied in the tree (see the per-section status lines); `a11y-mobile-plan.RESTORED.md` deleted (§6.6 done) |
 | Other sessions | `a11y-audit-review.md` appeared at 16:00, written by something other than this session — check before assuming the tree is yours |
 
 ---
 
 ## 1. Naming
 
-### 1.1 The unit is a **view** — `.mjs` DONE, docs OPEN
+### 1.1 The unit is a **view** — DONE (`.mjs` and the four doc files)
 
 `cell` was factorial-design vocabulary: correct there, meaningless in
 accessibility. **WCAG-EM** defines *view* as the unit of conformance, and says
@@ -44,7 +43,7 @@ state` (I attributed this to WCAG-EM; **it is not in WCAG-EM**).
 | Where | State |
 | --- | --- |
 | `scripts/a11y-audit/` — 6 of the 7 `.mjs` modified, generated strings included | **DONE**, smoke-tested: `2/3 views measured, 1 cantTell` |
-| `ACCESSIBILITY.md` (11 of 12 hits), `a11y-reports/README.md` (9), `CONTEXT-MEMORY.md` (**1** of 3), `.github/workflows/a11y.yml` (1) | **OPEN** |
+| `ACCESSIBILITY.md` (11 of 12 hits), `a11y-reports/README.md` (9), `CONTEXT-MEMORY.md` (**1** of 3), `.github/workflows/a11y.yml` (1) | **DONE** — `inconclusive` → `cantTell` in the same pass; `inconclusive[]` is still named once, as the key in the artifacts kept from before the rename |
 
 **Not** the ~60 genuine table and calendar cells in `apps/web/src` — and not the
 genuine ones inside the doc files either, which is why the counts above are
@@ -58,13 +57,13 @@ table cells. A blanket `sed` destroys all of them.
 (`passed` / `failed` / `inapplicable` / `cantTell` / `untested`). "221/224 views
 measured, 3 cantTell" needs no third word.
 
-### 1.3 Names I introduced that are still wrong — OPEN
+### 1.3 Names I introduced that are still wrong — DONE
 
 | Name | Problem | Should be |
 | --- | --- | --- |
-| `lib/transientFailure.ts` | named after the **problem**; its main export is `withRetry` | `lib/retry.ts` |
-| `coldStart404` | named after a **cause**, so the caller must know why the tenant does this | `retryNotFound`, or gone once the policy is at the transport (§2.4) |
-| `isTransientError` | answers `false` when it cannot tell — the name promises a judgment it cannot make. This **is** the regression in §2.3.1 | make "unknown" distinguishable from "not transient" |
+| `lib/transientFailure.ts` | named after the **problem**; its main export is `withRetry` | `lib/retry.ts` ✓ |
+| `coldStart404` | named after a **cause**, so the caller must know why the tenant does this | `retryNotFound` ✓, set by `retryPolicyFor()` — no caller names it |
+| `isTransientError` | answers `false` when it cannot tell — the name promises a judgment it cannot make. This **is** the regression in §2.3.1 | gone ✓; `statusOf(err)` answers `undefined` when it cannot tell, and nothing decides retrying from an Error any more |
 
 ---
 
@@ -113,7 +112,7 @@ Tests/CI, 6 files: `transientFailure.test.ts`, `e2e/transient-failures.spec.ts`,
 `package.json` (`test:e2e` now needs `DOTENV_PRIVATE_KEY`), `a11y.yml`,
 `.gitignore`.
 
-### 2.3 Defects in what is there now — all OPEN
+### 2.3 Defects in what is there now — all DONE (Order steps 1–2; see §2.4 for what landed)
 
 **2.3.1 `useRpc` lost its retry on every HTTP status — a regression I
 introduced.** `callRpc` (`apiClient.ts:198`) throws a bare `Error` with no status,
@@ -144,7 +143,24 @@ we return at 5s — disobeying an explicit instruction and burning the budget.
 **2.3.6 Two policies where there should be one** — `transientFailure.ts` for two
 paths, TanStack's retryer for queries.
 
-### 2.4 Planned changes — OPEN
+### 2.4 Planned changes — DONE, verified
+
+What landed, in one commit: `lib/retry.ts` (policy), the interceptor in
+`lib/apiClient.ts` applying it to both branches, `QueryClient retry: false`,
+`status`/`url` on `cause` from `callRpc` and the three mutations, the table
+route's loader mapping only a 404 to `notFound()`, and
+`components/RouteErrorPage.tsx` as the router's `defaultErrorComponent` with a
+Try Again that calls `router.invalidate()`. Two refinements the plan did not
+foresee: a `POST …/rpc/…` is a *call* with its own narrower status set
+(`425/429/502/503` — answers given before the function runs; `useRpcMutation`
+writes through the same path), and a 404 carrying PostgREST's own `code` body is
+**definitive**, so a missing table costs one request, not the budget. Verified by
+`retry.test.ts` (node, injected clock) and 12 tests in
+`e2e/transient-failures.spec.ts` counting attempts per request shape — including
+the `get_schema` 429 → grid, and 429-forever → error card → Try Again → grid.
+One finding on the way: `Retry-After` is invisible cross-origin unless the server
+sends `Access-Control-Expose-Headers` (recorded in CONTEXT-MEMORY).
+
 
 > **R1 — one file owns the policy.** `lib/retry.ts` exports `attempts`,
 > `baseDelayMs`, `maxDelayMs`, jitter, the retryable status set, `Retry-After`
@@ -291,7 +307,7 @@ dead weight and could be deleted outright rather than excluded — **and so is
 `components/customers/CustomerForm.test.tsx`**, which renders it six times and is
 one of the suites that writes to the real tenant (§5.2).
 
-### 4.1 Reflow at 320px · 1.4.10 · 4 findings — OPEN
+### 4.1 Reflow at 320px · 1.4.10 · 4 findings — APPLIED, awaiting the run
 
 Two call sites, one pattern: `flex items-center justify-between`, heading left,
 ~150px button right. At 320 the button hangs 13–14px past the viewport with no
@@ -307,7 +323,7 @@ Let the row wrap, or shrink the button below `sm:`. Verify at 320.
 > 320px is not a phone target. WCAG 1.4.10 requires a width equivalent to 320 CSS
 > px — **1280px at 400% zoom**. The user is someone zooming a laptop.
 
-### 4.2 Target size · 2.5.8 · 6 findings — OPEN, diagnosis wrong on first pass
+### 4.2 Target size · 2.5.8 · 6 findings — OPEN, measure on the preview first (diagnosis wrong on first pass)
 
 The element is right: `components/niko-table/filters/table-column-title.tsx:48-57`,
 matching the report's selector
@@ -323,7 +339,7 @@ inside a `.justify-end` (numeric) header, which `DataTableView.tsx:772` gives
 **Measure the rendered box and the gap before changing anything.** The fix is
 more likely `gap` or width than `min-h`.
 
-### 4.3 Focus not obscured · 2.4.11 · 64 findings across 24 views — OPEN
+### 4.3 Focus not obscured · 2.4.11 · 64 findings across 24 views — 4.3a/4.3b APPLIED, rest awaits the run
 
 The only large one. 28 × the record form's sticky action bar; 14 × the grid's
 sticky header over a sort button; 8 × a field description over its control; 14 ×
@@ -350,7 +366,7 @@ Fix these two, re-run, and see what 2.4.11 is actually left with. Only then take
 the layout decision: action bar non-sticky below `md:`; smaller sticky heights at
 narrow widths; `scroll-margin` on the controls.
 
-### 4.3c Skip link targets a region that contains the header · 2.4.1 — OPEN
+### 4.3c Skip link targets a region that contains the header · 2.4.1 — APPLIED (target is the content block below the header; `<main>` keeps its label)
 
 `components/layout/AppLayout.tsx:23-30` — `SidebarInset` carries
 `MAIN_CONTENT_ID` and the `<header>` is *inside* it, so "skip to main content"
@@ -358,7 +374,7 @@ skips to a target that still includes the header. 2.4.1 currently reports
 Supports because the audit checks that the link exists and its target resolves,
 not what the target contains.
 
-### 4.3d The crm-home Sheet is capped 64px narrower than it asks for — OPEN
+### 4.3d The crm-home Sheet is capped 64px narrower than it asks for — APPLIED
 
 **Corrected: this is a max-WIDTH defect, not the 75% width one.** The 75% symptom
 is already fixed — `routes/_app.crm.home.lazy.tsx:39` carries
@@ -388,7 +404,7 @@ width, at ≥640px only.** Fix by repeating the modifier at the call site.
 Carried from the old plan as "library-level only". Nobody has established what it
 asserts. Resolve it or drop it deliberately; do not let it sit as a ⚠ forever.
 
-### 4.3f A comment references a file deleted months ago — OPEN
+### 4.3f A comment references a file deleted months ago — DONE
 
 `lib/apiClient.ts:218` still reads *"…the grid cell renderers in
 DataTableView/**TableView** (render side)"*. `TableView.tsx` was deleted with the
@@ -402,13 +418,16 @@ the next reader to a file that does not exist.
 1.4.3 one `dc:`-prefixed button below 4.5:1 (fixable by a local override). One
 upstream issue covering both.
 
-### 4.5 Focus visible · 2.4.7 — triage, do not fix — OPEN
+### 4.5 Focus visible · 2.4.7 — blind spot written into the probe; confirm on the run
 
 All 14 findings were on `xcustomers-record`, which §4.0 removes. That is **not**
 evidence the app is fine: the probe (`probes.mjs`, `CONTROL_CONTRAST`) calls
 `el.focus()` and skips any control where `document.activeElement !== el`, so a
 modal that traps focus yields "no measurable focus indicator" with nothing wrong.
-Confirm on the remaining routes, then write the blind spot into `probes.mjs`.
+The blind spot is now reported rather than skipped: `CONTROL_CONTRAST` returns
+`sampled` and `unfocusable`, and `report.mjs` treats "every sampled control
+refused focus" as *not measured* (evidence, not a 2.4.7 failure). Confirm on the
+run that no route now fails 2.4.7 for that reason alone.
 
 ---
 
@@ -516,7 +535,14 @@ Accessibility section cut to the claim, the scope exclusions and a link
 (−62 lines). What I *deleted* (Known limitations) versus *moved* into
 `ACCESSIBILITY.md` (the four evaluation layers) was my choice, not yours.
 
-### 6.4 Git, and CI that has never run — OPEN
+### 6.4 Git, and CI that has never run — pushed; first CI run FAILED, fix in tree
+
+Dispatched `checks.yml` on `main` for the first time (run 34043865897): lint
+passed, then `sh: 1: dotenvx: not found` — `pnpm check` needs the global dotenvx
+that `workplace/setup.sh` installs on every sandbox and nothing installed on the
+runner. An "Install dotenvx" step is added to `checks.yml`; it can only be proven
+by a push and a second dispatch, which is the user's call (§0). `a11y.yml` runs
+`setup.sh` itself and so did not have this gap.
 
 44 unpushed commits on `main`; the merged `feat/a11y-wcag-aa-mobile` branch still
 exists and can be deleted.
@@ -533,8 +559,9 @@ before.
 - **The single-column form at 390 has never been looked at by a human.** It is
   behind an authenticated route, which is now reachable.
 - **Per-commit `pnpm check` was never proven** — it is asserted, not observed.
-- **Revisit the audit's own backoff** once §2.4 lands: its 3s→60s retry was added
-  to compensate for the app, and may become unnecessary or wrong.
+- ~~**Revisit the audit's own backoff** once §2.4 lands~~ — kept, re-explained in
+  `run.mjs`: the app's budget is ~10s, the provider's rate-limit window is longer,
+  so the audit's 3s→60s waits are for what outlasts the app's retry.
 
 ### 6.6a `docker-vo/` references — DONE
 
@@ -545,7 +572,7 @@ image. Cleaned: `.gitignore`, `docker/docker-compose.yml`, `docker/Dockerfile`,
 section now describes the nginx image only, with one explicit note that the Caddy
 variant existed and is gone, so nobody re-adds it from these notes.
 
-### 6.6 Move to `CONTEXT-MEMORY.md` — durable, currently homeless — OPEN
+### 6.6 Move to `CONTEXT-MEMORY.md` — DONE ("Working in this checkout" and "Ideas already tried and rejected"; `RESTORED.md` deleted)
 
 These were only ever written in the deleted plan. Nothing in the repo records
 them, and a fresh session will hit or re-propose each one:
@@ -598,28 +625,23 @@ earlier draft claimed all five were non-blocking and that was false.
 
 ## Order
 
-1. §2.3.1 and §2.3.2 — a regression and a 404-for-a-429 outrank every
-   accessibility finding here.
-2. §2.4 — apply the agreed policy at the transport (transport retries,
-   `QueryClient retry: false` in the same commit, ~10s total budget). Includes
-   §1.3's rename of `transientFailure.ts` → `retry.ts`.
-3. §1.1 docs — finish the `view` rename in the four remaining files.
-4. **§4.3a and §4.3b first**, then re-run: the frozen `scroll-padding` memo and
-   the still-pinned `__drag`/`actions` columns may account for much of 2.4.11's
-   64 findings. Fixing the mechanism before debating the layout is cheaper than
-   the reverse.
-5. Re-run the audit → confirm §4.0's expected 5 criteria and 1 cantTell.
-6. §4.2 — **measure before fixing** — and §4.1.
-7. §4.3c (skip-link target), §4.3d (Sheet width), §4.3e (resolve or drop).
+1. ~~§2.3.1 and §2.3.2~~ DONE.
+2. ~~§2.4~~ DONE, including §1.3.
+3. ~~§1.1 docs~~ DONE.
+4. ~~§4.3a and §4.3b~~ APPLIED. Folded §4.1, §4.3c, §4.3d and the §4.5 probe
+   change in ahead of the run, so one 31-minute run measures all of them.
+5. Re-run the audit → confirm §4.0's expected 5 criteria and 1 cantTell, and
+   what 4.1 / 4.3 / 4.5 are left with.
+6. §4.2 — **measure before fixing** — on that preview.
+7. §4.3e (resolve or drop).
 8. §4.5 triage; §4.4 upstream issue.
 9. §4.3 — whatever 2.4.11 has left after step 4, then the layout decision.
 10. §3.1, §3.2 — the two data-layer decisions.
 11. §5.1 — confirm `logIn()` has no other failure mode, then delete the dead
     branch and its three substitutions.
-12. §6.6 — move the homeless knowledge into `CONTEXT-MEMORY.md`, then delete
-    `a11y-mobile-plan.RESTORED.md`.
-13. §6.4 — push, and watch CI run for the first time.
-14. §4.3f — the one-line stale comment in `apiClient.ts:218`.
+12. ~~§6.6~~ DONE.
+13. §6.4 — pushed; read the first CI run's result.
+14. ~~§4.3f~~ DONE.
 15. §6.1 — the one-line note in `a11y-reports/README.md`, plus a row for the
     third run it does not list.
 16. §6.5 — the three verifications nobody has done.
