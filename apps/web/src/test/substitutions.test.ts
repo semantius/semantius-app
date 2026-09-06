@@ -297,7 +297,6 @@ const FROZEN: Record<string, Record<string, number>> = {
   // Every one of these is a stubbed API call, and every one is waiting on the
   // same thing: a test session against the real tenant.
   fetch: {
-    'src/hooks/useTable.test.tsx': 1,
     'src/hooks/useTableMutations.test.tsx': 9,
     // 1 install + 1 restore. The install is load-bearing — the interceptor
     // captures whatever fetch it finds at import time, so a spy is the only way
@@ -316,24 +315,25 @@ const FROZEN: Record<string, Record<string, number>> = {
 
 /**
  * Internal module mocks are frozen by SPECIFIER, not by count: which module is
- * replaced matters more than how many times. 13 in total.
+ * replaced matters more than how many times. 12 in total.
  */
 const FROZEN_INTERNAL_MOCKS: Record<string, string[]> = {
   'src/components/ProtectedRoute.test.tsx': ['@/hooks/useAuth', '@/lib/appLoader'],
   'src/components/customers/CustomerForm.test.tsx': ['@/hooks/useTableMutations'],
   'src/components/layout/ModuleSwitcher.test.tsx': ['@/hooks/useModuleNavigate', '@/hooks/useTable'],
   'src/components/layout/NavUser.test.tsx': ['@/hooks/useAuth', '@/hooks/useTable', '@/lib/config'],
-  'src/hooks/useTable.test.tsx': ['@/hooks/useAuth'],
   'src/hooks/useTableMutations.test.tsx': ['./useAuth', '@/lib/apiClient', '@/lib/config'],
   'src/routes/login.test.tsx': ['@/hooks/useAuth'],
 }
 
 /**
- * Sum of every frozen count, plus the 13 internal mocks. Only ever goes down.
+ * Sum of every frozen count, plus the 12 internal mocks. Only ever goes down.
  * It was 96 when this scanner was written; removing jsdom took it to 40, because
  * most of what was frozen existed only to describe a browser to a fake one.
+ * `useTable` then went to the real tenant with the run's real token (a replaced
+ * fetch and a mocked `useAuth`, gone), which is 38.
  */
-const FROZEN_TOTAL = 40
+const FROZEN_TOTAL = 38
 
 describe('test substitutions', () => {
   // This file quotes the patterns it looks for — in its regexes and in its prose —
@@ -487,11 +487,23 @@ describe('test substitutions', () => {
     //
     //  1. The OIDC test server — a real provider standing in for the production
     //     IdP. The app's auth code runs against it unmodified.
-    //  2. Session seeding via `#jwt` — a genuine bypass of the interactive
-    //     redirect, defensible only because e2e/login-journey.spec.ts covers the
-    //     real journey once, for real.
-    const substitutions = ['oidc-test-server', 'jwt-session-seeding']
+    //  2. Session seeding — `src/test/globalSetup.ts` exchanges the API key for
+    //     ONE real access token per run and provides it to both projects, and
+    //     `src/test/session.ts` writes it into the storage keys the OAuth
+    //     library reads. That is a genuine bypass of the interactive redirect,
+    //     defensible only because e2e/login-journey.spec.ts covers the real
+    //     journey once, for real. Everything downstream of the token — the
+    //     requests, the rows, the errors — is the real tenant.
+    //
+    //     `lib/devUrlToken.ts`'s `#jwt` fragment does the same seeding for the
+    //     accessibility audit and for a human opening a preview. It is NOT how
+    //     the suite gets its session: that gate is a production safeguard, and
+    //     routing tests through it would make the safeguard load-bearing for the
+    //     suite and impossible to tighten.
+    const substitutions = ['oidc-test-server', 'global-setup-session-seeding']
     expect(substitutions).toHaveLength(2)
     expect(existsSync(join(SRC, '..', 'e2e', 'login-journey.spec.ts'))).toBe(true)
+    expect(existsSync(join(SRC, 'test', 'globalSetup.ts'))).toBe(true)
+    expect(existsSync(join(SRC, 'test', 'session.ts'))).toBe(true)
   })
 })

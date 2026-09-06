@@ -1,239 +1,156 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useTable } from './useTable'
-import { useAuth } from '@/hooks/useAuth'
-import { configureApp } from '@/test/runtimeConfig'
+import { appWrapper, bootApp, bootAppSignedOut } from '@/test/appHarness'
+import { clearSession } from '@/test/session'
 
-// Mock the useAuth hook
-vi.mock('@/hooks/useAuth', () => ({
-  useAuth: vi.fn(),
-}))
+/**
+ * `useTable` against the real tenant, with the real session.
+ *
+ * WHAT CHANGED AND WHY. This file used to replace `globalThis.fetch` and
+ * `@/hooks/useAuth`, then assert the URL string and the header object the hook
+ * had passed to the replacement. That checks that the hook calls a function the
+ * test wrote — it cannot see a query the server rejects, a `Content-Range` that
+ * is not exposed to the page, a CORS preflight the endpoint refuses, or an error
+ * body whose shape has moved. All four are real ways this hook breaks, and all
+ * four were invisible.
+ *
+ * So the assertions moved from the request to its EFFECT: rows that came back,
+ * a projection the server applied, a count it reported, a message it wrote. The
+ * URL is asserted implicitly and far more strictly — a wrong one answers 404.
+ *
+ * The one thing left out is the "error response with no `message` field"
+ * fallback. PostgREST puts a `message` on every error it returns (verified
+ * across a missing table, a missing column, an unparseable `limit` and a bad
+ * cast), so that branch is not reachable from this server, and a hand-written
+ * `{ ok: false }` object to reach it would be exactly the thing this file just
+ * stopped doing. It is reachable from a non-JSON error page, which is what §10's
+ * transient-failure work drives through Playwright interception.
+ */
 
-// Mock fetch
-const mockFetch = vi.fn()
-globalThis.fetch = mockFetch
+/** A table every tenant has, with a stable integer `id`. */
+const TABLE = 'modules'
 
 describe('useTable', () => {
-  let queryClient: QueryClient
+  // A call-through spy. It replaces nothing — `vi.spyOn` keeps the real
+  // implementation — and exists only for the two assertions that are about a
+  // request NOT being made, which is not observable from the hook's result.
+  let fetchSpy: ReturnType<typeof vi.spyOn<typeof globalThis, 'fetch'>>
+  const requestedTable = () =>
+    fetchSpy.mock.calls.some(([input]) => String(input).includes(`/${TABLE}`))
 
   beforeEach(async () => {
-    queryClient = new QueryClient({
-      defaultOptions: {
-        queries: { retry: false },
-      },
-    })
-    vi.clearAllMocks()
-
-    // The app's real runtime config channel, `window.__ENV__` — not vi.stubEnv,
-    // which is inert in a browser bundle where Vite has already inlined every
-    // import.meta.env read.
-    await configureApp()
-
-    // Default mock for useAuth
-    vi.mocked(useAuth).mockReturnValue({
-      token: 'test-token',
-    } as ReturnType<typeof useAuth>)
+    await bootApp()
+    fetchSpy = vi.spyOn(globalThis, 'fetch')
   })
 
-  it('requests the table URL with the bearer token', async () => {
-    // Only the request is asserted. This test used to stub fetch with an
-    // invented `[{ id, name }]` payload and then assert `data` equaled that same
-    // payload — a check that could only fail if TanStack Query itself broke,
-    // and one that quietly hardcoded the `id`/`label` column names this app's
-    // metadata-driven schemas exist to avoid. What the hook actually owns is
-    // the URL and the headers, so that is what is checked.
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => [],
-    })
-
-    const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    )
-
-    renderHook(() => useTable('modules'), { wrapper })
-
-    await waitFor(() => expect(mockFetch).toHaveBeenCalled())
-
-    expect(mockFetch).toHaveBeenCalledWith(
-      'https://api.example.com/modules',
-      expect.objectContaining({
-        headers: expect.objectContaining({
-          'Authorization': 'Bearer test-token',
-          'Content-Type': 'application/json',
-        }),
-      })
-    )
+  afterEach(() => {
+    fetchSpy.mockRestore()
+    clearSession()
   })
 
-  it('includes query parameters in request', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => [],
-    })
+  it('returns the tenant’s rows', async () => {
+    const { result } = renderHook(() => useTable(TABLE), { wrapper: appWrapper })
 
-    const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    )
+    await waitFor(() => expect(result.current.data).toBeDefined())
 
-    renderHook(() => useTable('users', { query: 'select=id,name&order=name.asc' }), { wrapper })
-
-    await waitFor(() => expect(mockFetch).toHaveBeenCalled())
-
-    expect(mockFetch).toHaveBeenCalledWith(
-      'https://api.example.com/users?select=id,name&order=name.asc',
-      expect.any(Object)
-    )
-  })
-
-  it('adds Supabase apikey header when API_TYPE is supabase', async () => {
-    await configureApp({
-      type: 'supabase',
-      supabaseApiKey: 'supabase-key',
-    })
-
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => [],
-    })
-
-    const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    )
-
-    renderHook(() => useTable('modules'), { wrapper })
-
-    await waitFor(() => expect(mockFetch).toHaveBeenCalled())
-
-    expect(mockFetch).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({
-        headers: expect.objectContaining({
-          'apikey': 'supabase-key',
-        }),
-      })
-    )
-  })
-
-  it('handles fetch errors with details', async () => {
-    const errorResponse = {
-      message: 'Invalid API key',
-      hint: 'Double check your Supabase API key',
+    expect(result.current.error).toBeNull()
+    // Not "equals the rows the test wrote": the point is that these came from
+    // the database. Every row is an object carrying the primary key.
+    expect(result.current.data!.length).toBeGreaterThan(0)
+    for (const row of result.current.data!) {
+      expect(row).toBeTypeOf('object')
+      expect(row).toHaveProperty('id')
     }
-
-    mockFetch.mockResolvedValueOnce({
-      ok: false,
-      statusText: 'Unauthorized',
-      json: async () => errorResponse,
-    })
-
-    const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    )
-
-    const { result } = renderHook(() => useTable('modules'), { wrapper })
-
-    await waitFor(() => {
-      expect(result.current.error).not.toBeNull()
-      expect(result.current.error?.message).toBe('Invalid API key')
-    })
-
-    expect(result.current.error).not.toBeNull()
-    // Error message should use the message from the API response
-    expect(result.current.error!.message).toBe('Invalid API key')
-    // Error cause should have the details (excluding message since it's in the main message)
-    expect(result.current.error!.cause).toEqual(errorResponse)
   })
 
-  it('handles fetch errors without message field in response', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: false,
-      status: 500,
-      statusText: 'Internal Server Error',
-      json: async () => ({ code: 'PGRST301' }),
-    })
-
-    const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  it('sends the PostgREST query, and the server applies it', async () => {
+    const { result } = renderHook(
+      () => useTable(TABLE, { query: 'select=id,module_slug&order=id.asc&limit=2' }),
+      { wrapper: appWrapper },
     )
 
-    const { result } = renderHook(() => useTable('modules'), { wrapper })
+    await waitFor(() => expect(result.current.data).toBeDefined())
 
-    await waitFor(() => {
-      expect(result.current.error).not.toBeNull()
-      expect(result.current.error?.message).toBe('Failed to fetch modules: Internal Server Error')
-    })
-
-    expect(result.current.error).not.toBeNull()
-    // Error message should fall back to generic message with statusText
-    expect(result.current.error!.message).toBe('Failed to fetch modules: Internal Server Error')
-    // Error cause should still have the response details
-    expect(result.current.error!.cause).toEqual({ code: 'PGRST301' })
+    const rows = result.current.data!
+    expect(rows.length).toBeGreaterThan(0)
+    expect(rows.length).toBeLessThanOrEqual(2)
+    // The projection proves `select` arrived; the ordering proves `order` did.
+    // A query string that never reached the server would return whole rows.
+    for (const row of rows) expect(Object.keys(row).sort()).toEqual(['id', 'module_slug'])
+    const ids = rows.map((row) => row.id as number)
+    expect([...ids].sort((a, b) => a - b)).toEqual(ids)
   })
 
-  it('does not fetch when token is missing', () => {
-    vi.mocked(useAuth).mockReturnValue({
-      token: null,
-    } as unknown as ReturnType<typeof useAuth>)
+  it('reads the total count out of the Content-Range header', async () => {
+    const { result } = renderHook(() => useTable(TABLE, { count: true, query: 'limit=1' }), {
+      wrapper: appWrapper,
+    })
 
-    const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    )
+    await waitFor(() => expect(result.current.data).toBeDefined())
 
-    const { result } = renderHook(() => useTable('modules'), { wrapper })
+    // Untestable against a replaced fetch: `Content-Range` only reaches page
+    // script because the endpoint lists it in `Access-Control-Expose-Headers`.
+    // A mock hands the header over regardless, so this parse has never before
+    // been exercised on a response a browser actually produced.
+    expect(result.current.totalCount).toBeTypeOf('number')
+    expect(result.current.totalCount!).toBeGreaterThanOrEqual(result.current.data!.length)
+  })
 
-    expect(result.current.isLoading).toBe(false)
+  it('surfaces the server’s own error message and body', async () => {
+    const missing = 'no_such_table_used_by_a_test'
+    const { result } = renderHook(() => useTable(missing), { wrapper: appWrapper })
+
+    await waitFor(() => expect(result.current.error).not.toBeNull())
+
+    // PostgREST names the table it could not find. The hook's own fallback
+    // ("Failed to fetch <table>") would not, so this also pins which branch ran.
+    expect(result.current.error!.message).toContain(missing)
+    // ApiErrorDisplay renders `cause` in its Details panel — this is the real
+    // payload it would show, PostgREST error code and all.
+    expect(result.current.error!.cause).toMatchObject({ code: expect.any(String) })
+  })
+
+  it('does not request anything when there is no session', async () => {
+    await bootAppSignedOut()
+    fetchSpy.mockClear()
+
+    const { result } = renderHook(() => useTable(TABLE), { wrapper: appWrapper })
+
+    // Nothing to wait for — assert it stays that way rather than racing it.
+    await expect.poll(() => result.current.isLoading).toBe(false)
     expect(result.current.data).toBeUndefined()
-    expect(mockFetch).not.toHaveBeenCalled()
+    expect(requestedTable()).toBe(false)
   })
 
-  it('respects enabled option', () => {
-    const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    )
-
-    const { result } = renderHook(() => useTable('modules', { enabled: false }), { wrapper })
-
-    expect(result.current.isLoading).toBe(false)
-    expect(result.current.data).toBeUndefined()
-    expect(mockFetch).not.toHaveBeenCalled()
-  })
-
-  it('validates table name to prevent path traversal', async () => {
-    const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    )
-
-    const { result } = renderHook(() => useTable('../etc/passwd'), { wrapper })
-
-    await waitFor(() => {
-      expect(result.current.error).not.toBeNull()
-      expect(result.current.error?.message).toContain('Invalid table name')
+  it('respects the enabled option', async () => {
+    const { result } = renderHook(() => useTable(TABLE, { enabled: false }), {
+      wrapper: appWrapper,
     })
 
-    expect(result.current.error).not.toBeNull()
+    await expect.poll(() => result.current.isLoading).toBe(false)
+    expect(result.current.data).toBeUndefined()
+    expect(requestedTable()).toBe(false)
+  })
+
+  it('refuses a table name that could escape the base url', async () => {
+    const { result } = renderHook(() => useTable('../etc/passwd'), { wrapper: appWrapper })
+
+    await waitFor(() => expect(result.current.error).not.toBeNull())
+
     expect(result.current.error!.message).toContain('Invalid table name')
-    expect(mockFetch).not.toHaveBeenCalled()
+    // The guard is only worth anything if it runs BEFORE the request.
+    expect(fetchSpy.mock.calls.some(([input]) => String(input).includes('passwd'))).toBe(false)
   })
 
-  it('allows valid table names with underscores and hyphens', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => [],
-    })
+  it('accepts a table name with an underscore', async () => {
+    // A real table, so the answer proves the name survived the guard AND
+    // addressed something: a rejected name errors, a wrong one 404s.
+    const { result } = renderHook(() => useTable('user_bookmarks'), { wrapper: appWrapper })
 
-    const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    )
+    await waitFor(() => expect(result.current.data).toBeDefined())
 
-    renderHook(() => useTable('valid_table-name123'), { wrapper })
-
-    await waitFor(() => expect(mockFetch).toHaveBeenCalled())
-
-    expect(mockFetch).toHaveBeenCalledWith(
-      'https://api.example.com/valid_table-name123',
-      expect.any(Object)
-    )
+    expect(result.current.error).toBeNull()
+    expect(Array.isArray(result.current.data)).toBe(true)
   })
 })
