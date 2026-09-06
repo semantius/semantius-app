@@ -119,6 +119,12 @@ jobs:
   # -------------------------------------------------------------------------
   checks:
     uses: ./.github/workflows/checks.yml
+    # Explicit, not `secrets: inherit`: a called workflow gets nothing unless it
+    # is handed over, and naming the one secret keeps the blast radius of a
+    # called workflow to what it declares. The suite needs it to decrypt .env
+    # for SEMANTIUS_API_KEY (checks.yml says why).
+    secrets:
+      DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
 
   # The real OAuth login journey (apps/web/e2e/), from a11y.yml. Only that job
   # runs here — `audit` defaults to off on a call, because an hour-long audit
@@ -127,6 +133,11 @@ jobs:
   # is why it gates what ships; see the trade-off spelled out in a11y.yml.
   a11y:
     uses: ./.github/workflows/a11y.yml
+    # Only `login-journey` runs on a call, and it needs no secret. The key is
+    # passed anyway so that turning `audit` on from here is one input, not an
+    # input plus a secrets line discovered after the run comes back empty.
+    secrets:
+      DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
 
   build-and-push:
     name: image · amd64 + arm64

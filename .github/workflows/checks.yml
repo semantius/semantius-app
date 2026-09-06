@@ -17,6 +17,16 @@ on:
   # commented out so that adopting PRs later needs NO change to this file.
   pull_request:
   workflow_call:
+    secrets:
+      # The suite mints ONE real access token per run (apps/web/src/test/
+      # globalSetup.ts) and every test that talks to the tenant uses it, so the
+      # run needs the key that decrypts the committed .env. A called workflow
+      # receives NO secrets unless they are declared here and passed by the
+      # caller — declaring it `required` is what turns "the caller forgot" into
+      # a startup error instead of a token exchange failing inside the tests.
+      DOTENV_PRIVATE_KEY:
+        description: 'Decrypts the committed .env, so SEMANTIUS_API_KEY reaches the test run.'
+        required: true
   workflow_dispatch:
   # Not enabled: unlike `pull_request`, this one bills a runner on EVERY push to
   # main, which is the CI overhead the project deliberately opted out of. The
@@ -53,9 +63,11 @@ jobs:
       # same command release.sh runs locally and AGENTS.md tells you to run.
       # Change the commands in package.json, not here, or the gates drift apart.
       #
-      # Deliberately not root `pnpm test`: that is `dotenvx run -- turbo test`,
-      # which needs DOTENV_PRIVATE_KEY to decrypt the committed .env, and a
-      # missing key would make a test failure look like a secrets problem.
-      # These tests need no secrets.
+      # It runs the tests under dotenvx, because the suite no longer fakes the
+      # API: `globalSetup` exchanges SEMANTIUS_API_KEY for one real token per
+      # run and the tests spend it against the real tenant. Without the key that
+      # setup throws before any test runs, with a message that says so.
       - name: Lint and test
+        env:
+          DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
         run: pnpm check

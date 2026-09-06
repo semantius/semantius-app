@@ -45,6 +45,15 @@ on:
       label:
         type: string
         default: ci
+    secrets:
+      # `login-journey` needs none of this; `audit` needs all of it (Cloudflare
+      # token, tenant API key), and a called workflow receives no secrets unless
+      # the caller passes them. Optional, so a caller that only wants the
+      # journey does not have to hold the key — but then it must leave `audit`
+      # off, or the deploy step fails on an empty value.
+      DOTENV_PRIVATE_KEY:
+        description: 'Decrypts the committed .env for the audit job. Not needed for login-journey.'
+        required: false
 
 jobs:
   login-journey:
