@@ -156,3 +156,20 @@
      weak on the sidebar (1.15:1); this lifts both to 1.50:1 / 1.33:1. */
   --skeleton: oklch(0.31 0.007 34.298);
 }
+
+/* --------------------------------------------------------------------------
+   Vendor: drizzle-cube (`/nwind` dashboard). Its light `--dc-primary` is
+   #3b82f6 (Tailwind blue-500), which paints the "Add Portlet" button's text at
+   3.68:1 on the white dashboard surface — the one 1.4.3 finding in the route
+   audit that is not a heading level. #1d4ed8 (blue-700) is 6.30:1 on white and
+   keeps the hue. Light only: the dark palette's primary was measured clean.
+
+   `html:not(.dark)` rather than `:root`: it out-specifies the vendor's own
+   `:root` declaration (0,1,1 vs 0,1,0) whatever the stylesheet order turns out
+   to be after a bundler change, and it keeps this out of the `:root` / `.dark`
+   token blocks above, whose file-shape rule (every `:root` token restated in
+   `.dark`) tokenContrast.test.ts enforces for the shadcn palette only. */
+html:not(.dark) {
+  --dc-primary: #1d4ed8;
+  --dc-primary-hover: #1e40af;
+}

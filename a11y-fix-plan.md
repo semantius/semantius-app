@@ -378,6 +378,43 @@ false of this one — check what `View.tsx:456`'s `<Sheet>` passes (Base UI's
 `modal` prop; the shadcn `ui/sheet.tsx` wrapper may default it off) and fix it
 there. Fixing that removes the 42 by construction; the 12 are separate.
 
+**ANSWERED FURTHER, and the first answer was half wrong.** Measured on the same
+preview: Tab from the Sheet's last control wraps to its first, page scroll is
+locked — Base UI's `modal` (default `true`) IS in force. What is not in force is
+the *hiding* of the page behind, and only sometimes: opened from a row click,
+the pagination behind the Sheet is under an `aria-hidden` ancestor; opened by
+**deep link** — which is how every audit view opens — nothing in `#root` is
+hidden at all. Base UI marks the outside once, at open; content the grid
+renders after that (its rows and pagination arrive with the data) is never
+marked, and Base UI's marker also exempts every `[aria-live]` element and its
+ancestor chain (`markOthers.js`: `avoidElements.concat(ariaLiveElements)`), of
+which this page has five — the pagination's "1-10 of 830 items", two dnd-kit
+live regions, the route announcer, the toaster. So the 42 findings were
+controls **no Tab press reaches**, focused by script. They are not 2.4.11.
+
+- `probes.mjs`: `FOCUS_OBSCURED` and `CONTROL_CONTRAST` now measure only the
+  open modal dialog's subtree when one is open (`__openModalDialog`).
+- **§4.3h (new, OPEN): the deep-linked Sheet leaves the page behind it
+  exposed to a screen reader's virtual cursor.** Not a keyboard defect (Tab is
+  trapped), not 2.4.11, but real: a user who opens `/nwind/orders/11077` by URL
+  can read and, by touch or virtual cursor, reach the whole grid behind the
+  dialog. Candidate fixes, in order of preference: (1) put `inert` on `#root`
+  ourselves while a modal Sheet is open — robust against late-rendered content
+  and live regions, at the cost of silencing the toaster's live region during a
+  Sheet; (2) ask upstream for `outsideElementsInert` on `Dialog.Root` (the
+  floating-ui option exists inside Base UI, unexposed); (3) move the toaster and
+  the announcer outside `#root` so (1) costs nothing. Needs a decision on the
+  toaster trade-off.
+
+**The 12 at 768 — ANSWERED and APPLIED.** Measured: at 768 the sidebar leaves a
+**480px** grid container and the pinned set takes **370px** of it (100 id + 220
+label + 50 actions), so `scroll-padding` reserves 370px and leaves a 110px band
+that cannot fit a 156px title button; `el.focus()` does not scroll at all and
+the button sits under the right pinned column. 4.3a's per-render padding was
+correct and could not help — the plan's own caveat. Pinning now needs `lg:`
+(64rem, `hooks/use-min-width.ts`, `GRID_PINNING_MIN_WIDTH_REM`), where the
+container is ~736px; `isMobile` is no longer the switch.
+
 The 12 are the grid at exactly the width pinning turns back on (`md` = 768):
 4.3a's per-render padding did not clear them. Next: measure the pinned width
 and the scroll-padding actually applied at 768 on the preview.
@@ -466,11 +503,29 @@ dead `data-table-view/TableView.tsx` (−661 lines); the folder now holds only
 `DataFormPage.tsx` and `DataTableView.tsx`. Trivial, but it is a comment sending
 the next reader to a file that does not exist.
 
-### 4.4 Vendor — `drizzle-cube@0.5.6` on `/nwind` — OPEN
+### 4.4 Vendor — `drizzle-cube@0.5.8` on `/nwind` — 1.4.3 APPLIED locally; 1.3.1 and the upstream issue OPEN
 
 1.3.1 `h1 → h3` on "No Portlets" (a heading level is not fixable in CSS) and
 1.4.3 one `dc:`-prefixed button below 4.5:1 (fixable by a local override). One
 upstream issue covering both.
+
+- **1.4.3 — measured and overridden.** The button is "Add Portlet"; its text is
+  the vendor's light `--dc-primary` `#3b82f6` on white, **3.68:1**. `theme-a11y.css`
+  now sets `--dc-primary: #1d4ed8` (6.30:1) and a matching hover for
+  `html:not(.dark)` — light only, the dark palette was measured clean; the
+  selector out-specifies the vendor's `:root` and stays out of the token blocks
+  the file-shape test guards. Confirm on the next run.
+- **1.3.1 — vendor markup, unchanged.** Installed is `0.5.8` (not 0.5.6 as
+  earlier notes said); latest on npm is **0.9.0** (2026-09-02). Whether the
+  heading level was fixed upstream, and what the API changed across four minor
+  versions (CONTEXT-MEMORY records `ChartProps` / `useTranslation` not being
+  exported in 0.4.x), is a separate upgrade task — not attempted here.
+- **The upstream issue is not filed** — filing on a third-party tracker is the
+  human's call. Text to file: *"`/nwind` dashboard, empty state: the `No
+  Portlets` placeholder is an `<h3>` directly under the page's `<h1>` (WCAG
+  1.3.1, heading level jump); and the default light `--dc-primary` `#3b82f6`
+  gives 3.68:1 for the `Add Portlet` button text on `--dc-surface` white (WCAG
+  1.4.3 needs 4.5:1). Both reproduced in 0.5.8."*
 
 ### 4.5 Focus visible · 2.4.7 — DONE (run: Supports on 42 views, no refused-focus evidence)
 
@@ -693,9 +748,10 @@ earlier draft claimed all five were non-blocking and that was false.
    first), 2 cantTell (not 1 — both provider 429s that outlasted every retry).
 6. ~~§4.2~~ measured on the first preview, fixed (width, not height), in the run.
 7. ~~§4.3e~~ RESOLVED — verified in source, nothing to land.
-8. ~~§4.5 triage~~ DONE; §4.4 upstream issue — OPEN.
-9. §4.3 — answer the one question (page behind the Sheet: focusable, or a
-   probe blind spot?), then the 768 pinned-header case, then the layout decision.
+8. ~~§4.5 triage~~ DONE; §4.4 — 1.4.3 overridden locally, the issue text is drafted, filing is the human's call.
+9. ~~§4.3 — answer the one question, then the 768 case~~ both answered and
+   applied; what is left is §4.3h (a decision on the toaster trade-off) and the
+   re-run that shows what 2.4.11 has left with the probe scoped honestly.
 10. §3.1, §3.2 — the two data-layer decisions.
 11. §5.1 — confirm `logIn()` has no other failure mode, then delete the dead
     branch and its three substitutions.

@@ -344,10 +344,14 @@ Sheet/Dialog for that same bar inside an overlay, and the data grid's own contai
 for its sticky header and pinned columns — computed at runtime in
 `niko-table/core/data-table.tsx`, because the pinned width comes from the column
 model. Where the sticky surface is wider than the space left over, padding cannot
-help; that is why column pinning is disabled below `md`.
+help; that is why column pinning is disabled below `lg` (`hooks/use-min-width.ts`,
+`GRID_PINNING_MIN_WIDTH_REM`). It was `md` first, and 768px was measured to be
+too early: the sidebar leaves a 480px grid container there and the pinned set
+takes 370px of it, so the band left for a focused control cannot hold a title
+button. Measure the container, not the viewport, before moving this again.
 
 **TanStack Table's `columnPinning` must be CONTROLLED, not `initialState`, when it
-depends on a hook that resolves asynchronously.** `useIsMobile()` returns `false` on
+depends on a hook that resolves asynchronously.** `useMinWidth()` (like `useIsMobile()`) returns `false` on
 its first render (its state starts `undefined` and an effect fills it in), so
 `initialState` captured the desktop value and kept it forever: a phone got desktop
 pinning permanently. `state` re-reads it.

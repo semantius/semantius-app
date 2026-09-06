@@ -8,7 +8,7 @@ import { useTable } from '@/hooks/useTable'
 import { useUpdateRecord } from '@/hooks/useTableMutations'
 import { useConfirmDelete } from '@/hooks/useConfirmDelete'
 import { useUserHasPermission } from '@/hooks/useUserPermissions'
-import { useIsMobile } from '@/hooks/use-mobile'
+import { GRID_PINNING_MIN_WIDTH_REM, useMinWidth } from '@/hooks/use-min-width'
 import { ConfirmDeleteDialog } from '@/components/ConfirmDeleteDialog'
 import { buildPostgRESTSelect, AUTO_LABEL } from '@/lib/apiClient'
 import {
@@ -339,7 +339,8 @@ export function DataTableView({
 
   const tableName = tableMetadata.table_name
   const primaryKeyColumn = tableMetadata.id_column
-  const isMobile = useIsMobile()
+  // Column pinning is keyed on `lg:`, not on the mobile breakpoint — see the hook.
+  const canPin = useMinWidth(GRID_PINNING_MIN_WIDTH_REM)
   const displayColumn = tableMetadata.label_column
   // When the schema declares an order_column, the grid is sorted by it (asc) and
   // rows can be drag-reordered. The column may not exist in `properties`, so it
@@ -678,13 +679,14 @@ export function DataTableView({
   // from metadata (same skip rules as the column build) so it is available while
   // building the columns, where pinned columns need an explicit size + truncation.
   const leftPinnedKeys = useMemo(() => {
-    // No sticky columns on a phone. The pinned set is sized in absolute pixels
+    // No sticky columns below `lg:`. The pinned set is sized in absolute pixels
     // (PINNED_WIDTH_PX), so on a 390px viewport it takes 320 of the grid's 343
-    // available px: every other column is then permanently underneath it, and a
-    // focused header or cell control in one of them cannot be scrolled clear
-    // (2.4.11 — measured, not theorized). Horizontal scrolling with no sticky
-    // overlay is the usable behavior at that width.
-    if (isMobile) return [] as string[]
+    // available px, and at 768px still 370 of 480: every other column is then
+    // permanently underneath it, and a focused header or cell control in one of
+    // them cannot be scrolled clear (2.4.11 — measured at both widths, not
+    // theorized; see GRID_PINNING_MIN_WIDTH_REM). Horizontal scrolling with no
+    // sticky overlay is the usable behavior there.
+    if (!canPin) return [] as string[]
     if (!metadata.properties) return [] as string[]
     const keys: string[] = []
     for (const [key, property] of Object.entries(metadata.properties)) {
@@ -696,7 +698,7 @@ export function DataTableView({
     }
     const labelIndex = keys.indexOf(displayColumn)
     return labelIndex === 0 || labelIndex === 1 ? keys.slice(0, labelIndex + 1) : []
-  }, [metadata.properties, excludeColumns, displayColumn, isMobile])
+  }, [metadata.properties, excludeColumns, displayColumn, canPin])
 
   // --- Column definitions from metadata ---
   const columns = useMemo((): DataTableColumnDef<RecordType>[] => {
@@ -977,7 +979,7 @@ export function DataTableView({
   // the first visible column while a wide table scrolls. It carries an explicit
   // size (40px) so the sticky offsets stay aligned.
   //
-  // NOTHING is pinned on a phone — not the label column (leftPinnedKeys is
+  // NOTHING is pinned below `lg:` — not the label column (leftPinnedKeys is
   // already empty there), and not the drag handle or the actions column either.
   // "No sticky columns below md" was only two-thirds true: `__drag` and
   // `actions` kept their sticky position at 320/390, and a sticky column is
@@ -986,10 +988,10 @@ export function DataTableView({
   // the row.
   const columnPinning = useMemo(
     () => ({
-      left: dndEnabled && !isMobile ? ['__drag', ...leftPinnedKeys] : leftPinnedKeys,
-      right: isMobile ? [] : ['actions'],
+      left: dndEnabled && canPin ? ['__drag', ...leftPinnedKeys] : leftPinnedKeys,
+      right: canPin ? ['actions'] : [],
     }),
-    [leftPinnedKeys, dndEnabled, isMobile]
+    [leftPinnedKeys, dndEnabled, canPin]
   )
 
   // Constrain the whole grid to max-w-[760px] when there are ≤ 4 data columns
@@ -1028,7 +1030,7 @@ export function DataTableView({
           state={{
             pagination,
             sorting,
-            // CONTROLLED, not initialState. useIsMobile() resolves in an effect, so
+            // CONTROLLED, not initialState. useMinWidth() resolves in an effect, so
             // its first render is always `false`; with pinning in initialState
             // TanStack read that first value and kept it forever — a phone got the
             // desktop pinning permanently, which is precisely the 2.4.11 failure

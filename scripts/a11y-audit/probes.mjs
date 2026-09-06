@@ -246,7 +246,11 @@ export const CONTROL_CONTRAST = `(() => {${HELPERS}
   const SLOTS = 'input,textarea,select,[data-slot=input],[data-slot=textarea],[data-slot=select-trigger],[data-slot=input-group],[data-slot=checkbox],[data-slot=radio-group-item],[data-slot=switch],[data-slot=combobox-trigger]'
   const boundary = []
   const indicator = []
-  const controls = Array.from(document.querySelectorAll(SLOTS)).filter(__visible).slice(0, 30)
+  // Same scope rule as FOCUS_OBSCURED: with a modal dialog open, its controls
+  // are the ones a user can reach and see; the first thirty of the whole
+  // document would otherwise be the grid behind the record Sheet.
+  const scope = __openModalDialog() || document
+  const controls = Array.from(scope.querySelectorAll(SLOTS)).filter(__visible).slice(0, 30)
   for (const el of controls) {
     const style = getComputedStyle(el)
     const outside = __effectiveBg(el.parentElement || document.body)
@@ -321,8 +325,20 @@ export const CONTROL_CONTRAST = `(() => {${HELPERS}
  * of it.
  */
 export const FOCUS_OBSCURED = `(() => {${HELPERS}
+  // A keyboard user's focus is what 2.4.11 is about, so the candidates are the
+  // controls a keyboard user can reach. While a modal dialog is open (the record
+  // Sheet), Tab is trapped inside it — measured: Tab from its last control wraps
+  // to its first — yet the page behind it is NOT always hidden from script:
+  // opened by deep link (which is how every audit view opens), Base UI's
+  // aria-hidden marking misses the content that renders after the dialog did,
+  // and el.focus() on a pagination control behind the Sheet succeeds. Walking
+  // those produced 42 of one run's 54 findings — every one a control no Tab
+  // press reaches. So with a modal dialog open, only its subtree is measured.
+  // The page-behind exposure itself is a separate (screen-reader) defect,
+  // recorded in a11y-fix-plan.md § 4.3h; it is not this criterion.
+  const scope = __openModalDialog() || document
   const focusables = Array.from(
-    document.querySelectorAll('a[href],button,input,select,textarea,[tabindex]:not([tabindex="-1"])')
+    scope.querySelectorAll('a[href],button,input,select,textarea,[tabindex]:not([tabindex="-1"])')
   ).filter((el) => __visible(el) && !el.hasAttribute('disabled')).slice(0, 40)
   const obscured = []
   let checked = 0

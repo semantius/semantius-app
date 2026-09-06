@@ -119,14 +119,16 @@ Two different things wear the word "mobile" here, and only one of them is about
 phones.
 
 **The responsive layout.** Below Tailwind's `md:` breakpoint the app changes
-shape: the sidebar becomes a Sheet, form fields go single-column (an
+shape: the sidebar becomes a Sheet and form fields go single-column (an
 `@container (max-width: 30rem)` query, so it keys on the form's own width rather
-than the viewport), and data-grid column pinning is switched off entirely — the
-label column, the drag handle and the row-actions column alike; pinned columns
-are sized in absolute pixels and would take 320 of a 390px viewport's 343,
-leaving every other column permanently underneath them. The breakpoint is
-`48rem`, **not** `768px`, read through `matchMedia`, so it moves with a raised
-root font size instead of desynchronizing from every `md:` utility on the page.
+than the viewport). Data-grid column pinning — the label column, the drag handle
+and the row-actions column alike — is off below `lg:` (64rem), not `md:`:
+pinned columns are sized in absolute pixels and take 320 of a 390px viewport's
+343 and still 370 of the 480px container a 768px viewport leaves beside the
+sidebar, leaving every other column permanently underneath them. Both
+breakpoints are in rem, read through `matchMedia`, so they move with a raised
+root font size instead of desynchronizing from the `md:`/`lg:` utilities on the
+page.
 
 **The 320px column.** Not a device choice. WCAG 2.2 SC 1.4.10 requires content to
 work at a width equivalent to 320 CSS px without scrolling in two dimensions, and
