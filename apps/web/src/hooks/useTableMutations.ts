@@ -49,7 +49,8 @@ export function useCreateRecord<T = Record<string, unknown>>(tableName: string) 
         try {
           const errorData = await response.json()
           if (errorData && typeof errorData === 'object' && !Array.isArray(errorData)) {
-            errorDetails = errorData as Record<string, unknown>
+            // Status alongside the server's body, like every other thrower here.
+            errorDetails = { ...(errorData as Record<string, unknown>), status: response.status }
             if ('message' in errorDetails && typeof errorDetails.message === 'string') {
               errorMessage = errorDetails.message
             }
@@ -140,7 +141,8 @@ export function useUpdateRecord<T extends Record<string, unknown>>(
         try {
           const errorData = await response.json()
           if (errorData && typeof errorData === 'object' && !Array.isArray(errorData)) {
-            errorDetails = errorData as Record<string, unknown>
+            // Status alongside the server's body, like every other thrower here.
+            errorDetails = { ...(errorData as Record<string, unknown>), status: response.status }
             if ('message' in errorDetails && typeof errorDetails.message === 'string') {
               errorMessage = errorDetails.message
             }
@@ -214,7 +216,8 @@ export function useDeleteRecord(tableName: string, idField: string = 'id') {
         try {
           const errorData = await response.json()
           if (errorData && typeof errorData === 'object' && !Array.isArray(errorData)) {
-            errorDetails = errorData as Record<string, unknown>
+            // Status alongside the server's body, like every other thrower here.
+            errorDetails = { ...(errorData as Record<string, unknown>), status: response.status }
             if ('message' in errorDetails && typeof errorDetails.message === 'string') {
               errorMessage = errorDetails.message
             }

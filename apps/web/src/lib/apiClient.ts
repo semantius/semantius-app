@@ -7,6 +7,7 @@
 
 import { type EntityMetadata } from "@/types/metadata"
 import { getConfig, tryGetConfig } from "@/lib/config"
+import { retryPolicyFor, withRetry } from "@/lib/retry"
 
 // --- Fetch interceptor ---
 // Module-level token store for the fetch interceptor
@@ -33,17 +34,28 @@ const _originalFetch = globalThis.fetch
  * VITE_OAUTH_CONFIG was origin-relative. Never throw from this function: a
  * fetch wrapper that can fail for reasons unrelated to the request breaks
  * callers that correctly handle network errors.
+ *
+ * THIS IS ALSO WHERE THE RETRY POLICY IS APPLIED — to both branches, so every
+ * request in the app (vendor code included) is covered by construction, and the
+ * exceptions are the ones `retryPolicyFor()` names by method and URL: a table
+ * write is never repeated, a read is, a PostgREST function call is repeated only
+ * on an answer the server gives before running anything. The boot fetches in
+ * `lib/config.ts` come through here too, before the config exists, which is why
+ * the policy takes the base URL as a value and never calls getConfig(). See
+ * lib/retry.ts for the policy and the reasons.
  */
 globalThis.fetch = function interceptedFetch(
   input: RequestInfo | URL,
   init?: RequestInit
 ): Promise<Response> {
   const url = typeof input === 'string' ? input : input instanceof URL ? input.href : (input as Request).url
+  const cfg = tryGetConfig()
+
+  let resolvedUrl = url
+  let send: () => Promise<Response> = () => _originalFetch(input, init)
 
   // Only intercept relative paths (starting with "/")
-  if (url.startsWith('/')) {
-    const cfg = tryGetConfig()
-    if (!cfg) return _originalFetch(input, init)
+  if (url.startsWith('/') && cfg) {
     const baseUrl = cfg.apiBaseUrl
     // Strip trailing slash from baseUrl to avoid double slashes
     const cleanBase = baseUrl.replace(/\/+$/, '')
@@ -55,7 +67,7 @@ globalThis.fetch = function interceptedFetch(
     // URL is already under a relative base, treat it as resolved.
     const alreadyPrefixed =
       cleanBase.startsWith('/') && (url === cleanBase || url.startsWith(cleanBase + '/'))
-    const resolvedUrl = alreadyPrefixed ? url : cleanBase + url
+    resolvedUrl = alreadyPrefixed ? url : cleanBase + url
 
     if (_currentToken) {
       const authHeaders = createApiHeaders(_currentToken)
@@ -67,13 +79,24 @@ globalThis.fetch = function interceptedFetch(
           merged.set(key, value)
         }
       }
-      return _originalFetch(resolvedUrl, { ...init, headers: merged })
+      const withAuth = { ...init, headers: merged }
+      send = () => _originalFetch(resolvedUrl, withAuth)
+    } else {
+      send = () => _originalFetch(resolvedUrl, init)
     }
-
-    return _originalFetch(resolvedUrl, init)
   }
 
-  return _originalFetch(input, init)
+  const request = input instanceof Request ? input : undefined
+  const policy = retryPolicyFor({
+    url: resolvedUrl,
+    method: init?.method ?? request?.method ?? 'GET',
+    apiBaseUrl: cfg?.apiBaseUrl,
+    // A stream cannot be sent twice; neither can a Request whose body is one.
+    replayable:
+      !(typeof ReadableStream !== 'undefined' && init?.body instanceof ReadableStream) &&
+      !(request?.body),
+  })
+  return policy ? withRetry(send, policy) : send()
 }
 
 export interface ApiConfig {
@@ -187,15 +210,29 @@ export async function callRpc<TResult = unknown, TParams = Record<string, unknow
   if (!response.ok) {
     const errorText = await response.text()
     let errorMessage = `Failed to call RPC function "${rpcName}"`
-    
+    let body: Record<string, unknown> = {}
+
     try {
-      const errorJson = JSON.parse(errorText)
-      errorMessage = errorJson.message || errorJson.error || errorText
+      const errorJson: unknown = JSON.parse(errorText)
+      if (errorJson && typeof errorJson === 'object' && !Array.isArray(errorJson)) {
+        body = errorJson as Record<string, unknown>
+      }
+      errorMessage =
+        (typeof body.message === 'string' && body.message) ||
+        (typeof body.error === 'string' && body.error) ||
+        errorText
     } catch {
       errorMessage = errorText || errorMessage
     }
-    
-    throw new Error(errorMessage)
+
+    // The status and url ride along with the server's own body, the way
+    // `useTable` and `AuthContext.responseError()` do it: a caller that has to
+    // tell "not there" (the table route → not-found page) from "not now" (an
+    // error the user can retry) reads `cause.status`. A bare Error here once
+    // made every failure of `get_schema` a 404 page.
+    throw new Error(errorMessage, {
+      cause: { ...body, status: response.status, url: response.url },
+    })
   }
 
   return await response.json() as TResult
@@ -215,7 +252,7 @@ export async function callRpc<TResult = unknown, TParams = Record<string, unknow
  *
  * Kept as a toggle so the old query-time embedding stays available until the
  * generated columns are confirmed to work in all aspects. Consumed here (query
- * side) and by the grid cell renderers in DataTableView/TableView (render side),
+ * side) and by the grid cell renderers in DataTableView (render side),
  * so all three must read the same flag to stay in sync.
  *
  * Typed as `boolean` (not the inferred `false` literal) so flipping it to `true`

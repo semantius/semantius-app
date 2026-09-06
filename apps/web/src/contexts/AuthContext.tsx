@@ -4,7 +4,6 @@ import type { IAuthContext } from 'react-oauth2-code-pkce'
 import { ConfigErrorPage } from '@/components/ConfigErrorPage'
 import { getApiConfig, createApiHeaders, setInterceptorToken } from '@/lib/apiClient'
 import { getConfig } from '@/lib/config'
-import { fetchWithRetry } from '@/lib/transientFailure'
 import type { AnyRouter } from '@tanstack/react-router'
 import type { RouterContext } from '@/routes/__root'
 
@@ -281,11 +280,13 @@ function RouterContextUpdater({
 
       if (shouldFetchOAuthUserInfo) {
         promises.push(
-          // Retried, because this endpoint answers 429 when pages load a few
-          // seconds apart and the user has done nothing wrong. Without it the
-          // rate limit arrives as a terminal error card — observed nineteen
-          // times in a single accessibility audit run. See lib/transientFailure.
-          fetchWithRetry(userinfoEndpoint, {
+          // Retried BY THE TRANSPORT (the interceptor in lib/apiClient.ts —
+          // this is a plain `fetch`), because this endpoint answers 429 when
+          // pages load a few seconds apart and the user has done nothing wrong.
+          // Without it the rate limit arrives as a terminal error card —
+          // observed nineteen times in one accessibility audit run. Do not add
+          // a retry here: it would stack on the transport's. See lib/retry.ts.
+          fetch(userinfoEndpoint, {
             headers: {
               Authorization: `Bearer ${token}`,
             },
@@ -315,19 +316,15 @@ function RouterContextUpdater({
         const headersRecord = createApiHeaders(token)
 
         promises.push(
-          // `coldStart404`: the tenant's serverless PostgREST answers the FIRST
-          // request after an idle period with a 404, and a reload fixes it. A
-          // 404 is only transient here — this is a read, on an endpoint that
-          // exists, against a backend that sleeps.
-          fetchWithRetry(
-            `${apiBaseUrl}/rpc/get_userinfo`,
-            {
-              method: 'POST',
-              headers: headersRecord,
-              body: "{}",
-            },
-            { coldStart404: true },
-          )
+          // The tenant's serverless PostgREST answers the FIRST request after
+          // an idle period with a 404, and a reload fixes it. The transport
+          // retries that (a bare 404 under the API base is a cold start; see
+          // lib/retry.ts) — this is a plain `fetch` on purpose.
+          fetch(`${apiBaseUrl}/rpc/get_userinfo`, {
+            method: 'POST',
+            headers: headersRecord,
+            body: "{}",
+          })
             .then(async (response) => {
               if (!response.ok) {
                 throw await responseError('Failed to fetch RPC user info', response)

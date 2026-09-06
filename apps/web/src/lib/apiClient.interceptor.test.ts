@@ -96,6 +96,26 @@ describe('fetch interceptor — once the config is in', () => {
     await expectRequested(`${tryGetConfig()!.apiBaseUrl}/modules?limit=1`)
   })
 
+  it('asks ONCE for a table that is not there — PostgREST’s own 404 is definitive', async () => {
+    // A bare 404 under the API base is retried as a cold start (lib/retry.ts),
+    // which would make every missing table cost the whole retry budget. The
+    // tenant's PostgREST names what it could not find, with a `code`, and that
+    // body is what makes the 404 final on the first answer.
+    setInterceptorToken(testToken())
+    const path = '/no_such_table_used_by_the_interceptor_test?limit=1'
+    const url = `${tryGetConfig()!.apiBaseUrl}${path}`
+
+    const res = await fetch(path)
+
+    expect(res.status).toBe(404)
+    expect(await res.json()).toMatchObject({ code: expect.any(String) })
+    await expectRequested(url)
+    // A retry, had there been one, would have followed within the first
+    // backoff window (300ms). A second is long enough to be sure there was none.
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+    expect(performance.getEntriesByType('resource').filter((entry) => entry.name === url)).toHaveLength(1)
+  })
+
   it('sends the same request unauthenticated when there is no token', async () => {
     setInterceptorToken(null)
 

@@ -1,6 +1,7 @@
 // routes/$moduleId.$table_name.$key.tsx
 import { createFileRoute, notFound, useParams } from '@tanstack/react-router'
 import { pageTitle } from '@/lib/pageTitle'
+import { statusOf } from '@/lib/retry'
 import { lazy, Suspense, useMemo } from 'react'
 import { NotFoundPage } from '@/components/NotFoundPage'
 import { ViewSkeleton } from '@/components/ViewSkeleton'
@@ -22,12 +23,17 @@ export const Route = createFileRoute('/_app/$moduleId/$table_name')({
     const { table_name } = params
     const token = context.auth.getToken()
     
-    // Try to fetch metadata - if it fails, return 404
+    // Not-found ONLY when the server said the table is not there. Anything
+    // else — a rate limit or cold start that outlasted the retry budget, a
+    // network error, a 403 — is thrown, and lands on the router's
+    // defaultErrorComponent with a Try Again that re-runs this loader. This
+    // loader used to catch everything and answer notFound(), which told a
+    // rate-limited user the table did not exist.
     const metadata = await fetchEntityMetadata(table_name, token)
     if (!metadata) {
       throw notFound()
     }
-    
+
     return { metadata }
   },
   // Titled from the entity's own plural label rather than the raw table name —
@@ -109,7 +115,13 @@ function RouteComponent() {
 
 /**
  * Fetch entity metadata using the get_schema RPC function
- * This follows the PostgREST RPC pattern for calling stored procedures
+ * This follows the PostgREST RPC pattern for calling stored procedures.
+ *
+ * Resolves `null` only for a 404 — `get_schema` answers one, with PostgREST's
+ * own error body, for a table that is not in `entities`. Every other failure is
+ * rethrown, status on `cause`, so the caller can show an error rather than a
+ * 404 page. The retrying (a bounded budget, cold-start 404s included) already
+ * happened in the fetch interceptor by the time a rejection reaches here.
  */
 async function fetchEntityMetadata(
   table_name: string,
@@ -119,10 +131,11 @@ async function fetchEntityMetadata(
     throw new Error('Authentication token is required')
   }
 
+  const { callRpc } = await import('@/lib/apiClient')
   try {
-    const { callRpc } = await import('@/lib/apiClient')
     return await callRpc<EntityMetadata>('get_schema', { p_table_name: table_name }, token)
-  } catch {
-    return null
+  } catch (err) {
+    if (statusOf(err) === 404) return null
+    throw err
   }
 }

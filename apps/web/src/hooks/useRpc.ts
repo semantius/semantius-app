@@ -56,6 +56,12 @@ export function useRpc<TResult = unknown, TParams = Record<string, unknown>>(
 
 /**
  * Generic hook for calling PostgREST RPC functions with mutations
+ *
+ * RETRY SEMANTICS. A `POST /rpc/…` is repeated by the fetch interceptor on a
+ * 425, 429, 502 or 503 — answers a server gives BEFORE running the function —
+ * and on a bare cold-start 404. It is NOT repeated on a 500, a 504 or a network
+ * error, where the function may already have run; a function with side effects
+ * therefore cannot be executed twice by the transport. See lib/retry.ts.
  * 
  * @param rpcName - Name of the RPC function
  * @returns UseMutationResult for calling the RPC function

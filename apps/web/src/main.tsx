@@ -9,9 +9,9 @@ import { Toaster } from './components/ui/sonner'
 import { TooltipProvider } from './components/ui/tooltip'
 import type { RouterContext } from './routes/__root'
 import { initConfig, getConfigError } from './lib/config'
-import { isTransientError } from './lib/transientFailure'
 import { hideAppLoader } from './lib/appLoader'
 import { BootFailure } from './components/BootFailure'
+import { RouteErrorPage } from './components/RouteErrorPage'
 import { SidebarPrefetch } from './components/layout/SidebarPrefetch'
 import { applyDevUrlToken } from './lib/devUrlToken'
 import './global.css'
@@ -52,6 +52,11 @@ import { routeTree } from './routeTree.gen'
 // Create a new router instance with context
 const router = createRouter({
   routeTree,
+  // A loader that throws — get_schema after the retry budget is spent, say —
+  // must end in an error the user can act on, not TanStack's built-in red box.
+  // The page's Try Again re-runs the loader (router.invalidate()), which is the
+  // only thing that recovers a loader error; a bare boundary reset re-throws it.
+  defaultErrorComponent: RouteErrorPage,
   context: {
     auth: {
       isAuthenticated: () => false,
@@ -78,14 +83,14 @@ const queryClient = new QueryClient({
       refetchOnMount: 'always', // Always refetch when component mounts (even if fresh)
       refetchOnWindowFocus: 'always', // Always refetch when window regains focus (even if fresh)
       refetchOnReconnect: true, // Always refetch when reconnecting to network
-      // Retry only what is worth retrying, and only a bounded number of times.
-      // A plain `retry: 1` did the opposite of both: it repeated a request the
-      // server had understood and refused (a 400, a missing column) to arrive at
-      // the same answer a second later, and gave up after ONE attempt on the two
-      // failures that really do pass — the tenant's rate limit and its
-      // serverless cold-start 404. `coldStart404` is true here because every
-      // query in this client goes to that PostgREST. See lib/transientFailure.
-      retry: (failureCount, error) => failureCount < 3 && isTransientError(error, true),
+      // OFF ON PURPOSE. Retrying lives in the fetch interceptor
+      // (lib/apiClient.ts, policy in lib/retry.ts), which every query's request
+      // passes through. A second retry here would STACK on it — attempts
+      // multiplied against a service that just asked us to slow down — so this
+      // line and the interceptor change landed in the same commit and must stay
+      // in agreement. The accepted cost: react-query no longer sees the attempts,
+      // so its devtools show one slow query rather than several failed ones.
+      retry: false,
     },
   },
 })
