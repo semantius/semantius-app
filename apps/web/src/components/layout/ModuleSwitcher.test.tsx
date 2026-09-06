@@ -1,96 +1,93 @@
-import { render, screen } from '@testing-library/react'
-import { describe, it, expect, vi } from 'vitest'
+import { screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { ModuleSwitcher } from './ModuleSwitcher'
 import { SidebarProvider } from '@/components/ui/sidebar'
+import { bootApp, renderInApp } from '@/test/appHarness'
 
-// Mock TanStack Router hooks
-vi.mock('@tanstack/react-router', () => ({
-  useParams: vi.fn(() => ({
-    moduleId: undefined,
-    table_name: undefined,
-    key: undefined,
-  })),
-  useNavigate: vi.fn(() => vi.fn()),
-}))
+/**
+ * The module switcher against the tenant's real modules.
+ *
+ * WHAT CHANGED AND WHY. The file mocked `@tanstack/react-router`,
+ * `@/hooks/useTable` and `@/hooks/useModuleNavigate` — the last two purely to
+ * keep the component out of the auth context — and then fed the switcher rows it
+ * had written itself. That could not fail on a query the server rejects, a
+ * column that has been renamed, or an ordering that has changed, and it checked
+ * the display-name rule through the component instead of directly.
+ *
+ * The rule now has its own test (`contexts/getModuleDisplay.test.ts`) and this
+ * file covers the wiring: the real query (`order=module_name.asc`), the real
+ * mapping, and the real icon and color fallbacks.
+ *
+ * IT READS THE FIXTURE TENANT. The assertions below name what the `tests` tenant
+ * actually contains — `Northwind` (description "Northwind Sample Database", no
+ * logo color) and `_core` (description "Administration"). That is deliberate:
+ * they are the platform's own demo modules, and between them they exercise both
+ * display rules and both color branches. If the tenant's demo data is edited,
+ * this fails loudly and gets updated — which is the point of testing against
+ * data that exists rather than data invented to make an assertion pass.
+ */
 
-// ModuleSwitcher takes NO modules prop — it fetches its own rows through
-// useModules -> useTable -> useAuth. Stubbing useTable is what keeps the test
-// out of the auth context (rendering it bare threw "useAuth must be used
-// within AuthProviderWrapper").
-const mockRows = vi.hoisted(() => ({ current: [] as Record<string, unknown>[] }))
+function renderSwitcher() {
+  return renderInApp(
+    <SidebarProvider>
+      <ModuleSwitcher />
+    </SidebarProvider>,
+  )
+}
 
-vi.mock('@/hooks/useTable', () => ({
-  useTable: () => ({ data: mockRows.current, isLoading: false, error: null }),
-}))
-
-// useModuleNavigate reads useAuth too, so it needs stubbing for the same reason.
-vi.mock('@/hooks/useModuleNavigate', () => ({
-  useModuleNavigate: () => vi.fn(),
-}))
+const NETWORK = { timeout: 20000 }
 
 describe('ModuleSwitcher', () => {
-  /** A row as PostgREST returns it, which is what useModules maps. */
-  function moduleRow(overrides: Record<string, unknown> = {}) {
-    return {
-      id: 1,
-      module_name: 'Test Module 1',
-      module_slug: 'test-module-1',
-      description: '',
-      icon_name: 'database',
-      logo_color: '#FF0000',
-      ...overrides,
-    }
-  }
+  beforeEach(async () => {
+    await bootApp()
+  })
 
-  function renderSwitcher(rows: Record<string, unknown>[]) {
-    mockRows.current = rows
-    return render(
-      <SidebarProvider>
-        <ModuleSwitcher />
-      </SidebarProvider>
+  it('shows the first module by name order, under the name the display rule gives it', async () => {
+    renderSwitcher()
+
+    // `Northwind` sorts before `_core`, and its description begins with its
+    // name, so the description is promoted to the single visible line.
+    await waitFor(
+      () => expect(screen.getByText('Northwind Sample Database')).toBeInTheDocument(),
+      NETWORK,
     )
-  }
-
-  it('renders the first fetched module as the active one', () => {
-    renderSwitcher([
-      moduleRow(),
-      moduleRow({ id: 2, module_name: 'Test Module 2', module_slug: 'test-module-2' }),
-    ])
-
-    expect(screen.getByText('Test Module 1')).toBeInTheDocument()
   })
 
-  it('renders the icon named by icon_name, not an <img>', () => {
-    // The logo is a NamedIcon looked up by name — there has been no image
-    // logo (and so no alt text) since the switcher started fetching its own
-    // modules.
-    const { container } = renderSwitcher([moduleRow({ icon_name: 'database' })])
+  it('renders the icon named by icon_name, not an <img>', async () => {
+    const { container } = renderSwitcher()
 
+    // The logo is a NamedIcon looked up by name — there has been no image logo
+    // (and so no alt text) since the switcher started fetching its own modules.
+    await waitFor(() => expect(container.querySelector('svg')).not.toBeNull(), NETWORK)
     expect(container.querySelector('img')).toBeNull()
-    expect(container.querySelector('svg')).not.toBeNull()
   })
 
-  it('paints the logo tile with logo_color', () => {
-    const { container } = renderSwitcher([moduleRow({ logo_color: '#FF0000' })])
+  it('falls back to the default blue when the row carries no logo color', async () => {
+    const { container } = renderSwitcher()
 
-    const tile = container.querySelector('[style*="background-color"]')
-    expect(tile).toHaveStyle({ backgroundColor: '#FF0000' })
-  })
-
-  it('falls back to the form icon and the default blue when the row omits them', () => {
-    const { container } = renderSwitcher([
-      moduleRow({ icon_name: null, logo_color: null }),
-    ])
-
+    // Northwind's logo_color is empty in the tenant, which is the fallback path.
+    await waitFor(
+      () => expect(screen.getByText('Northwind Sample Database')).toBeInTheDocument(),
+      NETWORK,
+    )
     const tile = container.querySelector('[style*="background-color"]')
     expect(tile).toHaveStyle({ backgroundColor: '#0000FF' })
   })
 
-  it('promotes description to the display name when it starts with the module name', () => {
-    renderSwitcher([
-      moduleRow({ module_name: 'CRM', description: 'CRM — Customer Records' }),
-    ])
+  it('lists the other modules, each painted with its own logo color', async () => {
+    const user = userEvent.setup()
+    renderSwitcher()
 
-    expect(screen.getByText('CRM — Customer Records')).toBeInTheDocument()
+    await waitFor(
+      () => expect(screen.getByText('Northwind Sample Database')).toBeInTheDocument(),
+      NETWORK,
+    )
+    await user.click(screen.getByRole('button', { name: /Northwind Sample Database/i }))
+
+    // `_core` is an internal module: the underscore rule shows its description.
+    const administration = await waitFor(() => screen.getByText('Administration'))
+    const tile = administration.parentElement?.querySelector('[style*="background-color"]')
+    expect(tile).toHaveStyle({ backgroundColor: '#029948' })
   })
 })

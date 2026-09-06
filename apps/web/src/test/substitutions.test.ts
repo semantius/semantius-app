@@ -290,8 +290,6 @@ const FAMILIES: { key: string; what: string; patterns: RegExp[] }[] = [
  */
 const FROZEN: Record<string, Record<string, number>> = {
   'module-mock-external': {
-    'src/components/layout/ModuleSwitcher.test.tsx': 1,
-    'src/components/layout/NavUser.test.tsx': 1,
     'src/routes/login.test.tsx': 1,
   },
   // Every one of these is a stubbed API call, and every one is waiting on the
@@ -314,26 +312,26 @@ const FROZEN: Record<string, Record<string, number>> = {
 
 /**
  * Internal module mocks are frozen by SPECIFIER, not by count: which module is
- * replaced matters more than how many times. 7 in total.
+ * replaced matters more than how many times. 1 in total.
  */
 const FROZEN_INTERNAL_MOCKS: Record<string, string[]> = {
-  'src/components/customers/CustomerForm.test.tsx': ['@/hooks/useTableMutations'],
-  'src/components/layout/ModuleSwitcher.test.tsx': ['@/hooks/useModuleNavigate', '@/hooks/useTable'],
-  'src/components/layout/NavUser.test.tsx': ['@/hooks/useAuth', '@/hooks/useTable', '@/lib/config'],
   'src/routes/login.test.tsx': ['@/hooks/useAuth'],
 }
 
 /**
- * Sum of every frozen count, plus the 7 internal mocks. Only ever goes down.
+ * Sum of every frozen count, plus the 1 internal mock. Only ever goes down.
  * It was 96 when this scanner was written; removing jsdom took it to 40, because
  * most of what was frozen existed only to describe a browser to a fake one.
  * The two data hooks then went to the real tenant with the run's real token:
  * `useTable` (a replaced fetch, a mocked `useAuth`) took it to 38, and
  * `useTableMutations` (nine replaced fetches and three mocked modules of ours)
  * to 26. `ProtectedRoute` then dropped its mocked `useAuth` and `appLoader` for
- * the real provider and index.html's real overlay: 24.
+ * the real provider and index.html's real overlay: 24, and `CustomerForm` its
+ * mocked mutation hooks — which existed only because the component calls them
+ * while rendering — for 23. `NavUser` and `ModuleSwitcher` then took the real
+ * router, the real permissions and the real VITE_UI_CUSTOMIZER: 16.
  */
-const FROZEN_TOTAL = 24
+const FROZEN_TOTAL = 16
 
 describe('test substitutions', () => {
   // This file quotes the patterns it looks for — in its regexes and in its prose —

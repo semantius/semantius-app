@@ -1,101 +1,115 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { NavUser } from './NavUser'
 import { SidebarProvider } from '@/components/ui/sidebar'
+import { bootApp, renderInApp } from '@/test/appHarness'
 import type { UserMenuEntry } from '@/lib/userMenu'
 
-const pushSpy = vi.fn()
+/**
+ * The configuration-driven account menu, configured the way a deployment
+ * configures it and rendered by the app's own router.
+ *
+ * WHAT CHANGED AND WHY. The file mocked four modules: `@tanstack/react-router`
+ * (a fake `Link` and a `history.push` spy), `@/hooks/useAuth`, `@/hooks/useTable`
+ * and `@/lib/config` — the last one supplying the very menu under test. So the
+ * thing being asserted was that `NavUser` renders a list handed to it by the
+ * test, through a router written by the test.
+ *
+ * None of that was necessary. The menu is `VITE_UI_CUSTOMIZER`, a real runtime
+ * variable that `initConfig()` parses (`lib/userMenu.ts`) — so the test sets the
+ * variable and the real resolution runs. The permissions come from the tenant's
+ * own `rpc/get_userinfo` for the signed-in identity. The router is a real one
+ * whose real history says where a click went.
+ *
+ * PERMISSIONS ARE REAL, SO THE GATES ARE TOO. The test identity holds `admin`
+ * and not `no-such-permission`; both entries below are gated on a permission
+ * that genuinely is or is not in `rpcUserInfo.permissions`.
+ *
+ * Nothing here replaces `window.location`, `window.open` or `matchMedia`, and
+ * nothing disables userEvent's pointer-events check. The three menu targets are
+ * expressed in the DOM:
+ *
+ *   target: newtab   -> <a href target="_blank" rel="noopener noreferrer">
+ *   target: redirect -> <a href>
+ *   in-app           -> a menu item that calls router.history.push
+ *
+ * The first two are asserted by reading attributes off a link, and must NOT be
+ * clicked: following a link is the browser's job, and a real browser would
+ * navigate the test frame away.
+ */
 
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({ children, ...props }: { children?: React.ReactNode }) => <a {...props}>{children}</a>,
-  useRouter: () => ({ history: { push: pushSpy } }),
-}))
-
-const mockPermissions = vi.fn<() => string[]>(() => [])
-
-vi.mock('@/hooks/useAuth', () => ({
-  useAuth: () => ({ rpcUserInfo: { permissions: mockPermissions() } }),
-}))
-
-vi.mock('@/hooks/useTable', () => ({
-  useTable: () => ({ data: [] }),
-}))
+const HELD = 'admin'
+const NOT_HELD = 'no-such-permission'
 
 const MENU: UserMenuEntry[] = [
   { title: 'Settings', url: '/settings?orgid=acme' },
   { title: 'Account', url: '/idp/account', target: 'redirect' },
   { title: 'Docs', url: '/docs', target: 'newtab' },
-  { title: 'Platform', url: 'https://app.semantius.com/settings/organization', permission: 'admin' },
+  { title: 'Platform', url: 'https://app.semantius.com/settings/organization', permission: HELD },
+  { title: 'Hidden', url: '/hidden', permission: NOT_HELD },
 ]
 
-vi.mock('@/lib/config', () => ({
-  getConfig: () => ({ uiCustomizer: { user: { menu: MENU } } }),
-}))
+const USER = { name: 'Wei Chen', email: 'admin@test.com', avatar: '' }
 
-// Nothing here replaces `window.location`, `window.open` or `matchMedia`, and
-// nothing disables userEvent's pointer-events check. This file runs in a real
-// Chromium, where those exist — and the three menu targets a test used to
-// observe by spying on them are now expressed in the DOM instead:
-//
-//   target: newtab   -> <a href target="_blank" rel="noopener noreferrer">
-//   target: redirect -> <a href>
-//   in-app           -> a menu item that calls router.history.push
-//
-// Which means the first two are asserted by reading attributes off a link
-// rather than by clicking and hoping a spy recorded it. Following a link is the
-// browser's job, not this suite's — and a test must NOT click these, because a
-// real browser would then navigate the test frame away.
-
-const user = { name: 'Wei Chen', email: 'admin@test.com', avatar: '' }
-
-/** Open the avatar popover and return a click helper for its items. */
+/** Open the avatar popover; returns the click helper and the real router. */
 async function openMenu() {
   const ui = userEvent.setup()
-  render(
+  const { router } = renderInApp(
     <SidebarProvider>
-      <NavUser user={user} />
-    </SidebarProvider>
+      <NavUser user={USER} />
+    </SidebarProvider>,
   )
-  const trigger = screen.getByRole('button')
+  // RouterProvider mounts its matches asynchronously, so the trigger is not
+  // there on the first tick.
+  const trigger = await waitFor(() => screen.getByRole('button', { name: /Wei Chen/i }))
   await ui.click(trigger)
   // The popup mounts in a portal a tick after the click.
   await waitFor(() => expect(screen.getByText('Log out')).toBeInTheDocument())
-  return ui
+  return { ui, router }
 }
 
 describe('NavUser — configuration-driven menu', () => {
-  beforeEach(() => {
-    pushSpy.mockClear()
-    mockPermissions.mockReturnValue([])
+  beforeEach(async () => {
+    // The real configuration channel: VITE_UI_CUSTOMIZER is a JSON string that
+    // initConfig() deserializes and resolves ({orgid} substitution, target
+    // resolution) before anything renders.
+    await bootApp({
+      VITE_BACKEND_TYPE: 'custom',
+      VITE_UI_CUSTOMIZER: JSON.stringify({ user: { menu: MENU } }),
+    })
   })
 
-  it('hides a permission-gated entry from a user without the permission', async () => {
+  it('hides an entry gated on a permission this user does not hold', async () => {
     await openMenu()
 
     expect(screen.getByText('Settings')).toBeInTheDocument()
-    expect(screen.queryByText('Platform')).not.toBeInTheDocument()
+    expect(screen.queryByText('Hidden')).not.toBeInTheDocument()
   })
 
-  it('shows a permission-gated entry to a user who holds the permission', async () => {
-    mockPermissions.mockReturnValue(['admin'])
-
+  it('shows an entry gated on a permission this user does hold', async () => {
     await openMenu()
 
-    expect(screen.getByText('Platform')).toBeInTheDocument()
+    // rpcUserInfo is null until /rpc/get_userinfo resolves, so gated entries
+    // appear only once the real answer is in — the same behavior as module
+    // gating, and the reason this one waits.
+    await waitFor(() => expect(screen.getByText('Platform')).toBeInTheDocument(), {
+      timeout: 20000,
+    })
   })
 
   it('pushes the exact configured URL for an in-app entry', async () => {
-    const ui = await openMenu()
+    const { ui, router } = await openMenu()
 
     await ui.click(screen.getByText('Settings'))
 
-    // Verbatim — the query string must survive, un-re-encoded.
-    expect(pushSpy).toHaveBeenCalledWith('/settings?orgid=acme')
+    // Read off the router's real history. Verbatim — the query string must
+    // survive, un-re-encoded.
+    expect(router.history.location.href).toBe('/settings?orgid=acme')
   })
 
   it('renders target: redirect as a link, so the browser leaves the SPA', async () => {
-    await openMenu()
+    const { router } = await openMenu()
 
     // /idp is proxied to another server: a router push would match the SPA's
     // catch-all module route and 404 until the user hit refresh. A link is a
@@ -104,7 +118,7 @@ describe('NavUser — configuration-driven menu', () => {
     expect(account).toHaveAttribute('href', '/idp/account')
     expect(account.tagName).toBe('A')
     expect(account).not.toHaveAttribute('target')
-    expect(pushSpy).not.toHaveBeenCalled()
+    expect(router.history.location.href).toBe('/')
   })
 
   it('renders target: newtab as a link that cannot reach back through window.opener', async () => {
@@ -114,7 +128,6 @@ describe('NavUser — configuration-driven menu', () => {
     expect(docs).toHaveAttribute('href', '/docs')
     expect(docs).toHaveAttribute('target', '_blank')
     expect(docs).toHaveAttribute('rel', 'noopener noreferrer')
-    expect(pushSpy).not.toHaveBeenCalled()
   })
 
   it('renders an in-app entry as a menu item, not a link', async () => {

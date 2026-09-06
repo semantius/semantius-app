@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi, type MockInstance } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 import { useTable } from './useTable'
 import { appWrapper, bootApp, bootAppSignedOut } from '@/test/appHarness'
@@ -35,7 +35,7 @@ describe('useTable', () => {
   // A call-through spy. It replaces nothing — `vi.spyOn` keeps the real
   // implementation — and exists only for the two assertions that are about a
   // request NOT being made, which is not observable from the hook's result.
-  let fetchSpy: ReturnType<typeof vi.spyOn<typeof globalThis, 'fetch'>>
+  let fetchSpy: MockInstance<typeof fetch>
   const requestedTable = () =>
     fetchSpy.mock.calls.some(([input]) => String(input).includes(`/${TABLE}`))
 

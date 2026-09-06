@@ -6,11 +6,19 @@
  * reason, per export.
  */
 /* eslint-disable react-refresh/only-export-components */
-import { type ReactNode, useState } from 'react'
+import { type ReactElement, type ReactNode, useState } from 'react'
+import { render } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { createMemoryHistory, createRootRoute, createRouter } from '@tanstack/react-router'
+import {
+  RouterProvider,
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+} from '@tanstack/react-router'
 import { inject } from 'vitest'
 import { AuthProviderWrapper } from '@/contexts/AuthContext'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { initConfig } from '@/lib/config'
 import type { RouterContext } from '@/routes/__root'
 import { SELF_HOSTED, setRuntimeEnv } from './runtimeConfig'
@@ -51,8 +59,8 @@ import { clearSession, seedSession } from './session'
  *     It must come after the config: the storage keys are prefixed per Vite mode,
  *     and the provider reads them when it mounts.
  */
-export async function bootApp(): Promise<void> {
-  setRuntimeEnv({ VITE_CONTROL_PLANE_ORG: inject('orgSlug') })
+export async function bootApp(env: Record<string, string> = {}): Promise<void> {
+  setRuntimeEnv({ VITE_CONTROL_PLANE_ORG: inject('orgSlug'), ...env })
   await initConfig()
   seedSession()
 }
@@ -66,8 +74,8 @@ export async function bootApp(): Promise<void> {
  * seeded a session earlier in the file would otherwise run signed IN here, and
  * the assertion it is making ("nothing was requested") would quietly invert.
  */
-export async function bootAppSignedOut(): Promise<void> {
-  setRuntimeEnv({ VITE_CONTROL_PLANE_ORG: inject('orgSlug') })
+export async function bootAppSignedOut(env: Record<string, string> = {}): Promise<void> {
+  setRuntimeEnv({ VITE_CONTROL_PLANE_ORG: inject('orgSlug'), ...env })
   await initConfig()
   clearSession()
 }
@@ -165,4 +173,50 @@ export function AppHarness({
 /** `renderHook`'s `wrapper`, for a hook that needs the app's providers. */
 export function appWrapper({ children }: { children: ReactNode }) {
   return <AppHarness>{children}</AppHarness>
+}
+
+/**
+ * Render something that ROUTES — a `<Link>`, a `useRouter()`, a
+ * `router.history.push()` — in the app's own provider composition.
+ *
+ * The nesting is `main.tsx`'s, in the same order: QueryClient, Tooltip,
+ * `AuthProviderWrapper` over the router, `RouterProvider` for that same router.
+ * The route tree is a single root route rendering `ui`, so the component under
+ * test is what the router renders — nothing else is invented, and the router,
+ * its history and its links are all real.
+ *
+ * The returned `router` is the observation point: after a click that navigates,
+ * `router.history.location` says where the app actually went. That is a fact
+ * about a real history, not a spy recording a call.
+ */
+export function renderInApp(ui: ReactElement, { initialEntries = ['/'] }: { initialEntries?: string[] } = {}) {
+  // A root route with an index child, which is the shape the router expects: a
+  // root route on its own matches nothing at '/' and renders the not-found
+  // component instead of the subject.
+  const rootRoute = createRootRoute()
+  const routeTree = rootRoute.addChildren([
+    createRoute({ getParentRoute: () => rootRoute, path: '/', component: () => ui }),
+  ])
+  const router = createRouter({
+    routeTree,
+    history: createMemoryHistory({ initialEntries }),
+    context: {
+      auth: {
+        isAuthenticated: () => false,
+        getToken: () => null,
+      },
+    } satisfies RouterContext,
+  })
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
+  const result = render(
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <AuthProviderWrapper router={router}>
+          <RouterProvider router={router} />
+        </AuthProviderWrapper>
+      </TooltipProvider>
+    </QueryClientProvider>,
+  )
+  return { ...result, router }
 }
