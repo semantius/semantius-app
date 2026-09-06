@@ -19,7 +19,7 @@ see §6.2.
 | --- | --- |
 | Branch | **`main`**, level with `origin/main` — the 44 commits were pushed and the first CI run is on GitHub (§6.4: check it) |
 | Stale branch | `feat/a11y-wcag-aa-mobile` still exists, identical to the pushed history, safe to delete |
-| Valid audit run | **none yet.** The newest artifact predates the `/xcustomers` exclusion; the run after Order step 5 is the first valid one |
+| Valid audit run | **`a11y-reports/20260906T163431-transport-retry.json`** — preview `main-20260906170619`, 166/168 measured, 23 / 3 / 29. `ACCESSIBILITY.md` is written from it |
 | In flight | Order steps 1–4 and 6–7 applied in the tree (see the per-section status lines); `a11y-mobile-plan.RESTORED.md` deleted (§6.6 done) |
 | Other sessions | `a11y-audit-review.md` appeared at 16:00, written by something other than this session — check before assuming the tree is yours |
 
@@ -290,7 +290,8 @@ as `/form-playground`. Now in `EXCLUDED` in `scripts/a11y-audit/routes.mjs`.
 | 1.4.10 Reflow | 5 findings, 1 on `/xcustomers` | 4 |
 | cantTell | 3, two of them `/xcustomers` | 1 |
 
-Expected **7 Partially Supports → 5**. Unverified — no valid run yet (§0).
+Expected **7 Partially Supports → 5**. The run gave **3**, because §4.1 and §4.2
+landed before it: 2.4.7, 2.4.2, 1.4.10 and 2.5.8 all → Supports; cantTell 4 → 2.
 
 **DECIDED — keep it, excluded from the audit only.** It stays as a scratch page.
 Consequences accepted, and they are not free: it remains in the bundle, its known
@@ -307,7 +308,7 @@ dead weight and could be deleted outright rather than excluded — **and so is
 `components/customers/CustomerForm.test.tsx`**, which renders it six times and is
 one of the suites that writes to the real tenant (§5.2).
 
-### 4.1 Reflow at 320px · 1.4.10 · 4 findings — APPLIED, awaiting the run
+### 4.1 Reflow at 320px · 1.4.10 · 4 findings — DONE (run: 0 findings, Supports)
 
 Two call sites, one pattern: `flex items-center justify-between`, heading left,
 ~150px button right. At 320 the button hangs 13–14px past the viewport with no
@@ -323,7 +324,7 @@ Let the row wrap, or shrink the button below `sm:`. Verify at 320.
 > 320px is not a phone target. WCAG 1.4.10 requires a width equivalent to 320 CSS
 > px — **1280px at 400% zoom**. The user is someone zooming a laptop.
 
-### 4.2 Target size · 2.5.8 · 6 findings — MEASURED and APPLIED
+### 4.2 Target size · 2.5.8 · 6 findings — DONE (run: 0 findings, Supports)
 
 Measured on the preview at 320: every title button is **24px tall** (20px line
 box + `py-0.5`), so `min-h-6` would indeed have changed nothing. The dimension
@@ -348,7 +349,41 @@ inside a `.justify-end` (numeric) header, which `DataTableView.tsx:772` gives
 **Measure the rendered box and the gap before changing anything.** The fix is
 more likely `gap` or width than `min-h`.
 
-### 4.3 Focus not obscured · 2.4.11 · 64 findings across 24 views — 4.3a/4.3b APPLIED, rest awaits the run
+### 4.3 Focus not obscured · 2.4.11 · 64 → 54 findings across 18 views — 4.3a/4.3b DONE; what is left is ONE question
+
+The run after 4.3a/4.3b: **54 findings, 18 views**, and they split cleanly:
+
+| Count | Focused control | Covered by |
+| --- | --- | --- |
+| **42** | the **grid's pagination controls behind the open record Sheet** (`nav > … page-number-input`, the page-size "10▼", prev/next) on `entity-record`, every viewport | the form's sticky action bar (28), a field description (8), a field (4), other (2) |
+| 12 | a column-title button on `entity-list` at **768** (5 × 2 themes) and 844×390 landscape (1 × 2) | the sticky `thead` or the neighboring pinned `th` |
+
+**The 42 are not a layout problem until one question is answered: why can the
+probe focus controls behind a modal overlay at all?** Either the record Sheet
+leaves the page behind it focusable (a real 2.4.11 *and* 2.4.3 defect — Tab
+leaves the form into controls the user cannot see), or Base UI marks that
+subtree inert and the probe's `__inertOrHidden` does not recognize the way it
+does it. CONTEXT-MEMORY says Base UI makes the page inert when a Sheet opens;
+the run says the controls took focus.
+
+**ANSWERED on the preview (`/nwind/orders/11077` at 390, Sheet open):** the
+record Sheet's popup is `role="dialog"` with **no `aria-modal`**, `#root` has
+neither `inert` nor `aria-hidden`, and `#page-number-input` behind it **takes
+focus** (`document.activeElement === el`). So it is the app, not the probe: the
+page behind the record overlay is fully focusable, and a keyboard user can Tab
+out of the form into controls they cannot see. That is a 2.4.3 defect as well as
+the 42 findings of 2.4.11. The sentence in CONTEXT-MEMORY ("Base UI marks the
+page behind it inert") is true of whichever Sheet that session measured and
+false of this one — check what `View.tsx:456`'s `<Sheet>` passes (Base UI's
+`modal` prop; the shadcn `ui/sheet.tsx` wrapper may default it off) and fix it
+there. Fixing that removes the 42 by construction; the 12 are separate.
+
+The 12 are the grid at exactly the width pinning turns back on (`md` = 768):
+4.3a's per-render padding did not clear them. Next: measure the pinned width
+and the scroll-padding actually applied at 768 on the preview.
+
+Only after both: the layout decision (action bar non-sticky below `md:`, smaller
+sticky heights, `scroll-margin` on the controls).
 
 The only large one. 28 × the record form's sticky action bar; 14 × the grid's
 sticky header over a sort button; 8 × a field description over its control; 14 ×
@@ -437,7 +472,7 @@ the next reader to a file that does not exist.
 1.4.3 one `dc:`-prefixed button below 4.5:1 (fixable by a local override). One
 upstream issue covering both.
 
-### 4.5 Focus visible · 2.4.7 — blind spot written into the probe; confirm on the run
+### 4.5 Focus visible · 2.4.7 — DONE (run: Supports on 42 views, no refused-focus evidence)
 
 All 14 findings were on `xcustomers-record`, which §4.0 removes. That is **not**
 evidence the app is fine: the probe (`probes.mjs`, `CONTROL_CONTRAST`) calls
@@ -530,7 +565,7 @@ numbers — including `20260906T115727-status`, which was generated *before* the
 say so in one line, and should also gain a row for that third run, which it does
 not currently list.
 
-### 6.2 `ACCESSIBILITY.md` must be rewritten, not edited — OPEN
+### 6.2 `ACCESSIBILITY.md` must be rewritten, not edited — DONE, from the valid run, leading with coverage
 
 The uncommitted draft uses the pre-rename vocabulary and numbers from a run that
 predates the `/xcustomers` exclusion. Discard its tables and regenerate them from
@@ -575,9 +610,14 @@ before.
 
 ### 6.5 Verification nobody has done — OPEN
 
-- **The single-column form at 390 has never been looked at by a human.** It is
-  behind an authenticated route, which is now reachable.
-- **Per-commit `pnpm check` was never proven** — it is asserted, not observed.
+- **The single-column form at 390** — looked at on preview
+  `main-20260906170619`: `screenshots/20260906170944-order-record-390.png`
+  (`/nwind/orders/11077`). Single column, labels above controls, descriptions
+  below, the sticky Submit/Reset bar clear of the last field. Nothing to fix from
+  looking; the human's own look is still theirs to take.
+- **Per-commit `pnpm check`** — observed green once on the tree before the retry
+  and grid commits (63 files, 651 passed, 4 skipped); the full suite is run again
+  on the final tree after the audit, and that result is the one that counts.
 - ~~**Revisit the audit's own backoff** once §2.4 lands~~ — kept, re-explained in
   `run.mjs`: the app's budget is ~10s, the provider's rate-limit window is longer,
   so the audit's 3s→60s waits are for what outlasts the app's retry.
@@ -649,12 +689,13 @@ earlier draft claimed all five were non-blocking and that was false.
 3. ~~§1.1 docs~~ DONE.
 4. ~~§4.3a and §4.3b~~ APPLIED. Folded §4.1, §4.3c, §4.3d and the §4.5 probe
    change in ahead of the run, so one 31-minute run measures all of them.
-5. Re-run the audit → confirm §4.0's expected 5 criteria and 1 cantTell, and
-   what 4.1 / 4.3 / 4.5 are left with.
+5. ~~Re-run the audit~~ DONE: 3 Partially Supports (not 5 — §4.1/§4.2 landed
+   first), 2 cantTell (not 1 — both provider 429s that outlasted every retry).
 6. ~~§4.2~~ measured on the first preview, fixed (width, not height), in the run.
 7. ~~§4.3e~~ RESOLVED — verified in source, nothing to land.
-8. §4.5 triage; §4.4 upstream issue.
-9. §4.3 — whatever 2.4.11 has left after step 4, then the layout decision.
+8. ~~§4.5 triage~~ DONE; §4.4 upstream issue — OPEN.
+9. §4.3 — answer the one question (page behind the Sheet: focusable, or a
+   probe blind spot?), then the 768 pinned-header case, then the layout decision.
 10. §3.1, §3.2 — the two data-layer decisions.
 11. §5.1 — confirm `logIn()` has no other failure mode, then delete the dead
     branch and its three substitutions.
@@ -663,4 +704,5 @@ earlier draft claimed all five were non-blocking and that was false.
 14. ~~§4.3f~~ DONE.
 15. ~~§6.1~~ DONE.
 16. §6.5 — the three verifications nobody has done.
-17. §6.2 — write `ACCESSIBILITY.md` from the final run. Delete this file.
+17. ~~§6.2~~ DONE from the valid run. This file stays until §3, §4.3, §4.4,
+    §5.1, §5.2 and §6.4's CI re-run are closed.

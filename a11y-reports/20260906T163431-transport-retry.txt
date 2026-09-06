@@ -1,0 +1,28 @@
+Accessibility audit — https://main-20260906170619-semantius-app.ma532.workers.dev
+166/168 views measured, 2 cantTell
+
+   29  Not Evaluated
+   23  Supports
+    3  Partially Supports
+
+Failing criteria:
+  1.3.1 Info and Relationships (A) — Partially Supports: 14 finding(s) across 14 of 166 views.
+      module-home @ 320 / light: heading level jumps h1 -> h3 ("No Portlets")
+      module-home @ 390 / light: heading level jumps h1 -> h3 ("No Portlets")
+      module-home @ 640 / light: heading level jumps h1 -> h3 ("No Portlets")
+      module-home @ 768 / light: heading level jumps h1 -> h3 ("No Portlets")
+      … 10 more
+  1.4.3 Contrast (Minimum) (AA) — Partially Supports: 7 finding(s) across 7 of 166 views.
+      module-home @ 320 / light: color-contrast — Elements must meet minimum color contrast ratio thresholds
+      module-home @ 390 / light: color-contrast — Elements must meet minimum color contrast ratio thresholds
+      module-home @ 640 / light: color-contrast — Elements must meet minimum color contrast ratio thresholds
+      module-home @ 768 / light: color-contrast — Elements must meet minimum color contrast ratio thresholds
+      … 3 more
+  2.4.11 Focus Not Obscured (Minimum) (AA) — Partially Supports: 54 finding(s) across 18 of 166 views.
+      entity-record @ 320 / light: div > nav > div > button#base-ui-_r_2u_ ("10▼") is covered by div > div > div > p#contact_title-description, div > form#overlay-record-form > div > div when focused
+      entity-record @ 320 / light: nav > div > div > input#page-number-input ("") is covered by div#_r_1n_ > div > form#overlay-record-form > div[sticky-container], form#overlay-record-form > div[sticky-container] > div > button[button], div > form#overlay-record-form > div[sticky-container] > div when focused
+      entity-record @ 320 / light: nav > div > div > button[button] ("") is covered by div#_r_1n_ > div > form#overlay-record-form > div[sticky-container], div > form#overlay-record-form > div[sticky-container] > div when focused
+      entity-record @ 390 / light: div > nav > div > button#base-ui-_r_25_ ("10▼") is covered by div > div > div > input#region when focused
+      … 50 more
+
+29 criteria are Not Evaluated (not a pass): 1.1.1, 1.2.3, 1.3.2, 1.3.3, 2.1.2, 2.1.4, 2.3.1, 2.4.3, 2.5.1, 2.5.2, 2.5.4, 3.2.1, 3.2.2, 3.2.6, 3.3.1, 3.3.7, 1.2.4, 1.2.5, 1.4.5, 1.4.13, 2.4.5, 2.4.6, 2.5.7, 3.2.3, 3.2.4, 3.3.3, 3.3.4, 3.3.8, 4.1.3

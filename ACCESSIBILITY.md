@@ -1,103 +1,115 @@
 # Accessibility status
 
-**WCAG 2.2 Level AA — supports with exceptions.** This document is the current
-state of that claim: what passes, what does not, where the failures are, and how
-to re-derive all of it. The scope of the claim — which routes and components it
-covers, and which are excluded — is in
+**WCAG 2.2 Level AA — supports with exceptions, and more than half of the
+standard is unmeasured.** This document is the current state of that claim: how
+much of the standard the evidence covers, what passes on that evidence, what does
+not, and how to re-derive all of it. The scope of the claim — which routes and
+components it covers, and which are excluded — is in
 [README.md § Accessibility](README.md#accessibility).
 
 | | |
 | --- | --- |
-| **Evidence** | `a11y-reports/20260905T230332-after-fixes.json` |
-| **Build audited** | preview `feataywcag-20260905232649`, branch `feat/a11y-wcag-aa-mobile` |
-| **Coverage** | 16 routes × 7 viewports × 2 themes = 224 views, **220 measured** |
-| **Result** | 19 Supports · 7 Partially Supports · 29 Not Evaluated (of 55 A + AA criteria) |
+| **Evidence** | `a11y-reports/20260906T163431-transport-retry.json` |
+| **Build audited** | preview `main-20260906170619`, `main` at `fedca1b` plus this document |
+| **Views** | 12 routes × 7 viewports × 2 themes = 168 views, **166 measured, 2 cantTell** |
+| **Criteria** | 23 Supports · 3 Partially Supports · **29 Not Evaluated** (of 55 A + AA) |
 
-The run does not read as a pass, and is not meant to: `summary.pass` is false
-whenever any criterion is Partially Supports or any view is cantTell.
+`summary.pass` is false, and is meant to be: it is false whenever any criterion is
+Partially Supports or any view is cantTell.
 
 ---
 
-## The seven that do not pass
+## Coverage first: 29 of 55 criteria are not evaluated
 
-Ordered by how much of the app they touch.
+An automated run answers only the questions it has a check for. This one has
+none for 29 criteria — more than half the standard — and a document that opened
+with "3 criteria fail" would be hiding that. Two kinds:
 
-### 2.4.11 Focus Not Obscured (Minimum) — AA — 64 findings across 24 of 220 views
+- **4 review-only criteria** the audit emits raw material for but cannot judge,
+  because the question is whether something is *good*, not whether it is
+  *present*: 1.1.1 Non-text Content (the alt text is listed), 2.4.3 Focus Order
+  (the tab sequence is listed), 2.4.6 Headings and Labels (the headings are
+  listed), 4.1.3 Status Messages (the live regions are listed). A person reads
+  those 166 lists; nobody has yet.
+- **25 criteria no check covers at all**: 1.2.3–1.2.5, 1.3.2, 1.3.3, 1.4.5,
+  1.4.13, 2.1.2, 2.1.4, 2.3.1, 2.4.5, 2.5.1, 2.5.2, 2.5.4, 2.5.7, 3.2.1–3.2.4,
+  3.2.6, 3.3.1, 3.3.3, 3.3.4, 3.3.7, 3.3.8. Some are trivially true of this app
+  (there is no audio, no flashing, no timed input) but "trivially true" is a
+  judgment, not a measurement, and it is not made here.
 
-A focused control ends up underneath a sticky surface. Three groups:
+Two more limits on what the evidence can say:
 
-| Count | What covers what |
-| --- | --- |
-| 28 | The record form's **sticky action bar** covers a control below it |
-| 14 | The grid's **sticky table header** covers a column-sort button |
-| 8 | A field description covers the control it describes |
-| 14 | The pagination controls, under the same two surfaces |
+- **The audit sees only the states it reaches.** Each view is the route as it
+  opens: no modal flows, no error states, no empty-versus-populated grids, no
+  in-progress edits. A control that only appears after an interaction was never
+  measured.
+- **No screen-reader pass has ever been run.** Every name and role here comes
+  from Chrome's accessibility tree, never from what a screen reader says.
 
-Routes `entity-record` (42) and `entity-list` (22); every viewport, worst at 320
-and 768. `scroll-padding` is the lever and is already applied to `html`, the
-Sheet/Dialog and the grid container — but where the sticky surface is taller than
-the space left over, padding cannot move the control clear. **This is the one
-open item that may end in a design decision rather than a CSS fix.**
+---
 
-### 2.4.7 Focus Visible — AA — 13 findings across 13 of 94 views
+## The three that do not pass
 
-One route, `xcustomers-record`, at every viewport: *"5 control(s) present but none
-produced a measurable focus indicator."*
+### 2.4.11 Focus Not Obscured (Minimum) — AA — 54 findings across 18 of 166 views
 
-**Triage this before fixing it.** The probe calls `el.focus()` and skips any
-control where `document.activeElement !== el`; a modal that traps focus elsewhere
-produces this exact message with nothing wrong. One route, one message repeated
-13 times, on a demo route — the shape of a measurement artifact, not of 13
-defects.
+A focused control ends up entirely underneath a sticky surface. Down from 64
+findings across 24 views in the previous run, after the grid's scroll-padding
+stopped being frozen at first render and phones stopped pinning columns.
 
-### 1.3.1 Info and Relationships — A — 14 findings across 14 of 440 views
+| Count | Where | What covers what |
+| --- | --- | --- |
+| 42 | `entity-record`, every viewport | The **grid's pagination controls, behind the open record Sheet**, covered by the form's sticky action bar or by a field of the form |
+| 12 | `entity-list` at 768 and 844×390 landscape | A column-title button covered by the sticky table header or a neighboring, pinned column header |
+
+The 42 are one thing, and the first question about them is not layout: the
+controls being focused belong to the page *behind* the record overlay. Either
+that overlay leaves the page behind it focusable — a real defect, since a
+keyboard user can Tab out of the form into controls they cannot see — or the
+probe is walking a subtree the overlay has made inert. Which of the two is the
+next step in `a11y-fix-plan.md` § 4.3.
+
+The 12 are the grid at exactly the width where column pinning turns back on.
+
+### 1.3.1 Info and Relationships — A — 14 findings across 14 of 166 views
 
 `h1 → h3` heading jump on the string `"No Portlets"`, on `module-home`, every
 viewport and both themes.
 
 **Not our markup.** That string is in `drizzle-cube@0.5.6`'s `dist/` and appears
-nowhere in `apps/web/src`. Fixing it means an upstream report, a version bump, or
-a wrapper — not an edit to a component in this repo.
+nowhere in `apps/web/src`. A heading level cannot be fixed in CSS; it needs an
+upstream report, a version bump, or a wrapper.
 
-### 1.4.3 Contrast (Minimum) — AA — 7 findings across 7 of 440 views
+### 1.4.3 Contrast (Minimum) — AA — 7 findings across 7 of 166 views
 
-One button below 4.5:1 on `module-home`, light theme only. The offending node is
-`.dc\:inline-flex.dc\:px-4.dc\:py-2` — the `dc:` prefix is drizzle-cube's Tailwind
-namespace. **Also vendor**, same package, same remedy.
+One `dc:`-prefixed button on `module-home`, light theme only, below 4.5:1.
 
-> The README's scope section excludes the drizzle-cube dashboard from the claim,
-> but the audit still walks `/nwind` because a user does. These two are reported
-> rather than suppressed for that reason: excluded from the claim is not the same
-> as absent from the product.
+The same vendor. This one *is* fixable locally with an override on the `dc:`
+class, and belongs in the same upstream issue as 1.3.1.
 
-### 1.4.10 Reflow — AA — 5 findings across 5 of 220 views — **320 only**
+**The drizzle-cube dashboard is excluded from the claim's scope but not from the
+user's experience.** `/nwind` is a route people open. Scoping it out bounds the
+work; it does not bound what a user meets.
 
-One button per page extends past the viewport with nothing able to scroll to it:
+---
 
-| Route | Element | Width | Overflows by |
+## What moved since the previous kept run
+
+`node scripts/a11y-audit/diff.mjs 20260905T230332-after-fixes.json 20260906T163431-transport-retry.json`:
+
+| Criterion | Before | After | Why |
 | --- | --- | --- | --- |
-| `entity-list` | "Add Customer" | 150px | 14px past 305px |
-| `documents` | "New Document" | 157px | 13px past 320px |
-| `xcustomers` | "Add Customer" | 150px | 14px past 305px |
+| 1.4.10 Reflow | 5 findings | Supports | The two heading-plus-button rows wrap at 320 instead of pushing a button past the viewport |
+| 2.5.8 Target Size | 6 findings | Supports | A short column title ("Id") was 16px wide beside a 24px sort icon; `min-w-6` on the title button. Measured first — the planned `min-h-6` would have changed nothing |
+| 2.4.7 Focus Visible | 13 findings | Supports | All 13 were on `/xcustomers`, an internal test page now excluded; the probe also now reports controls that refuse focus instead of counting them as "no indicator" |
+| 2.4.2 Page Titled | 1 collision | Supports | The colliding title was `/xcustomers` vs the real Customers view |
+| 2.4.11 | 64 / 24 views | 54 / 18 views | See above |
+| cantTell | 4 | 2 | The app now retries a rate-limited userinfo for ~10s itself (`apps/web/src/lib/retry.ts`); two views still outlasted that and the audit's own retries |
+| Views | 224 | 168 | `/xcustomers` and its three sub-routes are excluded as an internal test page |
 
-(Both light and dark on `entity-list`; the two viewport numbers differ because
-the probe measures `documentElement.clientWidth`, which is 305 where a vertical
-scrollbar is present and 320 where it is not. Content has to survive the
-narrower one.)
-
-Small, real, and ours.
-
-### 2.5.8 Target Size (Minimum) — AA — 6 findings across 6 of 220 views
-
-One node, under 24px tall:
-`.justify-end > .truncate.font-semibold.focus-visible\:outline-offset-2` — the
-record link in a right-aligned grid cell. `entity-list` at 320, 390 and 640, both
-themes. Ours, and a one-line fix.
-
-### 2.4.2 Page Titled — A — 1 finding
-
-`/nwind/customers` and `/xcustomers` both render the title
-`"Customers · Semantius"`. Ours. Either retitle the demo route or delete it.
+The two cantTell views are both *"Failed to fetch user information from OAuth
+provider"* — the identity provider rate-limiting `/userinfo` for longer than the
+app's ten-second budget plus the audit's 3s → 60s re-navigation waits. They are
+not counted for any criterion.
 
 ---
 
@@ -109,12 +121,12 @@ phones.
 **The responsive layout.** Below Tailwind's `md:` breakpoint the app changes
 shape: the sidebar becomes a Sheet, form fields go single-column (an
 `@container (max-width: 30rem)` query, so it keys on the form's own width rather
-than the viewport), and data-grid column pinning is switched off entirely —
-pinned columns are sized in absolute pixels and would take 320 of a 390px
-viewport's 343, leaving every other column permanently underneath them. The
-breakpoint is `48rem`, **not** `768px`, read through `matchMedia`, so it moves
-with a raised root font size instead of desynchronizing from every `md:` utility
-on the page.
+than the viewport), and data-grid column pinning is switched off entirely — the
+label column, the drag handle and the row-actions column alike; pinned columns
+are sized in absolute pixels and would take 320 of a 390px viewport's 343,
+leaving every other column permanently underneath them. The breakpoint is
+`48rem`, **not** `768px`, read through `matchMedia`, so it moves with a raised
+root font size instead of desynchronizing from every `md:` utility on the page.
 
 **The 320px column.** Not a device choice. WCAG 2.2 SC 1.4.10 requires content to
 work at a width equivalent to 320 CSS px without scrolling in two dimensions, and
@@ -123,62 +135,16 @@ vision on a laptop, not someone on a 2016 phone. Current handsets are ~360–430
 CSS px, which the 390 column covers; both stay, for different reasons, and 320
 cannot be dropped without dropping the criterion.
 
-Where the failures actually land:
+Where the failures land now:
 
 | Viewport | State |
 | --- | --- |
-| **320** | The three ours-and-small defects live here: the overflowing button (1.4.10), the under-sized grid link (2.5.8), and the worst of the focus-obscured findings (2.4.11) |
-| **390** | Clean apart from 2.4.11 and 2.5.8, which it shares with wider viewports |
-| **844×390 landscape** | No findings of its own |
-| **640 / 768 / 1024 / 1440** | 2.4.11 (768 is its second-worst width), plus the two vendor findings on `module-home` |
+| **320 / 390 / 640 / 1024 / 1440** | 2.4.11 on `entity-record` only (3 findings each, the pagination controls behind the Sheet), plus the two vendor findings on `module-home` |
+| **768** | The worst width: 2.4.11 on `entity-record` (3) **and** `entity-list` (5) — column pinning turns on at `md`, and the sticky header covers a title button |
+| **844×390 landscape** | 2.4.11: `entity-record` (3), `entity-list` (1) |
 
-So the layout adapts; what remains is a handful of things a few pixels wrong at
-the narrowest width, plus one structural problem with sticky surfaces that is not
-specific to mobile at all.
-
----
-
-## What this claim does not cover
-
-Stated because a reader who sees "WCAG 2.2 AA" would otherwise infer it was
-covered.
-
-**29 of 55 criteria report Not Evaluated, for two different reasons.**
-
-- **Four** have no machine pass condition, because each asks whether something is
-  *good* rather than whether it is *present*: 1.1.1 (is the alt text accurate),
-  2.4.3 (is the focus order meaningful), 2.4.6 (is the heading descriptive),
-  4.1.3 (does the announcement say something useful). For these four the audit
-  emits the raw material — every alt string, the tab order per route, every
-  heading, every live region — so they are reviewed by reading a diff.
-- **The other 25** are Not Evaluated because no check covers them at all. They
-  carry no evidence in the artifact. Not Evaluated means exactly that, never
-  "passed quietly".
-
-**No screen-reader pass has been run**, and no manual accessibility pass is
-scheduled. That is deliberate — a cadence nobody runs decays into a claim nobody
-can support — but it is a real limit on everything above: the audit measures what
-a browser can be asked, not what a screen-reader user experiences.
-
-**Excluded from the claim** (see the README's scope section): the drizzle-cube
-`AnalyticsDashboard` and `apps/web/src/charts/` which only renders inside it, and
-`/form-playground`. **Excluded from the audit run** for lack of a steady state:
-`/logout` (side effect then redirect) and `/oauth2_callback` (reachable only
-mid-OAuth with a live code).
-
-**The audit sees only the routes it visits in the states it reaches.** Modal
-flows, error states and empty-versus-populated grids need cases that are not yet
-written.
-
-**Nine lint violations are accepted**, not fixed: 3 frozen in
-`apps/web/eslint-suppressions.json` and 6 documented inline (two niko-table
-composite widgets, one deliberate autofocus, three `anchor-has-content` on
-NavUser links whose content arrives through Base UI's `render` merge, which the
-rule cannot follow).
-
-**A module tile's background can be overridden per module by authored
-`logo_color` data.** No palette check can reach that; its contrast is a data
-question.
+So the layout adapts. What remains is one structural problem with sticky
+surfaces over a focused control — and it is not specific to mobile at all.
 
 ---
 
@@ -186,29 +152,42 @@ question.
 
 | Criterion | Level | Views checked |
 | --- | --- | --- |
-| 1.2.1 Audio-only and Video-only (Prerecorded) | A | 220 |
-| 1.2.2 Captions (Prerecorded) | A | 220 |
-| 1.4.1 Use of Color | A | 220 |
-| 1.4.2 Audio Control | A | 220 |
-| 2.1.1 Keyboard | A | 220 |
-| 2.2.1 Timing Adjustable | A | 220 |
-| 2.2.2 Pause, Stop, Hide | A | 220 |
-| 2.4.1 Bypass Blocks | A | 312 |
-| 2.4.4 Link Purpose (In Context) | A | 220 |
-| 2.5.3 Label in Name | A | 220 |
-| 3.1.1 Language of Page | A | 440 |
-| 3.3.2 Labels or Instructions | A | 220 |
-| 4.1.2 Name, Role, Value | A | 220 |
-| 1.3.4 Orientation | AA | 252 |
-| 1.3.5 Identify Input Purpose | AA | 220 |
-| 1.4.4 Resize Text | AA | 220 |
-| 1.4.11 Non-text Contrast | AA | 94 |
-| 1.4.12 Text Spacing | AA | 220 |
-| 3.1.2 Language of Parts | AA | 220 |
+| 1.2.1 Audio-only and Video-only (Prerecorded) | A | 166 |
+| 1.2.2 Captions (Prerecorded) | A | 166 |
+| 1.4.1 Use of Color | A | 166 |
+| 1.4.2 Audio Control | A | 166 |
+| 2.1.1 Keyboard | A | 166 |
+| 2.2.1 Timing Adjustable | A | 166 |
+| 2.2.2 Pause, Stop, Hide | A | 166 |
+| 2.4.1 Bypass Blocks | A | 166 |
+| 2.4.2 Page Titled | A | 166 |
+| 2.4.4 Link Purpose (In Context) | A | 166 |
+| 2.5.3 Label in Name | A | 166 |
+| 3.1.1 Language of Page | A | 166 |
+| 3.3.2 Labels or Instructions | A | 166 |
+| 4.1.2 Name, Role, Value | A | 166 |
+| 1.3.4 Orientation | AA | 166 |
+| 1.3.5 Identify Input Purpose | AA | 166 |
+| 1.4.4 Resize Text | AA | 166 |
+| 1.4.10 Reflow | AA | 166 |
+| 1.4.11 Non-text Contrast | AA | 42 |
+| 1.4.12 Text Spacing | AA | 166 |
+| 2.4.7 Focus Visible | AA | 42 |
+| 2.5.8 Target Size (Minimum) | AA | 166 |
+| 3.1.2 Language of Parts | AA | 166 |
 
 View counts differ per criterion because each is checked by the probes that can
-speak to it: 1.4.11 only where a form control is rendered, 3.1.1 on every
-document in both themes, 2.4.1 wherever a landmark structure exists.
+speak to it: 1.4.11 and 2.4.7 only where a form control is rendered (42 views),
+everything else on every measured view. A view is counted once per criterion
+however many probes touch it; the three earlier kept runs counted once per probe
+and say "of 440" over a 224-view set — read those denominators as inflated.
+
+Two things "Supports" does not say. **2.4.1 Bypass Blocks** is checked as "a
+skip link exists, is first in the tab order, and its target resolves"; that its
+target now sits *below* the app header rather than on the `<main>` that contains
+the header was fixed this run, and is not what the check measures. **2.4.7** is
+measured on the first twelve controls of a view that take focus; a control that
+refuses focus is now listed as evidence, never counted as an indicator.
 
 ---
 
@@ -249,7 +228,7 @@ pnpm preview:wrangler
 dotenvx run -- node scripts/a11y-audit/run.mjs \
   --url "$(grep -oE 'https://\S+' .preview-url.md)" --label <label>
 
-# What moved between two runs.
+# What moved between two runs (bare filenames; the script looks in a11y-reports/).
 node scripts/a11y-audit/diff.mjs <older>.json <newer>.json
 ```
 
@@ -266,4 +245,5 @@ node scripts/a11y-audit/diff.mjs <older>.json <newer>.json
 3. Commit the kept run's `.json` and `.txt`, and add a row to that file's table.
 4. Rewrite the tables above **from that run** and update the citation block at
    the top. Every number in this document comes from one named artifact; if you
-   cannot point at the run a number came from, it does not belong here.
+   cannot point at the run a number came from, it does not belong here. Lead
+   with the coverage, not the findings.
