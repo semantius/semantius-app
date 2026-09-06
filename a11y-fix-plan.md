@@ -687,9 +687,13 @@ before.
   (`/nwind/orders/11077`). Single column, labels above controls, descriptions
   below, the sticky Submit/Reset bar clear of the last field. Nothing to fix from
   looking; the human's own look is still theirs to take.
-- **Per-commit `pnpm check`** — observed green once on the tree before the retry
-  and grid commits (63 files, 651 passed, 4 skipped); the full suite is run again
-  on the final tree after the audit, and that result is the one that counts.
+- **Per-commit `pnpm check`** — observed green five times across the day's
+  commits (63 files, 651 → 659 passed, 4 skipped), and red once: `useTable`'s
+  first test timed out on the tenant's bad minute, because Testing Library's
+  `waitFor` gives up after 1s while the transport now retries for up to ~10s.
+  `src/test/setup.browser.ts` sets `asyncUtilTimeout` to 15s for the whole
+  browser project — a test against the real tenant has to wait out the budget
+  the app is supposed to spend. The commit after that is the observed-green one.
 - ~~**Revisit the audit's own backoff** once §2.4 lands~~ — kept, re-explained in
   `run.mjs`: the app's budget is ~10s, the provider's rate-limit window is longer,
   so the audit's 3s→60s waits are for what outlasts the app's retry.

@@ -22,3 +22,14 @@ import '@/theme-a11y.css'
 afterEach(() => {
   cleanup()
 })
+
+// Testing Library's `waitFor` gives up after 1s by default. Every test in this
+// project that reads data talks to the REAL tenant, and the app's fetch
+// interceptor now retries a rate limit or a cold start for up to ~10s
+// (lib/retry.ts, MAX_ELAPSED_MS) before an answer reaches the hook. A 1s wait
+// therefore fails a test for the exact behavior the app is supposed to have —
+// `useTable.test.tsx` did, once, on a bad minute at the tenant — and a
+// per-test `{ timeout }` would have to be remembered in every file. 15s covers
+// the budget plus the request itself and stays under the 20s testTimeout.
+import { configure } from '@testing-library/react'
+configure({ asyncUtilTimeout: 15_000 })
