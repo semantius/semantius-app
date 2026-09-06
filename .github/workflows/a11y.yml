@@ -3,16 +3,18 @@ name: Accessibility
 # The two real-browser checks that `pnpm check` cannot carry, defined once and
 # called from anywhere — the same rule as checks.yml.
 #
-#   login-journey  The interactive OAuth round trip (apps/web/e2e/), the only
-#                  place the app's real login path runs. It is what keeps the
-#                  suite's `#jwt` session seeding honest. A build plus three
-#                  Playwright tests and no secrets: cheap enough to GATE a
-#                  release, and docker-publish.yml calls it beside checks.yml
-#                  for exactly that. The trade-off is deliberate: it depends on
-#                  test-oidc-server.ma532.workers.dev answering, so an outage
-#                  there blocks a release. That is the right failure — a build
-#                  whose login cannot be proven should not ship — and the server
-#                  lives in the same Cloudflare account as the previews.
+#   login-journey  Everything in apps/web/e2e/: the interactive OAuth round trip,
+#                  the only place the app's real login path runs (and what keeps
+#                  the suite's session seeding honest), plus the transient-failure
+#                  contract — a 429 or a cold-start 404 must never reach the user
+#                  as text. Two builds and seven Playwright tests: cheap enough to
+#                  GATE a release, and docker-publish.yml calls it beside
+#                  checks.yml for exactly that. The trade-off is deliberate: it
+#                  depends on test-oidc-server.ma532.workers.dev answering and on
+#                  the tenant being up, so an outage in either blocks a release.
+#                  That is the right failure — a build whose login cannot be
+#                  proven should not ship — and both live in the same account as
+#                  the previews.
 #
 #   audit          scripts/a11y-audit/ against a Cloudflare preview deployed from
 #                  the same commit. It decrypts the committed .env
@@ -46,18 +48,16 @@ on:
         type: string
         default: ci
     secrets:
-      # `login-journey` needs none of this; `audit` needs all of it (Cloudflare
-      # token, tenant API key), and a called workflow receives no secrets unless
-      # the caller passes them. Optional, so a caller that only wants the
-      # journey does not have to hold the key — but then it must leave `audit`
-      # off, or the deploy step fails on an empty value.
+      # Both jobs need it now: `audit` for the Cloudflare token, and the e2e job
+      # for the tenant API key its `tenant` project mints a session with. A
+      # called workflow receives no secrets unless the caller passes them.
       DOTENV_PRIVATE_KEY:
-        description: 'Decrypts the committed .env for the audit job. Not needed for login-journey.'
-        required: false
+        description: 'Decrypts the committed .env: the tenant API key for the e2e run, plus the Cloudflare token for the audit.'
+        required: true
 
 jobs:
   login-journey:
-    name: e2e · real OAuth login
+    name: e2e · real login, real failures
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -76,10 +76,13 @@ jobs:
       - name: Install Chromium
         run: pnpm --filter @semantius/frontend test:e2e:install
 
-      # playwright.config.ts builds the app with `--mode e2e` under its own
-      # environment (the test identity provider, an explicit empty control-plane
-      # URL), so nothing here reads .env and nothing needs a secret.
-      - name: Login journey
+      # Two builds, two projects (playwright.config.ts): `chromium` drives the
+      # interactive login against the OIDC test server, and `tenant` injects
+      # transient failures into the REAL tenant's endpoints — which needs
+      # SEMANTIUS_API_KEY to mint a session, hence dotenvx and the key below.
+      - name: Login journey and transient failures
+        env:
+          DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
         run: pnpm --filter @semantius/frontend test:e2e
 
       - name: Keep the trace of a failed journey

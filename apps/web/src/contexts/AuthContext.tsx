@@ -4,6 +4,7 @@ import type { IAuthContext } from 'react-oauth2-code-pkce'
 import { ConfigErrorPage } from '@/components/ConfigErrorPage'
 import { getApiConfig, createApiHeaders, setInterceptorToken } from '@/lib/apiClient'
 import { getConfig } from '@/lib/config'
+import { fetchWithRetry } from '@/lib/transientFailure'
 import type { AnyRouter } from '@tanstack/react-router'
 import type { RouterContext } from '@/routes/__root'
 
@@ -280,7 +281,11 @@ function RouterContextUpdater({
 
       if (shouldFetchOAuthUserInfo) {
         promises.push(
-          fetch(userinfoEndpoint, {
+          // Retried, because this endpoint answers 429 when pages load a few
+          // seconds apart and the user has done nothing wrong. Without it the
+          // rate limit arrives as a terminal error card — observed nineteen
+          // times in a single accessibility audit run. See lib/transientFailure.
+          fetchWithRetry(userinfoEndpoint, {
             headers: {
               Authorization: `Bearer ${token}`,
             },
@@ -310,11 +315,19 @@ function RouterContextUpdater({
         const headersRecord = createApiHeaders(token)
 
         promises.push(
-          fetch(`${apiBaseUrl}/rpc/get_userinfo`, {
-            method: 'POST',
-            headers: headersRecord,
-            body: "{}",
-          })
+          // `coldStart404`: the tenant's serverless PostgREST answers the FIRST
+          // request after an idle period with a 404, and a reload fixes it. A
+          // 404 is only transient here — this is a read, on an endpoint that
+          // exists, against a backend that sleeps.
+          fetchWithRetry(
+            `${apiBaseUrl}/rpc/get_userinfo`,
+            {
+              method: 'POST',
+              headers: headersRecord,
+              body: "{}",
+            },
+            { coldStart404: true },
+          )
             .then(async (response) => {
               if (!response.ok) {
                 throw await responseError('Failed to fetch RPC user info', response)

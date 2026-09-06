@@ -18,7 +18,7 @@
     "genconfig": "node scripts/genconfig.js",
     "a11y:tokens": "node scripts/derive-a11y-tokens.mjs",
     "preview:wrangler": "../../workplace/deploy-wrangler.sh",
-    "test:e2e": "playwright test",
+    "test:e2e": "dotenvx run -f ../../.env -- playwright test",
     "test:e2e:install": "playwright install --with-deps chromium"
   },
   "dependencies": {

@@ -96,7 +96,10 @@ export function useTable<T = Record<string, unknown>>(
           const errorData = await response.json()
           // Validate that errorData is an object before using it
           if (errorData && typeof errorData === 'object' && !Array.isArray(errorData)) {
-            errorDetails = errorData as Record<string, unknown>
+            // The status rides along with the server's own body: the query
+            // client's retry predicate (main.tsx) reads it to tell a rate limit
+            // or a cold start from a request that was simply wrong.
+            errorDetails = { ...(errorData as Record<string, unknown>), status: response.status }
             // Use the message from the error response if available
             if ('message' in errorDetails && typeof errorDetails.message === 'string') {
               errorMessage = errorDetails.message

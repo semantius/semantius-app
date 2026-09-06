@@ -9,6 +9,9 @@ lerna-debug.log*
 
 node_modules
 dist
+# The tenant e2e build (playwright.config.ts) writes here so the two e2e builds
+# do not clobber each other.
+dist-e2e-tenant
 dist-ssr
 *.local
 .turbo

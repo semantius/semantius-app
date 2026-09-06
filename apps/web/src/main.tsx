@@ -9,6 +9,7 @@ import { Toaster } from './components/ui/sonner'
 import { TooltipProvider } from './components/ui/tooltip'
 import type { RouterContext } from './routes/__root'
 import { initConfig, getConfigError } from './lib/config'
+import { isTransientError } from './lib/transientFailure'
 import { hideAppLoader } from './lib/appLoader'
 import { BootFailure } from './components/BootFailure'
 import { SidebarPrefetch } from './components/layout/SidebarPrefetch'
@@ -77,7 +78,14 @@ const queryClient = new QueryClient({
       refetchOnMount: 'always', // Always refetch when component mounts (even if fresh)
       refetchOnWindowFocus: 'always', // Always refetch when window regains focus (even if fresh)
       refetchOnReconnect: true, // Always refetch when reconnecting to network
-      retry: 1,
+      // Retry only what is worth retrying, and only a bounded number of times.
+      // A plain `retry: 1` did the opposite of both: it repeated a request the
+      // server had understood and refused (a 400, a missing column) to arrive at
+      // the same answer a second later, and gave up after ONE attempt on the two
+      // failures that really do pass — the tenant's rate limit and its
+      // serverless cold-start 404. `coldStart404` is true here because every
+      // query in this client goes to that PostgREST. See lib/transientFailure.
+      retry: (failureCount, error) => failureCount < 3 && isTransientError(error, true),
     },
   },
 })
