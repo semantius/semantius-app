@@ -9,10 +9,10 @@ components it covers, and which are excluded — is in
 
 | | |
 | --- | --- |
-| **Evidence** | `a11y-reports/20260906T163431-transport-retry.json` |
-| **Build audited** | preview `main-20260906170619`, `main` at `fedca1b` plus this document |
-| **Views** | 12 routes × 7 viewports × 2 themes = 168 views, **166 measured, 2 cantTell** |
-| **Criteria** | 23 Supports · 3 Partially Supports · **29 Not Evaluated** (of 55 A + AA) |
+| **Evidence** | `a11y-reports/20260906T173406-pinning-lg.json` |
+| **Build audited** | preview `main-20260906175709`, `main` at `f1a55fb` |
+| **Views** | 12 routes × 7 viewports × 2 themes = 168 views, **164 measured, 4 cantTell** |
+| **Criteria** | 24 Supports · 2 Partially Supports · **29 Not Evaluated** (of 55 A + AA) |
 
 `summary.pass` is false, and is meant to be: it is false whenever any criterion is
 Partially Supports or any view is cantTell.
@@ -23,14 +23,14 @@ Partially Supports or any view is cantTell.
 
 An automated run answers only the questions it has a check for. This one has
 none for 29 criteria — more than half the standard — and a document that opened
-with "3 criteria fail" would be hiding that. Two kinds:
+with "2 criteria fail" would be hiding that. Two kinds:
 
 - **4 review-only criteria** the audit emits raw material for but cannot judge,
   because the question is whether something is *good*, not whether it is
   *present*: 1.1.1 Non-text Content (the alt text is listed), 2.4.3 Focus Order
   (the tab sequence is listed), 2.4.6 Headings and Labels (the headings are
   listed), 4.1.3 Status Messages (the live regions are listed). A person reads
-  those 166 lists; nobody has yet.
+  those 164 lists; nobody has yet.
 - **25 criteria no check covers at all**: 1.2.3–1.2.5, 1.3.2, 1.3.3, 1.4.5,
   1.4.13, 2.1.2, 2.1.4, 2.3.1, 2.4.5, 2.5.1, 2.5.2, 2.5.4, 2.5.7, 3.2.1–3.2.4,
   3.2.6, 3.3.1, 3.3.3, 3.3.4, 3.3.7, 3.3.8. Some are trivially true of this app
@@ -48,68 +48,75 @@ Two more limits on what the evidence can say:
 
 ---
 
-## The three that do not pass
+## The two that do not pass
 
-### 2.4.11 Focus Not Obscured (Minimum) — AA — 54 findings across 18 of 166 views
-
-A focused control ends up entirely underneath a sticky surface. Down from 64
-findings across 24 views in the previous run, after the grid's scroll-padding
-stopped being frozen at first render and phones stopped pinning columns.
-
-| Count | Where | What covers what |
-| --- | --- | --- |
-| 42 | `entity-record`, every viewport | The **grid's pagination controls, behind the open record Sheet**, covered by the form's sticky action bar or by a field of the form |
-| 12 | `entity-list` at 768 and 844×390 landscape | A column-title button covered by the sticky table header or a neighboring, pinned column header |
-
-The 42 are one thing, and the first question about them is not layout: the
-controls being focused belong to the page *behind* the record overlay. Either
-that overlay leaves the page behind it focusable — a real defect, since a
-keyboard user can Tab out of the form into controls they cannot see — or the
-probe is walking a subtree the overlay has made inert. Which of the two is the
-next step in `a11y-fix-plan.md` § 4.3.
-
-The 12 are the grid at exactly the width where column pinning turns back on.
-
-### 1.3.1 Info and Relationships — A — 14 findings across 14 of 166 views
+### 1.3.1 Info and Relationships — A — 14 findings across 14 of 164 views
 
 `h1 → h3` heading jump on the string `"No Portlets"`, on `module-home`, every
 viewport and both themes.
 
-**Not our markup.** That string is in `drizzle-cube@0.5.6`'s `dist/` and appears
+**Not our markup.** That string is in `drizzle-cube@0.5.8`'s `dist/` and appears
 nowhere in `apps/web/src`. A heading level cannot be fixed in CSS; it needs an
-upstream report, a version bump, or a wrapper.
-
-### 1.4.3 Contrast (Minimum) — AA — 7 findings across 7 of 166 views
-
-One `dc:`-prefixed button on `module-home`, light theme only, below 4.5:1.
-
-The same vendor. This one *is* fixable locally with an override on the `dc:`
-class, and belongs in the same upstream issue as 1.3.1.
+upstream report, a version bump (0.9.0 is current on npm; whether it changes
+this is unchecked), or a wrapper. The issue text is drafted in
+`a11y-fix-plan.md` § 4.4 and not yet filed.
 
 **The drizzle-cube dashboard is excluded from the claim's scope but not from the
 user's experience.** `/nwind` is a route people open. Scoping it out bounds the
 work; it does not bound what a user meets.
 
+### 1.4.3 Contrast (Minimum) — AA — 4 findings across 4 of 164 views
+
+Not the vendor button any more: that one (`--dc-primary` `#3b82f6`, 3.68:1) is
+overridden to 6.30:1 in `theme-a11y.css` and its seven findings are gone. The
+four that replaced them are on four unrelated views (`module-home` and
+`crm-home-detail` at 768, `entity-record` and `settings` at 1440, all light),
+two nodes each, `.mt-1` and `.gap-1` / `.h-auto` — the message line and the
+Details button of the app's own **`ApiErrorDisplay`**, in `text-muted-foreground`
+on the card's `bg-destructive/10` tint. The tenant's API had a bad minute during
+this run (three of the four cantTell views are its error card), and these four
+views rendered a smaller error card somewhere and were measured anyway.
+
+That is an error-state pair no earlier run had reached — exactly the "states the
+audit never sees" caveat above, seen once by accident. **Fixed in the tree after
+this run** (`text-foreground` on both nodes, and the pair is now pinned in
+`tokenContrast.test.ts` for every surface), **not re-audited**: the state cannot
+be produced on purpose. The next full run either does not show it or shows it
+fixed.
+
 ---
 
 ## What moved since the previous kept run
 
-`node scripts/a11y-audit/diff.mjs 20260905T230332-after-fixes.json 20260906T163431-transport-retry.json`:
+Two runs on 2026-09-06, against the last kept run before them
+(`20260905T230332-after-fixes`); `node scripts/a11y-audit/diff.mjs <older> <newer>`
+reproduces each step.
 
-| Criterion | Before | After | Why |
-| --- | --- | --- | --- |
-| 1.4.10 Reflow | 5 findings | Supports | The two heading-plus-button rows wrap at 320 instead of pushing a button past the viewport |
-| 2.5.8 Target Size | 6 findings | Supports | A short column title ("Id") was 16px wide beside a 24px sort icon; `min-w-6` on the title button. Measured first — the planned `min-h-6` would have changed nothing |
-| 2.4.7 Focus Visible | 13 findings | Supports | All 13 were on `/xcustomers`, an internal test page now excluded; the probe also now reports controls that refuse focus instead of counting them as "no indicator" |
-| 2.4.2 Page Titled | 1 collision | Supports | The colliding title was `/xcustomers` vs the real Customers view |
-| 2.4.11 | 64 / 24 views | 54 / 18 views | See above |
-| cantTell | 4 | 2 | The app now retries a rate-limited userinfo for ~10s itself (`apps/web/src/lib/retry.ts`); two views still outlasted that and the audit's own retries |
-| Views | 224 | 168 | `/xcustomers` and its three sub-routes are excluded as an internal test page |
+| Criterion | 09-05 | 09-06 first run | 09-06 second run | Why |
+| --- | --- | --- | --- | --- |
+| 1.4.10 Reflow | 5 findings | Supports | Supports | The two heading-plus-button rows wrap at 320 instead of pushing a button past the viewport |
+| 2.5.8 Target Size | 6 findings | Supports | Supports | A short column title ("Id") was 16px wide beside a 24px sort icon; `min-w-6` on the title button. Measured first — the planned `min-h-6` would have changed nothing |
+| 2.4.7 Focus Visible | 13 findings | Supports | Supports | All 13 were on `/xcustomers`, an internal test page now excluded; the probe also now reports controls that refuse focus instead of counting them as "no indicator" |
+| 2.4.2 Page Titled | 1 collision | Supports | Supports | The colliding title was `/xcustomers` vs the real Customers view |
+| 2.4.11 Focus Not Obscured | 64 / 24 views | 54 / 18 views | **Supports** | First the grid's scroll-padding stopped being frozen and phones stopped pinning; then column pinning moved from `md:` to `lg:` (768px was measured too narrow for the pinned set), and 42 findings turned out to be controls behind the record Sheet that no Tab press reaches — the probe now measures only the open dialog, and the page behind is `inert` (below) |
+| 1.4.3 Contrast | 7 (vendor) | 7 (vendor) | 4 (our error card) | The vendor primary is overridden; the error card's muted text is fixed after the run |
+| cantTell | 4 | 2 | 4 | Provider and tenant rate limits that outlasted the app's ~10s retry (`apps/web/src/lib/retry.ts`) and the audit's re-navigations |
+| Views | 224 | 168 | 168 | `/xcustomers` and its three sub-routes are excluded as an internal test page |
 
-The two cantTell views are both *"Failed to fetch user information from OAuth
-provider"* — the identity provider rate-limiting `/userinfo` for longer than the
-app's ten-second budget plus the audit's 3s → 60s re-navigation waits. They are
-not counted for any criterion.
+The four cantTell views are three *"Failed to fetch user information from API"*
+and one *"…from OAuth provider"* — the tenant's PostgREST and the identity
+provider refusing for longer than the app's ten-second budget plus the audit's
+3s → 60s re-navigation waits. They are not counted for any criterion.
+
+**One thing this run found that is not a criterion it reports.** The record
+Sheet, opened by deep link, left the whole page behind it exposed to a screen
+reader: Base UI hides the outside once, at open, and exempts every live region's
+ancestors, and the grid renders after the Sheet does. Keyboard focus was
+trapped all along (measured); the virtual cursor was not. `#root` is now `inert`
+while any dialog is open (`components/a11y/ModalInert.tsx`), and the toaster is
+portaled out of `#root` so it still announces. Proven in
+`e2e/modal-inert.spec.ts`, not by the audit — the audit has no screen-reader
+pass, which is the caveat above.
 
 ---
 
@@ -137,16 +144,11 @@ vision on a laptop, not someone on a 2016 phone. Current handsets are ~360–430
 CSS px, which the 390 column covers; both stay, for different reasons, and 320
 cannot be dropped without dropping the criterion.
 
-Where the failures land now:
-
-| Viewport | State |
-| --- | --- |
-| **320 / 390 / 640 / 1024 / 1440** | 2.4.11 on `entity-record` only (3 findings each, the pagination controls behind the Sheet), plus the two vendor findings on `module-home` |
-| **768** | The worst width: 2.4.11 on `entity-record` (3) **and** `entity-list` (5) — column pinning turns on at `md`, and the sticky header covers a title button |
-| **844×390 landscape** | 2.4.11: `entity-record` (3), `entity-list` (1) |
-
-So the layout adapts. What remains is one structural problem with sticky
-surfaces over a focused control — and it is not specific to mobile at all.
+Where the failures land now: nowhere in particular. The vendor heading jump is
+on `module-home` at every width, and the four error-card contrast findings are
+on whichever views happened to render an error card. No viewport has a finding
+of its own any more; the sticky-surface problem that dominated the earlier runs
+is closed.
 
 ---
 
@@ -154,33 +156,36 @@ surfaces over a focused control — and it is not specific to mobile at all.
 
 | Criterion | Level | Views checked |
 | --- | --- | --- |
-| 1.2.1 Audio-only and Video-only (Prerecorded) | A | 166 |
-| 1.2.2 Captions (Prerecorded) | A | 166 |
-| 1.4.1 Use of Color | A | 166 |
-| 1.4.2 Audio Control | A | 166 |
-| 2.1.1 Keyboard | A | 166 |
-| 2.2.1 Timing Adjustable | A | 166 |
-| 2.2.2 Pause, Stop, Hide | A | 166 |
-| 2.4.1 Bypass Blocks | A | 166 |
-| 2.4.2 Page Titled | A | 166 |
-| 2.4.4 Link Purpose (In Context) | A | 166 |
-| 2.5.3 Label in Name | A | 166 |
-| 3.1.1 Language of Page | A | 166 |
-| 3.3.2 Labels or Instructions | A | 166 |
-| 4.1.2 Name, Role, Value | A | 166 |
-| 1.3.4 Orientation | AA | 166 |
-| 1.3.5 Identify Input Purpose | AA | 166 |
-| 1.4.4 Resize Text | AA | 166 |
-| 1.4.10 Reflow | AA | 166 |
-| 1.4.11 Non-text Contrast | AA | 42 |
-| 1.4.12 Text Spacing | AA | 166 |
-| 2.4.7 Focus Visible | AA | 42 |
-| 2.5.8 Target Size (Minimum) | AA | 166 |
-| 3.1.2 Language of Parts | AA | 166 |
+| 1.2.1 Audio-only and Video-only (Prerecorded) | A | 164 |
+| 1.2.2 Captions (Prerecorded) | A | 164 |
+| 1.4.1 Use of Color | A | 164 |
+| 1.4.2 Audio Control | A | 164 |
+| 2.1.1 Keyboard | A | 164 |
+| 2.2.1 Timing Adjustable | A | 164 |
+| 2.2.2 Pause, Stop, Hide | A | 164 |
+| 2.4.1 Bypass Blocks | A | 164 |
+| 2.4.2 Page Titled | A | 164 |
+| 2.4.4 Link Purpose (In Context) | A | 164 |
+| 2.5.3 Label in Name | A | 164 |
+| 3.1.1 Language of Page | A | 164 |
+| 3.3.2 Labels or Instructions | A | 164 |
+| 4.1.2 Name, Role, Value | A | 164 |
+| 1.3.4 Orientation | AA | 164 |
+| 1.3.5 Identify Input Purpose | AA | 164 |
+| 1.4.4 Resize Text | AA | 164 |
+| 1.4.10 Reflow | AA | 164 |
+| 1.4.11 Non-text Contrast | AA | 39 |
+| 1.4.12 Text Spacing | AA | 164 |
+| 2.4.7 Focus Visible | AA | 39 |
+| 2.4.11 Focus Not Obscured (Minimum) | AA | 164 |
+| 2.5.8 Target Size (Minimum) | AA | 164 |
+| 3.1.2 Language of Parts | AA | 164 |
 
 View counts differ per criterion because each is checked by the probes that can
-speak to it: 1.4.11 and 2.4.7 only where a form control is rendered (42 views),
-everything else on every measured view. A view is counted once per criterion
+speak to it: 1.4.11 and 2.4.7 only where a form control is rendered (39 views),
+everything else on every measured view. With a modal dialog open, the focus
+probes measure only the dialog — a control no Tab press reaches cannot be
+"obscured when focused". A view is counted once per criterion
 however many probes touch it; the three earlier kept runs counted once per probe
 and say "of 440" over a 224-view set — read those denominators as inflated.
 

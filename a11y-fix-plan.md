@@ -19,7 +19,7 @@ see §6.2.
 | --- | --- |
 | Branch | **`main`**, level with `origin/main` — the 44 commits were pushed and the first CI run is on GitHub (§6.4: check it) |
 | Stale branch | `feat/a11y-wcag-aa-mobile` still exists, identical to the pushed history, safe to delete |
-| Valid audit run | **`a11y-reports/20260906T163431-transport-retry.json`** — preview `main-20260906170619`, 166/168 measured, 23 / 3 / 29. `ACCESSIBILITY.md` is written from it |
+| Valid audit run | **`a11y-reports/20260906T173406-pinning-lg.json`** — preview `main-20260906175709`, 164/168 measured, 24 / 2 / 29, **2.4.11 Supports**. `ACCESSIBILITY.md` is written from it |
 | In flight | Order steps 1–4 and 6–7 applied in the tree (see the per-section status lines); `a11y-mobile-plan.RESTORED.md` deleted (§6.6 done) |
 | Other sessions | `a11y-audit-review.md` appeared at 16:00, written by something other than this session — check before assuming the tree is yours |
 
@@ -349,7 +349,7 @@ inside a `.justify-end` (numeric) header, which `DataTableView.tsx:772` gives
 **Measure the rendered box and the gap before changing anything.** The fix is
 more likely `gap` or width than `min-h`.
 
-### 4.3 Focus not obscured · 2.4.11 · 64 → 54 findings across 18 views — 4.3a/4.3b DONE; what is left is ONE question
+### 4.3 Focus not obscured · 2.4.11 · 64 → 54 → **0** — DONE (run `pinning-lg`: Supports on 164 views)
 
 The run after 4.3a/4.3b: **54 findings, 18 views**, and they split cleanly:
 
@@ -394,8 +394,14 @@ controls **no Tab press reaches**, focused by script. They are not 2.4.11.
 
 - `probes.mjs`: `FOCUS_OBSCURED` and `CONTROL_CONTRAST` now measure only the
   open modal dialog's subtree when one is open (`__openModalDialog`).
-- **§4.3h (new, OPEN): the deep-linked Sheet leaves the page behind it
-  exposed to a screen reader's virtual cursor.** Not a keyboard defect (Tab is
+- **§4.3h — APPLIED: `components/a11y/ModalInert.tsx`** puts `inert` on
+  `#root` while any Base UI dialog is open (option 1 below), and `main.tsx`
+  portals the toaster out of `#root` so option 1 costs nothing (option 3).
+  `e2e/modal-inert.spec.ts` proves the page behind a deep-linked Sheet is
+  inert and that `inert` lifts before focus returns to the opener. The
+  original finding, for the record:
+  the deep-linked Sheet leaves the page behind it
+  exposed to a screen reader's virtual cursor. Not a keyboard defect (Tab is
   trapped), not 2.4.11, but real: a user who opens `/nwind/orders/11077` by URL
   can read and, by touch or virtual cursor, reach the whole grid behind the
   dialog. Candidate fixes, in order of preference: (1) put `inert` on `#root`
@@ -503,18 +509,27 @@ dead `data-table-view/TableView.tsx` (−661 lines); the folder now holds only
 `DataFormPage.tsx` and `DataTableView.tsx`. Trivial, but it is a comment sending
 the next reader to a file that does not exist.
 
-### 4.4 Vendor — `drizzle-cube@0.5.8` on `/nwind` — 1.4.3 APPLIED locally; 1.3.1 and the upstream issue OPEN
+### 4.6 The error card fails 1.4.3 — APPLIED after the run, pinned in the token test
+
+Run `pinning-lg` reached an error state by accident (the tenant's bad minute)
+on four views and axe flagged two nodes on each: `ApiErrorDisplay`'s message and
+its Details button, `text-muted-foreground` on `bg-destructive/10`. No earlier
+run had rendered the card; no token-test pair had asked. Both nodes are
+`text-foreground` now and `tokenContrast.test.ts` pins foreground-on-/10 over
+every base. Not re-audited — the state cannot be produced on purpose — so the
+next full run is the confirmation.
+
+### 4.4 Vendor — `drizzle-cube@0.5.8` on `/nwind` — 1.4.3 DONE locally; 1.3.1 and the upstream issue OPEN
 
 1.3.1 `h1 → h3` on "No Portlets" (a heading level is not fixable in CSS) and
 1.4.3 one `dc:`-prefixed button below 4.5:1 (fixable by a local override). One
 upstream issue covering both.
 
-- **1.4.3 — measured and overridden.** The button is "Add Portlet"; its text is
-  the vendor's light `--dc-primary` `#3b82f6` on white, **3.68:1**. `theme-a11y.css`
-  now sets `--dc-primary: #1d4ed8` (6.30:1) and a matching hover for
-  `html:not(.dark)` — light only, the dark palette was measured clean; the
-  selector out-specifies the vendor's `:root` and stays out of the token blocks
-  the file-shape test guards. Confirm on the next run.
+- **1.4.3 — measured, overridden, confirmed.** The button is "Add Portlet"; its
+  text is the vendor's light `--dc-primary` `#3b82f6` on white, **3.68:1**.
+  `theme-a11y.css` now sets `--dc-primary: #1d4ed8` (6.30:1) and a matching
+  hover for `html:not(.dark)` — light only, the dark palette was measured clean.
+  Run `pinning-lg`: the seven vendor findings are gone.
 - **1.3.1 — vendor markup, unchanged.** Installed is `0.5.8` (not 0.5.6 as
   earlier notes said); latest on npm is **0.9.0** (2026-09-02). Whether the
   heading level was fixed upstream, and what the API changed across four minor
@@ -749,9 +764,9 @@ earlier draft claimed all five were non-blocking and that was false.
 6. ~~§4.2~~ measured on the first preview, fixed (width, not height), in the run.
 7. ~~§4.3e~~ RESOLVED — verified in source, nothing to land.
 8. ~~§4.5 triage~~ DONE; §4.4 — 1.4.3 overridden locally, the issue text is drafted, filing is the human's call.
-9. ~~§4.3 — answer the one question, then the 768 case~~ both answered and
-   applied; what is left is §4.3h (a decision on the toaster trade-off) and the
-   re-run that shows what 2.4.11 has left with the probe scoped honestly.
+9. ~~§4.3~~ DONE: run `pinning-lg` reports 2.4.11 Supports on 164 views;
+   §4.3h applied (`ModalInert`, toaster portaled) and proven in
+   `e2e/modal-inert.spec.ts`. §4.6 (error card contrast) applied after the run.
 10. §3.1, §3.2 — the two data-layer decisions.
 11. §5.1 — confirm `logIn()` has no other failure mode, then delete the dead
     branch and its three substitutions.
