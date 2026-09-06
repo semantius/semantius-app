@@ -1,0 +1,48 @@
+Accessibility audit — https://feataywcag-20260906112124-semantius-app.ma532.workers.dev
+221/224 cells admissible, 3 INCONCLUSIVE
+
+   29  Not Evaluated
+   19  Supports
+    7  Partially Supports
+
+Failing criteria:
+  1.3.1 Info and Relationships (A) — Partially Supports: 14 finding(s) across 14 of 442 cells.
+      module-home @ 320 / light: heading level jumps h1 -> h3 ("No Portlets")
+      module-home @ 390 / light: heading level jumps h1 -> h3 ("No Portlets")
+      module-home @ 640 / light: heading level jumps h1 -> h3 ("No Portlets")
+      module-home @ 768 / light: heading level jumps h1 -> h3 ("No Portlets")
+      … 10 more
+  2.4.2 Page Titled (A) — Partially Supports: 1 finding(s) across 1 of 442 cells.
+      entity-list, xcustomers: 2 routes share the title "Customers · Semantius"
+  1.4.3 Contrast (Minimum) (AA) — Partially Supports: 7 finding(s) across 7 of 442 cells.
+      module-home @ 320 / light: color-contrast — Elements must meet minimum color contrast ratio thresholds
+      module-home @ 390 / light: color-contrast — Elements must meet minimum color contrast ratio thresholds
+      module-home @ 640 / light: color-contrast — Elements must meet minimum color contrast ratio thresholds
+      module-home @ 768 / light: color-contrast — Elements must meet minimum color contrast ratio thresholds
+      … 3 more
+  1.4.10 Reflow (AA) — Partially Supports: 5 finding(s) across 5 of 221 cells.
+      entity-list @ 320 / light: 1 element(s) extend past the 305px viewport with no scrollable ancestor
+      documents @ 320 / light: 1 element(s) extend past the 320px viewport with no scrollable ancestor
+      xcustomers @ 320 / light: 1 element(s) extend past the 305px viewport with no scrollable ancestor
+      entity-list @ 320 / dark: 1 element(s) extend past the 305px viewport with no scrollable ancestor
+      … 1 more
+  2.4.7 Focus Visible (AA) — Partially Supports: 14 finding(s) across 14 of 96 cells.
+      xcustomers-record @ 320 / light: 5 control(s) present but none produced a measurable focus indicator
+      xcustomers-record @ 390 / light: 5 control(s) present but none produced a measurable focus indicator
+      xcustomers-record @ 640 / light: 5 control(s) present but none produced a measurable focus indicator
+      xcustomers-record @ 768 / light: 5 control(s) present but none produced a measurable focus indicator
+      … 10 more
+  2.4.11 Focus Not Obscured (Minimum) (AA) — Partially Supports: 64 finding(s) across 24 of 221 cells.
+      entity-list @ 320 / light: tr[table-row] > th[table-head] > div > button ("Street Address") is covered by table[table] > thead[table-header] > tr[table-row] > th[table-head] when focused
+      entity-list @ 320 / light: tr[table-row] > th[table-head] > div > button ("Postal Code") is covered by table[table] > thead[table-header] > tr[table-row] > th[table-head] when focused
+      entity-record @ 320 / light: div > nav > div > button#base-ui-_r_3n_ ("10▼") is covered by div > div > div > p#contact_title-description, div > form#overlay-record-form > div > div when focused
+      entity-record @ 320 / light: nav > div > div > input#page-number-input ("") is covered by div#_r_2g_ > div > form#overlay-record-form > div[sticky-container], form#overlay-record-form > div[sticky-container] > div > button[button], div > form#overlay-record-form > div[sticky-container] > div when focused
+      … 60 more
+  2.5.8 Target Size (Minimum) (AA) — Partially Supports: 6 finding(s) across 6 of 221 cells.
+      entity-list @ 320 / light: target-size — All touch targets must be 24px large, or leave sufficient space
+      entity-list @ 390 / light: target-size — All touch targets must be 24px large, or leave sufficient space
+      entity-list @ 640 / light: target-size — All touch targets must be 24px large, or leave sufficient space
+      entity-list @ 320 / dark: target-size — All touch targets must be 24px large, or leave sufficient space
+      … 2 more
+
+29 criteria are Not Evaluated (not a pass): 1.1.1, 1.2.3, 1.3.2, 1.3.3, 2.1.2, 2.1.4, 2.3.1, 2.4.3, 2.5.1, 2.5.2, 2.5.4, 3.2.1, 3.2.2, 3.2.6, 3.3.1, 3.3.7, 1.2.4, 1.2.5, 1.4.5, 1.4.13, 2.4.5, 2.4.6, 2.5.7, 3.2.3, 3.2.4, 3.3.3, 3.3.4, 3.3.8, 4.1.3

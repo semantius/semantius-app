@@ -32,6 +32,12 @@ export const EXCLUDED = [
   { path: '/logout', reason: 'performs a side effect and redirects; has no steady state to measure' },
   { path: '/oauth2_callback', reason: 'only reachable mid-OAuth with a live authorization code' },
   { path: '/form-playground', reason: 'developer tool, explicitly out of scope' },
+  // The /xcustomers tree is a hand-built demo of the grid + form, kept to try
+  // things out against. It is not a product surface, its form does not even
+  // match the tenant's `customers` columns, and it is the same class of thing as
+  // /form-playground. Auditing it reported defects nobody would ever fix and
+  // collided its <title> with the real Customers view.
+  { path: '/xcustomers', reason: 'internal test page, same class as /form-playground; not a product surface' },
 ]
 
 /**
@@ -85,10 +91,6 @@ export async function resolveRoutes({ apiBaseUrl, token, fetchImpl = fetch }) {
       { id: 'crm-home-detail', path: '/crm/home/detail', name: 'CRM home detail' },
       { id: 'documents', path: '/documents', name: 'Documents' },
       { id: 'settings', path: '/settings', name: 'Settings' },
-      { id: 'xcustomers', path: '/xcustomers', name: 'Customers (demo)' },
-      { id: 'xcustomers-new', path: '/xcustomers/new', name: 'New customer' },
-      { id: 'xcustomers-record', path: '/xcustomers/1', name: 'Customer record' },
-      { id: 'xcustomers-edit', path: '/xcustomers/1/edit', name: 'Edit customer' },
       { id: 'login', path: '/login', name: 'Sign in', unauthenticated: true },
       { id: 'logout-success', path: '/logout-success', name: 'Signed out', unauthenticated: true },
       { id: 'not-found', path: '/this-route-does-not-exist', name: 'Not found' },

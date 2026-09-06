@@ -9,8 +9,8 @@
  * "at the baseline viewports" ones; the full-matrix counts include five
  * viewports the baseline never saw. A criterion whose count ROSE is not a
  * regression until the per-finding section says which findings are new and
- * on which cells — the first post-fix run's rise in 1.4.3 was 58 new dark-mode
- * placeholder findings (a real regression) plus axe findings on cells that
+ * on which samples — the first post-fix run's rise in 1.4.3 was 58 new dark-mode
+ * placeholder findings (a real regression) plus axe findings on samples that
  * turned out to be error cards (a harness gap), and only this view told them apart.
  */
 import { readFileSync, readdirSync } from 'node:fs'
@@ -34,8 +34,8 @@ console.log(`BASE ${baseArg}: ${base.meta.url}  viewports=${base.meta.viewports}
 console.log(`RUN  ${runName}: ${run.meta.url}  viewports=${run.meta.viewports}  generated=${run.meta.generatedAt}`)
 console.log(`summary base=${JSON.stringify(base.summary)}`)
 console.log(`summary run =${JSON.stringify(run.summary)}`)
-console.log(`inconclusive: base=${base.inconclusive.length} run=${run.inconclusive.length}`)
-for (const i of run.inconclusive) console.log(`   INCONCLUSIVE ${i.where}: ${i.reasons.join('; ')}`)
+console.log(`cantTell: base=${(base.cantTell ?? base.inconclusive).length} run=${(run.cantTell ?? run.inconclusive).length}`)
+for (const i of run.cantTell ?? run.inconclusive) console.log(`   cantTell ${i.where}: ${i.reasons.join('; ')}`)
 
 console.log('\nBy criterion (counts at the baseline viewports in brackets):')
 const byId = new Map(base.criteria.map((c) => [c.id, c]))
@@ -68,8 +68,8 @@ for (const c of run.criteria) {
   summarize(gone, 'gone')
   summarize(added, 'ADDED')
   if (added.length) {
-    const cells = {}
-    for (const k of added) { const w = k.split(' :: ')[0]; cells[w] = (cells[w] || 0) + 1 }
-    console.log('    added on:', Object.entries(cells).sort((x, y) => y[1] - x[1]).slice(0, 6).map(([w, n]) => `${w} (${n})`).join('; '))
+    const samples = {}
+    for (const k of added) { const w = k.split(' :: ')[0]; samples[w] = (samples[w] || 0) + 1 }
+    console.log('    added on:', Object.entries(samples).sort((x, y) => y[1] - x[1]).slice(0, 6).map(([w, n]) => `${w} (${n})`).join('; '))
   }
 }

@@ -103,10 +103,10 @@ function axeCoverage() {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 // Tokens from the client_credentials exchange last one hour (mint-token.mjs).
-// 40 minutes leaves room for the slowest cell to finish on the old token.
+// 40 minutes leaves room for the slowest sample to finish on the old token.
 const REMINT_AFTER_MS = 40 * 60_000
 
-// Waits between retries of a cell that rendered a blocking surface. The last
+// Waits between retries of a sample that rendered a blocking surface. The last
 // value is long enough for a one-minute rate-limit window to pass.
 const RETRY_BACKOFF_MS = [3_000, 10_000, 30_000, 60_000]
 
@@ -118,7 +118,7 @@ const RETRY_BACKOFF_MS = [3_000, 10_000, 30_000, 60_000]
  * route loader runs, and only then does `hideAppLoader()` fire. On top of that
  * `hideAppLoader()` sets the terminal `hidden` attribute on `transitionend`, up
  * to 300ms after it starts. Probing before all that reports a page that is still
- * the boot skeleton — which is a real INCONCLUSIVE, not a clean page.
+ * the boot skeleton — which is a real `cantTell`, not a clean page.
  */
 async function waitForSettled(browser, { attempts = 40, intervalMs = 500, settleMs = 800 } = {}) {
   let last = { error: 'never probed' }
@@ -179,7 +179,7 @@ async function main() {
   const axePath = join(REPO_ROOT, 'apps/web/node_modules/axe-core/axe.min.js')
 
   const browser = new Browser({ initScripts: [axePath] })
-  const cells = []
+  const samples = []
   const outDir = resolve(REPO_ROOT, args.out)
   mkdirSync(outDir, { recursive: true })
   const shotDir = join(outDir, 'screenshots')
@@ -203,9 +203,9 @@ async function main() {
           process.stdout.write(`[${index}/${total}] ${label} ... `)
 
           // A token lives one hour and the full matrix takes longer than that at
-          // ~20s a cell, so a run that mints once ends in a tail of INCONCLUSIVE
-          // cells that measure the token, not the app (145 of 224 in one discarded
-          // run). Re-mint well inside the hour; every cell opens its own URL, so
+          // ~20s a sample, so a run that mints once ends in a tail of `cantTell`
+          // samples that measure the token, not the app (145 of 224 in one discarded
+          // run). Re-mint well inside the hour; every sample opens its own URL, so
           // the fresh token takes effect on the next navigation. A token handed
           // in with --token is the caller's to keep alive.
           if (!args.token && Date.now() - mintedAt > REMINT_AFTER_MS) {
@@ -224,7 +224,7 @@ async function main() {
           // answers the very first rpc/get_userinfo of a fresh browser session
           // with a 404 often enough to poison a whole run, and the app renders a
           // terminal error card rather than retrying. A second navigation
-          // resolves it; if it does not, the cell stays INCONCLUSIVE, which is
+          // resolves it; if it does not, the sample stays `cantTell`, which is
           // still not a pass. Anything else — a real page error, the wrong theme
           // — is not retried, because a retry would only hide it.
           for (let attempt = 0; attempt < RETRY_BACKOFF_MS.length + 1; attempt++) {
@@ -243,7 +243,7 @@ async function main() {
             if (!admissibility.error && !admissibility.bootFailure) break
             // Distinguish "the app is broken" from "the driver is broken". Only
             // the second is worth recovering from, and it has to be recovered
-            // from, or every remaining cell inherits a dead session.
+            // from, or every remaining sample inherits a dead session.
             if (Browser.isSessionFailure(admissibility) || !opened.ok) {
               browser.restart()
               browser.setMedia(theme)
@@ -252,7 +252,7 @@ async function main() {
             // Growing, because the second cause of a blocking surface is the
             // identity provider rate-limiting userinfo (429) when pages load
             // every few seconds; a fixed 1.5s retry just re-asks inside the same
-            // window and then poisons the next cells too.
+            // window and then poisons the next samples too.
             await sleep(RETRY_BACKOFF_MS[attempt] ?? RETRY_BACKOFF_MS.at(-1))
           }
 
@@ -278,34 +278,34 @@ async function main() {
             reasons.push(`${pageErrors.length} uncaught page error(s)`)
           }
 
-          const admissible = reasons.length === 0
-          const cell = {
+          const measured = reasons.length === 0
+          const sample = {
             route,
             viewport,
             theme,
-            admissible,
-            inadmissibleReasons: reasons,
+            measured,
+            cantTellReasons: reasons,
             pageErrors: pageErrors.slice(0, 5),
-            structure: admissible ? browser.evalJson(STRUCTURE) : null,
+            structure: measured ? browser.evalJson(STRUCTURE) : null,
           }
 
-          if (admissible) {
-            cell.axe = browser.evalJson(AXE)
-            cell.axeCoverage = coverage
-            cell.overflow = browser.evalJson(OVERFLOW)
-            cell.placeholder = browser.evalJson(PLACEHOLDER_CONTRAST)
-            cell.controls = browser.evalJson(CONTROL_CONTRAST)
-            cell.focusObscured = browser.evalJson(FOCUS_OBSCURED)
-            cell.tabOrder = browser.evalJson(TAB_ORDER)
+          if (measured) {
+            sample.axe = browser.evalJson(AXE)
+            sample.axeCoverage = coverage
+            sample.overflow = browser.evalJson(OVERFLOW)
+            sample.placeholder = browser.evalJson(PLACEHOLDER_CONTRAST)
+            sample.controls = browser.evalJson(CONTROL_CONTRAST)
+            sample.focusObscured = browser.evalJson(FOCUS_OBSCURED)
+            sample.tabOrder = browser.evalJson(TAB_ORDER)
             if (args.screenshots) {
               browser.screenshot(join(shotDir, `${route.id}-${viewport.name}-${theme}.png`))
             }
           }
 
-          cells.push(cell)
-          const axeCount = cell.axe?.violations?.length ?? 0
+          samples.push(sample)
+          const axeCount = sample.axe?.violations?.length ?? 0
           process.stdout.write(
-            admissible ? `ok (${axeCount} axe violation${axeCount === 1 ? '' : 's'})\n` : `INCONCLUSIVE: ${reasons.join('; ')}\n`,
+            measured ? `ok (${axeCount} axe violation${axeCount === 1 ? '' : 's'})\n` : `cantTell: ${reasons.join('; ')}\n`,
           )
         }
       }
@@ -324,7 +324,7 @@ async function main() {
       routes: selected.map((r) => ({ id: r.id, path: r.path })),
       excluded: EXCLUDED,
     },
-    cells,
+    samples,
   })
 
   const stamp = report.meta.generatedAt.replace(/[-:]/g, '').replace(/\..+/, '')

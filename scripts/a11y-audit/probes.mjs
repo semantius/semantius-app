@@ -23,7 +23,7 @@ const HELPERS = readFileSync(new URL('./page-helpers.js', import.meta.url), 'utf
  * threw during hydration, is not the page we set out to measure — and reporting
  * "0 violations" for it is how an audit produces a confident lie.
  *
- * The third state matters. A cell that fails this is INCONCLUSIVE, which maps to
+ * The third state matters. A sample that fails this is `cantTell`, which maps to
  * "Not Evaluated" in the report, never to a pass.
  */
 export const ADMISSIBILITY = `(() => {${HELPERS}
