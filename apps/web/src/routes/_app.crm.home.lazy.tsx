@@ -33,10 +33,14 @@ function RouteComponent() {
       <Button onClick={handleOpenSidebar}>Open Sidebar</Button>
 
       <Sheet open={isDetailOpen} onOpenChange={(open) => !open && handleCloseSidebar()}>
-        {/* data-[side=right]: is required, not decorative — see the note on
-            SheetContent in View.tsx: without the matching modifier the vendored
-            `data-[side=right]:w-3/4` wins and the sheet is 75% wide. */}
-        <SheetContent className="data-[side=right]:w-full sm:max-w-md border-l-0">
+        {/* data-[side=right]: is required on BOTH width classes, not decorative
+            — see the note on SheetContent in View.tsx. The vendored sheet ships
+            `data-[side=right]:w-3/4` and `data-[side=right]:sm:max-w-sm`; a bare
+            `w-full` or `sm:max-w-md` here is a different tailwind-merge group
+            key, so both survive and the modifier version out-specifies the bare
+            one: the sheet renders 75% wide, or capped at 384px instead of the
+            448px it asks for. */}
+        <SheetContent className="data-[side=right]:w-full data-[side=right]:sm:max-w-md border-l-0">
           <SheetHeader>
             <SheetTitle>Detail View</SheetTitle>
             <SheetDescription>

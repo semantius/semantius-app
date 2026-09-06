@@ -976,12 +976,20 @@ export function DataTableView({
   // The drag handle pins to the far left (ahead of the label column) so it stays
   // the first visible column while a wide table scrolls. It carries an explicit
   // size (40px) so the sticky offsets stay aligned.
+  //
+  // NOTHING is pinned on a phone — not the label column (leftPinnedKeys is
+  // already empty there), and not the drag handle or the actions column either.
+  // "No sticky columns below md" was only two-thirds true: `__drag` and
+  // `actions` kept their sticky position at 320/390, and a sticky column is
+  // exactly what sits over a focused control scrolled to the container's edge
+  // (2.4.11). Both columns are still there, first and last; they scroll with
+  // the row.
   const columnPinning = useMemo(
     () => ({
-      left: dndEnabled ? ['__drag', ...leftPinnedKeys] : leftPinnedKeys,
-      right: ['actions'],
+      left: dndEnabled && !isMobile ? ['__drag', ...leftPinnedKeys] : leftPinnedKeys,
+      right: isMobile ? [] : ['actions'],
     }),
-    [leftPinnedKeys, dndEnabled]
+    [leftPinnedKeys, dndEnabled, isMobile]
   )
 
   // Constrain the whole grid to max-w-[760px] when there are ≤ 4 data columns

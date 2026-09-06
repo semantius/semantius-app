@@ -18,8 +18,9 @@ export const Route = createFileRoute('/_app/documents')({
 function DocumentsComponent() {
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      {/* flex-wrap: see the same row in views/View.tsx (1.4.10 at 320px). */}
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div className="min-w-0">
           <h1 className="text-3xl font-bold tracking-tight">Documents</h1>
           <p className="text-muted-foreground">
             Manage your documents here

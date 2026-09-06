@@ -400,8 +400,13 @@ export function View({ moduleId: _moduleId, table_name: _table_name, recordId: _
           label={metadata.table?.plural_label || 'Records'}
         />
       </div>
-      <div className="flex items-center justify-between">
-        <div>
+      {/* 1.4.10 Reflow. `flex-wrap` + `gap`: at a 320px-wide viewport (a laptop
+          at 400% zoom) a heading and a ~150px button cannot share one row, and
+          without wrapping the button hung 13px past the viewport with no
+          scrollable ancestor — unreachable, not merely ugly. Wrapped, it drops
+          below the heading and stays inside the page. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div className="min-w-0">
           <h1 className="text-3xl font-bold tracking-tight">
             {parentRecordLabel && parentRecordPath && (
               <>

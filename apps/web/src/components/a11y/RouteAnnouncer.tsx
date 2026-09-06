@@ -12,7 +12,8 @@ import { MAIN_CONTENT_ID } from './landmarks'
  * changed — the app simply appears not to respond.
  *
  * This restores both halves:
- *   - focus moves to the `<main>` landmark (which carries `tabIndex={-1}` so it
+ *   - focus moves to the page content below the app header (`#main-content`,
+ *     which carries `tabIndex={-1}` so it
  *     can receive programmatic focus without becoming a tab stop), so the next
  *     Tab continues from the top of the new page;
  *   - the new document title is written into a polite live region.
