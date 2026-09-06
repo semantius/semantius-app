@@ -14,10 +14,13 @@ import { testToken } from '@/test/session'
  * its six expectations were provably wrong about the server:
  *
  *   - it asserted a PATCH against a missing row errors with "Record not found".
- *     PostgREST answers `200 []`. The hook reports SUCCESS with `undefined`
- *     data, which is pinned below because it is what the app really does.
- *   - it asserted the same for a DELETE. PostgREST answers `204`, so that is a
- *     success too.
+ *     PostgREST answers `200 []`, and the hook reported SUCCESS with
+ *     `undefined` data — which this file pinned as-is for a while, as the
+ *     product decision it was. The decision is made: an empty representation
+ *     is "this record no longer exists", and both hooks throw it.
+ *   - it asserted the same for a DELETE. PostgREST answers a bodyless `204`
+ *     unless asked for the representation, which the hook now does; `[]` is
+ *     the same error.
  *
  * Neither could have been noticed, because the mock was written from the same
  * assumption as the assertion. What replaces them is a round trip: mutate, then
@@ -161,19 +164,19 @@ describe('useTableMutations', () => {
       expect(result.current.error?.message).toBe('id is required for update')
     })
 
-    it('reports SUCCESS for an id that matches no row — the app cannot tell', async () => {
+    it('reports an id that matches no row as an error, not as "saved"', async () => {
       const { result } = renderHook(() => useUpdateRecord(TABLE), { wrapper: appWrapper })
 
       result.current.mutate({ id: 2147483647, description: 'nothing to patch' })
 
       await waitFor(() => expect(result.current.isSuccess || result.current.isError).toBe(true))
 
-      // Pinned as it is, not as it should be: PostgREST answers `200 []` for a
-      // filter that matches nothing, so the hook resolves with `undefined` and
-      // every caller shows "saved" for a record that is not there. The previous
-      // version of this file asserted a 404 that the server never sends.
-      expect(result.current.isSuccess).toBe(true)
-      expect(result.current.data).toBeUndefined()
+      // PostgREST answers `200 []` for a filter that matches nothing — the
+      // server never sends a 404 here. The hook reads the empty representation
+      // and turns it into the error the user needs, with the id it looked for.
+      expect(result.current.isError).toBe(true)
+      expect(result.current.error?.message).toMatch(/no longer exists/)
+      expect(result.current.error?.cause).toMatchObject({ status: 404, matched: 0, id: 2147483647 })
     })
   })
 
@@ -186,6 +189,20 @@ describe('useTableMutations', () => {
 
       await waitFor(() => expect(result.current.isSuccess).toBe(true))
       expect(await readModule(row.id)).toBeUndefined()
+    })
+
+    it('reports an id that matches no row as an error, not as "deleted"', async () => {
+      const { result } = renderHook(() => useDeleteRecord(TABLE), { wrapper: appWrapper })
+
+      result.current.mutate(2147483647)
+
+      await waitFor(() => expect(result.current.isSuccess || result.current.isError).toBe(true))
+
+      // A bodyless 204 said nothing; the hook asks for the representation and
+      // an empty one is the row that was not there.
+      expect(result.current.isError).toBe(true)
+      expect(result.current.error?.message).toMatch(/no longer exists/)
+      expect(result.current.error?.cause).toMatchObject({ status: 404, matched: 0 })
     })
 
     it('surfaces the server error when the id column does not exist', async () => {

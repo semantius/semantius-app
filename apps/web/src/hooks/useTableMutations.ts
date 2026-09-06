@@ -159,7 +159,17 @@ export function useUpdateRecord<T extends Record<string, unknown>>(
       }
 
       const result = await response.json()
-      // PostgREST returns an array with the updated record
+      // PostgREST returns an array with the updated record — and `200 []` when
+      // the filter matched nothing. That is not a success: the row the user
+      // was editing is gone (deleted elsewhere, or a wrong id), and resolving
+      // here made every caller say "saved" for a record that is not there.
+      // `Prefer: return=representation` above is what makes the empty array
+      // observable at all.
+      if (Array.isArray(result) && result.length === 0) {
+        throw new Error(`This ${tableName} record no longer exists`, {
+          cause: { status: 404, matched: 0, [idField]: id },
+        })
+      }
       return Array.isArray(result) ? result[0] : result
     },
     onSuccess: () => {
@@ -202,7 +212,14 @@ export function useDeleteRecord(tableName: string, idField: string = 'id') {
       }
 
       const url = `${apiBaseUrl}/${tableName}?${idField}=eq.${id}`
-      const headers = createApiHeaders(token)
+      const headers = {
+        ...createApiHeaders(token),
+        // Without it PostgREST answers a bodyless 204 whether or not a row
+        // matched, and a delete of a record that was already gone reported
+        // success. With it the deleted rows come back, and an empty array is
+        // the "nothing matched" the UI has to tell the user about.
+        'Prefer': 'return=representation',
+      }
 
       const response = await fetch(url, {
         method: 'DELETE',
@@ -231,6 +248,14 @@ export function useDeleteRecord(tableName: string, idField: string = 'id') {
           error.cause = errorDetails
         }
         throw error
+      }
+
+      // See the Prefer header above: `[]` means no row carried this id.
+      const deleted: unknown = await response.json().catch(() => [])
+      if (Array.isArray(deleted) && deleted.length === 0) {
+        throw new Error(`This ${tableName} record no longer exists`, {
+          cause: { status: 404, matched: 0, [idField]: id },
+        })
       }
     },
     onSuccess: () => {

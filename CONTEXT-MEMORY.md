@@ -963,11 +963,14 @@ Failures).
 - **`pnpm check` does NOT typecheck.** Lint + both Vitest projects only; `tsc -b
   --noEmit` runs inside `pnpm build`. A type error in a test file passes `check`
   and fails the release.
-- **PostgREST reports "nothing matched" as SUCCESS.** A PATCH whose filter
-  matches no row answers `200 []` and a DELETE answers `204`, so `useUpdateRecord`
-  resolves with `undefined` and `useDeleteRecord` resolves at all — the UI says
-  "saved" for a record that is not there. Pinned in
-  `hooks/useTableMutations.test.tsx`; fixing it is a product decision.
+- **PostgREST reports "nothing matched" as SUCCESS, and the hooks translate.**
+  A PATCH whose filter matches no row answers `200 []`; a DELETE answers a
+  bodyless `204` unless `Prefer: return=representation` is sent, and then `200
+  []`. `useUpdateRecord` and `useDeleteRecord` both send the header and throw
+  "This <table> record no longer exists" (`cause: { status: 404, matched: 0 }`)
+  on an empty representation, so the UI never says "saved" or "deleted" for a
+  row that is not there. The server itself never sends a 404 for this — do not
+  assert one. Proven in `hooks/useTableMutations.test.tsx` against the tenant.
 - **Deleting a module cascades to its entities.** That is what makes the
   `_vitest_`-prefixed rows those tests create safe to clean up by module alone;
   it is asserted there and nowhere else.

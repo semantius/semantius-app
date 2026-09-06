@@ -218,7 +218,7 @@ regression shipped.
 
 ## 3. Data-layer defects — OPEN
 
-### 3.1 A PATCH or DELETE that matches no row reports SUCCESS
+### 3.1 A PATCH or DELETE that matches no row reports SUCCESS — DONE (decided in this plan; applied and tested)
 
 PostgREST answers `200 []` for a filter matching nothing, and `204` for a delete.
 `useUpdateRecord` resolves with `undefined`; `useDeleteRecord` resolves at all. So
@@ -235,8 +235,10 @@ instead of resolving. **Delete needs the header added** — it currently sends o
 `createApiHeaders(token)` (`:203`) and gets a bodyless `204`, so there is nothing
 to inspect until `Prefer: return=representation` is set there too.
 
-`CONTEXT-MEMORY.md:883-887` still describes this as an open product decision;
-update it when the fix lands.
+Applied: both hooks send `Prefer: return=representation` and throw "This
+<table> record no longer exists" with `cause: { status: 404, matched: 0, <id> }`
+on an empty representation; `useTableMutations.test.tsx` asserts it for both,
+against the tenant. The CONTEXT-MEMORY gotcha is rewritten to the new contract.
 
 ### 3.2 The self-hosted opt-out works on one channel and fails on the other
 
@@ -767,7 +769,7 @@ earlier draft claimed all five were non-blocking and that was false.
 9. ~~§4.3~~ DONE: run `pinning-lg` reports 2.4.11 Supports on 164 views;
    §4.3h applied (`ModalInert`, toaster portaled) and proven in
    `e2e/modal-inert.spec.ts`. §4.6 (error card contrast) applied after the run.
-10. §3.1, §3.2 — the two data-layer decisions.
+10. ~~§3.1~~ DONE (it was already decided). §3.2 — still the human's decision (§0 table, row 5).
 11. §5.1 — confirm `logIn()` has no other failure mode, then delete the dead
     branch and its three substitutions.
 12. ~~§6.6~~ DONE.
