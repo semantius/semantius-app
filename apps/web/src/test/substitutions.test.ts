@@ -283,23 +283,16 @@ const FAMILIES: { key: string; what: string; patterns: RegExp[] }[] = [
  * an approved practice. Numbers may be lowered, never raised; a file that is not
  * listed must have zero.
  *
- * A family with no entry here must have none anywhere. Nine of the fifteen are
+ * A family with no entry here must have none anywhere. Eleven of the fifteen are
  * in that state: window.location, window.open, matchMedia, ResizeObserver,
- * crypto/isSecureContext, vi.stubEnv, fake timers, the pointer-events override
- * and a silenced console are all gone, and adding one back fails this file.
+ * crypto/isSecureContext, vi.stubEnv, fake timers, the pointer-events override,
+ * a silenced console, the module-registry reset and — now that every test which
+ * talks to an API talks to the real one — a replaced fetch. Adding any of them
+ * back fails this file.
  */
 const FROZEN: Record<string, Record<string, number>> = {
   'module-mock-external': {
     'src/routes/login.test.tsx': 1,
-  },
-  // Every one of these is a stubbed API call, and every one is waiting on the
-  // same thing: a test session against the real tenant.
-  fetch: {
-    // 1 install + 1 restore. The install is load-bearing — the interceptor
-    // captures whatever fetch it finds at import time, so a spy is the only way
-    // to see what it forwards.
-    'src/lib/apiClient.interceptor.test.ts': 2,
-    'src/lib/config.test.ts': 8,
   },
   'app-loader-stand-in': {
     'src/lib/appLoader.test.ts': 1,
@@ -330,8 +323,12 @@ const FROZEN_INTERNAL_MOCKS: Record<string, string[]> = {
  * mocked mutation hooks — which existed only because the component calls them
  * while rendering — for 23. `NavUser` and `ModuleSwitcher` then took the real
  * router, the real permissions and the real VITE_UI_CUSTOMIZER: 16.
+ * `config.test.ts` then stopped describing HTTP responses and asked the real
+ * control plane and the real OIDC provider, and the fetch interceptor moved to
+ * the browser it exists for, where resource timing says where a request went —
+ * emptying the whole `fetch` family: 6.
  */
-const FROZEN_TOTAL = 16
+const FROZEN_TOTAL = 6
 
 describe('test substitutions', () => {
   // This file quotes the patterns it looks for — in its regexes and in its prose —

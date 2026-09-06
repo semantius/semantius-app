@@ -31,6 +31,10 @@ const BROWSER_TESTS = [
   'src/lib/config.test.ts',
   // Drives `getApiConfig()` through the runtime config channel, `window.__ENV__`.
   'src/lib/apiClient.test.ts',
+  // The fetch interceptor is browser code by definition: it exists so a
+  // RELATIVE url in page script becomes an API call, and node cannot fetch a
+  // relative url at all. It also reads what it did out of resource timing.
+  'src/lib/apiClient.interceptor.test.ts',
 ]
 
 // e2e/ is Playwright's, not Vitest's. Vitest's default glob picks up *.spec.ts

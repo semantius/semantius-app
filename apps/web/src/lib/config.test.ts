@@ -1,82 +1,84 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { initConfig, getConfig, getConfigError } from './config'
+import { SELF_HOSTED, clearRuntimeEnv, setRuntimeEnv } from '@/test/runtimeConfig'
 
 /**
- * The RULE the precheck applies is a pure function and is tested without a
- * browser in `secureContext.test.ts`. What is left here is that initConfig()
- * consults it — and this suite runs on http://localhost, which IS a secure
- * context, so the interesting direction is simply that boot is not blocked.
+ * `initConfig()` against the real control plane and the real identity provider.
  *
- * The failing direction needs a real non-secure origin (`vite preview` bound to
- * the machine's LAN address, driven by Playwright); stubbing `isSecureContext`
- * here would only assert that the stub was read.
+ * WHAT CHANGED AND WHY. Every test here used to `vi.stubGlobal('fetch', …)` and
+ * hand back an object shaped like a `Response` — `{ ok, status, headers: { get:
+ * () => 'application/json' }, json: async () => ({ … }) }`. That is a
+ * description of an HTTP response written by whoever needed the assertion to
+ * pass, and it cannot be wrong in the ways a real one is: a content-type that
+ * has changed, a field the control plane no longer sends, a CORS policy that
+ * refuses the request, a discovery document whose keys have moved.
  *
- * UNCOVERED until that exists: that the precheck SHORT-CIRCUITS — records the
- * error and resolves no endpoint, offering no login for a flow the browser
- * cannot perform. The old test asserted it against a stubbed `isSecureContext`
- * and a stubbed `fetch`, which is to say against itself.
+ * The real endpoints are both available to this suite and both cheap:
+ * `api.semantius.cloud/organization/<org>` for the tenant, and the OIDC test
+ * server — a real provider, one of the two substitutions this suite declares —
+ * for discovery. Failures are produced rather than described: an org that does
+ * not exist really answers 404.
+ *
+ * ONE OBSERVATION IS NOT AN ASSERTION ABOUT A RESPONSE. The relative-URL test
+ * needs to know WHICH url was fetched, not what came back, and reads that off
+ * the browser's own resource timing rather than a spy.
  */
-describe('initConfig — secure-context precheck', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
 
+/** A slug the control plane will not have. */
+const UNKNOWN_ORG = 'no-such-org-used-by-a-test'
+
+/** The OIDC test server's discovery document — a real provider, really served. */
+const DISCOVERY = 'https://test-oidc-server.ma532.workers.dev/.well-known/openid-configuration'
+
+describe('initConfig — secure-context precheck', () => {
   afterEach(() => {
-    vi.unstubAllGlobals()
+    clearRuntimeEnv()
   })
 
   it('does not block boot in a secure context', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
+    // This suite runs on http://localhost, which IS a secure context, so the
+    // interesting direction is that boot is not blocked. The failing direction
+    // needs a real non-secure origin (`vite preview` bound to the machine's LAN
+    // address, driven by Playwright); stubbing `isSecureContext` here would only
+    // assert that the stub was read. The RULE itself is a pure function, tested
+    // in `secureContext.test.ts`.
+    //
+    // UNCOVERED until that exists: that the precheck SHORT-CIRCUITS — records
+    // the error and resolves no endpoint, offering no login for a flow the
+    // browser cannot perform.
+    setRuntimeEnv({ VITE_CONTROL_PLANE_ORG: UNKNOWN_ORG })
 
     await initConfig()
 
-    // It got past the precheck and on to the tenant lookup — whatever that
-    // reports, it is not the secure-context error.
+    // It got past the precheck and on to the tenant lookup, which really did
+    // fail because the org really is not there.
     const err = getConfigError()
     expect(err).not.toContain('crypto.subtle')
     expect(err).toContain('Tenant lookup failed')
+    expect(err).toContain('404')
   })
 })
 
 describe('initConfig — configurable user menu', () => {
   /**
-   * The two new vars are read through runtimeEnv(), which consults
-   * window.__ENV__ before the Vite-inlined build-time value — so setting that
-   * object is how a test drives them without stubbing import.meta.env.
+   * The tenant this suite signs in to. Its slug is what `{orgid}` must be
+   * substituted with, so the substitution is asserted against a value the
+   * control plane returned rather than one the test made up.
    */
-  function env(values: Record<string, string>) {
-    window.__ENV__ = values
-  }
+  let slug: string
 
-  /** A control plane that answers with a well-formed tenant. */
-  function tenantFetch(name: string) {
-    return vi.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      statusText: 'OK',
-      headers: { get: () => 'application/json' },
-      json: async () => ({
-        id: 'tenant-1',
-        client_id: 'client-1',
-        name,
-        logo: null,
-        postgrest_url: 'https://api.example.com',
-      }),
-    })
-  }
-
-  beforeEach(() => {
-    vi.clearAllMocks()
+  beforeEach(async () => {
+    clearRuntimeEnv()
+    await initConfig()
+    slug = getConfig().tenantName!
+    expect(slug).toBeTruthy()
   })
 
   afterEach(() => {
-    vi.unstubAllGlobals()
-    delete window.__ENV__
+    clearRuntimeEnv()
   })
 
   it('defaults to the cloud menu with the tenant slug substituted for {orgid}', async () => {
-    vi.stubGlobal('fetch', tenantFetch('acme'))
-
     await initConfig()
 
     expect(getConfigError()).toBeNull()
@@ -88,16 +90,13 @@ describe('initConfig — configurable user menu', () => {
     // asserted on the entries that actually hold the placeholder: the absolute
     // control-plane links.
     expect(menu[0].url).toBe('/settings')
-    expect(menu[1].url).toBe('https://app.semantius.com/settings?orgid=acme')
-    expect(menu[2].url).toBe(
-      'https://app.semantius.com/settings/organization?orgid=acme'
-    )
+    expect(menu[1].url).toBe(`https://app.semantius.com/settings?orgid=${slug}`)
+    expect(menu[2].url).toBe(`https://app.semantius.com/settings/organization?orgid=${slug}`)
     expect(menu.some((e) => e.url.includes('{orgid}'))).toBe(false)
   })
 
   it('blocks boot when VITE_BACKEND_TYPE=custom has no VITE_UI_CUSTOMIZER', async () => {
-    env({ VITE_BACKEND_TYPE: 'custom' })
-    vi.stubGlobal('fetch', tenantFetch('acme'))
+    setRuntimeEnv({ VITE_BACKEND_TYPE: 'custom' })
 
     await initConfig()
 
@@ -105,8 +104,7 @@ describe('initConfig — configurable user menu', () => {
   })
 
   it('blocks boot on an unrecognized VITE_BACKEND_TYPE, listing the valid values', async () => {
-    env({ VITE_BACKEND_TYPE: 'selfhosted' })
-    vi.stubGlobal('fetch', tenantFetch('acme'))
+    setRuntimeEnv({ VITE_BACKEND_TYPE: 'selfhosted' })
 
     await initConfig()
 
@@ -116,24 +114,22 @@ describe('initConfig — configurable user menu', () => {
   })
 
   it('resolves a custom menu, substituting the slug', async () => {
-    env({
+    setRuntimeEnv({
       VITE_BACKEND_TYPE: 'custom',
       VITE_UI_CUSTOMIZER:
         '{"user":{"menu":[{"title":"Org","url":"/org?orgid={orgid}","permission":"admin"}]}}',
     })
-    vi.stubGlobal('fetch', tenantFetch('acme'))
 
     await initConfig()
 
     expect(getConfigError()).toBeNull()
     expect(getConfig().uiCustomizer.user.menu).toEqual([
-      { title: 'Org', url: '/org?orgid=acme', permission: 'admin' },
+      { title: 'Org', url: `/org?orgid=${slug}`, permission: 'admin' },
     ])
   })
 
   it('does not clobber an earlier failure — the tenant error is the useful one', async () => {
-    env({ VITE_BACKEND_TYPE: 'nonsense' })
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
+    setRuntimeEnv({ VITE_BACKEND_TYPE: 'nonsense', VITE_CONTROL_PLANE_ORG: UNKNOWN_ORG })
 
     await initConfig()
 
@@ -142,76 +138,89 @@ describe('initConfig — configurable user menu', () => {
 })
 
 describe('initConfig — OIDC discovery (self-hosted)', () => {
-  function env(values: Record<string, string>) {
-    window.__ENV__ = values
-  }
-
-  /** A discovery document the bundled IdP would serve. */
-  function discoveryFetch() {
-    return vi.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      statusText: 'OK',
-      json: async () => ({
-        authorization_endpoint: 'https://b.example.com/oauth2/authorize',
-        token_endpoint: 'https://b.example.com/oauth2/token',
-        userinfo_endpoint: 'https://b.example.com/oauth2/userinfo',
-        scopes_supported: ['openid', 'profile', 'email'],
-      }),
-    })
-  }
-
-  beforeEach(() => {
-    vi.clearAllMocks()
+  afterEach(() => {
+    clearRuntimeEnv()
   })
 
-  afterEach(() => {
-    vi.unstubAllGlobals()
-    delete window.__ENV__
+  it('fills the blank endpoints from the provider’s discovery document', async () => {
+    setRuntimeEnv({
+      VITE_CONTROL_PLANE_URL: SELF_HOSTED,
+      VITE_OAUTH_CONFIG: DISCOVERY,
+    })
+
+    await initConfig()
+
+    expect(getConfigError()).toBeNull()
+    // Whatever the provider currently publishes — read back from the document
+    // rather than compared against a copy of it kept here, which would go stale
+    // silently the moment the provider moved an endpoint.
+    const doc = await (await fetch(DISCOVERY)).json()
+    expect(getConfig().oauthAuthEndpoint).toBe(doc.authorization_endpoint)
+    expect(getConfig().oauthTokenEndpoint).toBe(doc.token_endpoint)
+    expect(getConfig().oauthUserinfoEndpoint).toBe(doc.userinfo_endpoint)
+    // scopes_supported drives the scope when VITE_OAUTH_SCOPE is blank.
+    expect(getConfig().oauthScope).toContain('openid')
   })
 
   it('fetches a RELATIVE VITE_OAUTH_CONFIG as an absolute URL on this origin', async () => {
     // Load-bearing, not cosmetic: apiClient.ts wraps globalThis.fetch and
     // rewrites every URL starting with "/" — prefixing VITE_API_BASE_URL and
-    // consulting getConfig(), which THROWS while initConfig() is still
-    // running. The self-hosted stack ships exactly this relative value, so a
-    // discovery fetch that ever leaves here relative is a blocked boot:
-    // "OIDC discovery failed: App config not initialized…".
-    const fetchSpy = discoveryFetch()
-    vi.stubGlobal('fetch', fetchSpy)
-    env({
-      VITE_CONTROL_PLANE_URL: ' ', // the documented self-hosted opt-out
-      VITE_OAUTH_CONFIG: '/.well-known/openid-configuration',
-    })
+    // consulting getConfig(), which THROWS while initConfig() is still running.
+    // The self-hosted stack ships exactly this relative value, so a discovery
+    // fetch that ever leaves here relative is a blocked boot: "OIDC discovery
+    // failed: App config not initialized…".
+    const relative = '/.well-known/openid-configuration'
+    performance.clearResourceTimings()
+    setRuntimeEnv({ VITE_CONTROL_PLANE_URL: SELF_HOSTED, VITE_OAUTH_CONFIG: relative })
 
     await initConfig()
 
-    expect(getConfigError()).toBeNull()
-    expect(fetchSpy).toHaveBeenCalledWith(
-      `${window.location.origin}/.well-known/openid-configuration`
-    )
-    expect(getConfig().oauthAuthEndpoint).toBe(
-      'https://b.example.com/oauth2/authorize'
-    )
-    expect(getConfig().oauthTokenEndpoint).toBe(
-      'https://b.example.com/oauth2/token'
-    )
+    // The browser's own record of what it requested. Nothing on this origin
+    // serves a discovery document, so the fetch fails — but WHERE it went is
+    // the whole point, and a relative url would never have reached the network
+    // at all.
+    // Polled: a resource-timing entry is recorded when the response is
+    // complete, which is after initConfig() has already given up on it.
+    await expect
+      .poll(
+        () =>
+          performance
+            .getEntriesByType('resource')
+            .some((entry) => entry.name === `${window.location.origin}${relative}`),
+        { timeout: 15000, interval: 100 },
+      )
+      .toBe(true)
+    // The interceptor's signature failure, which is what a relative url causes.
+    expect(getConfigError()).not.toContain('App config not initialized')
   })
 
   it('passes an absolute VITE_OAUTH_CONFIG through unchanged', async () => {
-    const fetchSpy = discoveryFetch()
-    vi.stubGlobal('fetch', fetchSpy)
-    env({
-      VITE_CONTROL_PLANE_URL: ' ',
-      VITE_OAUTH_CONFIG:
-        'https://issuer.example.com/.well-known/openid-configuration',
-    })
+    performance.clearResourceTimings()
+    setRuntimeEnv({ VITE_CONTROL_PLANE_URL: SELF_HOSTED, VITE_OAUTH_CONFIG: DISCOVERY })
 
     await initConfig()
 
     expect(getConfigError()).toBeNull()
-    expect(fetchSpy).toHaveBeenCalledWith(
-      'https://issuer.example.com/.well-known/openid-configuration'
-    )
+    await expect
+      .poll(
+        () => performance.getEntriesByType('resource').some((entry) => entry.name === DISCOVERY),
+        { timeout: 15000, interval: 100 },
+      )
+      .toBe(true)
+  })
+
+  it('reports a discovery document that is not there, rather than booting half-configured', async () => {
+    setRuntimeEnv({
+      VITE_CONTROL_PLANE_URL: SELF_HOSTED,
+      VITE_OAUTH_CONFIG: 'https://test-oidc-server.ma532.workers.dev/.well-known/not-here',
+    })
+
+    await initConfig()
+
+    // A real 404 from a real provider. main.tsx turns this into a blocking boot
+    // screen: an app that cannot resolve its OAuth endpoints must say so, not
+    // offer a login that goes nowhere.
+    expect(getConfigError()).toContain('OIDC discovery failed')
+    expect(getConfigError()).toContain('404')
   })
 })

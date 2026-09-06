@@ -1,63 +1,109 @@
-import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from 'vitest'
+import { describe, it, expect, beforeAll } from 'vitest'
+import { tryGetConfig } from './config'
+import { setInterceptorToken } from './apiClient'
+import { bootApp } from '@/test/appHarness'
+import { testToken } from '@/test/session'
 
 /**
- * The global fetch interceptor, around the boot boundary.
+ * The global fetch interceptor, across the boot boundary.
  *
- * `apiClient.ts` replaces `globalThis.fetch` at module load, capturing whatever
- * fetch was there as the downstream it forwards to. So the downstream spy has to
- * be in place BEFORE the import — which is the whole reason this file imports the
- * module dynamically.
+ * WHAT CHANGED AND WHY. This ran in `node` with `globalThis.fetch` replaced by a
+ * `vi.fn()`, and asserted the arguments the interceptor forwarded to it. Two
+ * problems. The interceptor is BROWSER code — it exists so that a relative URL
+ * in page script becomes an API call — and in node a relative URL cannot even be
+ * fetched, so the central case could not really happen. And a spy on the
+ * downstream can only report what it was called with; it cannot show that the
+ * resulting request was legal, reached anything, or carried the header the
+ * server needed.
  *
- * It imports it ONCE. The previous version called `vi.resetModules()` before
- * every test so each got a freshly-loaded copy, and re-stubbed fetch each time;
- * but the state under test — `_config` still null, the app mid-`initConfig()` —
- * is a property of `config.ts`, not something a module reload is needed to
- * produce, and reloading a module that patches a global on load leaves a chain of
- * interceptors behind it. One install, then assertions about the installed fetch.
+ * So it moved to the browser project, and the observations are the browser's
+ * own: resource timing for WHERE a request went, and a real API answer for what
+ * the interceptor built. Nothing is replaced.
  *
- * Runs in `node`: nothing here touches a document.
+ * ORDER MATTERS HERE, and is enforced rather than assumed. The first block is
+ * about the state before `initConfig()` resolves — `_config` still null, which
+ * is a one-way door within a page — so it asserts that precondition instead of
+ * trusting that nobody reorders the file.
  */
 
-const realFetch = globalThis.fetch
-const downstream = vi.fn<typeof fetch>()
+/** The one URL used for the pre-boot relative case; nothing serves it. */
+const RELATIVE = '/.well-known/openid-configuration'
 
-beforeAll(async () => {
-  // Installed before the import, so the interceptor wraps it.
-  globalThis.fetch = downstream as unknown as typeof fetch
-  await import('./apiClient')
-})
-
-afterAll(() => {
-  globalThis.fetch = realFetch
-})
+/**
+ * Did the browser request exactly this url?
+ *
+ * Polled, because a resource-timing entry is recorded when the response is
+ * COMPLETE, and `await fetch()` resolves as soon as the headers are in — an
+ * immediate read races the entry and fails about as often as it passes.
+ */
+async function expectRequested(url: string): Promise<void> {
+  await expect
+    .poll(
+      () => performance.getEntriesByType('resource').some((entry) => entry.name === url),
+      { timeout: 15000, interval: 100 },
+    )
+    .toBe(true)
+}
 
 describe('fetch interceptor — before initConfig() has resolved', () => {
-  beforeEach(() => {
-    downstream.mockReset()
-    downstream.mockResolvedValue({ ok: true } as Response)
+  beforeAll(() => {
+    performance.clearResourceTimings()
   })
 
   it('installs itself over the fetch that was there', () => {
-    expect(globalThis.fetch).not.toBe(downstream)
+    // The interceptor patches the global at module load; importing anything
+    // that pulls `apiClient` in is enough, and this file does.
     expect(globalThis.fetch.name).toBe('interceptedFetch')
   })
 
   it('passes a relative fetch through untouched instead of throwing', async () => {
+    // The precondition this whole block rests on.
+    expect(tryGetConfig()).toBeNull()
+
     // The regression: initConfig()'s own OIDC discovery fetch is relative when
     // VITE_OAUTH_CONFIG is origin-relative, and an interceptor that consulted
     // getConfig() here threw "App config not initialized" — a blocked boot on
     // every self-hosted deployment shipping the relative default.
-    await expect(
-      globalThis.fetch('/.well-known/openid-configuration')
-    ).resolves.toEqual({ ok: true })
-    expect(downstream).toHaveBeenCalledWith('/.well-known/openid-configuration', undefined)
+    await expect(fetch(RELATIVE)).resolves.toBeInstanceOf(Response)
+    // Resolved against the origin by the browser, not prefixed by us.
+    await expectRequested(`${window.location.origin}${RELATIVE}`)
   })
 
   it('passes an absolute fetch through untouched, as always', async () => {
-    await globalThis.fetch('https://issuer.example.com/.well-known/openid-configuration')
-    expect(downstream).toHaveBeenCalledWith(
-      'https://issuer.example.com/.well-known/openid-configuration',
-      undefined
-    )
+    const absolute = 'https://test-oidc-server.ma532.workers.dev/.well-known/openid-configuration'
+
+    await fetch(absolute)
+
+    await expectRequested(absolute)
+  })
+})
+
+describe('fetch interceptor — once the config is in', () => {
+  beforeAll(async () => {
+    await bootApp()
+  })
+
+  it('turns a relative path into a call on the tenant’s API, carrying the token', async () => {
+    setInterceptorToken(testToken())
+
+    // No base url, no headers: this is what a call site inside the app writes,
+    // and everything that makes it a valid authenticated request is added by
+    // the interceptor.
+    const res = await fetch('/modules?limit=1')
+
+    expect(res.status).toBe(200)
+    expect(Array.isArray(await res.json())).toBe(true)
+    await expectRequested(`${tryGetConfig()!.apiBaseUrl}/modules?limit=1`)
+  })
+
+  it('sends the same request unauthenticated when there is no token', async () => {
+    setInterceptorToken(null)
+
+    const res = await fetch('/modules?limit=1')
+
+    // PostgREST's own words for a request with no bearer token. The route was
+    // still resolved — the interceptor's two jobs are independent.
+    expect(res.ok).toBe(false)
+    expect(JSON.stringify(await res.json())).toMatch(/authenticat|jwt/i)
   })
 })
