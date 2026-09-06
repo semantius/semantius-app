@@ -43,9 +43,10 @@ describe('initConfig — secure-context precheck', () => {
     // assert that the stub was read. The RULE itself is a pure function, tested
     // in `secureContext.test.ts`.
     //
-    // UNCOVERED until that exists: that the precheck SHORT-CIRCUITS — records
-    // the error and resolves no endpoint, offering no login for a flow the
-    // browser cannot perform.
+    // That exists: `e2e/non-secure-context.spec.ts`, the `lan` Playwright
+    // project, serves the built app from the machine's own LAN address and
+    // asserts the short-circuit as a user sees it — the configuration error
+    // naming the origin, the boot overlay down, no redirect to a provider.
     setRuntimeEnv({ VITE_CONTROL_PLANE_ORG: UNKNOWN_ORG })
 
     await initConfig()

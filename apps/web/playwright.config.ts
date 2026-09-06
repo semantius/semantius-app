@@ -1,3 +1,4 @@
+import { networkInterfaces } from 'node:os'
 import { defineConfig, devices } from '@playwright/test'
 
 /**
@@ -35,6 +36,19 @@ const HOST = `http://localhost:${PORT}`
 const TENANT_PORT = 4174
 const TENANT_HOST = `http://localhost:${TENANT_PORT}`
 
+// The third build, and the only one not served from localhost. `localhost` is
+// a secure context by exemption, so nothing served from it can show what the
+// app does where `crypto.subtle` is withheld — a plain-HTTP deployment reached
+// over a LAN address. The machine's own address is that origin: Chromium
+// treats `http://192.168.x.x` as non-secure, for real, with nothing stubbed.
+// The first non-internal IPv4 interface is used; a machine with none (a
+// sandbox with only loopback) has no such origin and the project is skipped.
+const LAN_PORT = 4175
+const LAN_ADDRESS = Object.values(networkInterfaces())
+  .flat()
+  .find((net) => net && net.family === 'IPv4' && !net.internal)?.address
+const LAN_HOST = LAN_ADDRESS ? `http://${LAN_ADDRESS}:${LAN_PORT}` : undefined
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
@@ -50,7 +64,7 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      testIgnore: /transient-failures|modal-inert/,
+      testIgnore: /transient-failures|modal-inert|non-secure-context/,
       use: { ...devices['Desktop Chrome'], baseURL: HOST },
     },
     {
@@ -58,6 +72,15 @@ export default defineConfig({
       testMatch: /transient-failures|modal-inert/,
       use: { ...devices['Desktop Chrome'], baseURL: TENANT_HOST },
     },
+    ...(LAN_HOST
+      ? [
+          {
+            name: 'lan',
+            testMatch: /non-secure-context/,
+            use: { ...devices['Desktop Chrome'], baseURL: LAN_HOST },
+          },
+        ]
+      : []),
   ],
   webServer: [
     {
@@ -107,5 +130,27 @@ export default defineConfig({
         VITE_CONTROL_PLANE_ORG: process.env.VITE_CONTROL_PLANE_ORG ?? '',
       },
     },
+    ...(LAN_HOST
+      ? [
+          {
+            // Its own build rather than another server over `dist`: the three
+            // webServers start in parallel, so a server pointed at a sibling's
+            // output would race that sibling's build. Same env as the
+            // self-hosted build — the boot gate fires before any of it matters.
+            command: `pnpm exec vite build --mode e2e --outDir dist-e2e-lan && pnpm exec vite preview --outDir dist-e2e-lan --host 0.0.0.0 --port ${LAN_PORT} --strictPort`,
+            url: LAN_HOST,
+            reuseExistingServer: !process.env.CI,
+            timeout: 240_000,
+            env: {
+              VITE_OAUTH_CONFIG:
+                'https://test-oidc-server.ma532.workers.dev/.well-known/openid-configuration',
+              VITE_OAUTH_CLIENT_ID: 'public-client',
+              VITE_CONTROL_PLANE_URL: '',
+              VITE_CONTROL_PLANE_ORG: 'e2e',
+              VITE_API_BASE_URL: 'https://test-oidc-server.ma532.workers.dev/not-an-api',
+            },
+          },
+        ]
+      : []),
   ],
 })

@@ -559,7 +559,7 @@ run that no route now fails 2.4.7 for that reason alone.
 
 ## 5. Tests
 
-### 5.1 The last substitutions — OPEN
+### 5.1 The last substitutions — the LAN project EXISTS and passes; the three substitutions stay, for a reason the plan had wrong
 
 The substitution ratchet (`src/test/substitutions.test.ts:331`) is at **6**, down
 from 96. The split is **3 movable / 3 deliberate** — an earlier draft said 4/2 and
@@ -602,10 +602,29 @@ hang the boot-overlay invariant exists to prevent, and would break
 only `hideAppLoader` from `login.tsx`, leaving a bare `return null` at `:61`,
 which that test fails by design.
 
-The three substitutions therefore stay, and the ratchet stays at **6**. Closing
-them needs the LAN-origin Playwright project after all: `vite preview --host
-0.0.0.0`, the machine's address from `os.networkInterfaces()`, a project with
-that `baseURL`. It also closes `lib/config.test.ts:46-48`'s `UNCOVERED` note.
+The three substitutions therefore stay, and the ratchet stays at **6**.
+
+**Built and run:** the `lan` project in `playwright.config.ts` (`vite preview
+--host 0.0.0.0` on 4175, the address from `os.networkInterfaces()`, its own
+build) and `e2e/non-secure-context.spec.ts` — passes: `isSecureContext` really
+false, "Configuration Error" naming the origin, overlay down, no redirect. It
+closes `lib/config.test.ts`'s `UNCOVERED` note.
+
+**It does not close the three substitutions, and could not have:** on a
+non-secure origin the boot gate stops `initConfig()` before the router mounts,
+so `/login` and its `useAuth().error` branch are never reached — the plan's
+sentence above assumed the opposite. What would reach that branch is a failure
+that SURVIVES the gate: blocked storage (`redirectToLogin` writes the verifier
+before touching crypto) or an offline network on a secure origin. Checked
+before building it: neither is producible honestly. Offline does not set
+`error` — `redirectToLogin` writes storage, derives the PKCE pair (crypto works
+on a secure origin) and calls `window.location.assign()`; the failure is the
+browser's own network error page after the app has already left, not a
+rejection the library catches. Blocked storage is a Safari/partitioned-iframe
+condition Chromium cannot be put into without replacing `localStorage`, which
+is the substitution this repo forbids. So the three mocks in `login.test.tsx`
+are the floor until a real blocked-storage browser drives the flow; the ratchet
+stays at 6 with that reason written next to it.
 
 The 3 deliberate: `appLoader.test.ts` (1) needs an element with *no* transition,
 to prove the 300ms fallback fires where `transitionend` never does; and
@@ -774,8 +793,9 @@ earlier draft claimed all five were non-blocking and that was false.
    §4.3h applied (`ModalInert`, toaster portaled) and proven in
    `e2e/modal-inert.spec.ts`. §4.6 (error card contrast) applied after the run.
 10. ~~§3.1~~ DONE (it was already decided). §3.2 — still the human's decision (§0 table, row 5).
-11. §5.1 — confirm `logIn()` has no other failure mode, then delete the dead
-    branch and its three substitutions.
+11. §5.1 — the LAN project is in and green; the branch is not dead, and its
+    remaining triggers cannot be produced in Chromium without a substitution,
+    so the three mocks stay as the documented floor.
 12. ~~§6.6~~ DONE.
 13. §6.4 — pushed; read the first CI run's result.
 14. ~~§4.3f~~ DONE.

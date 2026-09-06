@@ -734,9 +734,9 @@ If `mint-token.mjs` fails, **stop and fix that first** — do not fall back to a
 
 Keep at most one full-UI-login smoke test (against a registered domain) to prove the real OAuth integration still works.
 
-### Two Playwright projects, and why they cannot be one
+### Three Playwright projects, and why they cannot be one
 
-`playwright.config.ts` builds the app TWICE and starts two preview servers.
+`playwright.config.ts` builds the app THREE times and starts three preview servers.
 
 - **`chromium` (port 4173)** — the interactive login journey. It needs the OIDC
   test server, which accepts any `redirect_uri`, so the build is self-hosted with
@@ -744,6 +744,18 @@ Keep at most one full-UI-login smoke test (against a registered domain) to prove
 - **`tenant` (port 4174, `dist-e2e-tenant`)** — production's shape: the
   control-plane path, the tenant's own PostgREST and OAuth endpoints, session
   seeded through `#jwt` with a token minted in-test from `SEMANTIUS_API_KEY`.
+
+- **`lan` (port 4175, `dist-e2e-lan`, served on `0.0.0.0` and addressed by the
+  machine's first non-internal IPv4)** — the only origin that is NOT a secure
+  context. `localhost` is secure by exemption, so nothing served from it can
+  show the boot gate that fires where `crypto.subtle` is withheld;
+  `e2e/non-secure-context.spec.ts` asserts `window.isSecureContext === false`
+  for real and then the configuration screen, overlay down, no redirect. The
+  project is defined only when such an address exists (a loopback-only sandbox
+  skips it). What it does NOT reach: `/login`'s own `useAuth().error` branch —
+  on that origin boot stops before any route mounts, so the three substitutions
+  in `routes/login.test.tsx` stay; closing them needs a failure that survives
+  the boot gate (blocked storage, offline), not a LAN origin.
 
 They cannot be merged. The transient-failure tests assert that a request which
 would otherwise have SUCCEEDED recovers, so they need a real API behind the app;
