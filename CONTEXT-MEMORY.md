@@ -139,6 +139,33 @@ as `useAuth().error`, never as a throw or a rejected promise the caller can awai
 component that triggers an auth action and does not read `error` fails silently. Both legs
 of the flow render `components/AuthFailure.tsx`.
 
+### Transient Failures — a 429 or a cold start must never reach the user
+
+Two endpoints the app cannot boot without fail for reasons that have nothing to
+do with the request: the identity provider's `/userinfo` answers **429** when
+pages load a few seconds apart, and the tenant's serverless PostgREST answers
+**404** to the first request after an idle period (a reload fixes it). Both used
+to render a terminal error card.
+
+`lib/transientFailure.ts` is the single policy — which statuses are worth
+repeating (408, 425, 429, 5xx; never a 400/401/403/422, which the server
+understood and refused), exponential backoff with **full jitter**, `Retry-After`
+honored in both forms and capped, and a **bounded** four attempts so an endpoint
+that is really gone still produces an error the user can act on.
+
+- `withRetry(send, opts)` is the loop over a caller-supplied request function,
+  which is what makes the policy testable in `node` with no fetch, no server and
+  no clock. `fetchWithRetry` is the one-line application of it.
+- **A 404 is retried only where a cold start can produce one** (`coldStart404`),
+  because everywhere else a 404 means the thing is not there.
+- `AuthContext`'s two boot fetches use it; the query client's `retry` in
+  `main.tsx` is a predicate over `isTransientError` (which reads the status off
+  `error.cause` — the data hooks put it there alongside PostgREST's body).
+  **Mutations deliberately do not retry.**
+- Proven in `e2e/transient-failures.spec.ts`, which needs its own Playwright
+  project (see Testing) because the failure has to be injected into a request
+  that would otherwise have SUCCEEDED.
+
 ### PKCE Requires a Secure Context (boot gate)
 
 PKCE needs `crypto.subtle`, which browsers withhold outside a secure context — HTTPS, or
@@ -656,6 +683,28 @@ If `mint-token.mjs` fails, **stop and fix that first** — do not fall back to a
 
 Keep at most one full-UI-login smoke test (against a registered domain) to prove the real OAuth integration still works.
 
+### Two Playwright projects, and why they cannot be one
+
+`playwright.config.ts` builds the app TWICE and starts two preview servers.
+
+- **`chromium` (port 4173)** — the interactive login journey. It needs the OIDC
+  test server, which accepts any `redirect_uri`, so the build is self-hosted with
+  `VITE_API_BASE_URL` pointed at nothing.
+- **`tenant` (port 4174, `dist-e2e-tenant`)** — production's shape: the
+  control-plane path, the tenant's own PostgREST and OAuth endpoints, session
+  seeded through `#jwt` with a token minted in-test from `SEMANTIUS_API_KEY`.
+
+They cannot be merged. The transient-failure tests assert that a request which
+would otherwise have SUCCEEDED recovers, so they need a real API behind the app;
+the login journey needs an IdP that will accept `localhost` as a redirect target,
+which the tenant's will not (that is the `invalid_redirect` the docs warn about).
+A single build faking the missing half would put the fake exactly where the test
+is looking. `pnpm test:e2e` therefore runs under dotenvx.
+
+**`page.route` interception is the sanctioned substitution in e2e** — it replaces
+no application code and sends real status codes; every attempt after the injected
+ones is passed through to the real endpoint with `route.fallback()`.
+
 ### Accessibility testing — four layers, and why none of them is optional
 
 **A simulated DOM cannot host axe, and jsdom never will.** It loads no CSS.
@@ -714,13 +763,45 @@ projects, `node` and `browser`. The layers that do work:
 
 **There are exactly TWO substitutions the suite is allowed, named and counted in
 `apps/web/src/test/substitutions.test.ts`:** the OIDC test server (a real provider,
-not a mock — the app's auth code runs against it unmodified), and `#jwt` session
-seeding. The second is a genuine bypass, and it is only honest because
+not a mock — the app's auth code runs against it unmodified), and **session
+seeding**. The second is a genuine bypass, and it is only honest because
 `apps/web/e2e/login-journey.spec.ts` drives the real interactive login once, for
 real. That has to be Playwright: `react-oauth2-code-pkce` starts login with a full
 top-level `window.location` navigation, which destroys a component test's context.
 **The journey does NOT prove PKCE is cryptographically correct** — the test server
 does not enforce PKCE — and nothing else in the suite does either.
+
+**The Vitest run gets its session from `globalSetup`, not from `#jwt`.** A root
+`globalSetup` (`src/test/globalSetup.ts`) exchanges `SEMANTIUS_API_KEY` for ONE
+token per run and `provide()`s it to both projects; `src/test/session.ts`
+writes it into the storage keys the OAuth library reads. `#jwt` remains for the
+audit and for a human opening a preview — routing tests through it would make a
+production safeguard load-bearing for the suite. Consequences to know:
+
+- **`pnpm check` runs under dotenvx and needs `DOTENV_PRIVATE_KEY`**, and so does
+  `pnpm test:e2e`. Both CI jobs declare it; a `workflow_call` receives no secret
+  unless the caller passes it, so `docker-publish.yml` maps it explicitly.
+- **`src/test/appHarness.tsx` is the app-provider harness** — `bootApp()` (real
+  `initConfig()` on the control-plane path, then the seeded session),
+  `bootAppSignedOut()`, `bootAppWithFailingUserinfo()`, `AppHarness`/`appWrapper`
+  for a hook, and `renderInApp()` which composes exactly what `main.tsx`
+  composes and hands back the router so `router.history.location` can be read.
+- **Do NOT import `routeTree.gen.ts` into the harness.** The provider only calls
+  `router.update()` and `router.invalidate()`, so an empty root route is the
+  smallest real router that satisfies it. Pulling the generated tree in took the
+  browser project's import time from 126s to 220s and made unrelated files fail
+  with "Failed to fetch dynamically imported module".
+- **The boot overlay comes from `index.html` itself** (`src/test/bootOverlay.ts`
+  fetches it and lifts `#app-loader` plus the head styles out), so there is no
+  copy to drift and no full-screen overlay over every other test.
+- **Resource timing is the observation of last resort, and it is a real one.**
+  `performance.getEntriesByType('resource')` says which URL the browser actually
+  requested — the only way to see a call made by a fetch captured before the
+  interceptor was installed (`refreshSchemaCache`), or to assert a URL was
+  resolved before being fetched. An entry is recorded when the response
+  COMPLETES, so poll for it; `await fetch()` resolves at the headers.
+- **`vi.spyOn(globalThis, 'fetch')` without an implementation is an observer,
+  not a stub**, and is the only way to assert a request was NOT made.
 
 **`vi.mock` of anything inside `src/` is a known defect, not a technique — and so
 is every other thing a test supplies in place of the real one.**
@@ -729,10 +810,12 @@ external, `window.location`, `window.open`, `matchMedia`, `ResizeObserver`,
 `fetch`, `crypto`/`isSecureContext`, `vi.stubEnv`, fake timers, a hand-built boot
 overlay, a disabled pointer-events check, a silenced console, `vi.resetModules`,
 `fireEvent.change`), frozen per file; a new instance in ANY of them fails the
-suite. Nine families are already at zero. The remaining 40 are 13 internal mocks,
-3 external, 20 stubbed fetches, 2 overlay fixtures and 2 synthetic change events.
-The target is zero, reached by moving those tests into a browser, not by writing better
-mocks.
+suite. **Eleven families are at zero, including `fetch`** — every test that talks
+to an API talks to the real tenant. The remaining 6 are 1 internal mock and 1
+external in `routes/login.test.tsx`, 2 overlay fixtures and 2 synthetic change
+events. The target is zero, reached by moving those tests into a browser (or, for
+`/login`'s failure branch, into a Playwright project served from a real
+non-secure LAN origin), not by writing better mocks.
 
 ### The audit harness — traps that cost hours
 
@@ -792,6 +875,17 @@ Always inspect API responses with `curl` before implementing — never assume re
 
 ### Known Gotchas
 
+- **`pnpm check` does NOT typecheck.** Lint + both Vitest projects only; `tsc -b
+  --noEmit` runs inside `pnpm build`. A type error in a test file passes `check`
+  and fails the release.
+- **PostgREST reports "nothing matched" as SUCCESS.** A PATCH whose filter
+  matches no row answers `200 []` and a DELETE answers `204`, so `useUpdateRecord`
+  resolves with `undefined` and `useDeleteRecord` resolves at all — the UI says
+  "saved" for a record that is not there. Pinned in
+  `hooks/useTableMutations.test.tsx`; fixing it is a product decision.
+- **Deleting a module cascades to its entities.** That is what makes the
+  `_vitest_`-prefixed rows those tests create safe to clean up by module alone;
+  it is asserted there and nowhere else.
 - Unit tests passing + TypeScript compiling does NOT mean the site works — always verify in the browser
 - Test with real API data, not mocked data — mocks can hide field name mismatches and type issues
 - Verify data types in API responses — booleans may be `true/false` or `0/1`, numbers may be strings
