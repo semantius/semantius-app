@@ -9,8 +9,8 @@
  * "at the baseline viewports" ones; the full-matrix counts include five
  * viewports the baseline never saw. A criterion whose count ROSE is not a
  * regression until the per-finding section says which findings are new and
- * on which samples — the first post-fix run's rise in 1.4.3 was 58 new dark-mode
- * placeholder findings (a real regression) plus axe findings on samples that
+ * on which views — the first post-fix run's rise in 1.4.3 was 58 new dark-mode
+ * placeholder findings (a real regression) plus axe findings on views that
  * turned out to be error cards (a harness gap), and only this view told them apart.
  */
 import { readFileSync, readdirSync } from 'node:fs'
@@ -68,8 +68,8 @@ for (const c of run.criteria) {
   summarize(gone, 'gone')
   summarize(added, 'ADDED')
   if (added.length) {
-    const samples = {}
-    for (const k of added) { const w = k.split(' :: ')[0]; samples[w] = (samples[w] || 0) + 1 }
-    console.log('    added on:', Object.entries(samples).sort((x, y) => y[1] - x[1]).slice(0, 6).map(([w, n]) => `${w} (${n})`).join('; '))
+    const views = {}
+    for (const k of added) { const w = k.split(' :: ')[0]; views[w] = (views[w] || 0) + 1 }
+    console.log('    added on:', Object.entries(views).sort((x, y) => y[1] - x[1]).slice(0, 6).map(([w, n]) => `${w} (${n})`).join('; '))
   }
 }

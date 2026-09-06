@@ -142,9 +142,9 @@ export class Browser {
    * Tear the session down and start clean.
    *
    * Over a long run the CLI's per-session daemon can stop answering ("daemon may
-   * be busy or unresponsive"). Every subsequent sample then reports `cantTell`
+   * be busy or unresponsive"). Every subsequent view then reports `cantTell`
    * for a reason that has nothing to do with the page, quietly turning a
-   * conformance run into 200 samples of noise. Recreating the session costs a few
+   * conformance run into 200 views of noise. Recreating the session costs a few
    * seconds and keeps the run's failures about the app.
    */
   restart() {

@@ -220,9 +220,9 @@ registered in **all seven** places. Missing any one fails late and confusingly (
 
 1. `apps/web/public/config.js` — add `"VITE_X": "__VITE_X__"` (the placeholder token
    `runtimeEnv()` treats as absent outside Docker).
-2. `docker/gen-config.sh` **and** `docker-vo/gen-config.sh` — append to `CANONICAL_VARS`;
-   keep both lists identical to each other and to `public/config.js`.
-3. `docker/.env.example` **and** `docker-vo/.env.example` — a commented example. The docker
+2. `docker/gen-config.sh` — append to `CANONICAL_VARS`; keep it identical to
+   `public/config.js`.
+3. `docker/.env.example` — a commented example. The docker
    `.env` parser is line-based, so any JSON value must be single-line.
 4. `turbo.json` `globalPassThroughEnv` — Turbo runs in strict env mode and strips anything
    not listed, so an unlisted var is simply absent from the built bundle.
@@ -231,7 +231,7 @@ registered in **all seven** places. Missing any one fails late and confusingly (
 6. Read it in the app through `runtimeEnv('VITE_X', import.meta.env.VITE_X)` — never
    `import.meta.env` directly, or the Docker "build once, run anywhere" path breaks.
 7. **Document it in the READMEs** — root `README.md` (an "Environment Variables" subsection)
-   **and** `docker/README.md` + `docker-vo/README.md` (the key-variables table and the
+   **and** `docker/README.md` (the key-variables table and the
    "Optional extras" list). An operator configures from the README, not from the source;
    a var that exists only in code and `.env.example` is undiscoverable.
 
@@ -521,20 +521,22 @@ https://raw.githubusercontent.com/semantius/semantius-app/copilot/fix-datatablev
 
 ## Secrets & Deployment
 
-### Docker runtime config — "build once, run anywhere" (`docker/`, `docker-vo/`)
+### Docker runtime config — "build once, run anywhere" (`docker/`)
 
-There are **two sibling image definitions sharing one runtime-config mechanism**. `docker/` is the **primary, SPA-only** image (**nginx**): it serves the built SPA and nothing else — no proxy, plain HTTP on `:80`, TLS terminated upstream. `docker-vo/` is the **Caddy variant** kept alongside it: same config mechanism, but it *also* reverse-proxies `/api` and `/api-docs` to sibling containers and can do automatic HTTPS. **CI publishes `docker/` only** (`.github/workflows/docker-publish.yml` points at `docker/Dockerfile`), so `ghcr.io/semantius/semantius-app` is the nginx SPA-only image — `docker-vo/` has no published image and must be built locally. To let both run side by side they use distinct identities: `docker/` = `semantius-app:local` / container `semantius-app` / port **7070**; `docker-vo/` = `semantius-app-vo:local` / container `semantius-app-vo` / port **7071**. Anything below that says `docker/` applies to both unless it names Caddy or nginx explicitly.
+`docker/` is the **only** image definition: **SPA-only, served by nginx** — no proxy, plain HTTP on `:80`, TLS terminated upstream, and the SPA pointed at an absolute `VITE_API_BASE_URL`. Identity: `semantius-app:local` / container `semantius-app` / port **7070**. CI publishes it from `.github/workflows/docker-publish.yml`, which points at `docker/Dockerfile`, to `ghcr.io/semantius/semantius-app`.
+
+> A second folder, `docker-vo/`, once held a Caddy variant that also reverse-proxied `/api` and `/api-docs` to sibling containers and could do automatic HTTPS. **It has been deleted.** If proxying or built-in HTTPS is ever wanted again it has to be rebuilt, not recovered from these notes — everything below describes the nginx image only.
 
 The image is **environment-agnostic**: the Vite bundle is compiled against placeholder config and the real values are injected at **container start**, so one image serves any environment without a rebuild. This is a **parallel config channel to the Vite `.env` path — the two never overlap and only meet at `runtimeEnv()`**.
 
 - **Accessor:** every `VITE_*` read in `lib/config.ts` and `lib/devUrlToken.ts` goes through `runtimeEnv(key, import.meta.env.VITE_X)` (`lib/runtimeEnv.ts`). It returns `window.__ENV__[key]` when that holds a real value, else the Vite build-time value.
 - **Placeholder guard is the linchpin:** `apps/web/public/config.js` ships `window.__ENV__` with all values as `__VITE_X__` placeholder tokens. `runtimeEnv()` treats any `__…__` token as absent. So in **dev / Vercel / Cloudflare** (where nothing rewrites `config.js`) the app falls back to `import.meta.env` and behaves exactly as before. Only the Docker entrypoint replaces the tokens. **Do not "simplify" this guard away** — it is what keeps the non-Docker builds unchanged.
 - **`config.js` is loaded by a plain, blocking `<script src="/config.js">` in `index.html` `<head>`** (before the deferred app module) so `window.__ENV__` exists at boot.
-- **`gen-config.sh` generates `config.js`** at container start, and the two images differ only in *how it is invoked and where it writes*. **`docker/` (nginx)**: written to **`/usr/share/nginx/html/config.js`** by `docker/docker-entrypoint.sh`, installed as **`/docker-entrypoint.d/40-gen-config.sh`** — the nginx image's own entrypoint runs every `/docker-entrypoint.d/*.sh` before starting nginx, so nginx's ENTRYPOINT/CMD stay untouched. **`docker-vo/` (Caddy)**: written to Caddy's static root **`/srv/config.js`**; the Caddy image has **no `/docker-entrypoint.d/*.sh` hook**, so it needs a real `ENTRYPOINT` (`docker-vo/entrypoint.sh`) that runs `gen-config.sh` and then `exec caddy run …`. Precedence per key: **real env var > `docker/.env` file > OIDC discovery (OAuth endpoints only) > built-in default**. Keep its `CANONICAL_VARS` list in sync with `apps/web/public/config.js`.
-- **Only `docker-vo/` proxies; `docker/` never does.** `docker/nginx.conf` is static serving + SPA fallback (`try_files $uri $uri/ /index.html`) + cache headers (`no-store` on `/config.js` and `/index.html`, immutable on `/assets/`) and stops there — the SPA must be pointed at an absolute `VITE_API_BASE_URL`. In `docker-vo/`, **Caddy is the single exposed endpoint** (`docker-vo/Caddyfile`): it serves the SPA (root `/srv`, SPA fallback, cache headers) **and** reverse-proxies `/api/*` → `{$API_UPSTREAM:postgrest:3000}` and `/api-docs/*` → `{$DOCS_UPSTREAM:scalar:8080}` to sibling containers, **stripping the prefix** (`handle_path`) so PostgREST sees `/customers`. Upstreams need no published ports; Caddy re-resolves their DNS per request (no startup-ordering failures). The proxy is **opt-in** — the SPA only uses it when `VITE_API_BASE_URL=/api`; the `.env` default stays an absolute external URL. `SITE_ADDRESS` sets the listen address: default `:80` (plain HTTP behind an outer TLS terminator), or a domain to enable Caddy auto-HTTPS (then also publish 443 and persist `/data`). These proxy/TLS vars are Caddy-only (i.e. `docker-vo/` only) — they are **not** in `CANONICAL_VARS` / `window.__ENV__`.
+- **`gen-config.sh` generates `config.js`** at container start, written to **`/usr/share/nginx/html/config.js`** by `docker/docker-entrypoint.sh`, installed as **`/docker-entrypoint.d/40-gen-config.sh`** — the nginx image's own entrypoint runs every `/docker-entrypoint.d/*.sh` before starting nginx, so nginx's ENTRYPOINT/CMD stay untouched. Precedence per key: **real env var > `docker/.env` file > OIDC discovery (OAuth endpoints only) > built-in default**. Keep its `CANONICAL_VARS` list in sync with `apps/web/public/config.js`.
+- **The image never proxies.** `docker/nginx.conf` is static serving + SPA fallback (`try_files $uri $uri/ /index.html`) + cache headers (`no-store` on `/config.js` and `/index.html`, immutable on `/assets/`) and stops there — the SPA must be pointed at an absolute `VITE_API_BASE_URL`. A same-origin `/api` prefix is **not** available; `runtimeEnv()`'s interceptor rewrites relative URLs onto `VITE_API_BASE_URL`, which is what makes an absolute value mandatory here.
 - **OIDC discovery runs in the SPA, not in `gen-config.sh`.** Set **`VITE_OAUTH_CONFIG`** (a `.well-known/openid-configuration` URL, now a `VITE_`-prefixed passthrough var, formerly the Docker-only `OIDC_CONFIG`) and `initConfig()` in `lib/config.ts` fetches it at boot, filling any blank `VITE_OAUTH_*_ENDPOINT` + scope (explicit env values win). It runs only on the self-hosted path (when `VITE_API_BASE_URL` is set); the control-plane path builds endpoints from the tenant slug instead. A failed discovery fetch sets `_configError`, which `main.tsx` turns into a **blocking** boot screen (hard-fail). This keeps `gen-config.sh` a dependency-free env→JS emitter (**neither Dockerfile `apk add`s curl/jq**) and unifies discovery across dev/Vercel/Cloudflare/Docker. The interactive `apps/web/scripts/genconfig.js` still writes explicit endpoints into a build-time `.env` and is unaffected.
-- **`docker/.env` is a Docker-only file, NOT a Vite env file.** It is git-ignored (holds real values); only `docker/.env.example` is committed (and baked into the image as the default `/config/.env`). The bare-name `.env` needed an explicit `.gitignore` entry **per folder** (`docker/.env`, `docker-vo/.env`) because the repo's `.env.*` rule does not match a suffix-less `.env` — add one for any further sibling folder.
-- **The image builds with no secrets.** CI (`.github/workflows/docker-publish.yml`) pushes to `ghcr.io/semantius/semantius-app` on a version tag, publishing a **multi-arch manifest (`linux/amd64` + `linux/arm64`)** via `docker/build-push-action` `platforms:` + a `setup-qemu-action` step. The arm64 leg builds under QEMU emulation (the runner is amd64), so it is noticeably slower — expected, not a hang. `sem-schema` is consumed from source (its `exports` point at `src/index.ts`), so only `pnpm --filter=@semantius/frontend build` runs — no package pre-build. Build stage is `node:22-slim` (Debian/glibc) to avoid musl native-binary issues with the Tailwind v4 oxide / lightningcss binaries — this build stage is identical in both folders; only the runtime stage differs.
+- **`docker/.env` is a Docker-only file, NOT a Vite env file.** It is git-ignored (holds real values); only `docker/.env.example` is committed (and baked into the image as the default `/config/.env`). The bare-name `.env` needs its own `.gitignore` entry (`docker/.env`) because the repo's `.env.*` rule does not match a suffix-less `.env` — add one for any further sibling folder.
+- **The image builds with no secrets.** CI (`.github/workflows/docker-publish.yml`) pushes to `ghcr.io/semantius/semantius-app` on a version tag, publishing a **multi-arch manifest (`linux/amd64` + `linux/arm64`)** via `docker/build-push-action` `platforms:` + a `setup-qemu-action` step. The arm64 leg builds under QEMU emulation (the runner is amd64), so it is noticeably slower — expected, not a hang. `sem-schema` is consumed from source (its `exports` point at `src/index.ts`), so only `pnpm --filter=@semantius/frontend build` runs — no package pre-build. Build stage is `node:22-slim` (Debian/glibc) to avoid musl native-binary issues with the Tailwind v4 oxide / lightningcss binaries.
 
 ### Cutting a Release
 
@@ -559,8 +561,8 @@ GHCR and creates the GitHub Release.
   is pushed. Only a tag publishes.
 - The tag filter is `v[0-9]+.[0-9]+.[0-9]+[-*]`, not `v*` — a `v`-prefixed non-version tag
   must not start a publish.
-- `docker-vo/release.sh` is the old unguarded copy and is **not** the release path; that
-  folder is slated for deletion.
+- There is exactly one release path. A second, unguarded `docker-vo/release.sh`
+  existed alongside it; that folder has since been deleted.
 
 ### `.env` File (CRITICAL — read before every deploy)
 

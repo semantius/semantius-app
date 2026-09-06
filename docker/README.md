@@ -79,8 +79,7 @@ docker run -p 7070:80 --env-file docker/.env semantius-app:local
 ### HTTPS
 
 nginx here listens on plain HTTP (`:80`) only — terminate TLS in front of it
-(Dokploy, Cloudflare, a load balancer, or a reverse proxy). The Caddy variant in
-`docker-vo/` is the one with built-in automatic HTTPS.
+(Dokploy, Cloudflare, a load balancer, or a reverse proxy).
 
 ## Configuration
 
@@ -243,11 +242,3 @@ Change visibility → Public. One-time, per package.
 | `stop.sh` / `delete.sh` | Stop (keep) / stop + delete the container. |
 | `logs.sh` | Follow container logs. |
 | `.env.example` | Config template (committed). `.env` is your real values (git-ignored). |
-
-## Relationship to `docker-vo/`
-
-`docker-vo/` is the previous Caddy-based image, kept as a variant: same runtime
-config mechanism, but it also reverse-proxies `/api` → `postgrest:3000` and
-`/api-docs` → `scalar:8080`, and can do automatic HTTPS. It uses its own image
-tag (`semantius-app-vo:local`), container name (`semantius-app-vo`) and default
-host port (**7071**) so both can run side by side.

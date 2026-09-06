@@ -103,10 +103,10 @@ function axeCoverage() {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 // Tokens from the client_credentials exchange last one hour (mint-token.mjs).
-// 40 minutes leaves room for the slowest sample to finish on the old token.
+// 40 minutes leaves room for the slowest view to finish on the old token.
 const REMINT_AFTER_MS = 40 * 60_000
 
-// Waits between retries of a sample that rendered a blocking surface. The last
+// Waits between retries of a view that rendered a blocking surface. The last
 // value is long enough for a one-minute rate-limit window to pass.
 const RETRY_BACKOFF_MS = [3_000, 10_000, 30_000, 60_000]
 
@@ -179,7 +179,7 @@ async function main() {
   const axePath = join(REPO_ROOT, 'apps/web/node_modules/axe-core/axe.min.js')
 
   const browser = new Browser({ initScripts: [axePath] })
-  const samples = []
+  const views = []
   const outDir = resolve(REPO_ROOT, args.out)
   mkdirSync(outDir, { recursive: true })
   const shotDir = join(outDir, 'screenshots')
@@ -203,9 +203,9 @@ async function main() {
           process.stdout.write(`[${index}/${total}] ${label} ... `)
 
           // A token lives one hour and the full matrix takes longer than that at
-          // ~20s a sample, so a run that mints once ends in a tail of `cantTell`
-          // samples that measure the token, not the app (145 of 224 in one discarded
-          // run). Re-mint well inside the hour; every sample opens its own URL, so
+          // ~20s a view, so a run that mints once ends in a tail of `cantTell`
+          // views that measure the token, not the app (145 of 224 in one discarded
+          // run). Re-mint well inside the hour; every view opens its own URL, so
           // the fresh token takes effect on the next navigation. A token handed
           // in with --token is the caller's to keep alive.
           if (!args.token && Date.now() - mintedAt > REMINT_AFTER_MS) {
@@ -224,7 +224,7 @@ async function main() {
           // answers the very first rpc/get_userinfo of a fresh browser session
           // with a 404 often enough to poison a whole run, and the app renders a
           // terminal error card rather than retrying. A second navigation
-          // resolves it; if it does not, the sample stays `cantTell`, which is
+          // resolves it; if it does not, the view stays `cantTell`, which is
           // still not a pass. Anything else — a real page error, the wrong theme
           // — is not retried, because a retry would only hide it.
           for (let attempt = 0; attempt < RETRY_BACKOFF_MS.length + 1; attempt++) {
@@ -243,7 +243,7 @@ async function main() {
             if (!admissibility.error && !admissibility.bootFailure) break
             // Distinguish "the app is broken" from "the driver is broken". Only
             // the second is worth recovering from, and it has to be recovered
-            // from, or every remaining sample inherits a dead session.
+            // from, or every remaining view inherits a dead session.
             if (Browser.isSessionFailure(admissibility) || !opened.ok) {
               browser.restart()
               browser.setMedia(theme)
@@ -252,7 +252,7 @@ async function main() {
             // Growing, because the second cause of a blocking surface is the
             // identity provider rate-limiting userinfo (429) when pages load
             // every few seconds; a fixed 1.5s retry just re-asks inside the same
-            // window and then poisons the next samples too.
+            // window and then poisons the next views too.
             await sleep(RETRY_BACKOFF_MS[attempt] ?? RETRY_BACKOFF_MS.at(-1))
           }
 
@@ -279,7 +279,7 @@ async function main() {
           }
 
           const measured = reasons.length === 0
-          const sample = {
+          const view = {
             route,
             viewport,
             theme,
@@ -290,20 +290,20 @@ async function main() {
           }
 
           if (measured) {
-            sample.axe = browser.evalJson(AXE)
-            sample.axeCoverage = coverage
-            sample.overflow = browser.evalJson(OVERFLOW)
-            sample.placeholder = browser.evalJson(PLACEHOLDER_CONTRAST)
-            sample.controls = browser.evalJson(CONTROL_CONTRAST)
-            sample.focusObscured = browser.evalJson(FOCUS_OBSCURED)
-            sample.tabOrder = browser.evalJson(TAB_ORDER)
+            view.axe = browser.evalJson(AXE)
+            view.axeCoverage = coverage
+            view.overflow = browser.evalJson(OVERFLOW)
+            view.placeholder = browser.evalJson(PLACEHOLDER_CONTRAST)
+            view.controls = browser.evalJson(CONTROL_CONTRAST)
+            view.focusObscured = browser.evalJson(FOCUS_OBSCURED)
+            view.tabOrder = browser.evalJson(TAB_ORDER)
             if (args.screenshots) {
               browser.screenshot(join(shotDir, `${route.id}-${viewport.name}-${theme}.png`))
             }
           }
 
-          samples.push(sample)
-          const axeCount = sample.axe?.violations?.length ?? 0
+          views.push(view)
+          const axeCount = view.axe?.violations?.length ?? 0
           process.stdout.write(
             measured ? `ok (${axeCount} axe violation${axeCount === 1 ? '' : 's'})\n` : `cantTell: ${reasons.join('; ')}\n`,
           )
@@ -324,7 +324,7 @@ async function main() {
       routes: selected.map((r) => ({ id: r.id, path: r.path })),
       excluded: EXCLUDED,
     },
-    samples,
+    views,
   })
 
   const stamp = report.meta.generatedAt.replace(/[-:]/g, '').replace(/\..+/, '')

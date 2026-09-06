@@ -1,14 +1,14 @@
 import { CRITERIA, PASSING_STATUSES, REVIEW_ONLY, STATUS, tagToCriterion } from './criteria.mjs'
 
 /**
- * Pivots raw per-sample measurements into `criterion -> { status, routes, evidence }`.
+ * Pivots raw per-view measurements into `criterion -> { status, routes, evidence }`.
  *
  * The pivot itself is bookkeeping over data the axe payload already carries (it
  * tags every rule with its success criteria); what matters is the rules applied
  * on top:
  *
  *   1. A criterion with no evidence is Not Evaluated. Never Supports.
- *   2. A criterion whose only evidence came from `cantTell` samples is Not
+ *   2. A criterion whose only evidence came from `cantTell` views is Not
  *      Evaluated — an unmeasurable page is not a passing page.
  *   3. The four review-only criteria stay Not Evaluated until a human signs the
  *      emitted evidence off, no matter how clean the automated signal looks.
@@ -17,9 +17,9 @@ import { CRITERIA, PASSING_STATUSES, REVIEW_ONLY, STATUS, tagToCriterion } from 
 const NON_TEXT_MIN = 3
 const TEXT_MIN = 4.5
 
-export function buildReport({ meta, samples }) {
-  const measured = samples.filter((s) => s.measured)
-  const cantTell = samples.filter((s) => !s.measured)
+export function buildReport({ meta, views }) {
+  const measured = views.filter((s) => s.measured)
+  const cantTell = views.filter((s) => !s.measured)
 
   /** criterion id -> { failures: [], passes: number, evidence: [] } */
   const acc = new Map()
@@ -28,13 +28,13 @@ export function buildReport({ meta, samples }) {
     return acc.get(id)
   }
 
-  for (const sample of measured) {
-    const where = `${sample.route.id} @ ${sample.viewport.name} / ${sample.theme}`
+  for (const view of measured) {
+    const where = `${view.route.id} @ ${view.viewport.name} / ${view.theme}`
 
     // --- axe ---
-    if (sample.axe && !sample.axe.error) {
+    if (view.axe && !view.axe.error) {
       const covered = new Set()
-      for (const v of sample.axe.violations ?? []) {
+      for (const v of view.axe.violations ?? []) {
         for (const tag of v.tags) {
           const id = tagToCriterion(tag)
           if (!id) continue
@@ -52,15 +52,15 @@ export function buildReport({ meta, samples }) {
       // axe reports the criteria it *ran* for, not only the ones it failed, via
       // its rule set. Count coverage for each criterion any rule in the tag set
       // touches, so "ran clean" is distinguishable from "never looked".
-      for (const id of sample.axeCoverage ?? []) {
+      for (const id of view.axeCoverage ?? []) {
         bucket(id).observedIn.add(where)
         if (!covered.has(id)) continue
       }
     }
 
     // --- 2.4.2 Page Titled (per-route title presence; uniqueness handled below)
-    if (sample.structure && !sample.structure.error) {
-      const s = sample.structure
+    if (view.structure && !view.structure.error) {
+      const s = view.structure
       bucket('2.4.2').observedIn.add(where)
       if (!s.title || s.title.trim() === '') {
         bucket('2.4.2').failures.push({ where, detail: 'empty <title>' })
@@ -118,21 +118,21 @@ export function buildReport({ meta, samples }) {
     }
 
     // --- 1.4.10 Reflow ---
-    if (sample.overflow && !sample.overflow.error) {
+    if (view.overflow && !view.overflow.error) {
       bucket('1.4.10').observedIn.add(where)
-      if (sample.overflow.offenders.length > 0) {
+      if (view.overflow.offenders.length > 0) {
         bucket('1.4.10').failures.push({
           where,
-          detail: `${sample.overflow.offenders.length} element(s) extend past the ${sample.overflow.viewportWidth}px viewport with no scrollable ancestor`,
-          offenders: sample.overflow.offenders.slice(0, 5),
+          detail: `${view.overflow.offenders.length} element(s) extend past the ${view.overflow.viewportWidth}px viewport with no scrollable ancestor`,
+          offenders: view.overflow.offenders.slice(0, 5),
         })
       }
     }
 
     // --- 1.4.3 placeholder text (invisible to axe) ---
-    if (sample.placeholder && !sample.placeholder.error) {
+    if (view.placeholder && !view.placeholder.error) {
       bucket('1.4.3').observedIn.add(where)
-      for (const r of sample.placeholder.results) {
+      for (const r of view.placeholder.results) {
         if (r.ratio < TEXT_MIN) {
           bucket('1.4.3').failures.push({
             where,
@@ -146,10 +146,10 @@ export function buildReport({ meta, samples }) {
     // A route with no form controls has nothing to say about either criterion.
     // Counting it as "observed" and then failing it for producing no indicator
     // turns "nothing to look at" into a finding.
-    if (sample.controls && !sample.controls.error && (sample.controls.controlsFound ?? 0) > 0) {
+    if (view.controls && !view.controls.error && (view.controls.controlsFound ?? 0) > 0) {
       bucket('1.4.11').observedIn.add(where)
       bucket('2.4.7').observedIn.add(where)
-      for (const b of sample.controls.boundary) {
+      for (const b of view.controls.boundary) {
         const worst = b.vsFill === null ? b.vsOutside : Math.min(b.vsOutside, b.vsFill)
         if (worst < NON_TEXT_MIN) {
           bucket('1.4.11').failures.push({
@@ -158,13 +158,13 @@ export function buildReport({ meta, samples }) {
           })
         }
       }
-      if (sample.controls.indicator.length === 0) {
+      if (view.controls.indicator.length === 0) {
         bucket('2.4.7').failures.push({
           where,
-          detail: `${sample.controls.controlsFound} control(s) present but none produced a measurable focus indicator`,
+          detail: `${view.controls.controlsFound} control(s) present but none produced a measurable focus indicator`,
         })
       }
-      for (const i of sample.controls.indicator) {
+      for (const i of view.controls.indicator) {
         const worst = Math.min(i.vsOutside, i.vsFill)
         if (worst < NON_TEXT_MIN) {
           bucket('1.4.11').failures.push({
@@ -180,9 +180,9 @@ export function buildReport({ meta, samples }) {
     }
 
     // --- 2.4.11 Focus Not Obscured ---
-    if (sample.focusObscured && !sample.focusObscured.error) {
+    if (view.focusObscured && !view.focusObscured.error) {
       bucket('2.4.11').observedIn.add(where)
-      for (const o of sample.focusObscured.obscured) {
+      for (const o of view.focusObscured.obscured) {
         bucket('2.4.11').failures.push({
           where,
           detail: `${o.element} ("${o.text}") is covered by ${o.blockers.join(', ')} when focused`,
@@ -191,27 +191,27 @@ export function buildReport({ meta, samples }) {
     }
 
     // --- 2.4.3 raw material ---
-    if (sample.tabOrder && !sample.tabOrder.error) {
-      bucket('2.4.3').evidence.push({ where, order: sample.tabOrder.order })
+    if (view.tabOrder && !view.tabOrder.error) {
+      bucket('2.4.3').evidence.push({ where, order: view.tabOrder.order })
     }
 
     // --- 1.3.4 Orientation: the landscape viewport is the whole point ---
-    if (sample.viewport.name.includes('landscape')) {
+    if (view.viewport.name.includes('landscape')) {
       bucket('1.3.4').observedIn.add(where)
     }
   }
 
   // --- 2.4.2 title uniqueness, which is a property of the SET, not of a page ---
   const titlesByRoute = new Map()
-  for (const sample of measured) {
-    const title = sample.structure?.title
+  for (const view of measured) {
+    const title = view.structure?.title
     if (!title) continue
     // The audit runs signed in, so a route that redirects an authenticated user
     // away (e.g. /login -> /) reports the destination's title. That is not a
     // duplicate title, it is a route this run never actually rendered.
-    if (sample.route.unauthenticated) continue
-    if (!titlesByRoute.has(sample.route.id)) titlesByRoute.set(sample.route.id, new Set())
-    titlesByRoute.get(sample.route.id).add(title)
+    if (view.route.unauthenticated) continue
+    if (!titlesByRoute.has(view.route.id)) titlesByRoute.set(view.route.id, new Set())
+    titlesByRoute.get(view.route.id).add(title)
   }
   const routeTitles = [...titlesByRoute.entries()].map(([routeId, titles]) => ({
     routeId,
@@ -239,20 +239,20 @@ export function buildReport({ meta, samples }) {
     let status = STATUS.NOT_EVALUATED
     let note = 'No automated check in this audit covers this criterion.'
 
-    // `observedIn` is a SET of samples, not a counter. It used to be incremented
+    // `observedIn` is a SET of views, not a counter. It used to be incremented
     // once per PROBE that touched the criterion, so a criterion two probes speak
-    // to reported twice the samples that exist — 3.1.1 claimed 440 of a 224-sample
-    // set. A denominator larger than the sample set is not a rounding error; it
+    // to reported twice the views that exist — 3.1.1 claimed 440 of a 224-view
+    // set. A denominator larger than the view set is not a rounding error; it
     // makes every coverage number in the report unreadable.
     const observed = data ? data.observedIn.size : 0
     if (data && observed > 0) {
       if (data.failures.length === 0) {
         status = STATUS.SUPPORTS
-        note = `Checked in ${observed} of ${measured.length} samples with no failures.`
+        note = `Checked in ${observed} of ${measured.length} views with no failures.`
       } else {
-        const failingSamples = new Set(data.failures.map((f) => f.where)).size
-        status = failingSamples >= observed ? STATUS.FAILS : STATUS.PARTIAL
-        note = `${data.failures.length} finding(s) across ${failingSamples} of ${observed} samples.`
+        const failingViews = new Set(data.failures.map((f) => f.where)).size
+        status = failingViews >= observed ? STATUS.FAILS : STATUS.PARTIAL
+        note = `${data.failures.length} finding(s) across ${failingViews} of ${observed} views.`
       }
     } else if (data && data.evidence.length > 0) {
       note = 'Evidence emitted for review; no automated pass condition exists.'
@@ -266,7 +266,7 @@ export function buildReport({ meta, samples }) {
 
     if (PASSING_STATUSES.has(status) && cantTell.length > 0 && observed === 0) {
       status = STATUS.NOT_EVALUATED
-      note = 'Only cantTell samples produced evidence for this criterion.'
+      note = 'Only cantTell views produced evidence for this criterion.'
     }
 
     return {
@@ -288,13 +288,13 @@ export function buildReport({ meta, samples }) {
     meta: {
       ...meta,
       generatedAt: new Date().toISOString(),
-      samples: samples.length,
-      measuredSamples: measured.length,
-      cantTellSamples: cantTell.length,
+      views: views.length,
+      measuredViews: measured.length,
+      cantTellViews: cantTell.length,
     },
     summary: {
       counts,
-      // The gate. `cantTell` is not a pass, so a sample that could not be
+      // The gate. `cantTell` is not a pass, so a view that could not be
       // measured fails the run just as a violation does.
       pass:
         cantTell.length === 0 &&
@@ -314,8 +314,8 @@ export function formatSummary(report) {
   const lines = []
   lines.push(`Accessibility audit — ${report.meta.url}`)
   lines.push(
-    `${report.meta.measuredSamples}/${report.meta.samples} samples measured` +
-      (report.meta.cantTellSamples ? `, ${report.meta.cantTellSamples} cantTell` : ''),
+    `${report.meta.measuredViews}/${report.meta.views} views measured` +
+      (report.meta.cantTellViews ? `, ${report.meta.cantTellViews} cantTell` : ''),
   )
   lines.push('')
   for (const [status, n] of Object.entries(report.summary.counts)) {

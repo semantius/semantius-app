@@ -1,8 +1,7 @@
 # syntax=docker/dockerfile:1
 #
-# SPA-only image: just the web app, served by nginx. No reverse proxy — if you
-# need /api and /api-docs proxied to sibling containers through a single
-# endpoint, use the Caddy variant in docker-vo/ instead.
+# SPA-only image: just the web app, served by nginx. No reverse proxy — the SPA
+# talks to whatever absolute VITE_API_BASE_URL it is configured with.
 #
 # Build once, configure anywhere. The image is env-agnostic: the Vite bundle is
 # compiled against placeholder config, and docker/gen-config.sh injects the real

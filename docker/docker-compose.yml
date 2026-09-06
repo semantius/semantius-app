@@ -4,8 +4,8 @@
 # `up` does not rebuild — it reuses semantius-app:local (building only if absent).
 # To run the PUBLISHED GHCR image instead, see docker-compose.ghcr.yml.
 #
-# SPA only: this serves the web app and nothing else. For the variant that also
-# reverse-proxies /api and /api-docs to sibling containers, see docker-vo/.
+# SPA only: this serves the web app and nothing else — no reverse proxy, so the
+# SPA must be pointed at an absolute VITE_API_BASE_URL.
 #
 # Paths below are resolved relative to THIS file (docker/), so `context: ..` is
 # the repo root and `env_file: .env` is docker/.env.

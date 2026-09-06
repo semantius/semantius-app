@@ -65,7 +65,7 @@ export async function resolveRoutes({ apiBaseUrl, token, fetchImpl = fetch }) {
     `/entities?select=table_name,plural_label&module_id=eq.${demoModule.id}&order=table_name&limit=50`,
   )
   // A table with a plain integer `id` keeps the record route simple; `customers`
-  // is the canonical one in the nwind sample set.
+  // is the canonical one in the nwind view set.
   const entity =
     entities.find((e) => e.table_name === 'customers') ?? entities[0]
   if (!entity) throw new Error(`module ${demoModule.module_slug} exposes no entities`)

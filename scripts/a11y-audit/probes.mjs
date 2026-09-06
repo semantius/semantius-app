@@ -23,7 +23,7 @@ const HELPERS = readFileSync(new URL('./page-helpers.js', import.meta.url), 'utf
  * threw during hydration, is not the page we set out to measure — and reporting
  * "0 violations" for it is how an audit produces a confident lie.
  *
- * The third state matters. A sample that fails this is `cantTell`, which maps to
+ * The third state matters. A view that fails this is `cantTell`, which maps to
  * "Not Evaluated" in the report, never to a pass.
  */
 export const ADMISSIBILITY = `(() => {${HELPERS}
@@ -306,7 +306,7 @@ export const CONTROL_CONTRAST = `(() => {${HELPERS}
  * 2.4.11 Focus Not Obscured (Minimum).
  *
  * axe cannot see this, and it was written off as manual-only; a browser answers
- * it directly. Focus each control in turn, then sample points across its box and
+ * it directly. Focus each control in turn, then view points across its box and
  * ask what `elementFromPoint` returns. Level AA is "not ENTIRELY hidden", so the
  * failure condition is that NO sampled point still reaches the element — the
  * sticky table header, the sticky form footer or a pinned column has taken all
@@ -334,7 +334,7 @@ export const FOCUS_OBSCURED = `(() => {${HELPERS}
     if (r.bottom < 0 || r.top > window.innerHeight || r.right < 0 || r.left > window.innerWidth) continue
     checked++
     // 2.4.11 at level AA is "not ENTIRELY hidden" — partial overlap is allowed
-    // (that is 2.4.12, AAA). So sample a grid and ask whether ANY point still
+    // (that is 2.4.12, AAA). So view a grid and ask whether ANY point still
     // reaches the element. Corner-only sampling reports rounded borders and
     // 1px overlaps as failures, which is noise, not a finding.
     const xs = [0.15, 0.5, 0.85].map((f) => r.left + r.width * f)
