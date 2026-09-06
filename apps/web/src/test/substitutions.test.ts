@@ -314,10 +314,9 @@ const FROZEN: Record<string, Record<string, number>> = {
 
 /**
  * Internal module mocks are frozen by SPECIFIER, not by count: which module is
- * replaced matters more than how many times. 9 in total.
+ * replaced matters more than how many times. 7 in total.
  */
 const FROZEN_INTERNAL_MOCKS: Record<string, string[]> = {
-  'src/components/ProtectedRoute.test.tsx': ['@/hooks/useAuth', '@/lib/appLoader'],
   'src/components/customers/CustomerForm.test.tsx': ['@/hooks/useTableMutations'],
   'src/components/layout/ModuleSwitcher.test.tsx': ['@/hooks/useModuleNavigate', '@/hooks/useTable'],
   'src/components/layout/NavUser.test.tsx': ['@/hooks/useAuth', '@/hooks/useTable', '@/lib/config'],
@@ -325,15 +324,16 @@ const FROZEN_INTERNAL_MOCKS: Record<string, string[]> = {
 }
 
 /**
- * Sum of every frozen count, plus the 9 internal mocks. Only ever goes down.
+ * Sum of every frozen count, plus the 7 internal mocks. Only ever goes down.
  * It was 96 when this scanner was written; removing jsdom took it to 40, because
  * most of what was frozen existed only to describe a browser to a fake one.
  * The two data hooks then went to the real tenant with the run's real token:
  * `useTable` (a replaced fetch, a mocked `useAuth`) took it to 38, and
  * `useTableMutations` (nine replaced fetches and three mocked modules of ours)
- * to 26.
+ * to 26. `ProtectedRoute` then dropped its mocked `useAuth` and `appLoader` for
+ * the real provider and index.html's real overlay: 24.
  */
-const FROZEN_TOTAL = 26
+const FROZEN_TOTAL = 24
 
 describe('test substitutions', () => {
   // This file quotes the patterns it looks for — in its regexes and in its prose —

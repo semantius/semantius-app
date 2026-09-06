@@ -8,13 +8,12 @@
 /* eslint-disable react-refresh/only-export-components */
 import { type ReactNode, useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { createMemoryHistory, createRouter } from '@tanstack/react-router'
+import { createMemoryHistory, createRootRoute, createRouter } from '@tanstack/react-router'
 import { inject } from 'vitest'
 import { AuthProviderWrapper } from '@/contexts/AuthContext'
 import { initConfig } from '@/lib/config'
-import { routeTree } from '@/routeTree.gen'
 import type { RouterContext } from '@/routes/__root'
-import { setRuntimeEnv } from './runtimeConfig'
+import { SELF_HOSTED, setRuntimeEnv } from './runtimeConfig'
 import { clearSession, seedSession } from './session'
 
 /**
@@ -73,7 +72,62 @@ export async function bootAppSignedOut(): Promise<void> {
   clearSession()
 }
 
-export function AppHarness({ children }: { children: ReactNode }) {
+/**
+ * Boot signed in, with the OAuth `userinfo` endpoint pointing at a URL that
+ * really answers 404 — so the provider's failure path runs for real.
+ *
+ * There is no other way to reach it from here. A 401 or 403 would be a TOKEN
+ * REJECTION, which `AuthContext` answers by re-authenticating (a full-page
+ * redirect out of the test), and a 429 or a 5xx cannot be asked for on demand —
+ * that one is §10's work, through Playwright interception. A 404 from a real
+ * host is a genuine "the provider did not answer with a user", which is exactly
+ * the state the error card exists for.
+ *
+ * It has to take the SELF-HOSTED path to do it: on the control-plane path every
+ * OAuth endpoint is derived from the tenant slug, so there is nothing to bend.
+ * The values still come from the tenant — the cloud lookup runs first and the
+ * config is rebuilt from what it returned, with one endpoint changed — so this
+ * is the real deployment's configuration minus one working URL.
+ */
+export async function bootAppWithFailingUserinfo(): Promise<void> {
+  const org = inject('orgSlug')
+  setRuntimeEnv({ VITE_CONTROL_PLANE_ORG: org })
+  const cloud = await initConfig()
+
+  setRuntimeEnv({
+    VITE_CONTROL_PLANE_URL: SELF_HOSTED,
+    VITE_CONTROL_PLANE_ORG: org,
+    VITE_API_BASE_URL: cloud.apiBaseUrl,
+    VITE_OAUTH_CLIENT_ID: cloud.oauthClientId,
+    VITE_OAUTH_AUTH_ENDPOINT: cloud.oauthAuthEndpoint,
+    VITE_OAUTH_TOKEN_ENDPOINT: cloud.oauthTokenEndpoint,
+    VITE_OAUTH_USERINFO_ENDPOINT: `https://${org}.semantius.cloud/api/auth/oauth2/userinfo-does-not-exist`,
+  })
+  await initConfig()
+  seedSession()
+}
+
+/**
+ * What `AuthProviderWrapper` needs a router FOR: it publishes the auth state
+ * into the router context (`router.update()`) and invalidates the matches
+ * (`router.invalidate()`) whenever the token changes. Neither reads a route.
+ *
+ * So the default tree is empty, and that is not a stand-in for the app's — it is
+ * the smallest REAL router the provider can talk to. Importing
+ * `routeTree.gen.ts` instead would pull every route module (drizzle-cube,
+ * CodeMirror, the whole grid) into the graph of every file that renders this
+ * harness, for a tree nothing navigates. A test that DOES navigate passes the
+ * generated tree in through `routeTree` and pays for it deliberately.
+ */
+const EMPTY_TREE = createRootRoute()
+
+export function AppHarness({
+  children,
+  routeTree = EMPTY_TREE,
+}: {
+  children: ReactNode
+  routeTree?: Parameters<typeof createRouter>[0]['routeTree']
+}) {
   // Per mount, created once: a QueryClient shared between tests would carry one
   // test's cached rows into the next, and a router recreated on every render
   // would re-run `router.update()` forever.
