@@ -336,6 +336,23 @@ clamping. **Both counts are asserted** in
 palette edit now fails the suite until this sentence and `cssTokens.ts` are
 updated with it.
 
+**Base UI hides the page behind a modal dialog once, at open, and exempts every
+live region's ancestors — so a dialog opened by deep link leaves the page behind
+it exposed.** `modal` (default `true`) traps Tab and locks scroll, measured; but
+its `aria-hidden` marking (floating-ui's `markOthers`) walks the document at open
+and never again, and keeps every `[aria-live]` element and its whole ancestor
+chain. A record opened at `/nwind/orders/11077` mounts its Sheet before the grid's
+rows and pagination arrive, and the pagination's "1-10 of N items" is itself a
+live region, so on a deployed preview nothing in `#root` carried `aria-hidden`
+and the page-number input took focus from script. An earlier note here said the
+opposite; it had measured a Sheet opened from a row click, where the grid already
+existed. `components/a11y/ModalInert.tsx` puts `inert` on `#root` while any
+`[role=dialog][data-open]` outside it exists — every Base UI popup is portaled to
+a sibling of `#root` — and the toaster is portaled out of `#root` so it still
+announces. An audit probe that walks the document must respect `[inert]`;
+`FOCUS_OBSCURED` and `CONTROL_CONTRAST` additionally scope themselves to the open
+dialog, because a control no Tab press reaches cannot be "obscured when focused".
+
 **`position: sticky` and `scroll-padding` are a pair.** Anything sticky over a
 scroll container hides whatever the browser scrolls to that edge, a focused control
 included (2.4.11). Every scroll container with a sticky edge needs matching

@@ -275,6 +275,16 @@ describe.each(THEMES)('%s theme', (theme) => {
       expectAtLeast(contrast(token(theme, '--destructive'), tint), TEXT, `text-destructive on /20 over ${name}`)
     })
 
+    // ApiErrorDisplay's message and its Details button sit on the same
+    // `bg-destructive/10` card in `text-foreground`. They were
+    // `text-muted-foreground`, which a route audit caught on a view that
+    // happened to render the card: muted on a red tint is below 4.5:1, and no
+    // pair here had asked the question because no audited state showed it.
+    it.each(Object.keys(bases))('foreground on the destructive /10 tint over the %s', (name) => {
+      const tint = over(token(theme, '--destructive'), bases[name], 0.1)
+      expectAtLeast(contrast(token(theme, '--foreground'), tint), TEXT, `text-foreground on /10 over ${name}`)
+    })
+
     // Dark steps the button variant up a tint — `dark:bg-destructive/20` at
     // rest, `dark:hover:bg-destructive/30` on hover (ui/button.tsx). /30 is the
     // hardest self-tint to clear and was the last pair nothing asserted: 3.74:1

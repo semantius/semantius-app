@@ -48,7 +48,11 @@ export function ApiErrorDisplay({ error, title = 'Error loading data' }: ApiErro
         <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
           <p className="font-medium text-destructive">{title}</p>
-          <p className="text-sm text-muted-foreground mt-1 break-words">{errorMessage}</p>
+          {/* text-foreground, not text-muted-foreground: muted on the card's
+              bg-destructive/10 tint is below 4.5:1 (1.4.3), caught by a route
+              audit on a view that happened to render this card. The same goes
+              for the Details button below. tokenContrast.test.ts pins the pair. */}
+          <p className="text-sm text-foreground mt-1 break-words">{errorMessage}</p>
           
           {hasDetails && (
             <div className="mt-3">
@@ -56,7 +60,7 @@ export function ApiErrorDisplay({ error, title = 'Error loading data' }: ApiErro
                 variant="ghost"
                 size="sm"
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="h-auto py-1 px-2 -ml-2 text-xs text-muted-foreground hover:text-foreground"
+                className="h-auto py-1 px-2 -ml-2 text-xs text-foreground hover:underline"
               >
                 {isExpanded ? (
                   <>

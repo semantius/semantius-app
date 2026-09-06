@@ -50,12 +50,12 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      testIgnore: /transient-failures/,
+      testIgnore: /transient-failures|modal-inert/,
       use: { ...devices['Desktop Chrome'], baseURL: HOST },
     },
     {
       name: 'tenant',
-      testMatch: /transient-failures/,
+      testMatch: /transient-failures|modal-inert/,
       use: { ...devices['Desktop Chrome'], baseURL: TENANT_HOST },
     },
   ],

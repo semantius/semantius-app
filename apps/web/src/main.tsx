@@ -1,4 +1,5 @@
 import { StrictMode } from 'react'
+import { createPortal } from 'react-dom'
 import { createRoot } from 'react-dom/client'
 import { RouterProvider, createRouter } from '@tanstack/react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -133,7 +134,11 @@ initConfig().then(() => {
             </AuthProviderWrapper>
           </TooltipProvider>
           <ReactQueryDevtools initialIsOpen={false} />
-          <Toaster position="top-right" />
+          {/* Portaled OUT of #root: ModalInert makes #root inert while a
+              dialog is open, and a toast raised behind a dialog ("Saved") must
+              still reach assistive technology. Base UI's own hiding keeps
+              live regions too, so nothing is lost on that side either. */}
+          {createPortal(<Toaster position="top-right" />, document.body)}
         </QueryClientProvider>
       </ThemeProvider>
     </StrictMode>,
