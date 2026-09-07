@@ -420,5 +420,6 @@ to convert. This is the cheapest moment there will ever be.
 5. Delete the label machinery listed above.
 6. Translate mode: one list, one tab.
 
-Steps 2 and 3 are the whole idea and are verifiable on their own. Stop after
-step 3 and review before anything else is touched.
+Steps 1 and 2 are the whole idea and are verifiable on their own — a metadata
+message appears in `en-US.json` and `i18n:status` counts it. **Stop after step 2
+and review before anything else is touched.**
