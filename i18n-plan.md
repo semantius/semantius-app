@@ -1,5 +1,13 @@
 # i18n plan — Semantius app (`apps/web`)
 
+> ⚠️ **THIS DOCUMENT IS NOT AGREED REQUIREMENTS.** Parts of it were invented in
+> the document itself and built without ever being put to the owner — the "model
+> labels are data, not messages" concept, the label inventory, browser drafts and
+> the file download among them. Do not treat it as authority. Read
+> `UNAUTHORIZED-DECISIONS.md` for what came from here rather than from the owner,
+> and `i18n-metadata-messages-plan.md` for the replacement of the model-label
+> concept.
+
 ## Context
 
 The UI is English only: ~290 hard-coded string literals in `apps/web/src` (about 200 on real product surfaces, the rest on demo routes), no i18n library anywhere, `<html lang="en">` static, and every locale-aware helper (`lib/number-format.ts`, `lib/date-format.ts`, `ui/calendar.tsx`) already accepts a locale that no call site passes. Table, column and enum labels arrive as data from the semantic model (`get_schema`) and have no translation channel at all.
