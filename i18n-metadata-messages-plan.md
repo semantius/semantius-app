@@ -90,10 +90,11 @@ the boundaries; today's parser has the flat result and an assumption.
 the module, the metadata knows the entity. Nothing in a component should ever
 write `'nwind'`.
 
-**The `type` vocabulary is a decision.** "label" and "hint" read better than the
-model's own `title` and `description`, and survive a column rename — but then one
-place has to map them. Using the model's names needs no mapping and no rename
-protection. Pick one; do not let both exist.
+**The `type` vocabulary is the MODEL's own column names — decided.** `title`,
+`description`, `singular_label`, `plural_label`, `relationship_label`,
+`singular_label_parent`, `plural_label_parent`. No mapping layer, no second
+vocabulary. A column rename in the model would move the keys, which is the
+accepted cost.
 
 **`message` is the fallback, and for metadata it can be absent.** Our
 `MessageDescriptor.message` is a required `string`, correct for a code string
@@ -300,10 +301,33 @@ storing it would repeat the key.
 
 Removing it makes `en-US.json` an id-to-source map and nothing else.
 
-## Not addressed here: a correction can never reach the repo
+## Correction or override: the target's MODE decides — decided
 
-This is the "how would the browser edit an existing wrong message without
-creating a mess" problem, and it is unsolved.
+A write means different things in different places, and the translate target
+carries a **mode** that says which:
+
+| Mode | A write is | Where it lands |
+| --- | --- | --- |
+| `dev` | a **correction** | this checkout's locale files, reviewed in a PR |
+| `stage` | a **correction** | that host's store, and it has to reach the repo |
+| `prod` | an **override** | the tenant's own rows, local to that tenant |
+
+This is what settles the write-back problem below: a production edit is not a
+failed correction, it is an override and always was. A correction is made in dev
+or stage, where it can reach the source.
+
+**Still open:** how a `stage` correction gets back into the repo. Either the
+stage store IS a checkout that someone commits, or there is an explicit export
+step. `dev` needs neither, since it writes the checkout directly.
+
+**Consequence:** the mode belongs to the target, alongside its base url
+(`i18n-endpoint-spec.md`). It is not derived from `import.meta.env.DEV`, because
+a local app can point at a stage target and a deployed one can point anywhere.
+
+## The write-back problem this leaves
+
+With modes decided, what is left of the "how would the browser edit an existing
+wrong message without creating a mess" problem is narrower but still real.
 
 The layers are `repo ← deployment file ← tenant rows`, later wins. So a
 translator who fixes a wrong German string in production writes a tenant row that
@@ -325,14 +349,15 @@ The dev target makes this bearable but does not solve it: an edit made under
 `pnpm dev` rewrites the repo catalog directly, so a correction made there IS the
 source and goes through a PR. That only helps whoever has the checkout.
 
-What is still needed, and is not in this plan:
+What the mode decision leaves:
 
-- a decision on whether a tenant edit of a SHIPPED string is a correction or an
-  override — they look identical today and are stored identically;
-- if it can be a correction, a way for it to travel back and overwrite a
-  non-empty repo value, with review;
-- if it is always an override, the UI should say so, and the repo string should
-  be fixed in dev instead.
+- a `prod` write is an override, so the UI must SAY so — today it says nothing
+  and looks identical to a correction;
+- a `stage` write is a correction and needs a route back into the repo that can
+  overwrite a NON-EMPTY value, which `--messages-into` refuses by design;
+- the guard above stays correct for its original purpose (an agent's bulk import
+  must not silently overwrite reviewed translations) so the correction path needs
+  to be a different, explicit one rather than a loosened flag.
 
 `UNAUTHORIZED-DECISIONS.md` item 8 is the same subject from the layering side.
 
