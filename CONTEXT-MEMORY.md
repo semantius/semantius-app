@@ -9,6 +9,24 @@
   sessions goes in **`CONTEXT-MEMORY.md`** (committed, shared, reviewable) or as a comment in
   the relevant source file. Memory the team cannot see in the repo is worthless — invisible on
   every other machine and in every review.
+- **The owner's specification IS the specification. Do not substitute a preferred
+  alternative.** If something in it looks wrong, say so in one sentence and then
+  build what was asked. Do not build your own version and mention the deviation
+  in the summary afterwards — that is how a session ends with the owner
+  discovering, by using the feature, that it saves to a browser draft and a file
+  download nobody requested. Real examples from one session, every one of which
+  the owner had to push twice on: an id passed as segments (theirs) versus a
+  `metaKey()` helper (invented); one endpoint everywhere (theirs) versus a writer
+  chosen by capability (invented); deleting `context` and `origin` (theirs)
+  versus defending both (invented); and a field renamed from their `default` to
+  `defaultMessage` on a preference nobody asked for. On that session's record
+  every significant design improvement came from the owner.
+- **A plan document in this repo is NOT agreed requirements unless the owner says
+  so.** `i18n-plan.md` was treated as authority and built from; much of it was
+  invented in the document itself. `UNAUTHORIZED-DECISIONS.md` lists what came
+  from there rather than from the owner. Before implementing anything a plan
+  specifies, check whether the owner actually asked for it — and name any
+  structural choice BEFORE writing code, not in the report afterwards.
 - **Never cite git authorship to attribute code to the human.** Agents work in the human's
   local checkout and commit under their git identity, so the author/committer fields say
   nothing about who wrote a line — much of this repo is agent-written. When existing code is
