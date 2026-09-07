@@ -65,6 +65,75 @@ Everything downstream follows from that one change:
 arrive with it; remove it, `key like 'nwind.%'` removes them; ship it, its
 messages ship with it.
 
+## The call site
+
+The id is passed as **segments, not a joined string**:
+
+```ts
+t({ id: [mod, entity, 'city', 'label'], message: property.title })
+```
+
+Four reasons it is an array. The joining rule lives inside `t`, so no call site
+can spell a separator wrong. Arity and order are a tuple type, which a joined
+string can never be. `metaKey` never has to exist. And most concretely: the
+current flat-string key forces `parseLabelKey` to GUESS where the parts end — it
+hardcodes "everything after the second dot is the enum value", because table and
+field names are SQL identifiers and cannot contain dots while **enum values are
+data and can**. Segments remove the guess.
+
+What the array does not remove: the STORED key is still a flat string, in the
+catalog file and in the database, so the join must escape a segment containing a
+dot and the split must unescape. That is solvable only because the joiner knows
+the boundaries; today's parser has the flat result and an assumption.
+
+**`mod` and `entity` are bound once, not typed at each call.** The route knows
+the module, the metadata knows the entity. Nothing in a component should ever
+write `'nwind'`.
+
+**The `type` vocabulary is a decision.** "label" and "hint" read better than the
+model's own `title` and `description`, and survive a column rename — but then one
+place has to map them. Using the model's names needs no mapping and no rename
+protection. Pick one; do not let both exist.
+
+**`message` is the fallback, and for metadata it can be absent.** Our
+`MessageDescriptor.message` is a required `string`, correct for a code string
+where the source is written in the call. `JsonSchemaProperty.title` and
+`.description` are `string | undefined`, because a field with no label is normal.
+Three ways out — make `message` optional (weakens the type where it should stay
+strict), a second descriptor shape for keyed messages, or require the caller to
+supply a guaranteed fallback (`property.title ?? fieldName`). The last is
+recommended: what to show when the model says nothing is a rendering decision and
+it differs per surface — a column header falls back to the field name, a hint
+falls back to nothing.
+
+## When the English changes
+
+This is the half of the key that has to be got right.
+
+A code string's English **is** its key, so changing it makes a new key, the
+translation moves to `obsolete`, and the string renders in English until someone
+retranslates. Loud and visible in a diff.
+
+A metadata message's key is independent of its English. Rename the model label
+from "City" to "Town" and `nwind.customers.city.label` does not move, so the
+German `Stadt` is still found and still renders. That is the point of the key —
+and the hazard: change it to "Delivery city" and `Stadt` is now wrong, silently
+and indefinitely. A code string cannot fail this way.
+
+So extraction compares the model's current English against the source recorded
+for that key in `en-US.json`, which is already stored per entry:
+
+- unchanged → nothing
+- changed → **keep the translation**, mark it needs-review, report it in
+  `i18n:status`
+
+Keeping it is the right default; losing good German because someone fixed a typo
+in English would be worse. But it must be reported, or the key hides the drift.
+
+This is the honest version of the "changed since translated" filter that exists
+today, which compares `updated_at` timestamps and therefore fires on every
+unrelated model edit.
+
 ## The one hard problem
 
 **The model is in a database. `i18n:extract` reads the repo.** So something has
