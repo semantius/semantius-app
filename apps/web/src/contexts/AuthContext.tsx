@@ -244,8 +244,15 @@ function RouterContextUpdater({
 
     const isAuthenticated = !!token && !!tokenData && tokenData.exp * 1000 > Date.now()
 
+    // SPREAD, not replace. `router.update({ context })` REPLACES the whole
+    // object, so writing only `auth` here drops whatever else the context
+    // carries — today `queryClient`, which main.tsx puts there so a loader can
+    // read the same cache the components use. Dropping it breaks nothing
+    // visibly: the loader falls back to fetching, and `get_schema` is silently
+    // refetched on every language switch instead of being a cache hit.
     router.update({
       context: {
+        ...router.options.context,
         auth: {
           isAuthenticated: () => isAuthenticated,
           getToken: () => token || null,

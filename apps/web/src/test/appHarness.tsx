@@ -161,6 +161,10 @@ export function AppHarness({
           isAuthenticated: () => false,
           getToken: () => null,
         },
+        // What main.tsx puts there: a loader reads and fills the SAME cache the
+        // components use. RouterContextUpdater spreads rather than replaces, so
+        // it survives every auth update.
+        queryClient,
       } satisfies RouterContext,
     }),
   )
@@ -204,6 +208,7 @@ export function renderInApp(ui: ReactElement, { initialEntries = ['/'] }: { init
   const routeTree = rootRoute.addChildren([
     createRoute({ getParentRoute: () => rootRoute, path: '/', component: () => ui }),
   ])
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const router = createRouter({
     routeTree,
     history: createMemoryHistory({ initialEntries }),
@@ -212,9 +217,11 @@ export function renderInApp(ui: ReactElement, { initialEntries = ['/'] }: { init
         isAuthenticated: () => false,
         getToken: () => null,
       },
+      // See the note in AppHarness: main.tsx puts it there and
+      // RouterContextUpdater must not drop it.
+      queryClient,
     } satisfies RouterContext,
   })
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
   const result = render(
     <I18nProvider i18n={i18n}>
