@@ -27,7 +27,7 @@ Branch `feat/i18n`, one commit per phase, no PR. **P1-P4 are done and committed;
 | P1 Foundation + app shell | done | `31bf10d` |
 | P2 Grid, dialogs, formatting | done | `cadaeb7` |
 | P3 Forms, validation, remaining surfaces | done | `fb26cb7` |
-| P4 Runtime languages | done | |
+| P4 Runtime languages | done | `dd2662e`, `310730b` |
 | P5 Translate mode | **not started** | |
 
 Each committed phase passed, independently re-run by the orchestrator: `i18n:extract` twice
@@ -35,7 +35,7 @@ with no change, `i18n:status` 0 missing, `pnpm check`, `pnpm build`, a stable
 `eslint --prune-suppressions`, the American-English grep, and a Cloudflare preview deploy
 opened in German with a screenshot under `screenshots/`.
 
-Current numbers, for the next phase to ratchet against:
+Current numbers, for P5 to ratchet against:
 
 - **398 messages** in `src/locales/en-US.json`, `de-DE` 398/398 translated, 1 obsolete.
 - **`eslint-suppressions.json` totals 610** suppressed violations. It may only fall. It did
@@ -44,33 +44,112 @@ Current numbers, for the next phase to ratchet against:
   invariants and CLI-owned `ui/**`, and widening an `ignore` far enough to reach zero would
   hide real strings.
 - `substitutions.test.ts` unchanged at 6.
+- `pnpm check`: 76 test files, 824 passed, 7 skipped. The 7 skips are the tenant-table tests
+  named below - they are the only skips in the suite and each prints why.
+- Last accessibility audit against the P4 preview: 3.1.1 **Supports**; the one failing
+  criterion (1.3.1, an `h1 -> h3` jump on drizzle-cube's "No Portlets" empty state) is
+  pre-existing and outside `apps/web/src`. 1.4.3 improved to Supports in the same run.
 
-### Verified against the live test tenant - P4 landed degraded, by design
+### What P5 inherits from P4 - read this before starting translate mode
 
-Probed before P1 and unchanged since. Each was already anticipated here as a prerequisite;
-none of them blocks P4 from being written, and each has a specified fallback:
+Every seam P5 was specified to plug into exists and is tested. Concretely:
 
-| Prerequisite | Actual state | What P4 must therefore do |
+- **The layer list is open.** `localeLayers` in `src/i18n/store.ts` is an exported array of
+  `{ name, load(language) }`; the drafts layer is one more entry appended after `tenant`, and
+  `activateLocale` needs no change to pick it up.
+- **`translatedKeys(language)` already covers every scope**, not just messages: `setCatalogState`
+  unions the message ids, the `scope:key` label ids and the `server`/`rule` ids. That set is
+  what "mark missing" filters against.
+- **Single-key writes exist for the scopes Lingui does not hold.** `addCatalogEntry(scope, key,
+  text)` in `catalog.ts` merges one entry into the live label or dynamic map and emits the
+  catalog `change` event, which is the equivalent of Lingui's merging `i18n.load` for a
+  translate-mode save. `subscribeToCatalog` / `catalogSnapshot` are the `useSyncExternalStore`
+  pair; `useLocaleLabels()` and `useLocalizedMetadata()` already use them.
+- **The file <-> rows mapping is done and shared**: `src/i18n/localeFile.ts` (a re-export of
+  `scripts/i18n/localeFile.mjs`) has `localeFileToRows` for the export download and
+  `rowsToLocaleFiles` for reading rows back.
+- **The label inventory is done and shared**: `src/i18n/labelInventory.ts` gives
+  `buildLabelInventory` / `diffLabelInventory` (missing, translated, orphaned) with each
+  entry's model `updatedAt`, which is what the panel's "newest first" and "changed since
+  translated" filters need. The model reads are `readModel()` in `scripts/i18n/model.mjs`;
+  the app reads the same three tables through `useTable`.
+- **The queue's browser-local fallback is done**: `localRequests(locale)` in
+  `src/i18n/missing.ts` is the list the panel shows on a deployment with no tenant table.
+- **The tenant queue query** is `select=*&translation=eq.&locale=eq.<code>&order=first_seen.desc`
+  through the generic `useTable`; `TENANT_TABLE` and the absence predicates are in
+  `src/i18n/tenant.ts`.
+
+What P5 still has to build that P4 deliberately did **not**:
+
+- `useCreateRecord`'s generic `onConflict` option (`hooks/useTableMutations.ts`). P4 listed it
+  but had no caller and no test for it, so it was left out rather than shipped untested -
+  the writer is P5's first caller. It must send
+  `?on_conflict=locale,scope,key,context` with `Prefer: resolution=merge-duplicates,return=representation`.
+- The reverse index (rendered text -> `Set<runtime id>`), the highlighting, the editor popover,
+  the panel, the drafts layer and the export download.
+- The `translations.edit` gate. `rpcUserInfo.permissions` does not carry it on the test tenant,
+  so `admin` gates the toggles until the migration lands.
+
+### Deviations P4 made from this document, and why
+
+- **`resolveLocales` lives in `src/i18n/localeConfig.ts`, not `src/lib/`.** Every string in it is
+  a JSON key or an operator diagnostic, and the lingui rule already exempts `src/i18n/*.ts` as
+  machinery; under `lib/` the file would have needed its own suppression-baseline entry, which
+  the ratchet forbids. Same reasoning put the tenant query, the PostgREST codes and the RPC
+  name in `src/i18n/tenant.ts` and the label attribute names in `labels.ts` as `TABLE_ATTR` /
+  `COLUMN_ATTR` / `MODULE_ATTR` constants, so no call site writes `'plural_label'` as a literal.
+- **`request()` and the writer are not in `store.ts`.** The collector's insert is in
+  `src/i18n/missing.ts`, with the collector it belongs to; the translation WRITER has no caller
+  until P5 and was not written.
+- **The label-miss collector reports from `useLocalizedMetadata`, in an effect**, covering the
+  entity currently on screen. The whole-model picture is the inventory, which is the path this
+  document already specifies as primary for labels.
+- **`data-table-error-boundary.tsx` is not routed through `translateDynamic`.** It renders a
+  caught JS exception, not server text; a `translateDynamic` call there would record nothing
+  (no PostgREST code) and only offer a tenant an override of a stack message.
+- **The deployment-file browser test serves its fixture as a BLOB**, not from the Vite dev
+  server. Vite transforms a `.json` under `src/` into an ES module, so a fetch of it answers
+  `content-type: text/javascript` - which is the layer's REJECT path, not its happy path. The
+  blob is built from the committed fixture's own bytes and fetched over real HTTP with a real
+  content-type. The one thing it cannot cover, a web server actually serving
+  `/locales/fr-FR.json`, was covered by a throwaway preview deploy (screenshot
+  `20260907113413-i18n-p4-operator-french-labels.png`), and the SPA-fallback hazard the guard
+  exists for was confirmed on that deploy: a missing `/locales/*.json` answers **200
+  `text/html`** on Cloudflare Workers.
+
+### Platform prerequisite, still outstanding
+
+Re-confirmed by curl against the `tests` tenant during P4:
+
+- `GET /ui_translations` -> 404 `{"code":"PGRST205"}`
+- `POST /rpc/set_user_preferences` -> 404 `{"code":"PGRST202"}`
+- `get_userinfo` returns no `language` / `locale` field at all
+
+`apps/web/src/i18n/tenantTranslations.test.tsx` therefore skips its three row tests with a
+console warning naming the table. It probes at **collection** time (a top-level `await`, not a
+`beforeAll`) because `describe.skipIf` is evaluated before any hook runs - a flag set in a hook
+would make the skip permanent instead of temporary. When the migration lands they run with no
+edit. The DDL, triggers, policies, model registration and the `users` columns are written out
+in the root `README.md` under "Tenant translations".
+
+### The tenant's actual state, probed before P1 and re-probed during P4
+
+| Prerequisite | Actual state | What depends on it |
 | --- | --- | --- |
-| `ui_translations` table | absent - `GET` answers 404 `{"code":"PGRST205"}` | tenant layer disables on the definitive body; the table, queue and collector tests skip with a message naming it |
+| `ui_translations` table | absent - `GET` answers 404 `{"code":"PGRST205"}` | the tenant layer disables on the definitive body; the table, queue and collector tests skip with a message naming it |
 | `set_user_preferences` RPC | absent - 404 `{"code":"PGRST202"}` | the switcher persists to the cache only |
 | `get_userinfo` `language`/`locale` | not returned at all | read defensively; fall through to the OIDC claim, then the browser placeholder |
-| `translations.edit` permission | absent; principal holds `admin` | `admin` gates the writer and the translate-mode toggles |
-| `tables` / `fields` / `modules` reads | all 200, with `description` and `updated_at` | the label inventory is viable as specified |
+| `translations.edit` permission | absent; principal holds `admin` | **P5**: `admin` gates the writer and the translate-mode toggles until it exists |
+| `tables` / `fields` / `modules` reads | all 200, with `description` and `updated_at` | the label inventory, asserted against the live model |
 
-**So P4 was implemented in full and cannot be fully verified.** The deployment-file layer,
-the model-label overrides and the scripts are tested today; the tenant table, the queue and
-the session preference are not, until the platform migration is applied to the `tests` tenant.
-They landed as loud skips in `apps/web/src/i18n/tenantTranslations.test.tsx`, which probes the
-tenant at COLLECTION time (a top-level `await`, not a `beforeAll` — `describe.skipIf` runs
-before any hook, so a flag set in one would make the skip permanent) and warns naming the
-missing table. Everything the tenant already has is asserted for real: the two absence
-predicates against the real 404 bodies, and the label inventory against the live model.
+Everything the tenant already has is asserted for real - the two absence predicates against the
+real 404 bodies, and the inventory against the live model. Only the rows themselves are
+unverifiable, and those are the loud skips described above.
 
-### Learned while implementing, and binding on P4/P5
+### Learned while implementing, and binding on P5
 
 Full detail is in CONTEXT-MEMORY's Internationalization section; these are the ones that
-change how the remaining phases must be written.
+change how the remaining phase must be written.
 
 - **The lint rule is blind to a JSX subtree it thinks is its own.** `eslint-plugin-lingui`
   hard-codes `Trans`/`Plural`/`Select`/`SelectOrdinal` and marks every string inside one as
@@ -90,13 +169,19 @@ change how the remaining phases must be written.
   `createFileRoute` there would exempt every route's whole options object.
 - **Exceeding a file's recorded suppression count makes ESLint report all of that file's
   violations for the rule**, not just the excess - so a partially migrated file that gains one
-  string reads as wholly broken.
+  string reads as wholly broken. P4's answer to a new machine string is to put it in a file the
+  rule already exempts (`src/i18n/*.ts`) and export a constant, never to widen an `ignore`.
 - **A boot error's `detail` slot is a content question, not a slot question.** A machine report
   (status, URL, JSON keys, stack) stays English; a sentence telling a human what to do is
-  language. `lib/config.ts` and `lib/userMenu.ts` are the first kind and stay English.
-- **Translating the app's own thrown data-layer errors does not break P4's collector**, because
-  the collector records a `server` miss only for an error whose `cause` carries a PostgREST
-  `code`, and such a body always has its own `message`. Preserve that invariant.
+  language. `lib/config.ts`, `lib/userMenu.ts` and `src/i18n/localeConfig.ts` are the first kind.
+- **Translating the app's own thrown data-layer errors does not break the collector**, because
+  it records a `server` miss only for an error whose `cause` carries a PostgREST `code`, and
+  such a body always has its own `message`. Preserve that invariant: a thrower that attaches a
+  `code` while keeping its own wording starts putting German into the tenant as untranslated
+  "server" text.
+- **A per-call `{ timeout }` LOWERS the browser project's 15s `asyncUtilTimeout`.** Four
+  `findByRole` calls around CodeMirror carried `{ timeout: 5000 }` and failed the gate at random
+  while passing alone. Removed in P4; do not add one back.
 - Deviations accepted, with reasons in CONTEXT-MEMORY: the switcher names languages by endonym
   rather than `Intl.DisplayNames`; `activateLocale`'s `persist` is a three-state object
   (save / `null` clears / omitted leaves alone) because "Use browser default" needs all three;
@@ -109,10 +194,15 @@ change how the remaining phases must be written.
   provoked on the deployed preview - submitting an empty required form, and an over-length
   value, both left `aria-invalid` at `false` with no message. **This is identical in English**,
   so it is not an i18n regression, but it means the on-screen path is unproven and there may be
-  a pre-existing defect in form validation display worth a separate look.
+  a pre-existing defect in form validation display worth a separate look. Untouched by P4.
 - `t('No {label} found.')` reads "Keine Kunde gefunden" where a reference declares no
-  `plural_label`. The English has the same defect; P4's model labels own it.
+  `plural_label`. The English has the same defect. P4 did not change the sentence; what it added
+  is the channel to fix an instance of it - a tenant or an operator can now supply the missing
+  `plural_label` as a `table` label override rather than editing the model.
 - `useTable` and the three mutations append `response.statusText` to a now-German sentence.
+  Untouched by P4: the concatenation is only reached when the response body carried no
+  PostgREST `message`, which is also the branch `serverMessage` cannot help with.
+
 ## Decision
 
 **Lingui's runtime only** (`@lingui/core` 2 KB, `@lingui/react` 1.7 KB, `@lingui/message-utils` ~5 KB gzip for the ICU compiler), used without its macros, Babel plugin, Vite plugin and CLI. It supplies ICU plurals and selects via `Intl.PluralRules`, a provider that re-renders on locale change, and a `<Trans>` component for rich text. Everything else is ours and small: a `t()` function, an extractor on the TypeScript compiler API, JSON catalogs.
@@ -231,7 +321,7 @@ A tenant can replace the English wording too, "Customer" → "Patient", through 
 
 ### Deployment file (operators)
 
-Location: `apps/web/public/locales/<code>.json` ships verbatim into `dist/`. The Cloudflare preview and any Workers deployment serve exactly the repo's `public/locales/`; the nginx image serves `/usr/share/nginx/html/locales/`, where an operator mounts a volume or copies files. `docker/nginx.conf` gets `location /locales/ { add_header Cache-Control "no-cache" always; try_files $uri =404; }` between the `/assets/` block and the SPA fallback. Registration extends the existing customizer JSON, no new `VITE_*` var: `{"user":{...},"locales":{"default":"de-DE","available":[{"code":"fr-FR","name":"Français","url":"/locales/fr-FR.json"}]}}` (`url` defaults to `/locales/<code>.json`; in `docker/.env` the JSON must stay on one line, the parser is line-based). New pure `src/lib/localeConfig.ts` (`resolveLocales(raw)`) called from `applyUiCustomizer` in `lib/config.ts`. Today `resolveUserMenu` parses the JSON only when `VITE_BACKEND_TYPE=custom`: split into `parseUiCustomizer(raw)` (always) + `resolveUserMenu`, with `user.menu` mandatory only for `custom`. Starting a new language: register an empty `fr-FR.json` so the locale becomes switchable; the complete work list is `labels.mjs --file public/locales/fr-FR.json` plus the keys of `src/locales/en-US.json` (P4), and from P5 on the export download. Not possible through the file, and said so in the README: no queue rows (requests stay in localStorage while there is no table), no in-app save (drafts plus download), no "changed since" (no `updated_at`), no `obsolete`.
+Location: `apps/web/public/locales/<code>.json` ships verbatim into `dist/`. The Cloudflare preview and any Workers deployment serve exactly the repo's `public/locales/`; the nginx image serves `/usr/share/nginx/html/locales/`, where an operator mounts a volume or copies files. `docker/nginx.conf` gets `location /locales/ { add_header Cache-Control "no-cache" always; try_files $uri =404; }` between the `/assets/` block and the SPA fallback. Registration extends the existing customizer JSON, no new `VITE_*` var: `{"user":{...},"locales":{"default":"de-DE","available":[{"code":"fr-FR","name":"Français","url":"/locales/fr-FR.json"}]}}` (`url` defaults to `/locales/<code>.json`; in `docker/.env` the JSON must stay on one line, the parser is line-based). New pure `src/i18n/localeConfig.ts` (`resolveLocales(parsed)`) called from `applyUiCustomizer` in `lib/config.ts` (it moved out of `lib/` so the lingui rule's `src/i18n/*.ts` exemption covers its operator diagnostics - see Deviations). Today `resolveUserMenu` parses the JSON only when `VITE_BACKEND_TYPE=custom`: split into `parseUiCustomizer(raw)` (always) + `resolveUserMenu`, with `user.menu` mandatory only for `custom`. Starting a new language: register an empty `fr-FR.json` so the locale becomes switchable; the complete work list is `labels.mjs --file public/locales/fr-FR.json` plus the keys of `src/locales/en-US.json` (P4), and from P5 on the export download. Not possible through the file, and said so in the README: no queue rows (requests stay in localStorage while there is no table), no in-app save (drafts plus download), no "changed since" (no `updated_at`), no `obsolete`.
 
 ### Tenant table (customers)
 
@@ -313,7 +403,7 @@ Permissions are enforced by the platform's policies and mirrored in the UI: ever
 - `src/test/i18nCatalogs.test.ts` (node): runs the extractor in memory and fails when the index or a locale file is out of sync (run `i18n:extract`), when a translation's placeholders differ from its source or a value does not compile (`message` and label scopes; `server`/`rule` are verbatim), when a repo catalog contains `labels`, `server` or `rule`, or when a file breaks its schema (catalogs and the index each have one). Missing `de-DE` translations are reported, not failed. A glossary check (`src/locales/TRANSLATION-GUIDE.md` plus a machine-readable term list) warns when a translation uses a different word for a fixed product term.
 - `routeTitles.test.ts` keeps matching `head: (` after every route's title moves to `translate(...)`.
 - Test setup: new `src/test/setup.node.ts` and the existing `setup.browser.ts` both `await activateLocale({ language: 'en-US', locale: 'en-US' })`, with `afterEach` reset (the singleton outlives a test within a file), and the collector disabled unless a test enables it; the "no setup file" comment at `vite.config.ts:100-102` is rewritten. `I18nProvider` is added to `AppHarness` (L166), `renderInApp` (L212) and `form/__tests__/harness.tsx`; the ten `*.test.tsx` files that call RTL `render()` bare (`ApiErrorDisplay`, `ConfigErrorPage`, `ErrorBoundary`, `api-select`, `SchemaForm`, `data-table-skeleton`, `combobox`, `number-input`, `ViewSkeleton`, `login`) switch to `src/test/render.tsx` when their component starts using `<Trans>`; `useT()` alone needs no provider.
-- Browser tests (real app via `appHarness.tsx`, real tenant, no stubs): switch language through the real menu → German label, `<html lang>`, cached keys, boot from the cached keys; the format submenu switches number and date output between the real `navigator.language` and the language's own region; the "Browser default" entries show the real `navigator.languages` value (a second Playwright instance with a `de-CH` context locale, a real browser setting rather than a stub, covers the German placeholder if `@vitest/browser-playwright` exposes context options; otherwise the assertion is against whatever the runner's locale is); a session preference written through `set_user_preferences` on the test tenant wins over the cache after login (skipped with a message while the RPC is absent); deployment file loaded by a real fetch of `src/test/fixtures/locales/fr-FR.json` (served by the Vite dev server, never in `dist`) registered through `setRuntimeEnv({ VITE_UI_CUSTOMIZER })`; tenant rows written to the real `ui_translations` table with the run's token and read back through a locale switch, and a real miss recorded by the enabled collector and read back from the queue (both skipped with a message while the table is absent); marking highlights one of two strings while `getByRole` names still resolve; an in-context edit round-trips into the DOM, the writer and the export; a metadata override on a real tenant table changes the grid heading, a badge and the route title. Node tests: resolver for both preferences (session, cache, operator default, placeholder, `en-US`) and subtag matching, file ↔ rows mapping, `localizeMetadata`/`enumLabel`, `labelInventory` including orphans, extractor over fixtures including the non-literal failure, schema validation.
+- Browser tests (real app via `appHarness.tsx`, real tenant, no stubs): switch language through the real menu → German label, `<html lang>`, cached keys, boot from the cached keys; the format submenu switches number and date output between the real `navigator.language` and the language's own region; the "Browser default" entries show the real `navigator.languages` value (a second Playwright instance with a `de-CH` context locale, a real browser setting rather than a stub, covers the German placeholder if `@vitest/browser-playwright` exposes context options; otherwise the assertion is against whatever the runner's locale is); a session preference written through `set_user_preferences` on the test tenant wins over the cache after login (skipped with a message while the RPC is absent); deployment file loaded by a real fetch of `src/test/fixtures/locales/fr-FR.json` registered through `setRuntimeEnv({ VITE_UI_CUSTOMIZER })` - served as a BLOB built from that file's own bytes, not from the Vite dev server, which transforms a `.json` under `src/` into an ES module and would answer `text/javascript` (that is the failure path, and it has its own test); tenant rows written to the real `ui_translations` table with the run's token and read back through a locale switch, and a real miss recorded by the enabled collector and read back from the queue (both skipped with a message while the table is absent); marking highlights one of two strings while `getByRole` names still resolve; an in-context edit round-trips into the DOM, the writer and the export; a metadata override on a real tenant table changes the grid heading, a badge and the route title. Node tests: resolver for both preferences (session, cache, operator default, placeholder, `en-US`) and subtag matching, file ↔ rows mapping, `localizeMetadata`/`enumLabel`, `labelInventory` including orphans, extractor over fixtures including the non-literal failure, schema validation.
 - `substitutions.test.ts` stays at its current total of 6: locale comes from real `navigator`/`localStorage`, runtime config from `setRuntimeEnv`, rows from the real tenant.
 
 ## Phases (one PR each, each deployed and screenshotted per CLAUDE.md)
@@ -338,11 +428,16 @@ Permissions are enforced by the platform's policies and mirrored in the UI: ever
 
 `form/SchemaForm.tsx`, `FormLabel.tsx` ("(required)"), `InputEnum.tsx`, `api-select.tsx`, `InputReference.tsx`, `Playground.tsx`; `ajv-i18n` over `validateData().errors`; `settings/ApiKeysCard.tsx`; `ui-ext/sortable.tsx`, `combobox.tsx`; demo routes (`xcustomers`, `crm.home`, `documents`, `form-playground`) wrapped like everything else. Suppressions pruned to zero outside `src/charts/**`.
 
-### P4 Runtime languages: deployment file, model-label overrides, tenant table and queue - DONE
+### P4 Runtime languages: deployment file, model-label overrides, tenant table and queue - DONE (`dd2662e`, `310730b`)
 
+What it covered (as specified; where the implementation differs, see Deviations in Status):
 `lib/localeConfig.ts` + the `parseUiCustomizer`/`resolveUserMenu` split; deployment-file layer + `public/locales/schema.json` + `docker/nginx.conf` `/locales/` rule; `labels.ts` (`localizeMetadata`, `enumLabel`, `tableLabel`) + `enum_labels` on `JsonSchemaProperty` + the consumer sites listed above; `get_schema` loader onto the QueryClient with `queryClient` in the router context; `src/i18n/localeFile.ts` (file ↔ rows); `src/i18n/labelInventory.ts` + test; `src/i18n/missing.ts` (collector, disabled in test setup) + `translateDynamic` and the `dynamic` map, wired into `ApiErrorDisplay`, `formatDeleteError` and the five direct `error.message` sites; the pending `lib/apiClient.ts` change that makes `callRpc` throw with `cause: { ...body, status, url }` committed first, or RPC messages never reach the collector; the generic `onConflict` option in `hooks/useTableMutations.ts` `useCreateRecord`; the tenant layer (via `useTable`), the tenant-rows writer and `request()` in `store.ts` (the drafts branch and the download arrive in P5), `TranslationsPrefetch` in `main.tsx` with its `router` prop, also re-resolving on `rpcUserInfo` and `userInfo`; the session read (`get_userinfo` `language`/`locale`, then the OIDC `locale` claim) with the cache mirroring, and the switcher's write-back through `set_user_preferences` with the cache-only fallback; `apps/web/scripts/i18n/export.mjs` (with `--messages-into`), `import.mjs`, `labels.mjs`, `translate.mjs`, `status.mjs --tenant`, the shared tenant resolution and `SEMANTIUS_TOKEN`/`--api-url`, `.gitignore` entry for `apps/web/.i18n/`; README "Adding a language" (file, registration, mounting, what the file cannot do) and "Tenant translations" (the DDL, triggers, policies, the model registration, the permission, the queue and the scripts); `docker/README.md`; fixtures, node and browser tests. Prerequisite for the table and queue tests: the platform migration (table, triggers, policies, permission) applied to the test tenant.
 
-### P5 Translate mode
+### P5 Translate mode - NEXT
+
+See "What P5 inherits from P4" in Status for the seams that already exist and the one
+thing P4 deliberately left (`useCreateRecord`'s `onConflict`).
+
 
 `src/i18n/translateMode/` (reverse index + highlights, label renders recorded too, `EditorPopover`, `Panel` with the catalog tab and its filters "missing" / "requested" / "drafts" / "on this page", the localStorage request list where there is no table, the model-labels tab with the whole-model inventory view and its filters, missing count in the Language submenu, export); NavUser toggles; drafts; tests.
 
@@ -358,7 +453,7 @@ Per-locale labels inside the semantic model with `get_schema` returning them ser
 4. Reverse-index cost on large grids: `MutationObserver` throttled and scoped to `#root`, active only in translate mode.
 5. `no-unlocalized-strings` noise: suppression baseline, `ignoreFunctions`, attribute and regex ignores.
 6. The Lingui singleton leaking between tests: `afterEach` reset to `en-US`.
-7. `router.invalidate()` re-running every loader over the network until P4 moves `get_schema` onto the QueryClient: acceptable for a rare language switch.
+7. `router.invalidate()` re-running every loader over the network: CLOSED in P4 - `get_schema` is on the QueryClient with `staleTime: Infinity`, reached through `rpcQueryKey()` so the loader and `useRpc` fill one entry, and `src/i18n/schemaCache.test.tsx` fails if `router.update()` ever drops the client from the context again.
 12. A translations table larger than one PostgREST page: `useTable` with `count: true` reports the total and further pages load by `offset`; the server's `max-rows` is confirmed in the pre-P4 curl check.
 8. `obsolete` growing forever: `status` prints it, `extract --prune` empties it.
 9. The queue filling with server messages that embed data values: the PostgREST-code filter, the 500-character cap, per-session dedupe, `origin` for review, and the "requested" filter to delete rows that are data; a normalization of ids and quoted values into placeholders is a follow-up if it proves noisy.
