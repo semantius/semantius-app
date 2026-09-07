@@ -118,9 +118,9 @@ t('Save')                                             // key: ['Save']
 // 2. id + message — the message is PART of the key, the id disambiguates
 t({ id: ['columnVisibility'], message: 'View' })      // key: ['columnVisibility', 'View']
 
-// 3. id + defaultMessage — the id ALONE is the key, the English is only a fallback
+// 3. id + default — the id ALONE is the key, the English is only a fallback
 t({ id: [mod, entity, 'city', 'label'],               // key: ['nwind','customers','city','label']
-    defaultMessage: property.title })
+    default: property.title })
 ```
 
 Form 1 is every code string today, unchanged. Form 2 replaces `context`. Form 3
@@ -128,7 +128,7 @@ is the metadata case.
 
 **Which field is present is the discriminator**, and it is explicit: `message`
 means "this text is part of my identity, reword it and I am a new message";
-`defaultMessage` means "my identity is the id, this is just what to show when
+`default` means "my identity is the id, this is just what to show when
 nothing is translated". Nothing else has to be inferred.
 
 **`context` is removed entirely** — the option, the U+0004 separator, the
@@ -138,9 +138,8 @@ other way to be disambiguated; form 2 does the same job with a structured
 segment, which sorts, groups and reads. There are 8 uses today (one
 `column visibility`, seven `translation scope`), so the conversion is small.
 
-Naming: `defaultMessage` rather than `default_message` to match the codebase's
-camelCase, and it is the name react-intl already uses for exactly this. `default`
-alone is legal as a property but reads as a keyword at every call site.
+Naming: `default`. It is legal as a property name and needs no quoting in an
+object literal.
 
 ## What `context` was, for the record
 
