@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { translate } from '@/i18n'
 import { pageTitle } from '@/lib/pageTitle'
 import { Settings as SettingsIcon, Key } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
@@ -12,7 +13,7 @@ import {
 import { ApiKeysCard } from '@/components/settings/ApiKeysCard'
 
 export const Route = createFileRoute('/_app/settings')({
-  head: () => ({ meta: [{ title: pageTitle('Settings') }] }),
+  head: () => ({ meta: [{ title: pageTitle(translate('Settings')) }] }),
   component: SettingsComponent,
 })
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { useAuth } from '@/hooks/useAuth'
+import { useT } from '@/i18n'
 import { getApiConfig, createApiHeaders } from '@/lib/apiClient'
 import {
   Command,
@@ -143,6 +144,7 @@ function moduleUrl(slug: string, homePage: string) {
 export function CommandPalette() {
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
+  const t = useT()
 
   const { data: entities, isLoading: entitiesLoading } = useCatalog<EntityRecord>(
     'entities',
@@ -197,7 +199,7 @@ export function CommandPalette() {
       {/* Substring-first + bigram-coverage fuzzy match over the combined
           title+description (see scoreMatch). */}
       <Command filter={scoreMatch}>
-        <CommandInput placeholder="Search apps and modules..." />
+        <CommandInput placeholder={t('Search apps and modules...')} />
         <CommandList className="max-h-[60vh]">
           {isLoading ? (
             // Loading skeleton — shown only before the first fetch resolves.
@@ -211,9 +213,9 @@ export function CommandPalette() {
             </div>
           ) : (
           <>
-          <CommandEmpty>No results found.</CommandEmpty>
+          <CommandEmpty>{t('No results found.')}</CommandEmpty>
 
-          <CommandGroup heading="Apps">
+          <CommandGroup heading={t('Apps')}>
             {entities?.map((entity) => {
               const slug = moduleSlugById.get(entity.module_id)
               // Skip entities whose module isn't loaded/known — we can't build a URL.
@@ -240,7 +242,7 @@ export function CommandPalette() {
 
           <CommandSeparator />
 
-          <CommandGroup heading="Modules">
+          <CommandGroup heading={t('Modules')}>
             {modules?.map((module) => (
               <CommandItem
                 key={`module-${module.id}`}

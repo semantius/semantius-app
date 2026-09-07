@@ -11,6 +11,7 @@ import { getModuleDisplay } from '@/contexts/AuthContext'
 import type { Module } from '@/contexts/AuthContext'
 import { useTable } from '@/hooks/useTable'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useT } from '@/i18n'
 
 import {
   DropdownMenu,
@@ -68,6 +69,7 @@ export function ModuleSwitcher({
   onModuleChange?: (moduleId: number | null, moduleSlug: string | null) => void
 }) {
   const { modules, loading } = useModules()
+  const t = useT()
   const params = useParams({ strict: false })
   const { moduleId } = params as { moduleId?: string }
   const navigateToModule = useModuleNavigate()
@@ -158,7 +160,7 @@ export function ModuleSwitcher({
               <div className="flex size-6 items-center justify-center rounded-md border">
                 <Search className="size-3.5 shrink-0" />
               </div>
-              Quick navigation
+              {t('Quick navigation')}
               <PlatformShortcut modifier="mod" keyLabel="K" className="ml-auto" />
             </DropdownMenuItem>
             <DropdownMenuSeparator />

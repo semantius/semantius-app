@@ -222,6 +222,95 @@ Key features:
 - `precision` keyword for decimal place validation
 - Used by the form components to drive field rendering and validation
 
+## Internationalization
+
+The UI ships in **`en-US`** (the source language) and **`de-DE`**. A user picks a
+language and, separately, a number and date format in the account menu at the
+bottom of the sidebar.
+
+### The API
+
+```ts
+const t = useT()                                // inside a component
+import { translate, msg } from '@/i18n'         // everywhere else
+
+t('Enter a valid email address')
+t('Delete {label}?', { label: singularLabel })
+t('{count, plural, one {# row} other {# rows}} selected', { count })
+t({ message: 'Right', context: 'direction' })   // two meanings, same word
+<Trans id="Delete <bold>{name}</bold>?" values={{ name }} components={{ bold: <strong /> }} />
+
+const MENU = [{ title: msg('Settings'), url: '/settings' }]   // rendered with t(entry.title)
+```
+
+**The English source text is the key.** There are no message ids to invent, so a
+label on screen is found by grepping for the words on it, and adding a string is
+one edit in the file that renders it.
+
+**Two names on purpose.** `translate()` is a module function and cannot re-render
+a component when the language changes, so components use `useT()` and everything
+outside React — a route's `head()`, `main.tsx`, the three class components — uses
+`translate()`. An ESLint rule enforces the split. `useT()` needs no provider; only
+`<Trans>` does.
+
+`msg()` returns a descriptor rather than a string, so a constant declared for
+later rendering is an object: passing it into JSX without `t()` is a `tsc` error
+instead of a silently untranslated English string.
+
+Two preferences, resolved separately: **`language`** picks the catalog (`de-DE`),
+**`locale`** drives every `Intl` call, date-fns and `localeCompare` (`de-CH`).
+Formatting helpers take `useFormattingLocale()`, never the catalog language.
+
+### Adding or changing a string
+
+1. Write it with `t()` / `translate()` / `<Trans>`.
+2. `pnpm --filter @semantius/frontend i18n:extract` — regenerates
+   `apps/web/src/locales/en-US.json` (the index: every message with its origin
+   files and ICU placeholders) and adds the new key to every catalog with an
+   empty value.
+3. Fill in the German in `apps/web/src/locales/de-DE.json`. **In the same PR** —
+   the source string IS the key, so rewording one orphans its translations
+   (they move to `obsolete`) and the new wording is missing until translated.
+4. `pnpm --filter @semantius/frontend i18n:status` prints `0 missing` before the
+   PR merges.
+
+`apps/web/src/locales/TRANSLATION-GUIDE.md` is the brief for whoever does step 3,
+including the fixed product terms. `en-US.json` is generated and committed like
+`routeTree.gen.ts`; never hand-edit it.
+
+### Finding what is missing
+
+- `pnpm --filter @semantius/frontend i18n:status -- --verbose` — per language:
+  total, translated, missing with their origin files, obsolete.
+- `git diff` after `i18n:extract` — every new key appears with an empty value.
+- `pnpm check` — `src/test/i18nCatalogs.test.ts` runs the real extractor in
+  memory and **fails** when the index or a catalog is out of date, when a
+  translation's ICU placeholders differ from its source, when a value does not
+  compile, or when a repo catalog carries a section that belongs to a tenant. It
+  only **reports** a missing translation: that renders in English, which is a
+  degraded screen rather than a broken build.
+- In the app, a missing string simply renders in English.
+
+### Enforcement
+
+`lingui/no-unlocalized-strings` is an error for `apps/web/src`, with three
+exclusions: `src/charts/**` (our drizzle-cube chart override, which renders
+inside a third-party product with its own i18n), test files and their helpers
+(a test's strings are assertions and fixtures, never anything on a screen), and
+`src/i18n/*.ts` (locale tags, storage keys and `Intl` options — machinery). The
+strings that had not been migrated when the rule was turned on are recorded once
+in `apps/web/eslint-suppressions.json`; each phase migrates files and runs
+`npx eslint --prune-suppressions`, so the counts only fall and a partially
+migrated file is still enforced for anything new.
+
+`react-hooks/exhaustive-deps` is an error for `apps/web/src` through the same
+baseline: `useT()` returns a new function per language, so `t` belongs in the
+dependencies of any `useMemo`, `useEffect` or `useCallback` that calls it.
+
+The rule has one blind spot worth knowing: on a plain HTML tag it only checks the
+`placeholder`, `alt`, `aria-label` and `value` attributes, so a `title=` on a
+`<span>` is invisible to it (on a component, every attribute is checked).
+
 ## Accessibility
 
 **Target: WCAG 2.2 Level AA. The honest shape of this claim is _supports with

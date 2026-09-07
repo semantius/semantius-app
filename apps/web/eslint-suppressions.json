@@ -1,4 +1,556 @@
 {
+  "src/components/ApiErrorDisplay.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 4
+    }
+  },
+  "src/components/ConfigErrorPage.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 19
+    }
+  },
+  "src/components/ConfirmDeleteDialog.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 7
+    }
+  },
+  "src/components/ProtectedRoute.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/components/ThemeToggle.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 3
+    }
+  },
+  "src/components/ViewSkeleton.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 3
+    }
+  },
+  "src/components/a11y/RouteAnnouncer.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 1
+    }
+  },
+  "src/components/customers/CustomerForm.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 50
+    }
+  },
+  "src/components/data-table-view/DataFormPage.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 10
+    }
+  },
+  "src/components/data-table-view/DataTableView.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 70
+    },
+    "react-hooks/exhaustive-deps": {
+      "count": 1
+    }
+  },
+  "src/components/form/CodeMirrorCode.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 1
+    }
+  },
+  "src/components/form/CodeMirrorHtml.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 1
+    }
+  },
+  "src/components/form/CodeMirrorJson.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 1
+    }
+  },
+  "src/components/form/CodeMirrorJsonata.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 1
+    }
+  },
+  "src/components/form/FormContext.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 1
+    }
+  },
+  "src/components/form/FormLabel.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 1
+    }
+  },
+  "src/components/form/InputBoolean.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 1
+    }
+  },
+  "src/components/form/InputCode.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/components/form/InputDate.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/components/form/InputDateTime.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 1
+    }
+  },
+  "src/components/form/InputDuration.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/components/form/InputEmail.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 1
+    }
+  },
+  "src/components/form/InputEnum.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 5
+    }
+  },
+  "src/components/form/InputHostname.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 1
+    }
+  },
+  "src/components/form/InputHtml.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/components/form/InputIdnEmail.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/components/form/InputIdnHostname.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/components/form/InputIpv4.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 1
+    }
+  },
+  "src/components/form/InputIpv6.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 1
+    }
+  },
+  "src/components/form/InputIri.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/components/form/InputIriReference.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/components/form/InputJson.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/components/form/InputJsonPointer.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 1
+    }
+  },
+  "src/components/form/InputJsonata.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/components/form/InputNumber.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 1
+    }
+  },
+  "src/components/form/InputReference.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 11
+    }
+  },
+  "src/components/form/InputRegex.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/components/form/InputRelativeJsonPointer.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/components/form/InputText.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 1
+    }
+  },
+  "src/components/form/InputTextarea.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 1
+    }
+  },
+  "src/components/form/InputTime.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 1
+    }
+  },
+  "src/components/form/InputUri.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/components/form/InputUriReference.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/components/form/InputUriTemplate.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/components/form/InputUuid.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 1
+    }
+  },
+  "src/components/form/Playground.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 13
+    }
+  },
+  "src/components/form/SchemaForm.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 33
+    }
+  },
+  "src/components/form/api-select.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 13
+    }
+  },
+  "src/components/form/codeMirrorField.ts": {
+    "lingui/no-unlocalized-strings": {
+      "count": 4
+    }
+  },
+  "src/components/form/fieldAria.ts": {
+    "lingui/no-unlocalized-strings": {
+      "count": 4
+    }
+  },
+  "src/components/layout/AppSidebar.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/components/layout/CommandPalette.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 6
+    }
+  },
+  "src/components/layout/Header.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/components/layout/ModuleSwitcher.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 8
+    },
+    "react-hooks/exhaustive-deps": {
+      "count": 1
+    }
+  },
+  "src/components/layout/NavApps.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 5
+    }
+  },
+  "src/components/layout/NavBookmarks.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 5
+    }
+  },
+  "src/components/layout/NavUser.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 8
+    }
+  },
+  "src/components/layout/SidebarPrefetch.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/components/niko-table/components/data-table-column-actions.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 1
+    }
+  },
+  "src/components/niko-table/components/data-table-column-filter.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/components/niko-table/components/data-table-column-header.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 3
+    }
+  },
+  "src/components/niko-table/components/data-table-column-sort.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 3
+    }
+  },
+  "src/components/niko-table/components/data-table-column-title.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/components/niko-table/components/data-table-empty-state.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 8
+    }
+  },
+  "src/components/niko-table/components/data-table-filter-menu.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/components/niko-table/components/data-table-pagination.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/components/niko-table/components/data-table-search-filter.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 1
+    }
+  },
+  "src/components/niko-table/components/data-table-sort-menu.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 1
+    }
+  },
+  "src/components/niko-table/components/data-table-toolbar-section.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/components/niko-table/components/data-table-view-menu.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/components/niko-table/config/data-table.ts": {
+    "lingui/no-unlocalized-strings": {
+      "count": 53
+    }
+  },
+  "src/components/niko-table/core/data-table-context.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    },
+    "react-hooks/exhaustive-deps": {
+      "count": 1
+    }
+  },
+  "src/components/niko-table/core/data-table-error-boundary.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 5
+    }
+  },
+  "src/components/niko-table/core/data-table-root.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 5
+    }
+  },
+  "src/components/niko-table/core/data-table-structure.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 27
+    }
+  },
+  "src/components/niko-table/core/data-table.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/components/niko-table/filters/table-column-actions.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/components/niko-table/filters/table-column-sort.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 9
+    }
+  },
+  "src/components/niko-table/filters/table-column-title.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/components/niko-table/filters/table-filter-menu.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 67
+    }
+  },
+  "src/components/niko-table/filters/table-pagination.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 13
+    }
+  },
+  "src/components/niko-table/filters/table-range-filter.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 5
+    }
+  },
+  "src/components/niko-table/filters/table-search-filter.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 6
+    }
+  },
+  "src/components/niko-table/filters/table-sort-menu.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 20
+    }
+  },
+  "src/components/niko-table/filters/table-view-menu.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 5
+    }
+  },
+  "src/components/niko-table/lib/constants.ts": {
+    "lingui/no-unlocalized-strings": {
+      "count": 33
+    }
+  },
+  "src/components/niko-table/lib/filter-functions.ts": {
+    "lingui/no-unlocalized-strings": {
+      "count": 5
+    }
+  },
+  "src/components/niko-table/lib/filter-rows.ts": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/components/niko-table/lib/format.ts": {
+    "lingui/no-unlocalized-strings": {
+      "count": 4
+    }
+  },
+  "src/components/niko-table/lib/styles.ts": {
+    "lingui/no-unlocalized-strings": {
+      "count": 9
+    }
+  },
+  "src/components/settings/ApiKeysCard.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 40
+    }
+  },
+  "src/components/ui-ext/bookmark-icon.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 10
+    }
+  },
+  "src/components/ui-ext/combobox.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 4
+    }
+  },
+  "src/components/ui-ext/command-dialog.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/components/ui-ext/date-picker.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 6
+    }
+  },
+  "src/components/ui-ext/date-time-picker.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 8
+    }
+  },
+  "src/components/ui-ext/named-icon.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 1
+    }
+  },
+  "src/components/ui-ext/number-input.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 3
+    }
+  },
+  "src/components/ui-ext/platform-shortcut.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 7
+    }
+  },
+  "src/components/ui-ext/sortable.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 31
+    },
+    "react-hooks/exhaustive-deps": {
+      "count": 3
+    }
+  },
+  "src/components/ui/badge.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/components/ui/breadcrumb.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 3
+    }
+  },
+  "src/components/ui/calendar.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 4
+    }
+  },
+  "src/components/ui/checkbox.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 1
+    }
+  },
+  "src/components/ui/command.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/components/ui/dialog.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/components/ui/dropdown-menu.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 1
+    }
+  },
+  "src/components/ui/form.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 5
+    }
+  },
   "src/components/ui/input-group.tsx": {
     "jsx-a11y/click-events-have-key-events": {
       "count": 1
@@ -10,6 +562,226 @@
   "src/components/ui/label.tsx": {
     "jsx-a11y/label-has-associated-control": {
       "count": 1
+    }
+  },
+  "src/components/ui/popover.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 1
+    }
+  },
+  "src/components/ui/select.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 1
+    }
+  },
+  "src/components/ui/separator.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 1
+    }
+  },
+  "src/components/ui/sheet.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/components/ui/sidebar.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 20
+    }
+  },
+  "src/components/ui/sonner.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/components/ui/table.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 1
+    }
+  },
+  "src/components/ui/tooltip.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 1
+    }
+  },
+  "src/components/views/View.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 46
+    }
+  },
+  "src/components/views/admin/Modules0.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 8
+    }
+  },
+  "src/components/views/admin/Users.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 1
+    }
+  },
+  "src/contexts/AuthContext.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 18
+    }
+  },
+  "src/hooks/use-min-width.ts": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/hooks/use-mobile.ts": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/hooks/useAuth.ts": {
+    "lingui/no-unlocalized-strings": {
+      "count": 1
+    }
+  },
+  "src/hooks/useConfirmDelete.ts": {
+    "lingui/no-unlocalized-strings": {
+      "count": 1
+    }
+  },
+  "src/hooks/useRpc.ts": {
+    "lingui/no-unlocalized-strings": {
+      "count": 3
+    }
+  },
+  "src/hooks/useTable.ts": {
+    "lingui/no-unlocalized-strings": {
+      "count": 6
+    }
+  },
+  "src/hooks/useTableMutations.ts": {
+    "lingui/no-unlocalized-strings": {
+      "count": 25
+    }
+  },
+  "src/lib/apiClient.ts": {
+    "lingui/no-unlocalized-strings": {
+      "count": 8
+    }
+  },
+  "src/lib/apiErrors.ts": {
+    "lingui/no-unlocalized-strings": {
+      "count": 6
+    }
+  },
+  "src/lib/appLoader.ts": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/lib/compose-refs.ts": {
+    "react-hooks/exhaustive-deps": {
+      "count": 1
+    }
+  },
+  "src/lib/config.ts": {
+    "lingui/no-unlocalized-strings": {
+      "count": 44
+    }
+  },
+  "src/lib/date-format.ts": {
+    "lingui/no-unlocalized-strings": {
+      "count": 3
+    }
+  },
+  "src/lib/devUrlToken.ts": {
+    "lingui/no-unlocalized-strings": {
+      "count": 4
+    }
+  },
+  "src/lib/pageTitle.ts": {
+    "lingui/no-unlocalized-strings": {
+      "count": 1
+    }
+  },
+  "src/lib/retry.ts": {
+    "lingui/no-unlocalized-strings": {
+      "count": 1
+    }
+  },
+  "src/lib/secureContext.ts": {
+    "lingui/no-unlocalized-strings": {
+      "count": 3
+    }
+  },
+  "src/lib/userMenu.ts": {
+    "lingui/no-unlocalized-strings": {
+      "count": 29
+    }
+  },
+  "src/lib/utils-ext.ts": {
+    "lingui/no-unlocalized-strings": {
+      "count": 1
+    }
+  },
+  "src/main.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 5
+    }
+  },
+  "src/routes/_app.$moduleId.$table_name.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 6
+    }
+  },
+  "src/routes/_app.$moduleId.index.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 7
+    }
+  },
+  "src/routes/_app.crm.home.detail.lazy.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/routes/_app.crm.home.lazy.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 4
+    }
+  },
+  "src/routes/_app.documents.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 5
+    }
+  },
+  "src/routes/_app.index.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 1
+    }
+  },
+  "src/routes/_app.settings.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 7
+    }
+  },
+  "src/routes/_app.xcustomers.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 65
+    }
+  },
+  "src/routes/form-playground.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
+    }
+  },
+  "src/routes/login.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 1
+    }
+  },
+  "src/routes/logout.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 5
+    }
+  },
+  "src/routes/oauth2_callback.tsx": {
+    "lingui/no-unlocalized-strings": {
+      "count": 2
     }
   }
 }

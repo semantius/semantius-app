@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client'
 import { RouterProvider, createRouter } from '@tanstack/react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
+import { I18nProvider } from '@lingui/react'
 import { AuthProviderWrapper } from './contexts/AuthContext'
 import { ThemeProvider } from './components/ThemeProvider'
 import { Toaster } from './components/ui/sonner'
@@ -15,6 +16,7 @@ import { BootFailure } from './components/BootFailure'
 import { RouteErrorPage } from './components/RouteErrorPage'
 import { SidebarPrefetch } from './components/layout/SidebarPrefetch'
 import { applyDevUrlToken } from './lib/devUrlToken'
+import { activateLocale, i18n, resolveInitialLocale, translate } from './i18n'
 import './global.css'
 // MUST stay after './global.css'. These are the accessibility corrections to the
 // shadcn palette, kept out of global.css because a `--preset` apply rewrites that
@@ -98,8 +100,23 @@ const queryClient = new QueryClient({
 
 const root = createRoot(document.getElementById('root')!)
 
-// Load config (async) before rendering the app
-initConfig().then(() => {
+// Load the locale, then the config, then render — in that order, and all inside
+// the one promise chain whose .catch() takes the overlay down.
+//
+// The locale comes FIRST because <I18nProvider> renders `null` until a locale is
+// active, and under the index.html overlay a component that renders nothing is a
+// hang rather than an error: the user sees a spinner forever and the app has no
+// way to say why. activateLocale() therefore never throws and always ends with
+// something active — a failed layer logs and keeps the built-in catalog — so
+// this line cannot be the thing that hangs.
+//
+// It runs TWICE. The first pass sees only the built-in languages, which is
+// enough to translate BootFailure; the second runs after initConfig(), when the
+// operator's customizer (and, from P4, the tenant's languages) are known. Both
+// passes resolve WITHOUT persisting: saving here would overwrite a cached
+// preference for a language that is only available after login.
+activateLocale(resolveInitialLocale()).then(() => initConfig()).then(async () => {
+  await activateLocale(resolveInitialLocale())
   const configError = getConfigError()
 
   if (configError) {
@@ -107,8 +124,8 @@ initConfig().then(() => {
     root.render(
       <StrictMode>
         <BootFailure
-          title="Configuration Error"
-          description="The application could not load its configuration."
+          title={translate('Configuration Error')}
+          description={translate('The application could not load its configuration.')}
           detail={configError}
         />
       </StrictMode>,
@@ -118,6 +135,11 @@ initConfig().then(() => {
 
   root.render(
     <StrictMode>
+      {/* Outermost provider, above the theme: <Trans> reads the catalog through
+          it, and it re-renders the tree on a language change. useT() does not
+          need it — it subscribes to the singleton directly — so a component test
+          that renders bare still works. */}
+      <I18nProvider i18n={i18n}>
       {/* attribute="class" is required: next-themes defaults to "data-theme",
           but our dark theme is keyed on the `.dark` class (see global.css
           @custom-variant + `.dark {}`). Without this, only color-scheme flips
@@ -141,6 +163,7 @@ initConfig().then(() => {
           {createPortal(<Toaster position="top-right" />, document.body)}
         </QueryClientProvider>
       </ThemeProvider>
+      </I18nProvider>
     </StrictMode>,
   )
 }).catch((err: unknown) => {
@@ -154,8 +177,8 @@ initConfig().then(() => {
   root.render(
     <StrictMode>
       <BootFailure
-        title="Application Failed to Start"
-        description="An unexpected error occurred while loading the application."
+        title={translate('Application Failed to Start')}
+        description={translate('An unexpected error occurred while loading the application.')}
         detail={err instanceof Error ? (err.stack || err.message) : String(err)}
       />
     </StrictMode>,

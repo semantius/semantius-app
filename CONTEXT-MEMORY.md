@@ -373,6 +373,157 @@ its first render (its state starts `undefined` and an effect fills it in), so
 `initialState` captured the desktop value and kept it forever: a phone got desktop
 pinning permanently. `state` re-reads it.
 
+### Internationalization
+
+**Lingui's RUNTIME only** — `@lingui/core`, `@lingui/react`, `@lingui/message-utils`
+— with no macros, no Babel plugin, no Vite transform, no CLI and no PO files. The
+extractor (`apps/web/scripts/i18n/extract.mjs`, TypeScript compiler API) and the
+catalogs (JSON, `apps/web/src/locales/`) are ours. Re-proposing the macros means
+re-proposing a Babel pass over every file in `vite build` and both Vitest
+projects, plus hashed ids that need source-text workarounds; that trade was
+already made.
+
+**The extractor's accepted argument forms are a WHITELIST, not a blacklist.**
+`t()` / `translate()` / `msg()` / `<Trans id>` take a string literal, a template
+with no expressions, an object literal with a literal `message`, or a bare
+reference (identifier, `a.b`, `a[0]`) whose `msg()` site is extracted elsewhere.
+Everything else — a template with expressions, a conditional, a concatenation, a
+call, a logical expression — FAILS the extraction by name and line, and the
+wrappers (`(…)`, `as`, `!`, `satisfies`) are unwrapped first so a single pair of
+parentheses cannot smuggle a concatenation past the check. A permissive
+fallthrough here is not a small bug: an unreadable call site is a string that is
+neither translated nor listed anywhere as untranslated.
+
+**The English source string IS the key.** There are no message ids, so rewording
+a string in code creates a NEW key and moves its translations to `obsolete` — run
+`i18n:extract` and retranslate. A PR that adds or rewords a string fills its
+`de-DE.json` entry in the same PR, and `i18n:status` prints 0 missing before it
+merges. `en-US.json` is GENERATED (the index of every message with its origins
+and placeholders, committed like `routeTree.gen.ts`) and is never hand-edited and
+never loaded as a catalog — the repo layer's glob excludes it, and `glossary.json`
+with it. `labels`, `server` and `rule` sections are tenant or deployment data and
+are rejected in a repo catalog.
+
+**Components use `useT()` and list `t` in their deps; everything outside React
+uses `translate()`** — a route's `head()`, `main.tsx`, the three class components
+(`ErrorBoundary.tsx`, `form/InputJson.tsx`,
+`niko-table/core/data-table-error-boundary.tsx`). The module function cannot
+re-render a component when the language changes, and three grid components are
+`React.memo`, so a `translate()` inside one would never update; ESLint bans the
+import under `components/**` with those three as the exceptions. `useT()` needs no
+provider (it is `useSyncExternalStore` on the Lingui singleton's `change` event);
+only `<Trans>` does, which is what `src/test/render.tsx` is for.
+
+**`I18nProvider` renders `null` until a locale is active, and under the boot
+overlay that is a HANG, not an error.** So `activateLocale()` never throws and
+always ends with something active — a failed layer logs and keeps the built-in
+catalog — and `main.tsx` activates before `initConfig()` and again after it,
+inside the one promise chain whose `.catch` calls `hideAppLoader()`.
+
+**Language and formatting locale are TWO preferences.** `language` picks the
+catalog, `locale` drives every `Intl` call, date-fns and `localeCompare`. Each
+falls through its own chain — language: session → cache → operator default →
+browser placeholder → `en-US`; formatting locale: session → cache →
+`navigator.language` → `en-US` — so a cached German language with no cached
+format takes the browser's `de-CH` rather than inheriting `de-DE`. A language that
+is not available counts as absent (preview origins share one `localStorage`
+across tenants). **Lingui never receives the formatting locale**: its `locales`
+option feeds `Intl.PluralRules`, so an English UI with Russian formats would pick
+Russian plural categories. Formatting helpers take `useFormattingLocale()`, never
+the catalog language.
+
+**Boot passes never persist; only the switcher does.** A boot that saved what it
+resolved would overwrite a cached preference for a language that only becomes
+available after login. `activateLocale`'s `persist` is per field and
+three-valued: a string saves, `null` clears (that is "use browser default"), an
+omitted field leaves the key alone — which is what lets a language change avoid
+promoting a browser-derived formatting locale into a preference nobody chose.
+`activateLocale` uses the REPLACING `loadAndActivate`; only a single-key save uses
+the merging `i18n.load`.
+
+**A switch needs `router.invalidate()`, never `location.reload()`.**
+`document.title` comes from the matched route's `head()`, which re-runs only on
+invalidation; a reload would throw away the session's client state to change a
+string. `src/i18n` cannot import the router, so the caller does it (`NavUser`
+through `useRouter()`).
+
+**Empty strings are dropped when the layers are merged.** Lingui treats `""` as a
+present translation, so a gap has to be ABSENT for the fallback to the source
+text to apply.
+
+**Never build a sentence by concatenation or English morphology** — no
+`singularize()`, no `${x ? 's' : ''}`, no `.toLowerCase()` on a model label. One
+ICU message per sentence, model labels inserted as given.
+
+**The Base UI submenu cannot be driven by userEvent's pointer.** userEvent moves
+its pointer in a single jump, which takes it out of the submenu trigger, and Base
+UI's safe-polygon hover logic closes the submenu — leaving the panel in the DOM
+with `data-closed` and `pointer-events: none` on its positioner, so the next
+click fails with "element has pointer-events: none", which reads like a CSS bug
+and is really a closed menu. Drive it by keyboard instead (typeahead to the
+trigger with its FIRST WORD — a space is "activate", not a search character —
+then `{ArrowRight}`, typeahead, `{Enter}`), which is what `NavUser.test.tsx`
+does. Do not reach for `pointerEventsCheck: 0`; the substitutions ratchet counts
+it.
+
+**Both Vitest projects activate a locale before the first test** (`setup.node.ts`
+is new for exactly this, `setup.browser.ts` does the same and also clears the two
+cache keys): `i18n._()` THROWS with no active locale, and pure code renders
+messages too — `resolveUserMenu`'s built-in titles are `msg()` descriptors, so
+`userMenu.test.ts` and `config.test.ts` compare them through `translate()`.
+
+**`eslint-suppressions.json` is the migration ratchet and only shrinks**, but its
+counts are per file and per rule, so a same-file swap of one violation for
+another is invisible to it and has to be caught in review. `eslint-plugin-lingui`
+already whitelists `t` and `msg` as callees (verified in the rule's source);
+`translate` and `translateDynamic` are ours and are named in `ignoreFunctions`.
+Keep the `ignore` regexes NARROW — an over-broad one hides a real string forever
+and silently, while an unmigrated string lands in the baseline once and is
+visible there. **`react-hooks/exhaustive-deps` is an ERROR for `src/**` through
+the same baseline** (seven violations predated it), because `useT()` returns a
+new function per language: a `useMemo`/`useEffect` that omits `t` keeps rendering
+the previous language behind a memo, and as a warning among ninety the rule would
+never be read.
+
+**`ignoreFunctions` exempts the whole CALL, and for a curried call it walks in to
+the inner callee** — the rule takes a literal's nearest enclosing
+`CallExpression` and tests that. So `ignoreFunctions: ['createFileRoute']` would
+exempt every literal in `createFileRoute('/x')({ … })`, the entire route
+definition with its `head: () => ({ meta: [{ title: 'English' }] })` included,
+silently and forever. It is an entry-point whitelist, not an argument matcher:
+name a function there only when EVERY string anywhere inside its call is
+machinery. A single argument that is an identifier — a route path, a storage key
+— belongs in `ignore` as a regex instead (`^/[A-Za-z0-9_$./-]*$` is the one that
+covers the route paths, and it is narrow because a leading slash with no space in
+it is an address, never a sentence).
+
+**`no-unlocalized-strings` cannot see most attributes on an INTRINSIC element.**
+`isAllowedDOMAttr` in the plugin hard-codes the checked set to `placeholder`,
+`alt`, `aria-label` and `value` for a native tag (and skips SVG entirely); on a
+capitalized component every attribute is checked. So `<span title="Delete this">`
+is invisible to the rule while `<Button title="Delete this">` is not, and there
+is no option to widen it. A green run and an empty suppression count are
+therefore not proof that a file is fully migrated — `title`, `aria-description`,
+`summary` and `label` on plain HTML have to be found by reading. Today every
+`title=` in `src/` is on a component, so nothing is hiding; check when migrating
+a file that adds one.
+
+**Two `ignores` beyond the plan's `src/charts/**`, both deliberate.**
+(1) *Tests and their helpers* (`**/*.{test,spec}.*`, `**/__tests__/**`,
+`src/test/**`): a test's strings are assertions, fixtures and query strings, and
+there are ~2600 of them against ~1200 in product code — baselining them would
+bury the ratchet under entries that can never be migrated. (2) *`src/i18n/*.ts`*,
+the translation machinery itself, whose every string is a locale tag, a storage
+key or an `Intl` option. That second one is scoped to the TOP-LEVEL modules on
+purpose: `src/i18n/**` would also exempt P5's `src/i18n/translateMode/`, which is
+ordinary UI with ordinary user-visible strings. Neither ignore costs P3 its
+"suppressions pruned to zero outside `src/charts/**`" target, because an ignored
+file produces no suppression entries at all.
+
+**`dist-e2e-*` are in `globalIgnores`.** Playwright builds two extra bundles
+there; without the ignore ESLint parses ~3400 minified files on every run for no
+rules at all.
+
 ### Routing Conventions
 
 - File-based routing in `src/routes/`

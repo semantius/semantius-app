@@ -1,6 +1,12 @@
-import { afterEach } from 'vitest'
+import { afterEach, beforeAll } from 'vitest'
 import { cleanup } from '@testing-library/react'
 import '@testing-library/jest-dom/vitest'
+import {
+  LANGUAGE_CACHE_KEY,
+  LOCALE_CACHE_KEY,
+  SOURCE_LANGUAGE,
+  activateLocale,
+} from '@/i18n'
 
 // Setup for the `browser` Vitest project (see vite.config.ts): everything that
 // touches a document, run in a real Chromium through Playwright.
@@ -19,8 +25,24 @@ import '@testing-library/jest-dom/vitest'
 import '@/global.css'
 import '@/theme-a11y.css'
 
-afterEach(() => {
+// The source language, activated before anything renders: `i18n._()` throws
+// when no locale is active, and `<I18nProvider>` renders `null` — which under a
+// boot overlay is a hang, not an error. `en-US` renders the English written in
+// the code, so assertions still read as the words on the screen.
+const SOURCE = { language: SOURCE_LANGUAGE, locale: SOURCE_LANGUAGE }
+
+beforeAll(async () => {
+  await activateLocale(SOURCE)
+})
+
+afterEach(async () => {
   cleanup()
+  // The Lingui singleton and localStorage both outlive a test within a file, so
+  // a test that switches language has to be undone here rather than by every
+  // test that follows it remembering to.
+  localStorage.removeItem(LANGUAGE_CACHE_KEY)
+  localStorage.removeItem(LOCALE_CACHE_KEY)
+  await activateLocale(SOURCE)
 })
 
 // Testing Library's `waitFor` gives up after 1s by default. Every test in this

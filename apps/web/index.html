@@ -24,6 +24,18 @@
         } catch (e) {
           /* private mode / storage blocked — fall through to the light skeleton */
         }
+        // <html lang>, before first paint, from the same per-browser cache key
+        // the switcher writes (LANGUAGE_CACHE_KEY in src/i18n/resolveLocale.ts).
+        // Only the cache: the session preference needs a login and the browser
+        // placeholder needs the list of available catalogs, neither of which
+        // exists yet here. src/i18n's activateLocale() sets the final value a
+        // moment later, so the worst case is one paint announced as "en".
+        try {
+          var lang = localStorage.getItem('semantius-ui-language')
+          if (lang) document.documentElement.lang = lang
+        } catch (e) {
+          /* storage blocked — the static lang="en" stands until the app boots */
+        }
         // Which variant to paint is decided by what the overlay is about to
         // BECOME, not by which route happens to be mounted under it. These
         // three end in a standalone centered page (a logout card, the form

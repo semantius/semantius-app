@@ -2,6 +2,7 @@
 
 import { useNavigate } from '@tanstack/react-router'
 import { useTable } from '@/hooks/useTable'
+import { useT } from '@/i18n'
 
 import {
   SidebarGroup,
@@ -15,6 +16,7 @@ import {
 // the hidden `row_order` column. The section is hidden entirely when there are none.
 export function NavBookmarks() {
   const navigate = useNavigate()
+  const t = useT()
 
   // user_bookmarks is row-level scoped to the current user; order by the hidden
   // row_order column (not part of metadata.properties, so we request it explicitly).
@@ -29,7 +31,7 @@ export function NavBookmarks() {
 
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-      <SidebarGroupLabel>Favorites</SidebarGroupLabel>
+      <SidebarGroupLabel>{t('Favorites')}</SidebarGroupLabel>
       <SidebarMenu>
         {bookmarks.map((bookmark) => {
           const title = String(bookmark.title || '')

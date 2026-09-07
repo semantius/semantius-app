@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest'
+import { translate } from '@/i18n'
 import { parseBackendType, resolveUserMenu, isExternalUrl, resolveMenuTarget } from './userMenu'
+
+/**
+ * A built-in entry's title is a `MessageDescriptor`, not a string — that is what
+ * gets its English wording extracted and translated. So the titles are compared
+ * through `translate()`, which under the suite's `en-US` activation renders the
+ * source text: the assertions still read as the words on the screen.
+ */
+const titles = (menu: { title: unknown }[]) => menu.map((entry) => translate(entry.title as never))
 
 /** Narrow a resolution result to its success branch, failing loudly otherwise. */
 function menuOf(result: ReturnType<typeof resolveUserMenu>) {
@@ -37,7 +46,7 @@ describe('resolveUserMenu — built-in menus', () => {
   it('substitutes {orgid} with the org slug on the cloud menu', () => {
     const menu = menuOf(resolveUserMenu('cloud', undefined, 'acme'))
 
-    expect(menu.map((e) => e.title)).toEqual(['Settings', 'Profile', 'Platform'])
+    expect(titles(menu)).toEqual(['Settings', 'Profile', 'Platform'])
     // 'Settings' is a RELATIVE in-app route: the tenant is already implied by
     // the host, so it carries no {orgid} to substitute. Only the absolute
     // control-plane links hold the placeholder.
@@ -71,9 +80,10 @@ describe('resolveUserMenu — built-in menus', () => {
 
     // target:'redirect' is load-bearing — /idp is proxied to the IdP, so a
     // router push would render the SPA's catch-all module route instead.
-    expect(menu).toEqual([
-      { title: 'Account', url: '/idp/account', target: 'redirect' },
-      { title: 'User Manager', url: '/idp/admin', permission: 'admin', target: 'redirect' },
+    expect(titles(menu)).toEqual(['Account', 'User Manager'])
+    expect(menu.map(({ title: _title, ...rest }) => rest)).toEqual([
+      { url: '/idp/account', target: 'redirect' },
+      { url: '/idp/admin', permission: 'admin', target: 'redirect' },
     ])
   })
 })

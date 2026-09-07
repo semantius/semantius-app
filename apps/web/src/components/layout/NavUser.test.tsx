@@ -5,6 +5,13 @@ import { NavUser } from './NavUser'
 import { SidebarProvider } from '@/components/ui/sidebar'
 import { bootApp, renderInApp } from '@/test/appHarness'
 import type { UserMenuEntry } from '@/lib/userMenu'
+import {
+  LANGUAGE_CACHE_KEY,
+  LOCALE_CACHE_KEY,
+  activateLocale,
+  i18n,
+  resolveInitialLocale,
+} from '@/i18n'
 
 /**
  * The configuration-driven account menu, configured the way a deployment
@@ -144,5 +151,151 @@ describe('NavUser — configuration-driven menu', () => {
 
     // A document load, so nothing survives the sign-out.
     expect(screen.getByRole('menuitem', { name: 'Log out' })).toHaveAttribute('href', '/logout')
+  })
+})
+
+/**
+ * The language switcher, driven the way a keyboard user drives it.
+ *
+ * The German comes from `src/locales/de-DE.json`, the file the app ships and
+ * loads; the cache keys are the real `localStorage` ones; `<html lang>` is read
+ * off the real document. Nothing is activated by hand except to simulate the
+ * NEXT boot, which is the one thing an interaction cannot do.
+ *
+ * WHY THE KEYBOARD. userEvent moves its pointer in a single jump, so entering a
+ * submenu takes the pointer straight out of the trigger — and Base UI closes the
+ * submenu on that, because its safe-polygon hover logic needs the intermediate
+ * positions only a real mouse produces. The panel then sits in the DOM carrying
+ * `data-closed` with `pointer-events: none` on its positioner, and the next click
+ * fails with "element has pointer-events: none", which reads like a CSS bug and
+ * is really a closed menu. Typeahead + ArrowRight + Enter is what a keyboard user
+ * does anyway, so this is coverage rather than a workaround — and it is the
+ * interaction the pointer path cannot substitute for.
+ *
+ * `setup.browser.ts` clears both cache keys and re-activates `en-US` after every
+ * test, so a switch does not leak into the next file.
+ */
+describe('NavUser — the language switcher', () => {
+  beforeEach(async () => {
+    await bootApp({
+      VITE_BACKEND_TYPE: 'custom',
+      VITE_UI_CUSTOMIZER: JSON.stringify({ user: { menu: MENU } }),
+    })
+  })
+
+  /**
+   * Typeahead to the submenu whose label starts with `prefix`, then open it.
+   *
+   * A prefix rather than the whole label: a space would be read as "activate the
+   * highlighted item" instead of as another character to search for.
+   */
+  async function openSubmenu(ui: ReturnType<typeof userEvent.setup>, prefix: string) {
+    await ui.keyboard(prefix)
+    await ui.keyboard('{ArrowRight}')
+  }
+
+  /** Typeahead to a radio entry inside the open submenu and choose it. */
+  async function chooseEntry(ui: ReturnType<typeof userEvent.setup>, prefix: string) {
+    await ui.keyboard(prefix)
+    await ui.keyboard('{Enter}')
+  }
+
+  it('checks "Browser default" while nothing has been chosen', async () => {
+    const { ui } = await openMenu()
+
+    await openSubmenu(ui, 'Language')
+
+    // Not a preference — a placeholder. The entry names what the browser would
+    // give, and carries the checkmark until the user picks something.
+    const browserDefault = await screen.findByRole('menuitemradio', { name: /^Browser default \(/ })
+    expect(browserDefault).toHaveAttribute('aria-checked', 'true')
+    expect(localStorage.getItem(LANGUAGE_CACHE_KEY)).toBeNull()
+  })
+
+  it('lists every shipped language by its own name for itself', async () => {
+    const { ui } = await openMenu()
+
+    await openSubmenu(ui, 'Language')
+
+    // "Deutsch", not "German" and not "Deutsch (Deutschland)": the switcher
+    // names a language the way that language names itself, and the region is
+    // noise in a list of languages.
+    expect(await screen.findByRole('menuitemradio', { name: 'Deutsch' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitemradio', { name: 'English' })).toBeInTheDocument()
+  })
+
+  it('switches the whole menu to German and marks the document', async () => {
+    const { ui } = await openMenu()
+    await openSubmenu(ui, 'Language')
+
+    await chooseEntry(ui, 'Deutsch')
+
+    // The catalog really loaded: "Log out" is the entry the menu ends with.
+    await waitFor(() => expect(screen.getByRole('menuitem', { name: 'Abmelden' })).toBeInTheDocument())
+    expect(document.documentElement.lang).toBe('de-DE')
+    expect(document.documentElement.dir).toBe('ltr')
+  })
+
+  it('saves both preferences, because the format was following the language', async () => {
+    const { ui } = await openMenu()
+    await openSubmenu(ui, 'Language')
+
+    await chooseEntry(ui, 'Deutsch')
+
+    await waitFor(() => expect(localStorage.getItem(LANGUAGE_CACHE_KEY)).toBe('de-DE'))
+    // "Same as language" was in effect, so it follows: a user who never touched
+    // the format submenu keeps getting formats that match the language.
+    expect(localStorage.getItem(LOCALE_CACHE_KEY)).toBe('de-DE')
+  })
+
+  it('boots into German from the cached keys alone', async () => {
+    const { ui } = await openMenu()
+    await openSubmenu(ui, 'Language')
+    await chooseEntry(ui, 'Deutsch')
+    await waitFor(() => expect(localStorage.getItem(LANGUAGE_CACHE_KEY)).toBe('de-DE'))
+
+    // What main.tsx does on the next load, with nothing else carried over.
+    await activateLocale({ language: 'en-US', locale: 'en-US' })
+    expect(i18n.locale).toBe('en-US')
+
+    const resolved = resolveInitialLocale()
+    await activateLocale(resolved)
+
+    expect(resolved).toMatchObject({ language: 'de-DE', languageSource: 'cache', localeSource: 'cache' })
+    expect(i18n.locale).toBe('de-DE')
+  })
+
+  it('offers the format as its own preference, following the language by default', async () => {
+    const { ui } = await openMenu()
+
+    await openSubmenu(ui, 'Number')
+
+    const sameAsLanguage = await screen.findByRole('menuitemradio', { name: /^Same as language \(/ })
+    expect(sameAsLanguage).toHaveAttribute('aria-checked', 'true')
+    // The browser entry names the real navigator.language, not a stubbed one.
+    expect(
+      screen.getByRole('menuitemradio', { name: `Browser default (${navigator.language})` }),
+    ).toBeInTheDocument()
+  })
+
+  it('clears the format preference on its own, leaving the language alone', async () => {
+    const { ui } = await openMenu()
+    await openSubmenu(ui, 'Language')
+    await chooseEntry(ui, 'Deutsch')
+    await waitFor(() => expect(localStorage.getItem(LOCALE_CACHE_KEY)).toBe('de-DE'))
+
+    // Back out to the parent menu, whose entries are themselves German by now —
+    // which is how this also proves the switch reached the menu's own chrome.
+    await ui.keyboard('{ArrowLeft}')
+    await waitFor(() =>
+      expect(screen.getByRole('menuitem', { name: 'Zahlen- und Datumsformat' })).toBeInTheDocument(),
+    )
+    await openSubmenu(ui, 'Zahlen')
+    await chooseEntry(ui, 'Browserstandard')
+
+    await waitFor(() => expect(localStorage.getItem(LOCALE_CACHE_KEY)).toBeNull())
+    // The two preferences are separate: dropping the format must not drop the
+    // language with it.
+    expect(localStorage.getItem(LANGUAGE_CACHE_KEY)).toBe('de-DE')
   })
 })

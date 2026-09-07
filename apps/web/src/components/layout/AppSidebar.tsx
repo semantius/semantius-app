@@ -14,9 +14,11 @@ import {
   SidebarRail,
 } from '@/components/ui/sidebar'
 import { useAuth } from '@/hooks/useAuth'
+import { useT } from '@/i18n'
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { userInfo } = useAuth()
+  const t = useT()
 
   const [selectedModuleId, setSelectedModuleId] = React.useState<number | null>(null)
   const [selectedModuleSlug, setSelectedModuleSlug] = React.useState<string | null>(null)
@@ -27,7 +29,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   }, [])
 
   const userData = {
-    name: userInfo?.name || userInfo?.preferred_username || 'User',
+    name: userInfo?.name || userInfo?.preferred_username || t('User'),
     email: userInfo?.email || '',
     avatar: userInfo?.picture || '',
   }
@@ -43,7 +45,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <main>. Labelled because a second nav (the account menu in the
             footer) exists; unlabelled siblings are indistinguishable in a
             landmark list. */}
-        <nav aria-label="Modules and apps" className="contents">
+        <nav aria-label={t('Modules and apps')} className="contents">
           <NavApps moduleId={selectedModuleId} moduleSlug={selectedModuleSlug} />
           <NavBookmarks />
         </nav>

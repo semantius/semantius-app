@@ -97,9 +97,13 @@ export default defineConfig(({ mode }) => ({
           // only when they run in separate groups. Node first: it is seconds,
           // and its failures are the cheapest to read.
           sequence: { groupOrder: 0 },
-          // No setup file: nothing here renders, so there is nothing to clean up
-          // and no jest-dom matcher to register. A test that reaches for one is
-          // in the wrong project.
+          // The setup file registers no DOM anything — nothing here renders, so
+          // there is no cleanup to do and no jest-dom matcher to add. It exists
+          // because `i18n._()` THROWS with no active locale, and pure code
+          // renders messages too: `resolveUserMenu`'s built-in titles, a route's
+          // head(). It activates `en-US`, the source language, so a `t()` still
+          // produces the English written in the code.
+          setupFiles: './src/test/setup.node.ts',
           pool: 'forks',
           exclude: [...EXCLUDE, ...BROWSER_TESTS],
         },

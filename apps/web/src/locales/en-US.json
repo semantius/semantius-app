@@ -1,0 +1,519 @@
+{
+  "locale": "en-US",
+  "index": {
+    "404 - Page Not Found": {
+      "message": "404 - Page Not Found",
+      "origin": [
+        "src/components/NotFoundPage.tsx"
+      ],
+      "placeholders": []
+    },
+    "Account": {
+      "message": "Account",
+      "origin": [
+        "src/lib/userMenu.ts"
+      ],
+      "placeholders": []
+    },
+    "An unexpected error occurred while loading the application.": {
+      "message": "An unexpected error occurred while loading the application.",
+      "origin": [
+        "src/main.tsx"
+      ],
+      "placeholders": []
+    },
+    "An unexpected error occurred. Please try again or contact support if the problem persists.": {
+      "message": "An unexpected error occurred. Please try again or contact support if the problem persists.",
+      "origin": [
+        "src/components/ErrorBoundary.tsx"
+      ],
+      "placeholders": []
+    },
+    "Application Failed to Start": {
+      "message": "Application Failed to Start",
+      "origin": [
+        "src/main.tsx"
+      ],
+      "placeholders": []
+    },
+    "Apps": {
+      "message": "Apps",
+      "origin": [
+        "src/components/layout/CommandPalette.tsx",
+        "src/components/layout/NavApps.tsx"
+      ],
+      "placeholders": []
+    },
+    "Back to Home": {
+      "message": "Back to Home",
+      "origin": [
+        "src/components/ErrorPage.tsx",
+        "src/components/NotFoundPage.tsx"
+      ],
+      "placeholders": []
+    },
+    "Browser default ({language})": {
+      "message": "Browser default ({language})",
+      "origin": [
+        "src/components/layout/NavUser.tsx"
+      ],
+      "placeholders": [
+        "language"
+      ]
+    },
+    "Browser default ({locale})": {
+      "message": "Browser default ({locale})",
+      "origin": [
+        "src/components/layout/NavUser.tsx"
+      ],
+      "placeholders": [
+        "locale"
+      ]
+    },
+    "CRM home": {
+      "message": "CRM home",
+      "origin": [
+        "src/routes/_app.crm.home.tsx"
+      ],
+      "placeholders": []
+    },
+    "CRM home · Detail": {
+      "message": "CRM home · Detail",
+      "origin": [
+        "src/routes/_app.crm.home.detail.tsx"
+      ],
+      "placeholders": []
+    },
+    "Completing sign-in": {
+      "message": "Completing sign-in",
+      "origin": [
+        "src/routes/oauth2_callback.tsx"
+      ],
+      "placeholders": []
+    },
+    "Configuration Error": {
+      "message": "Configuration Error",
+      "origin": [
+        "src/main.tsx"
+      ],
+      "placeholders": []
+    },
+    "Customer {id}": {
+      "message": "Customer {id}",
+      "origin": [
+        "src/routes/_app.xcustomers.$id.tsx"
+      ],
+      "placeholders": [
+        "id"
+      ]
+    },
+    "Customers": {
+      "message": "Customers",
+      "origin": [
+        "src/routes/_app.xcustomers.tsx"
+      ],
+      "placeholders": []
+    },
+    "Default ({language})": {
+      "message": "Default ({language})",
+      "origin": [
+        "src/components/layout/NavUser.tsx"
+      ],
+      "placeholders": [
+        "language"
+      ]
+    },
+    "Documents": {
+      "message": "Documents",
+      "origin": [
+        "src/routes/_app.documents.tsx"
+      ],
+      "placeholders": []
+    },
+    "Edit customer {id}": {
+      "message": "Edit customer {id}",
+      "origin": [
+        "src/routes/_app.xcustomers.$id.edit.tsx"
+      ],
+      "placeholders": [
+        "id"
+      ]
+    },
+    "Error Details:": {
+      "message": "Error Details:",
+      "origin": [
+        "src/components/ErrorPage.tsx"
+      ],
+      "placeholders": []
+    },
+    "Error loading apps": {
+      "message": "Error loading apps",
+      "origin": [
+        "src/components/layout/NavApps.tsx"
+      ],
+      "placeholders": []
+    },
+    "Favorites": {
+      "message": "Favorites",
+      "origin": [
+        "src/components/layout/NavBookmarks.tsx"
+      ],
+      "placeholders": []
+    },
+    "Form playground": {
+      "message": "Form playground",
+      "origin": [
+        "src/routes/form-playground.tsx"
+      ],
+      "placeholders": []
+    },
+    "If the problem persists, try refreshing the page or clearing your browser cache.": {
+      "message": "If the problem persists, try refreshing the page or clearing your browser cache.",
+      "origin": [
+        "src/components/AuthFailure.tsx"
+      ],
+      "placeholders": []
+    },
+    "If you didn't intend to log out, click \"Sign In Again\" to return to the application.": {
+      "message": "If you didn't intend to log out, click \"Sign In Again\" to return to the application.",
+      "origin": [
+        "src/components/LogoutConfirmationPage.tsx"
+      ],
+      "placeholders": []
+    },
+    "Language": {
+      "message": "Language",
+      "origin": [
+        "src/components/layout/NavUser.tsx"
+      ],
+      "placeholders": []
+    },
+    "Loading your available modules...": {
+      "message": "Loading your available modules...",
+      "origin": [
+        "src/routes/_app.index.tsx"
+      ],
+      "placeholders": []
+    },
+    "Log out": {
+      "message": "Log out",
+      "origin": [
+        "src/components/layout/NavUser.tsx"
+      ],
+      "placeholders": []
+    },
+    "Login Error": {
+      "message": "Login Error",
+      "origin": [
+        "src/components/AuthFailure.tsx"
+      ],
+      "placeholders": []
+    },
+    "Main content": {
+      "message": "Main content",
+      "origin": [
+        "src/components/layout/AppLayout.tsx"
+      ],
+      "placeholders": []
+    },
+    "Manage Favorites": {
+      "message": "Manage Favorites",
+      "origin": [
+        "src/components/layout/NavUser.tsx"
+      ],
+      "placeholders": []
+    },
+    "Modules": {
+      "message": "Modules",
+      "origin": [
+        "src/components/layout/CommandPalette.tsx",
+        "src/routes/_app.index.tsx"
+      ],
+      "placeholders": []
+    },
+    "Modules and apps": {
+      "message": "Modules and apps",
+      "origin": [
+        "src/components/layout/AppSidebar.tsx"
+      ],
+      "placeholders": []
+    },
+    "New customer": {
+      "message": "New customer",
+      "origin": [
+        "src/routes/_app.xcustomers.new.tsx"
+      ],
+      "placeholders": []
+    },
+    "No apps available": {
+      "message": "No apps available",
+      "origin": [
+        "src/components/layout/NavApps.tsx"
+      ],
+      "placeholders": []
+    },
+    "No results found.": {
+      "message": "No results found.",
+      "origin": [
+        "src/components/layout/CommandPalette.tsx"
+      ],
+      "placeholders": []
+    },
+    "Number and date format": {
+      "message": "Number and date format",
+      "origin": [
+        "src/components/layout/NavUser.tsx"
+      ],
+      "placeholders": []
+    },
+    "Oops! Something went wrong": {
+      "message": "Oops! Something went wrong",
+      "origin": [
+        "src/components/ErrorPage.tsx"
+      ],
+      "placeholders": []
+    },
+    "Platform": {
+      "message": "Platform",
+      "origin": [
+        "src/lib/userMenu.ts"
+      ],
+      "placeholders": []
+    },
+    "Profile": {
+      "message": "Profile",
+      "origin": [
+        "src/lib/userMenu.ts"
+      ],
+      "placeholders": []
+    },
+    "Quick navigation": {
+      "message": "Quick navigation",
+      "origin": [
+        "src/components/layout/ModuleSwitcher.tsx"
+      ],
+      "placeholders": []
+    },
+    "Return to Home": {
+      "message": "Return to Home",
+      "origin": [
+        "src/components/ErrorBoundary.tsx"
+      ],
+      "placeholders": []
+    },
+    "Same as language ({locale})": {
+      "message": "Same as language ({locale})",
+      "origin": [
+        "src/components/layout/NavUser.tsx"
+      ],
+      "placeholders": [
+        "locale"
+      ]
+    },
+    "Search apps and modules...": {
+      "message": "Search apps and modules...",
+      "origin": [
+        "src/components/layout/CommandPalette.tsx"
+      ],
+      "placeholders": []
+    },
+    "Select a module to get started": {
+      "message": "Select a module to get started",
+      "origin": [
+        "src/routes/_app.index.tsx"
+      ],
+      "placeholders": []
+    },
+    "Select a module to view apps": {
+      "message": "Select a module to view apps",
+      "origin": [
+        "src/components/layout/NavApps.tsx"
+      ],
+      "placeholders": []
+    },
+    "Settings": {
+      "message": "Settings",
+      "origin": [
+        "src/lib/userMenu.ts",
+        "src/routes/_app.settings.tsx"
+      ],
+      "placeholders": []
+    },
+    "Sign In Again": {
+      "message": "Sign In Again",
+      "origin": [
+        "src/components/LogoutConfirmationPage.tsx"
+      ],
+      "placeholders": []
+    },
+    "Sign in": {
+      "message": "Sign in",
+      "origin": [
+        "src/routes/login.tsx"
+      ],
+      "placeholders": []
+    },
+    "Sign in with a different account": {
+      "message": "Sign in with a different account",
+      "origin": [
+        "src/routes/_app.index.tsx"
+      ],
+      "placeholders": []
+    },
+    "Signed out": {
+      "message": "Signed out",
+      "origin": [
+        "src/routes/logout-success.tsx"
+      ],
+      "placeholders": []
+    },
+    "Signing out": {
+      "message": "Signing out",
+      "origin": [
+        "src/routes/logout.tsx"
+      ],
+      "placeholders": []
+    },
+    "Skip to main content": {
+      "message": "Skip to main content",
+      "origin": [
+        "src/components/a11y/SkipLink.tsx"
+      ],
+      "placeholders": []
+    },
+    "Something went wrong": {
+      "message": "Something went wrong",
+      "origin": [
+        "src/components/ErrorBoundary.tsx"
+      ],
+      "placeholders": []
+    },
+    "Successfully Logged Out": {
+      "message": "Successfully Logged Out",
+      "origin": [
+        "src/components/LogoutConfirmationPage.tsx"
+      ],
+      "placeholders": []
+    },
+    "Thank you for using Semantius UI.": {
+      "message": "Thank you for using Semantius UI.",
+      "origin": [
+        "src/components/LogoutConfirmationPage.tsx"
+      ],
+      "placeholders": []
+    },
+    "The application could not load its configuration.": {
+      "message": "The application could not load its configuration.",
+      "origin": [
+        "src/main.tsx"
+      ],
+      "placeholders": []
+    },
+    "The page you're looking for doesn't exist or has been moved.": {
+      "message": "The page you're looking for doesn't exist or has been moved.",
+      "origin": [
+        "src/components/NotFoundPage.tsx"
+      ],
+      "placeholders": []
+    },
+    "Theme: {theme, select, dark {Dark} light {Light} other {System}}": {
+      "message": "Theme: {theme, select, dark {Dark} light {Light} other {System}}",
+      "origin": [
+        "src/components/ThemeToggle.tsx"
+      ],
+      "placeholders": [
+        "theme"
+      ]
+    },
+    "There was an issue completing authentication.": {
+      "message": "There was an issue completing authentication.",
+      "origin": [
+        "src/components/AuthFailure.tsx"
+      ],
+      "placeholders": []
+    },
+    "Toggle theme ({theme, select, dark {Dark} light {Light} other {System}})": {
+      "message": "Toggle theme ({theme, select, dark {Dark} light {Light} other {System}})",
+      "origin": [
+        "src/components/ThemeToggle.tsx"
+      ],
+      "placeholders": [
+        "theme"
+      ]
+    },
+    "Try Again": {
+      "message": "Try Again",
+      "origin": [
+        "src/components/AuthFailure.tsx",
+        "src/components/ErrorPage.tsx"
+      ],
+      "placeholders": []
+    },
+    "User": {
+      "message": "User",
+      "origin": [
+        "src/components/layout/AppSidebar.tsx"
+      ],
+      "placeholders": []
+    },
+    "User Manager": {
+      "message": "User Manager",
+      "origin": [
+        "src/lib/userMenu.ts"
+      ],
+      "placeholders": []
+    },
+    "We encountered an unexpected error. Please try again.": {
+      "message": "We encountered an unexpected error. Please try again.",
+      "origin": [
+        "src/components/ErrorPage.tsx"
+      ],
+      "placeholders": []
+    },
+    "We hope to see you again soon!": {
+      "message": "We hope to see you again soon!",
+      "origin": [
+        "src/components/LogoutConfirmationPage.tsx"
+      ],
+      "placeholders": []
+    },
+    "You don't have access to any modules": {
+      "message": "You don't have access to any modules",
+      "origin": [
+        "src/routes/_app.index.tsx"
+      ],
+      "placeholders": []
+    },
+    "You have been successfully logged out of your account. Your session has been terminated securely.": {
+      "message": "You have been successfully logged out of your account. Your session has been terminated securely.",
+      "origin": [
+        "src/components/LogoutConfirmationPage.tsx"
+      ],
+      "placeholders": []
+    },
+    "You may have mistyped the address or the page may have been removed.": {
+      "message": "You may have mistyped the address or the page may have been removed.",
+      "origin": [
+        "src/components/NotFoundPage.tsx"
+      ],
+      "placeholders": []
+    },
+    "Your account doesn't have permissions for any module yet. Please contact your administrator to request access.": {
+      "message": "Your account doesn't have permissions for any module yet. Please contact your administrator to request access.",
+      "origin": [
+        "src/routes/_app.index.tsx"
+      ],
+      "placeholders": []
+    },
+    "{table} {key} · View": {
+      "message": "{table} {key} · View",
+      "origin": [
+        "src/routes/_app.$moduleId.$table_name.$key.view.tsx"
+      ],
+      "placeholders": [
+        "key",
+        "table"
+      ]
+    }
+  }
+}

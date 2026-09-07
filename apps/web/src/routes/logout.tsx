@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { translate } from '@/i18n'
 import { pageTitle } from '@/lib/pageTitle'
 import { useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
@@ -6,7 +7,7 @@ import { getConfig } from '@/lib/config'
 import { setInterceptorToken } from '@/lib/apiClient'
 
 export const Route = createFileRoute('/logout')({
-  head: () => ({ meta: [{ title: pageTitle('Signing out') }] }),
+  head: () => ({ meta: [{ title: pageTitle(translate('Signing out')) }] }),
   component: LogoutRoute,
 })
 

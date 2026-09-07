@@ -10,6 +10,12 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { ApiErrorDisplay } from '@/components/ApiErrorDisplay'
+// A class component cannot call a hook, so this is one of the three places
+// allowed to import the module function instead of useT() — the ESLint rule
+// that bans `translate` under components/** names this file as an exception.
+// It re-renders on a language switch only when its parent does, which for a
+// crash screen the user is about to leave is acceptable.
+import { translate } from '@/i18n'
 
 interface Props {
   children: ReactNode
@@ -44,10 +50,10 @@ class ErrorBoundary extends Component<Props, State> {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <AlertTriangle className="h-6 w-6 text-destructive" />
-                <CardTitle>Something went wrong</CardTitle>
+                <CardTitle>{translate('Something went wrong')}</CardTitle>
               </div>
               <CardDescription>
-                An unexpected error occurred. Please try again or contact support if the problem persists.
+                {translate('An unexpected error occurred. Please try again or contact support if the problem persists.')}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -65,7 +71,7 @@ class ErrorBoundary extends Component<Props, State> {
                 that may be what just failed.
               */}
               <a href="/" className={buttonVariants()}>
-                Return to Home
+                {translate('Return to Home')}
               </a>
             </CardFooter>
           </Card>

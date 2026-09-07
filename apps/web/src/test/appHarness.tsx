@@ -17,7 +17,9 @@ import {
   createRouter,
 } from '@tanstack/react-router'
 import { inject } from 'vitest'
+import { I18nProvider } from '@lingui/react'
 import { AuthProviderWrapper } from '@/contexts/AuthContext'
+import { i18n } from '@/i18n'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { initConfig } from '@/lib/config'
 import type { RouterContext } from '@/routes/__root'
@@ -163,10 +165,15 @@ export function AppHarness({
     }),
   )
 
+  // <I18nProvider> is main.tsx's outermost provider, and it is here for the same
+  // reason: <Trans> reads the catalog off React context. `setup.browser.ts` has
+  // already activated en-US, so it never renders null.
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProviderWrapper router={router}>{children}</AuthProviderWrapper>
-    </QueryClientProvider>
+    <I18nProvider i18n={i18n}>
+      <QueryClientProvider client={queryClient}>
+        <AuthProviderWrapper router={router}>{children}</AuthProviderWrapper>
+      </QueryClientProvider>
+    </I18nProvider>
   )
 }
 
@@ -210,13 +217,15 @@ export function renderInApp(ui: ReactElement, { initialEntries = ['/'] }: { init
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
   const result = render(
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <AuthProviderWrapper router={router}>
-          <RouterProvider router={router} />
-        </AuthProviderWrapper>
-      </TooltipProvider>
-    </QueryClientProvider>,
+    <I18nProvider i18n={i18n}>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <AuthProviderWrapper router={router}>
+            <RouterProvider router={router} />
+          </AuthProviderWrapper>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </I18nProvider>,
   )
   return { ...result, router }
 }

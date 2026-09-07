@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate, useRouterState } from '@tanstack/react-router'
+import { translate } from '@/i18n'
 import { pageTitle } from '@/lib/pageTitle'
 import { useTable } from '@/hooks/useTable'
 import { useConfirmDelete } from '@/hooks/useConfirmDelete'
@@ -50,7 +51,7 @@ import { useState } from 'react'
 type Customer = Record<string, unknown>
 
 export const Route = createFileRoute('/_app/xcustomers')({
-  head: () => ({ meta: [{ title: pageTitle('Customers') }] }),
+  head: () => ({ meta: [{ title: pageTitle(translate('Customers')) }] }),
   component: CustomersComponent,
 })
 

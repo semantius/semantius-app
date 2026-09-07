@@ -1,4 +1,5 @@
 import { Outlet } from '@tanstack/react-router'
+import { useT } from '@/i18n'
 import { Header } from './Header'
 import { AppSidebar } from './AppSidebar'
 import { CommandPalette } from './CommandPalette'
@@ -10,6 +11,8 @@ import {
 } from '@/components/ui/sidebar'
 
 export function AppLayout() {
+  const t = useT()
+
   return (
     <SidebarProvider className="overflow-x-hidden">
       {/* First focusable element in the document — see SkipLink. */}
@@ -24,7 +27,7 @@ export function AppLayout() {
           exists to skip (2.4.1). The target is the content block below the
           header instead; tabIndex={-1} makes it focusable by script without
           adding a tab stop. */}
-      <SidebarInset aria-label="Main content" className="min-w-0">
+      <SidebarInset aria-label={t('Main content')} className="min-w-0">
         <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
           <Header />
         </header>

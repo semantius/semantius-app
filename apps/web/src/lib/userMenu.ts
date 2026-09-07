@@ -9,6 +9,8 @@
  * it stays unit-testable; lib/config.ts does the env reading and calls in.
  */
 
+import { msg, type MessageDescriptor } from '@/i18n'
+
 export type BackendType = 'cloud' | 'self_hosted' | 'custom'
 
 /**
@@ -23,7 +25,14 @@ export type MenuTarget = 'default' | 'redirect' | 'newtab'
 export type NavigationMode = 'spa' | 'redirect' | 'newtab'
 
 export interface UserMenuEntry {
-  title: string
+  /**
+   * A `MessageDescriptor` for a built-in entry, so its English wording is
+   * extracted and translated like any other string; a plain string for an
+   * operator's entry from `VITE_UI_CUSTOMIZER`, whose wording this repo cannot
+   * know. Both are rendered with `t(entry.title)`, and an operator translates
+   * theirs through the deployment file's `messages` section.
+   */
+  title: string | MessageDescriptor
   url: string
   /** When set, the entry renders only if the user holds this permission. */
   permission?: string
@@ -58,10 +67,10 @@ export const BACKEND_TYPE_VALUES = BACKEND_TYPES.join(', ')
  */
 const BUILT_IN_MENUS: Record<'cloud' | 'self_hosted', UserMenuEntry[]> = {
   cloud: [
-    { title: 'Settings', url: '/settings' },
-    { title: 'Profile', url: 'https://app.semantius.com/settings?orgid={orgid}' },
+    { title: msg('Settings'), url: '/settings' },
+    { title: msg('Profile'), url: 'https://app.semantius.com/settings?orgid={orgid}' },
     {
-      title: 'Platform',
+      title: msg('Platform'),
       url: 'https://app.semantius.com/settings/organization?orgid={orgid}',
       permission: 'admin',
     },
@@ -69,8 +78,8 @@ const BUILT_IN_MENUS: Record<'cloud' | 'self_hosted', UserMenuEntry[]> = {
   // `/idp/*` is proxied to the identity provider, not served by the SPA — these
   // must leave the router (see UserMenuEntry.target).
   self_hosted: [
-    { title: 'Account', url: '/idp/account', target: 'redirect' },
-    { title: 'User Manager', url: '/idp/admin', permission: 'admin', target: 'redirect' },
+    { title: msg('Account'), url: '/idp/account', target: 'redirect' },
+    { title: msg('User Manager'), url: '/idp/admin', permission: 'admin', target: 'redirect' },
   ],
 }
 
@@ -165,6 +174,8 @@ function validateCustomizer(parsed: unknown): { menu: UserMenuEntry[] } | { erro
 /** Describe what is wrong with one menu entry, or null when it is valid. */
 function entryProblem(entry: unknown): string | null {
   if (!isPlainObject(entry)) return 'expected an object with "title" and "url".'
+  // An operator's title is a plain string: only the built-ins carry a
+  // MessageDescriptor, and those never come through this validator.
   if (!isNonEmptyString(entry.title)) return '"title" must be a non-empty string.'
   if (!isNonEmptyString(entry.url)) return '"url" must be a non-empty string.'
   if (entry.permission !== undefined && typeof entry.permission !== 'string') {

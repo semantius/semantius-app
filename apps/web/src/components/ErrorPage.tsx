@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { AlertCircle, Home } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
+import { useT } from '@/i18n'
 import {
   Card,
   CardContent,
@@ -15,6 +16,8 @@ interface ErrorPageProps {
 }
 
 export function ErrorPage({ error, reset }: ErrorPageProps) {
+  const t = useT()
+
   return (
     <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">
       <Card className="max-w-md w-full">
@@ -24,15 +27,15 @@ export function ErrorPage({ error, reset }: ErrorPageProps) {
               <AlertCircle className="h-12 w-12 text-destructive" />
             </div>
           </div>
-          <h1 data-slot="card-title" className="font-heading font-medium text-center text-2xl">Oops! Something went wrong</h1>
+          <h1 data-slot="card-title" className="font-heading font-medium text-center text-2xl">{t('Oops! Something went wrong')}</h1>
           <CardDescription className="text-center">
-            We encountered an unexpected error. Please try again.
+            {t('We encountered an unexpected error. Please try again.')}
           </CardDescription>
         </CardHeader>
         {error && (
           <CardContent>
             <div className="rounded-md bg-muted p-4">
-              <p className="text-sm font-medium mb-2">Error Details:</p>
+              <p className="text-sm font-medium mb-2">{t('Error Details:')}</p>
               <p className="text-xs text-muted-foreground">{error.message}</p>
             </div>
           </CardContent>
@@ -40,7 +43,7 @@ export function ErrorPage({ error, reset }: ErrorPageProps) {
         <CardFooter className="flex gap-2 justify-center">
           {reset && (
             <Button onClick={reset} variant="outline">
-              Try Again
+              {t('Try Again')}
             </Button>
           )}
           {/*
@@ -53,7 +56,7 @@ export function ErrorPage({ error, reset }: ErrorPageProps) {
           */}
           <Link to="/" className={buttonVariants()}>
             <Home className="h-4 w-4 mr-2" />
-            Back to Home
+            {t('Back to Home')}
           </Link>
         </CardFooter>
       </Card>
