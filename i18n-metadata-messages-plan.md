@@ -329,9 +329,28 @@ This is what settles the write-back problem below: a production edit is not a
 failed correction, it is an override and always was. A correction is made in dev
 or stage, where it can reach the source.
 
-**Still open:** how a `stage` correction gets back into the repo. Either the
-stage store IS a checkout that someone commits, or there is an explicit export
-step. `dev` needs neither, since it writes the checkout directly.
+**A `stage` correction reaches the repo by diff and copy** — no tool, no export
+step, no correction-specific write path. Stage writes the same locale files in
+the same format, so bringing corrections home is copying the file over
+`apps/web/src/locales/<code>.json` and reading the diff in git, which is where
+review belongs anyway.
+
+Two things that follows from, and they are the reason it works:
+
+- **Stage is a file target, the same implementation as dev**, running on a stage
+  host against a checkout or a mounted volume. Not a database target. If stage
+  stored rows, the copy would become an export and the simplicity would be gone.
+- **The whole file is the state**, and the writer already produces bytes
+  identical to `i18n:extract`, so a copy yields a minimal diff rather than a
+  reformatting.
+
+If the repo moved on while stage was being translated, the copy is a merge like
+any other file — visible in the diff, resolved in review, never a silent
+overwrite.
+
+This also means `export.mjs --messages-into` keeps its empty-only guard
+unchanged. That guard was never wrong; it protects a bulk agent import from
+overwriting reviewed translations, and corrections simply do not go through it.
 
 **Consequence:** the mode belongs to the target, alongside its base url
 (`i18n-endpoint-spec.md`). It is not derived from `import.meta.env.DEV`, because
@@ -362,15 +381,10 @@ The dev target makes this bearable but does not solve it: an edit made under
 `pnpm dev` rewrites the repo catalog directly, so a correction made there IS the
 source and goes through a PR. That only helps whoever has the checkout.
 
-What the mode decision leaves:
-
-- a `prod` write is an override, so the UI must SAY so — today it says nothing
-  and looks identical to a correction;
-- a `stage` write is a correction and needs a route back into the repo that can
-  overwrite a NON-EMPTY value, which `--messages-into` refuses by design;
-- the guard above stays correct for its original purpose (an agent's bulk import
-  must not silently overwrite reviewed translations) so the correction path needs
-  to be a different, explicit one rather than a loosened flag.
+What the mode decision leaves: **a `prod` write is an override, so the UI must
+SAY so.** Today it says nothing and looks identical to a correction, which is the
+whole reason the two were confused. Corrections happen in dev or stage and reach
+the repo as a file diff; nothing has to travel back out of a tenant.
 
 `UNAUTHORIZED-DECISIONS.md` item 8 is the same subject from the layering side.
 
