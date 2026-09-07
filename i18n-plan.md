@@ -76,11 +76,20 @@ Branch `feat/i18n`, one commit per phase, no PR. **All five phases are done and 
 - **`shadcn add tabs` emits a broken `import { cn } from "cn"`** (both the pinned 4.19 and
   4.21) and adds a bogus `cn` package, so `ui-ext/tabs.tsx` carries the registry markup with
   the import fixed, and says why.
+- **An interpolated model label is marked and editable as a SUB-RANGE.** Reported by the
+  owner: "Supplier hinzufügen" and "Suppliers durchsuchen" showed nothing, because the
+  sentence is translated and the label inside it is not a text node of its own. `translate()`
+  now records its VALUES, the highlighter ranges over the segment, and a click offers the
+  label and the sentence as candidates ordered by where the caret fell.
+- **The Alt+click gesture is announced.** A toast when the switch is flipped (once, module
+  state, so a reload is silent), the button's `title`, and a line in the panel — without one
+  of those the editor is invisible, because a plain click deliberately still does what it
+  always did. Also reported by the owner.
 - **The lazy chunk's dependencies are named in `optimizeDeps.include`** (`sonner`,
   `@base-ui/react/tabs`): Vite discovers them on first load otherwise and RELOADS the page,
   which in the Vitest browser project leaves two copies of React in the graph.
 
-Numbers after P5: **458 messages**, `de-DE` 458/458, 2 obsolete (the panel sentence was reworded once during review). The suppression
+Numbers after P5: **462 messages**, `de-DE` 462/462, 2 obsolete (the panel sentence was reworded once during review). The suppression
 baseline did not move. `substitutions.test.ts` unchanged at 6. `pnpm check`: 80 test files,
 859 passed, 7 skipped (the same seven tenant-table tests). The accessibility audit against the
 P5 preview (`a11y-reports/20260907T140121-i18n-p5.*`): 166/168 views measured, every one at 0

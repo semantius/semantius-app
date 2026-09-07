@@ -1,11 +1,13 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { Languages } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
   SCANNED_ATTRIBUTES,
   SOURCE_LANGUAGE,
   catalogSnapshot,
   clearMarks,
+  consumeJustEnabled,
   entryForId,
   messageIndex,
   reactivateLocale,
@@ -80,6 +82,17 @@ export default function TranslateMode({ marking, editing }: TranslateModeProps) 
     }
   }, [])
 
+  // Say how to use it, once, to whoever just switched it on. A plain click
+  // still opens the menu or follows the link the text is on — which is the
+  // right behavior and the reason nothing on screen reveals the editor.
+  useEffect(() => {
+    if (!editing || !consumeJustEnabled()) return
+    toast.info(t('Translate mode is on'), {
+      description: t('Alt+click any text to translate it where it stands, or open the Translations panel.'),
+      duration: 8000,
+    })
+  }, [editing, t])
+
   // Scan on every settled burst of mutations, and whenever the catalog changes
   // (a save, a language switch) — the second covers a mark that a save resolved
   // without the text itself changing.
@@ -153,6 +166,8 @@ export default function TranslateMode({ marking, editing }: TranslateModeProps) 
           type="button"
           size="sm"
           data-i18n-ui=""
+          // The only place the Alt+click gesture is permanently written down.
+          title={t('Alt+click any text to translate it where it stands.')}
           className="fixed right-4 bottom-4 z-40 shadow-lg"
           onClick={() => setPanelOpen(true)}
         >

@@ -805,6 +805,20 @@ attribute (`aria-label`, `aria-description`, `placeholder`, `title`, `alt`) is
 in the observer's `attributeFilter`; `data-i18n-missing` deliberately is not, or
 the scan would observe itself.
 
+**A sentence built from a model label is ONE text node, and the label inside it
+has to be reached separately.** `t('Add {label}', { label })` renders "Supplier
+hinzufügen" — the message IS translated, so a lookup by rendered text says
+"nothing missing here" while the only untranslated part sits inside it. So
+`translate()` also hands its VALUES to the reverse index, and the highlighter
+marks the embedded value as a SUB-RANGE of the text node (an attribute host,
+having no text node, is outlined whole). The values are stored raw and resolved
+at scan time, never at record time: a component may render the sentence before
+the label it embeds, and a lookup then would be too early. A click resolves the
+embedded id first when the caret fell inside the segment and the surrounding
+sentence otherwise, offering both as candidates. Reported by the owner within a
+minute of using it — which is what a design keyed on whole rendered strings
+costs if the interpolated case is not handled.
+
 **Editing is Alt+click, and the editor and panel are MODAL.** A plain click in
 translate mode still opens the menu or follows the link the text sits on —
 otherwise the entries inside a submenu could never be reached to translate them.
@@ -1184,6 +1198,16 @@ TOKEN=$(dotenvx run --quiet -- node scripts/mint-token.mjs 2>/dev/null \
 agent-browser open "$PREVIEW_URL/#jwt=$TOKEN"
 # 3. confirm you're in: the URL should stay on the app (NOT redirect to app.semantius.com/oautherror)
 ```
+
+> 🔴 **A stale `loginInProgress` produces the SAME `oautherror` as a bad token.**
+> An expired `#jwt` (they last an hour) boots, fails `userinfo`, and starts a real login,
+> which leaves `SC_<mode>_loginInProgress` set in the preview origin's `localStorage`. Every
+> later open with a PERFECTLY GOOD `#jwt` then redirects to
+> `app.semantius.com/oautherror?error=invalid_redirect` anyway — indistinguishable from the
+> banner-pollution failure below, and it survives minting a fresh token. Mint a new token AND
+> clear the origin's storage: `agent-browser open "$URL/logout-success"` (a plain route that
+> needs no session) then `agent-browser eval 'localStorage.clear()'`, and only then open with
+> the fragment.
 
 > 🔴 **dotenvx banner pollution — the #1 cause of a bogus `oautherror`.** `dotenvx run` prints its `⟐ injecting env (N) from .env · dotenvx@x` banner (with ANSI color codes) to **stdout, not stderr** (verified, v1.58.0). So `TOKEN=$(dotenvx run -- node scripts/mint-token.mjs)` captures `<banner>\n<jwt>` even with `2>/dev/null`. That malformed `#jwt` makes `devUrlToken.ts` throw in `JSON.parse(atob(jwt.split('.')[1]))`, silently discard the token, and fall back to OAuth → `app.semantius.com/oautherror?error=invalid_redirect`. The error looks like an auth/redirect-URI problem but is really a polluted token. **Always** mint with `--quiet` **and** `grep -oE 'eyJ…\.…\.…'` to extract only the JWT, then validate it (above). Never pipe the raw `dotenvx run` stdout straight into the URL.
 

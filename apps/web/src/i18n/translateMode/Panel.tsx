@@ -159,6 +159,9 @@ export function Panel({ open, onOpenChange, language, presentIds, onEdit }: Pane
                 )}
           </SheetDescription>
         </SheetHeader>
+        <p className="text-xs text-muted-foreground">
+          {t('Alt+click any text on the page to translate it where it stands.')}
+        </p>
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <span>{target === WRITER_TARGET.tenant ? t('Saving to this tenant') : t('Saving as browser drafts')}</span>
           <Button type="button" size="sm" variant="outline" onClick={() => void download()}>

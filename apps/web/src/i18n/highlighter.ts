@@ -16,7 +16,7 @@
  * a MutationObserver callback and be tested against a real document.
  */
 
-import { resolveRenderedText } from './reverseIndex'
+import { embeddedSegments, resolveRenderedText } from './reverseIndex'
 
 /** The `::highlight()` name. */
 export const HIGHLIGHT_NAME = 'semantius-i18n-missing'
@@ -104,9 +104,21 @@ export function scanAndMark({ root, mark, isMissing }: ScanOptions): ScanResult 
 
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
     if (node.nodeType === Node.TEXT_NODE) {
-      const ids = resolveRenderedText((node as Text).data)
+      const data = (node as Text).data
+      const ids = resolveRenderedText(data)
+      // An interpolated value that is itself translatable — the model label
+      // inside "Add {label}". Counted as present whatever the sentence says.
+      const segments = embeddedSegments(data)
+      let missingSegments = false
+      for (const segment of segments) {
+        if (missingAmong(segment.ids)) missingSegments = true
+      }
       if (!ids) continue
-      if (missingAmong(ids) && mark) {
+      const missingSentence = missingAmong(ids)
+      if (!mark) continue
+      if (missingSentence) {
+        // The whole run: the sentence itself has no translation, so marking a
+        // word inside it would understate the work.
         if (useHighlights) {
           const range = document.createRange()
           range.selectNodeContents(node)
@@ -114,6 +126,23 @@ export function scanAndMark({ root, mark, isMissing }: ScanOptions): ScanResult 
         } else if (node.parentElement) {
           hosts.add(node.parentElement)
         }
+      } else if (missingSegments) {
+        // Only the embedded value: the sentence is German, the label is not.
+        // A sub-range is exactly what CSS Custom Highlights are for.
+        let marked = false
+        if (useHighlights) {
+          for (const segment of segments) {
+            if (![...segment.ids].some(isMissing)) continue
+            const at = data.indexOf(segment.value)
+            if (at === -1) continue
+            const range = document.createRange()
+            range.setStart(node, at)
+            range.setEnd(node, at + segment.value.length)
+            ranges.push(range)
+            marked = true
+          }
+        }
+        if (!marked && node.parentElement) hosts.add(node.parentElement)
       }
       continue
     }
@@ -122,8 +151,11 @@ export function scanAndMark({ root, mark, isMissing }: ScanOptions): ScanResult 
       const value = element.getAttribute(attribute)
       if (!value) continue
       const ids = resolveRenderedText(value)
-      if (!ids) continue
-      if (missingAmong(ids) && mark) hosts.add(element)
+      // An attribute has no text node to range over, so an embedded value can
+      // only mark the whole host — which is what it does.
+      let missing = embeddedSegments(value).some((segment) => missingAmong(segment.ids))
+      if (ids && missingAmong(ids)) missing = true
+      if (missing && mark) hosts.add(element)
     }
   }
 
@@ -167,8 +199,32 @@ export interface ClickTarget {
 }
 
 type CaretDocument = Document & {
-  caretPositionFromPoint?(x: number, y: number): { offsetNode: Node } | null
+  caretPositionFromPoint?(x: number, y: number): { offsetNode: Node; offset: number } | null
   caretRangeFromPoint?(x: number, y: number): Range | null
+}
+
+/**
+ * The ids for a click inside `text`, embedded values FIRST when the click
+ * landed on one.
+ *
+ * Both are offered, because a click on the word "Supplier" in "Supplier
+ * hinzufügen" could mean either the model label or the sentence around it —
+ * the editor shows the candidates and lets the translator pick. Ordering by
+ * where the caret actually fell is what makes the common case one click.
+ */
+function idsForText(text: string, caretOffset?: number): string[] {
+  const outer = resolveRenderedText(text)
+  const inside: string[] = []
+  const outside: string[] = []
+  for (const segment of embeddedSegments(text)) {
+    const at = text.indexOf(segment.value)
+    const hit =
+      at !== -1 && caretOffset !== undefined && caretOffset >= at && caretOffset <= at + segment.value.length
+    for (const id of segment.ids) (hit ? inside : outside).push(id)
+  }
+  const ids = [...inside, ...(outer ? [...outer] : []), ...outside]
+  // A click that resolved nothing at all is not a target.
+  return ids.length > 0 ? [...new Set(ids)] : []
 }
 
 /**
@@ -183,8 +239,16 @@ type CaretDocument = Document & {
 export function resolveClickTarget(event: MouseEvent): ClickTarget | null {
   const doc = document as CaretDocument
   let node: Node | null = null
-  if (doc.caretPositionFromPoint) node = doc.caretPositionFromPoint(event.clientX, event.clientY)?.offsetNode ?? null
-  else if (doc.caretRangeFromPoint) node = doc.caretRangeFromPoint(event.clientX, event.clientY)?.startContainer ?? null
+  let offset: number | undefined
+  if (doc.caretPositionFromPoint) {
+    const caret = doc.caretPositionFromPoint(event.clientX, event.clientY)
+    node = caret?.offsetNode ?? null
+    offset = caret?.offset
+  } else if (doc.caretRangeFromPoint) {
+    const range = doc.caretRangeFromPoint(event.clientX, event.clientY)
+    node = range?.startContainer ?? null
+    offset = range?.startOffset
+  }
   // Only a caret node INSIDE the click's target counts: a synthetic click with
   // no coordinates asks about (0,0), and the text node that happens to sit in
   // the page's corner is not what was clicked.
@@ -196,8 +260,8 @@ export function resolveClickTarget(event: MouseEvent): ClickTarget | null {
     !insideOwnUi(node.parentElement)
   ) {
     const text = (node as Text).data
-    const ids = resolveRenderedText(text)
-    if (ids) return { ids: [...ids], text, element: node.parentElement }
+    const ids = idsForText(text, offset)
+    if (ids.length > 0) return { ids, text, element: node.parentElement }
   }
 
   let element = event.target instanceof Element ? event.target : null
@@ -206,14 +270,14 @@ export function resolveClickTarget(event: MouseEvent): ClickTarget | null {
     for (const child of Array.from(element.childNodes)) {
       if (child.nodeType !== Node.TEXT_NODE) continue
       const text = (child as Text).data
-      const ids = resolveRenderedText(text)
-      if (ids) return { ids: [...ids], text, element }
+      const ids = idsForText(text)
+      if (ids.length > 0) return { ids, text, element }
     }
     for (const attribute of SCANNED_ATTRIBUTES) {
       const value = element.getAttribute(attribute)
       if (!value) continue
-      const ids = resolveRenderedText(value)
-      if (ids) return { ids: [...ids], text: value, element }
+      const ids = idsForText(value)
+      if (ids.length > 0) return { ids, text: value, element }
     }
   }
   return null

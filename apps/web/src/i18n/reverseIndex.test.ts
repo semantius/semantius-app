@@ -3,6 +3,7 @@ import type { EntityMetadata } from '@/types/metadata'
 import {
   SOURCE_LANGUAGE,
   activateLocale,
+  embeddedSegments,
   isRecordingRenders,
   labelOf,
   localizeMetadata,
@@ -118,6 +119,36 @@ describe('recording', () => {
     expect([...resolveRenderedText('Order must have at least one line')!]).toEqual([
       'server:Order must have at least one line',
     ])
+  })
+
+  it('keeps the values interpolated into a message, so an embedded label stays reachable', async () => {
+    setRecordingRenders(true)
+    await activateLocale(GERMAN)
+    // The order a component renders in: the label first, the sentence around
+    // it second. Resolution is lazy, so the reverse order works too.
+    labelOf({}, 'table', 'suppliers.singular_label', 'Supplier')
+    const rendered = translate('Add {label}', { label: 'Supplier' })
+
+    expect(rendered).toBe('Supplier hinzufügen')
+    // The whole sentence resolves to the message, which IS translated…
+    expect([...resolveRenderedText(rendered)!]).toEqual(['Add {label}'])
+    // …and the label inside it is still findable on its own.
+    const segments = embeddedSegments(rendered)
+    expect(segments).toHaveLength(1)
+    expect(segments[0].value).toBe('Supplier')
+    expect([...segments[0].ids]).toEqual(['table:suppliers.singular_label'])
+  })
+
+  it('records a value the message did not actually interpolate as nothing', async () => {
+    setRecordingRenders(true)
+    await activateLocale(GERMAN)
+    labelOf({}, 'table', 'suppliers.singular_label', 'Supplier')
+    // A count is not text a translator can act on, and a value the pattern
+    // never rendered is not in the string to mark.
+    const rendered = translate('Add {label}', { label: 'Supplier', unused: 'Supplier' })
+
+    expect(embeddedSegments(rendered).map((segment) => segment.value)).toEqual(['Supplier'])
+    expect(embeddedSegments('A sentence never rendered')).toEqual([])
   })
 
   it('is emptied by every activation, whose text belongs to another language', async () => {

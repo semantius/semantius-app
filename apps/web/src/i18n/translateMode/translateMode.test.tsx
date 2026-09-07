@@ -54,6 +54,12 @@ function Probe() {
       <p>{t(UNTRANSLATED)}</p>
       <input aria-label={t(UNTRANSLATED_LABEL)} />
       <h2>{tableLabel(labels, LABEL_TABLE, TABLE_ATTR.plural, 'Probe Rows')}</h2>
+      {/* The shape the grid's own Add button and search field have: a
+          TRANSLATED sentence whose only untranslated part is the model label
+          interpolated into it. */}
+      <button type="button">
+        {t('Add {label}', { label: tableLabel(labels, LABEL_TABLE, TABLE_ATTR.singular, 'Probe Row') })}
+      </button>
     </div>
   )
 }
@@ -95,10 +101,13 @@ describe('translate mode', () => {
     await activateLocale(GERMAN)
     renderInApp(<Page />)
 
-    // The marks are the untranslated sentence and the model label, nothing
-    // else: "Log out" has its German and is left alone.
-    await waitFor(() => expect(highlightedTexts()).toEqual([UNTRANSLATED, 'Probe Rows']))
+    // The marks are the untranslated sentence, the model label, and — inside a
+    // sentence that IS translated — just the label interpolated into it.
+    // "Log out" has its German and is left alone.
+    await waitFor(() => expect(highlightedTexts()).toEqual([UNTRANSLATED, 'Probe Rows', 'Probe Row']))
     expect(screen.getByRole('button', { name: 'Abmelden' })).toBeInTheDocument()
+    // The sub-range covers the label alone, not the German around it.
+    expect(screen.getByRole('button', { name: 'Probe Row hinzufügen' })).toBeInTheDocument()
 
     // An attribute host has no text node to highlight and gets the attribute
     // instead — and the name itself is untouched, so the query still resolves.
@@ -129,7 +138,7 @@ describe('translate mode', () => {
 
     // The chunk is mounted once the floating button is there.
     await screen.findByRole('button', { name: /Übersetzungen/ })
-    await waitFor(() => expect(highlightedTexts()).toEqual([UNTRANSLATED, 'Probe Rows']))
+    await waitFor(() => expect(highlightedTexts()).toEqual([UNTRANSLATED, 'Probe Rows', 'Probe Row']))
 
     await ui.keyboard('{Alt>}')
     await ui.click(screen.getByText(UNTRANSLATED))
@@ -144,7 +153,7 @@ describe('translate mode', () => {
     // On screen at once, through Lingui's merging load…
     await waitFor(() => expect(screen.getByText('Ein Satz, den kein Katalog kennt')).toBeInTheDocument())
     // …and the mark is gone, because the id is translated now.
-    await waitFor(() => expect(highlightedTexts()).toEqual(['Probe Rows']))
+    await waitFor(() => expect(highlightedTexts()).toEqual(['Probe Rows', 'Probe Row']))
     expect(translatedKeys('de-DE').has(UNTRANSLATED)).toBe(true)
 
     // The writer: this tenant has no table, so the save is a browser draft.
@@ -167,7 +176,38 @@ describe('translate mode', () => {
 
     await waitFor(() => expect(screen.getByText(UNTRANSLATED)).toBeInTheDocument())
     expect(readDrafts('de-DE')).toEqual([])
-    await waitFor(() => expect(highlightedTexts()).toEqual([UNTRANSLATED, 'Probe Rows']))
+    await waitFor(() => expect(highlightedTexts()).toEqual([UNTRANSLATED, 'Probe Rows', 'Probe Row']))
+  })
+
+  it('reaches a model label interpolated into a translated sentence', async () => {
+    // The gap this closes: "Add {label}" has German, so the sentence resolves
+    // as translated and the label inside it — the only untranslated part —
+    // used to be unmarkable and unreachable. It is one text node; nothing in
+    // the DOM separates the two.
+    setTranslateMode(true)
+    await activateLocale(GERMAN)
+    const ui = userEvent.setup()
+    renderInApp(<Page />)
+    await screen.findByRole('button', { name: /Übersetzungen/ })
+    await waitFor(() => expect(highlightedTexts()).toContain('Probe Row'))
+
+    // One Alt+click on the button offers BOTH: the sentence and the label
+    // interpolated into it. userEvent clicks the element's centre, which falls
+    // in "hinzufügen", so the sentence leads — a click on the marked word puts
+    // the label first, which is what the caret offset decides.
+    const addButton = screen.getByRole('button', { name: 'Probe Row hinzufügen' })
+    await ui.keyboard('{Alt>}')
+    await ui.click(addButton)
+    await ui.keyboard('{/Alt}')
+
+    const dialog = await screen.findByRole('dialog', { name: 'Übersetzen' })
+    expect(within(dialog).getByRole('button', { name: 'Text' })).toBeInTheDocument()
+    await ui.click(within(dialog).getByRole('button', { name: 'Tabelle' }))
+
+    // The label, with the model's own English as the source and the key that
+    // names it — not the sentence, which is already German.
+    expect(within(dialog).getByText(`Tabelle: ${LABEL_TABLE}.singular_label`)).toBeInTheDocument()
+    expect(within(dialog).getByRole('textbox', { name: 'Übersetzung' })).toHaveValue('')
   })
 
   it('resolves an attribute host and a model label on Alt+click, with the model text as the source', async () => {
@@ -176,7 +216,7 @@ describe('translate mode', () => {
     const ui = userEvent.setup()
     renderInApp(<Page />)
     await screen.findByRole('button', { name: /Übersetzungen/ })
-    await waitFor(() => expect(highlightedTexts()).toEqual([UNTRANSLATED, 'Probe Rows']))
+    await waitFor(() => expect(highlightedTexts()).toEqual([UNTRANSLATED, 'Probe Rows', 'Probe Row']))
 
     // An input has no text node: the click resolves through its aria-label.
     await ui.keyboard('{Alt>}')

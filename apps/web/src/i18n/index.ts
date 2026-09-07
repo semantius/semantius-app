@@ -157,6 +157,7 @@ export {
 export type { DraftRow } from './drafts'
 export {
   clearReverseIndex,
+  embeddedSegments,
   isRecordingRenders,
   normalizeRenderedText,
   recordRender,
@@ -165,6 +166,7 @@ export {
   reverseIndexSize,
   setRecordingRenders,
 } from './reverseIndex'
+export type { EmbeddedSegment } from './reverseIndex'
 export {
   MARK_MISSING_KEY,
   TRANSLATE_MODE_KEY,
@@ -174,6 +176,7 @@ export {
   LABEL_VIEW,
   canTranslate,
   canWriteTenant,
+  consumeJustEnabled,
   setMarkMissing,
   setMissingCount,
   setTranslateMode,
@@ -307,9 +310,11 @@ export const translate: TranslateFn = (message, values) => {
     rendered = i18n._(messageId(message), values, { message: message.message })
   }
   // Translate mode's reverse index — one boolean check per call while it is
-  // off, a map write while somebody is translating. See ./reverseIndex.ts.
+  // off, a map write while somebody is translating. The VALUES go with it: a
+  // sentence built from a model label ("Add {label}") renders as one text node,
+  // and without them the label inside it is unreachable. See ./reverseIndex.ts.
   if (isRecordingRenders()) {
-    recordRender(rendered, messageId(message), typeof message === 'string' ? message : message.message)
+    recordRender(rendered, messageId(message), typeof message === 'string' ? message : message.message, values)
   }
   return rendered
 }

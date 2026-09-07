@@ -101,9 +101,28 @@ export function setMarkMissing(on: boolean): void {
   update({ marking: on })
 }
 
+/**
+ * Set by the switch, read and cleared once by the mode when it mounts.
+ *
+ * Alt+click has to be TOLD to somebody — a plain click deliberately still does
+ * what it always did, so nothing on screen reveals that the editor exists.
+ * This makes the hint appear when the switch is flipped and never again: it is
+ * module state, so a reload clears it, and a page that boots with the mode
+ * already on says nothing.
+ */
+let justEnabled = false
+
 export function setTranslateMode(on: boolean): void {
   writeFlag(TRANSLATE_MODE_KEY, on)
+  justEnabled = on
   update({ editing: on })
+}
+
+/** True once, for the mount that follows a switch being turned on. */
+export function consumeJustEnabled(): boolean {
+  const value = justEnabled
+  justEnabled = false
+  return value
 }
 
 /** Written by the translate-mode chunk after every scan. */

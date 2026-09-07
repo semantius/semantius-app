@@ -176,6 +176,27 @@
       ],
       "placeholders": []
     },
+    "Alt+click any text on the page to translate it where it stands.": {
+      "message": "Alt+click any text on the page to translate it where it stands.",
+      "origin": [
+        "src/i18n/translateMode/Panel.tsx"
+      ],
+      "placeholders": []
+    },
+    "Alt+click any text to translate it where it stands, or open the Translations panel.": {
+      "message": "Alt+click any text to translate it where it stands, or open the Translations panel.",
+      "origin": [
+        "src/i18n/translateMode/index.tsx"
+      ],
+      "placeholders": []
+    },
+    "Alt+click any text to translate it where it stands.": {
+      "message": "Alt+click any text to translate it where it stands.",
+      "origin": [
+        "src/i18n/translateMode/index.tsx"
+      ],
+      "placeholders": []
+    },
     "An unexpected error occurred while loading the application.": {
       "message": "An unexpected error occurred while loading the application.",
       "origin": [
@@ -2937,6 +2958,13 @@
       "message": "Translate mode could not be loaded.",
       "origin": [
         "src/i18n/TranslateModeBoundary.tsx"
+      ],
+      "placeholders": []
+    },
+    "Translate mode is on": {
+      "message": "Translate mode is on",
+      "origin": [
+        "src/i18n/translateMode/index.tsx"
       ],
       "placeholders": []
     },
