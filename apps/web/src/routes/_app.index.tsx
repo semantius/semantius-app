@@ -12,6 +12,7 @@ import {
 import { buttonVariants } from '@/components/ui/button'
 import { useAuth } from '@/hooks/useAuth'
 import { getModuleDisplay } from '@/contexts/AuthContext'
+import { moduleOverride, useLocaleLabels } from '@/i18n'
 import { moduleHomePath } from '@/lib/moduleHome'
 
 export const Route = createFileRoute('/_app/')({
@@ -22,6 +23,7 @@ export const Route = createFileRoute('/_app/')({
 function IndexComponent() {
   const { rpcUserInfo } = useAuth()
   const t = useT()
+  const labels = useLocaleLabels()
 
   // Get user's permissions array for filtering
   const userPermissions = (rpcUserInfo?.permissions as string[] | undefined) || []
@@ -97,7 +99,7 @@ function IndexComponent() {
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {modules.map((module) => {
-            const { displayName, displayTitle } = getModuleDisplay(module)
+            const { displayName, displayTitle } = getModuleDisplay(module, moduleOverride(labels, module.module_slug))
             return (
               // A module tile is a navigation target, so it is a link — not a
               // <Card onClick>. The click-only card was unreachable by keyboard,

@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { AlertCircle, Home } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { useT } from '@/i18n'
+import { serverMessage } from '@/lib/apiErrors'
 import {
   Card,
   CardContent,
@@ -36,7 +37,7 @@ export function ErrorPage({ error, reset }: ErrorPageProps) {
           <CardContent>
             <div className="rounded-md bg-muted p-4">
               <p className="text-sm font-medium mb-2">{t('Error Details:')}</p>
-              <p className="text-xs text-muted-foreground">{error.message}</p>
+              <p className="text-xs text-muted-foreground">{serverMessage(error)}</p>
             </div>
           </CardContent>
         )}

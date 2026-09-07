@@ -16,7 +16,7 @@
  */
 
 import { SOURCE_LANGUAGE } from './catalog'
-import { availableLanguages } from './store'
+import { availableLanguages, operatorDefaultLanguage } from './store'
 
 /**
  * Where a resolved value came from. Only `session` and `cache` are PREFERENCES;
@@ -40,13 +40,20 @@ export interface ResolvedLocale {
 export interface LocaleSources {
   /** The languages that have a catalog. An unavailable choice counts as absent. */
   available: readonly string[]
-  /** `get_userinfo`'s `language` / `locale` — the cross-device preference (P4). */
+  /** `get_userinfo`'s `language` / `locale` — the cross-device preference. */
   sessionLanguage?: string | null
   sessionLocale?: string | null
+  /**
+   * The OIDC userinfo `locale` claim — the identity provider's own record of
+   * what this person reads. Consulted only when the two fields above are null
+   * or absent, and treated as a `session` value rather than a placeholder,
+   * because it IS something the user set, just somewhere else.
+   */
+  sessionClaimLocale?: string | null
   /** `localStorage`, written by the switcher and mirrored from the session. */
   cachedLanguage?: string | null
   cachedLocale?: string | null
-  /** The operator's `locales.default` from the customizer. Language only (P4). */
+  /** The operator's `locales.default` from the customizer. Language only. */
   operatorDefault?: string | null
   /** `navigator.languages`, in order. */
   browserLanguages?: readonly string[]
@@ -94,6 +101,7 @@ export function resolveLocale(sources: LocaleSources): ResolvedLocale {
 
   const languageCandidates: [LocaleSource, string | null | undefined][] = [
     ['session', sources.sessionLanguage],
+    ['session', sources.sessionClaimLocale],
     ['cache', sources.cachedLanguage],
     ['operator', sources.operatorDefault],
   ]
@@ -121,6 +129,7 @@ export function resolveLocale(sources: LocaleSources): ResolvedLocale {
 
   const localeCandidates: [LocaleSource, string | null | undefined][] = [
     ['session', sources.sessionLocale],
+    ['session', sources.sessionClaimLocale],
     ['cache', sources.cachedLocale],
     ['browser', sources.browserLocale],
   ]
@@ -177,6 +186,74 @@ export function writeCachedFormattingLocale(value: string | null): void {
   writeCache(LOCALE_CACHE_KEY, value)
 }
 
+// ── The session preference ──────────────────────────────────────────────────
+//
+// PUSHED in rather than read: the fields live on `get_userinfo`'s payload and
+// on the OIDC userinfo claims, and `src/i18n` cannot import `AuthContext`
+// (which imports `@/i18n`). components/TranslationsPrefetch.tsx does the push.
+
+/**
+ * What the session says, per field, in THREE states — and all three are real:
+ *
+ *   a string    a preference this person saved
+ *   `null`      "use the browser default", saved explicitly
+ *   `undefined` the field is not there at all — a platform without the columns
+ *
+ * Collapsing the last two would make every login on a deployment that has not
+ * applied the migration clear the local choice, because `get_userinfo` there
+ * carries no `language` at all.
+ */
+export interface SessionPreference {
+  language?: string | null
+  locale?: string | null
+  /** The OIDC userinfo `locale` claim, when the provider sends one. */
+  claimLocale?: string | null
+}
+
+let sessionPreference: SessionPreference = {}
+
+/**
+ * Record the session preference and mirror it into the per-browser cache.
+ *
+ * MERGES per field, and only a field that is present. `undefined` is "the
+ * platform does not send this", not "clear it" — so a switcher saving only the
+ * language cannot erase a formatting locale the session already carried, and a
+ * `get_userinfo` payload without the columns leaves everything alone.
+ *
+ * The cache mirror is what makes the PRE-LOGIN boot paint the right language:
+ * nothing has asked the server anything yet at that point, so the cache is the
+ * only record of a choice made on this device or synced from another one.
+ */
+export function setSessionPreference(pref: SessionPreference): void {
+  sessionPreference = { ...sessionPreference, ...definedFields(pref) }
+  if (pref.language !== undefined) writeCachedLanguage(pref.language)
+  if (pref.locale !== undefined) writeCachedFormattingLocale(pref.locale)
+}
+
+function definedFields(pref: SessionPreference): SessionPreference {
+  const out: SessionPreference = {}
+  if (pref.language !== undefined) out.language = pref.language
+  if (pref.locale !== undefined) out.locale = pref.locale
+  if (pref.claimLocale !== undefined) out.claimLocale = pref.claimLocale
+  return out
+}
+
+/** What the session currently says. */
+export function currentSessionPreference(): SessionPreference {
+  return sessionPreference
+}
+
+/**
+ * Forget the session preference, WITHOUT touching the cache.
+ *
+ * For the test setup: the preference is module state that outlives a test file,
+ * and it outranks every other source, so one test leaking it makes the next
+ * one's "boots from the cached keys alone" resolve `session` instead.
+ */
+export function clearSessionPreference(): void {
+  sessionPreference = {}
+}
+
 /** `navigator.languages`, falling back to the single `navigator.language`. */
 function browserLanguages(): readonly string[] {
   const nav = typeof navigator === 'undefined' ? undefined : navigator
@@ -193,15 +270,16 @@ function browserLanguages(): readonly string[] {
  * It never WRITES anything: boot passes must not persist a resolved value, or a
  * cached preference for a language that is only available after login would be
  * overwritten with `en-US` by the first pass.
- *
- * The session fields and the operator default join in P4, together with the
- * post-login re-resolve; until then the chain starts at the cache.
  */
 export function resolveInitialLocale(): ResolvedLocale {
   return resolveLocale({
     available: availableLanguages(),
+    sessionLanguage: sessionPreference.language,
+    sessionLocale: sessionPreference.locale,
+    sessionClaimLocale: sessionPreference.claimLocale,
     cachedLanguage: readCachedLanguage(),
     cachedLocale: readCachedFormattingLocale(),
+    operatorDefault: operatorDefaultLanguage(),
     browserLanguages: browserLanguages(),
     browserLocale: typeof navigator === 'undefined' ? null : navigator.language,
   })
@@ -220,6 +298,7 @@ export function resolveInitialLocale(): ResolvedLocale {
 export function resolvePlaceholderLocale(): ResolvedLocale {
   return resolveLocale({
     available: availableLanguages(),
+    operatorDefault: operatorDefaultLanguage(),
     browserLanguages: browserLanguages(),
     browserLocale: typeof navigator === 'undefined' ? null : navigator.language,
   })

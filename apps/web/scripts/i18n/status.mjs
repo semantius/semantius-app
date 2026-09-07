@@ -13,9 +13,11 @@
  * It reads the files on disk, so run `i18n:extract` first if code has changed;
  * `src/test/i18nCatalogs.test.ts` is what notices that they disagree.
  *
- * The tenant's queue and the model-label inventory join here in P4, behind
- * `--tenant` — that flag needs the repo root's `.env` and so cannot run from a
- * package script.
+ * `--tenant` adds what only the tenant knows: the model-label inventory and the
+ * queue of things the running app could not translate. It needs the REPO ROOT's
+ * `.env` for the API key, so it cannot run from the package script — run it as
+ *
+ *   dotenvx run --quiet -- node apps/web/scripts/i18n/status.mjs --tenant --locale de-DE
  */
 
 import { join } from 'node:path'
@@ -26,13 +28,67 @@ import {
   catalogFiles,
   readJson,
 } from './extract.mjs'
+import { buildLabelInventory, diffLabelInventory } from './labelInventory.mjs'
+import { readModel } from './model.mjs'
+import { argValue, connectTenant, readAll, TABLE_ABSENT_MESSAGE, TRANSLATIONS_TABLE } from './tenant.mjs'
 
-function argValue(argv, flag) {
-  const at = argv.indexOf(flag)
-  return at === -1 ? undefined : argv[at + 1]
+/**
+ * What only the tenant knows: how many model labels are covered, and what the
+ * running app has asked for and nobody has answered.
+ */
+async function tenantStatus(argv, locale, verbose) {
+  const conn = await connectTenant(argv)
+  const inventory = buildLabelInventory(await readModel(conn))
+
+  const { rows, absent } = await readAll(
+    conn,
+    TRANSLATIONS_TABLE,
+    'select=locale,scope,key,context,translation,origin' +
+      (locale ? `&locale=eq.${encodeURIComponent(locale)}` : ''),
+  )
+  if (absent) {
+    console.log(TABLE_ABSENT_MESSAGE)
+    // Still worth printing: the labels are missing whether or not there is a
+    // table to record them in, and that is the number an operator asks for.
+    const diff = diffLabelInventory(inventory, {})
+    console.log(`model labels  ${inventory.length} total, 0 translated, ${diff.missing.length} missing`)
+    return
+  }
+
+  const byLocale = new Map()
+  for (const row of rows) {
+    const bucket = byLocale.get(row.locale) ?? { labels: {}, requested: [], translated: 0 }
+    if (row.translation) {
+      bucket.translated++
+      if (['table', 'column', 'enum', 'module'].includes(row.scope)) {
+        bucket.labels[`${row.scope}:${row.key}`] = row.translation
+      }
+    } else {
+      bucket.requested.push(row)
+    }
+    byLocale.set(row.locale, bucket)
+  }
+  if (locale && !byLocale.has(locale)) byLocale.set(locale, { labels: {}, requested: [], translated: 0 })
+
+  for (const [code, bucket] of [...byLocale].sort()) {
+    const diff = diffLabelInventory(inventory, bucket.labels)
+    console.log(
+      `${code} (tenant)  ${bucket.translated} translated row(s), ${bucket.requested.length} requested; ` +
+        `model labels ${diff.translated.length}/${inventory.length}, ${diff.orphaned.length} orphaned`,
+    )
+    for (const row of bucket.requested) {
+      const where = row.origin ? `  [${row.origin}]` : ''
+      console.log(`  requested: ${row.scope}  ${JSON.stringify(row.key)}${where}`)
+    }
+    if (verbose) {
+      for (const entry of diff.orphaned) {
+        console.log(`  orphaned:  ${entry.scope}:${entry.key}  ${JSON.stringify(entry.translation)}`)
+      }
+    }
+  }
 }
 
-function main(argv) {
+async function main(argv) {
   const only = argValue(argv, '--locale')
   const verbose = argv.includes('--verbose')
 
@@ -77,6 +133,13 @@ function main(argv) {
       if (verbose) console.log(`           ${entry.origin.join(', ')}`)
     }
   }
+
+  if (argv.includes('--tenant')) {
+    await tenantStatus(argv, only, verbose)
+  }
 }
 
-main(process.argv.slice(2))
+await main(process.argv.slice(2)).catch((err) => {
+  console.error(`status: ${err instanceof Error ? err.message : err}`)
+  process.exitCode = 1
+})

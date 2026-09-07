@@ -10,7 +10,7 @@ import { Link, useMatchRoute, useNavigate } from '@tanstack/react-router'
 import { useTable } from '@/hooks/useTable'
 import type { Module } from '@/contexts/AuthContext'
 import { ApiErrorDisplay } from '@/components/ApiErrorDisplay'
-import { useT } from '@/i18n'
+import { TABLE_ATTR, tableLabel, useLocaleLabels, useT } from '@/i18n'
 
 import {
   DropdownMenu,
@@ -42,6 +42,9 @@ export function NavApps({
   const matchRoute = useMatchRoute()
   const navigate = useNavigate()
   const t = useT()
+  // The sidebar reads `tables` straight from the model, so it never sees the
+  // localized EntityMetadata the table route builds — it looks its own labels up.
+  const labels = useLocaleLabels()
 
   // Fetch tables filtered by module_id
   // Only fetch when we have a valid module_id
@@ -118,7 +121,8 @@ export function NavApps({
       <SidebarMenu>
         {tables.map((table) => {
           const tableName = String(table.table_name || '')
-          const label = String(table.plural_label || table.singular_label || tableName)
+          const fallback = String(table.plural_label || table.singular_label || tableName)
+          const label = tableLabel(labels, tableName, TABLE_ATTR.plural, fallback)
           const url = `/${moduleSlug || ''}/${tableName}`
 
           // Check if this link matches the current route

@@ -1,5 +1,5 @@
 import { afterEach, beforeAll } from 'vitest'
-import { SOURCE_LANGUAGE, activateLocale } from '@/i18n'
+import { SOURCE_LANGUAGE, activateLocale, clearSessionPreference } from '@/i18n'
 
 // Setup for the `node` Vitest project (see vite.config.ts): everything that
 // touches neither a `window` nor a `document`.
@@ -22,5 +22,8 @@ beforeAll(async () => {
 // a test that switches language would leak into the next one. Reset rather than
 // trust every test to clean up after itself.
 afterEach(async () => {
+  // The session preference is module state too, and it outranks everything the
+  // resolver reads — see setup.browser.ts for the failure it causes when leaked.
+  clearSessionPreference()
   await activateLocale(SOURCE)
 })

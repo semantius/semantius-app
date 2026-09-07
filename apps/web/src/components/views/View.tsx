@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button'
 import { Plus, Users } from 'lucide-react'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { DataFormPage } from '@/components/data-table-view/DataFormPage'
-import { useT } from '@/i18n'
+import { TABLE_ATTR, tableLabel, useLocaleLabels, useT } from '@/i18n'
 
 type RecordType = Record<string, unknown>
 
@@ -211,7 +211,13 @@ export function View({ moduleId: _moduleId, table_name: _table_name, recordId: _
     params: { p_table_name: refTable || '' },
     enabled: !!refTable,
   })
-  const parentLabel = parentEntitySchema?.table?.plural_label
+  // The PARENT's schema is fetched here, not by the route, so it never passes
+  // through `useLocalizedMetadata` — its one displayed label is looked up
+  // directly. `refTable` is the parent's table name, which is the label key.
+  const localeLabels = useLocaleLabels()
+  const parentLabel = refTable
+    ? tableLabel(localeLabels, refTable, TABLE_ATTR.plural, parentEntitySchema?.table?.plural_label)
+    : parentEntitySchema?.table?.plural_label
   const parentPath = refTable ? `/${module_name}/${refTable}` : undefined
 
   // Fetch the specific parent record to get its label value (e.g. "sales@test.com" for user 1002)

@@ -59,3 +59,8 @@ a11y-reports/latest.json
 # The audit's --screenshots output: one PNG per cell, regenerated on every run and
 # uploaded as a CI artifact. Cite a run by its JSON; the pictures are not a record.
 a11y-reports/screenshots/
+
+# Translation work files. `apps/web/scripts/i18n/translate.mjs` writes one per
+# language for an agent to fill in and `import.mjs` reads it back; the RESULT is
+# committed (src/locales/<code>.json) or written to the tenant, never this.
+apps/web/.i18n/

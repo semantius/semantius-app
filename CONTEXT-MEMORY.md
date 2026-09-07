@@ -572,7 +572,8 @@ there are ~2600 of them against ~1200 in product code — baselining them would
 bury the ratchet under entries that can never be migrated. (2) *`src/i18n/*.ts`*,
 the translation machinery itself, whose every string is a locale tag, a storage
 key or an `Intl` option. That second one is scoped to the TOP-LEVEL modules on
-purpose: `src/i18n/**` would also exempt P5's `src/i18n/translateMode/`, which is
+purpose: `src/i18n/**` would also exempt `src/i18n/translateMode/` (translate
+mode, still to come), which is
 ordinary UI with ordinary user-visible strings. Neither ignore costs P3 its
 "suppressions pruned to zero outside `src/charts/**`" target, because an ignored
 file produces no suppression entries at all.
@@ -616,7 +617,7 @@ enforced at the import site. A component passes its own `useT()` down.
 not collide with the runtime collector.** `useTable`, `useTableMutations`,
 `useRpc`, `callRpc`, the `$table_name` loader and `AuthContext` all end up in
 `ApiErrorDisplay`, a toast or a delete dialog, so their messages go through the
-catalog like anything else on screen. The reason that is safe alongside P4's
+catalog like anything else on screen. The reason that is safe alongside
 `translateDynamic` — which looks a server message up VERBATIM and records a
 `server` row for a miss — is that the two never meet: an app-authored fallback
 ("Failed to fetch {table}") is only reached when the response body carried no
@@ -632,6 +633,145 @@ uses `translate()` on purpose: its messages are produced inside the userinfo
 effect, and listing a `t` from `useT()` in that effect's deps would refetch
 userinfo on every language switch. The message is frozen at the moment the
 request failed, which is the same trade every toast already makes.
+
+**Four layers, later wins, and NOTHING pulls its own configuration.**
+`src/i18n/store.ts` loads a language from repo catalog ← operator deployment file
+← tenant rows ← drafts (translate mode, still to come), merging what each
+answers. Configuration is PUSHED
+in (`setDeploymentLocales` from `applyUiCustomizer`, `setTenantLocaleFiles` from
+`components/TranslationsPrefetch.tsx`) rather than pulled, because the FIRST boot
+pass activates a locale **before** `initConfig()` so `BootFailure` is translated —
+a pull would have to call `getConfig()`, which throws at that moment. The same
+rule is why `src/i18n` still imports no router.
+
+**A deployment file is fetched with an ABSOLUTE url and its content-type is
+checked, and both are load-bearing.** `apiClient.ts` rewrites every `fetch` whose
+url starts with `/` onto the PostgREST base with a bearer token, so a relative
+`/locales/fr-FR.json` would be asked of the API; and a web server with a SPA
+fallback answers a MISSING file with the app's own HTML and a **200**, so `res.ok`
+alone hands `res.json()` a page of markup. A wrong `url` must read as "no such
+language", not as a parse error at boot. `docker/nginx.conf` serves `/locales/`
+with `try_files $uri =404` for the same reason.
+
+**Registration reuses `VITE_UI_CUSTOMIZER`; there is no new `VITE_*` var** (so
+the seven registration points do not apply). Its parsing therefore moved out of
+`resolveUserMenu` into `parseUiCustomizer`, which runs UNCONDITIONALLY — an
+operator on the `cloud` or `self_hosted` built-in menu must still be able to
+register a language, so `user.menu` is mandatory only for `custom`.
+`src/i18n/localeConfig.ts` validates the `locales` section and a malformed one
+BLOCKS BOOT: a language silently missing from the menu, with nothing anywhere
+saying why, is far worse than a loud configuration screen.
+
+**Model labels are DATA and have their own key scheme.** `table`
+`<table>.singular_label|plural_label|description`; `column`
+`<table>.<field>.title|description|relationship_label|singular_label_parent|plural_label_parent`;
+`enum` `<table>.<field>.<STORED VALUE>`; `module` `<slug>.name|description`. The
+runtime id is `scope + ':' + key` (a message id is the source text itself and has
+no prefix). Overrides apply AT RENDER through `localizeMetadata()` — never in a
+loader, never by mutation — so a language switch re-renders the grid without
+refetching the schema, `enum` VALUES stay exactly what the database holds (only
+`enum_labels`, the one consumer-facing slot on `JsonSchemaProperty`, is filled),
+and the loader's data stays the model as the server sent it.
+`useLocalizedMetadata()` in the `$table_name` route is THE choke point: `View`,
+`DataTableView`, `SchemaForm`, `DataFormPage`, `ConfirmDeleteDialog`,
+`ViewSkeleton`, `api-select` and `InputReference` all inherit that one prop. The
+sidebar, the command palette, the breadcrumb, the module tiles and `View`'s
+PARENT schema read `tables`/`modules` directly, so each looks its own labels up
+through `useLocaleLabels()`.
+
+**A model label is invisible to the extractor, so its inventory comes from the
+model.** `tables`, `fields` and `modules` are read and diffed against the labels
+layer BOTH ways: a label with no translation is missing, a translation whose key
+the model no longer has is **orphaned** (a renamed table), and an orphan is
+reported, never pruned — deleting one is a translator's decision. Never expect
+`i18n:status` or the catalog test to report a label; `labels.mjs` is where they
+come from, and it is the step to run after any model change.
+
+**Two shared modules live in `scripts/i18n/` and the app RE-EXPORTS them**:
+`localeFile.mjs` (file ↔ rows) and `labelInventory.mjs`. Plain ESM, because the
+tenant scripts run under bare `node` with nothing transpiling TypeScript, and a
+hand-kept second copy is exactly the divergence that would make an export and an
+import disagree about a key. `src/i18n/localeFile.ts` and
+`src/i18n/labelInventory.ts` are the two-line re-exports; `.d.mts` files type
+them, the way `extract.d.mts` already did. The one fact still spelled on both
+sides is the `scope:key` id format, pinned by `labelInventory.test.ts`.
+
+**Runtime text — `server` and `rule` — is looked up VERBATIM and never
+ICU-compiled.** A PostgREST message may legitimately contain braces, and running
+it through the compiler would throw or silently eat them. `translateDynamic()`
+does the lookup; `serverMessage(error)` in `lib/apiErrors.ts` is what every error
+surface calls (`ApiErrorDisplay`, `formatDeleteError`, `ApiKeysCard`,
+`ErrorPage`, the module dashboard). A React ERROR BOUNDARY's message is
+deliberately NOT routed through it: that is a JS exception, not server text.
+
+**Every miss becomes an empty-translation row, and the `code` filter is what
+keeps the app's own English out of the queue.** `src/i18n/missing.ts` records a
+`server` miss only for an error whose `cause` carries a PostgREST `code`; an
+error the app threw itself carries none and its wording is already a catalog
+message. Message misses come from Lingui's own `missing` event (so `<Trans>` is
+covered too) and are skipped in `en-US`, where every id legitimately has no
+entry; `server`/`rule` misses are recorded in EVERY language, because a backend
+message is authored in the tenant's language and may not be English. Label misses
+are reported from `useLocalizedMetadata` in an EFFECT, never in the memo — a
+render must not write to the network. Rows are inserted with
+`Prefer: resolution=ignore-duplicates`, so a request can never overwrite a
+translation. **The collector is OPT-IN** (`enableCollector()` in `main.tsx`), so
+the suite's own API errors never write rows.
+
+**The session preference is three-valued and the third state is the whole
+point.** `get_userinfo`'s `language` / `locale`: a string is a saved choice,
+`null` is "use the browser default" saved explicitly, and an ABSENT field is a
+platform that has not applied the migration. `sessionPreferenceFrom()` uses `in`,
+not a truthiness check, because collapsing the last two would wipe the local
+choice on every login against such a platform — which is every deployment today.
+The switcher mirrors its choice into the module-level session state as well as
+the cache: without that, a stale `get_userinfo` value would outrank the fresh
+choice on the next resolve. A reload discards that module state, which is why
+`NavUser.test.tsx`'s "boots from the cached keys alone" calls
+`clearSessionPreference()`, and why both test setups clear it in `afterEach`.
+
+**Nothing PROBES for a platform feature.** A definitive `PGRST205` / `42P01`
+disables the tenant layer, a definitive `PGRST202` disables the preference
+write-back for the rest of the session (module state, because the menu unmounts
+every time it closes). A bare 404 means neither — the tenant's serverless
+PostgREST answers one to the first request after an idle period, and the fetch
+interceptor retries it. All of these predicates are in `src/i18n/tenant.ts`, with
+the query and the paging, so `TranslationsPrefetch` holds no platform strings at
+all — in a component they would be indistinguishable from untranslated UI text.
+
+**`get_schema` moved onto the QueryClient, and the router context carries it.**
+A language switch calls `router.invalidate()` so every route's `head()` re-runs
+and `document.title` follows; re-running the loader would refetch the schema for
+a change that is purely local. `ensureQueryData` with `staleTime: Infinity` and
+`rpcQueryKey()` — exported from `hooks/useRpc.ts` so the loader and the hook fill
+the SAME entry — makes it a cache hit. `head()` reads `currentLabels()`
+synchronously, because it is not a component.
+
+**The lingui rule cannot tell an identifier from a sentence, and the answer is
+WHERE the string lives, not a wider `ignore`.** `src/i18n/*.ts` is already exempt
+as machinery, so a snake_case model attribute (`'plural_label'`), a PostgREST
+code, an RPC name and a query fragment belong there — `TABLE_ATTR` / `COLUMN_ATTR`
+/ `MODULE_ATTR` in `labels.ts`, the constants in `tenant.ts` — and call sites pass
+the constant. Widening `ignore` to cover `'description'` or `'title'` would hide
+a real string forever and silently. This is also why `localeConfig.ts` sits under
+`src/i18n/` rather than beside `lib/userMenu.ts`: every string in it is a JSON key
+or an operator diagnostic.
+
+**A per-call `{ timeout }` LOWERS the project's `asyncUtilTimeout`.**
+`setup.browser.ts` configures 15s for the whole browser project; four `findByRole`
+calls around CodeMirror had `{ timeout: 5000 }` and failed the release gate at
+random while passing alone — four browser workers each mounting an editor is a
+real second or two of contention, and the budget was deciding, not the code.
+Removed; do not add one back.
+
+**Verified against the live test tenant, and still true:** `ui_translations` is
+absent (`PGRST205`), `set_user_preferences` is absent (`PGRST202`), and
+`get_userinfo` returns no `language`/`locale`. `src/i18n/tenantTranslations.test.tsx`
+therefore SKIPS its row tests with a message naming the migration — and it probes
+at COLLECTION time with a top-level `await`, not in a `beforeAll`, because
+`describe.skipIf` is evaluated before any hook runs and a flag set in a hook would
+make the skip permanent. `fields.enum_values` really is a JSON array, and
+`tables` / `fields` / `modules` really do expose every column the inventory reads.
 
 ### Routing Conventions
 

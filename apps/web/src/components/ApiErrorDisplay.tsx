@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { AlertCircle, ChevronDown, ChevronUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useT } from '@/i18n'
+import { serverMessage } from '@/lib/apiErrors'
 
 interface ApiErrorDisplayProps {
   error: Error | { message: string; [key: string]: unknown }
@@ -15,9 +16,12 @@ export function ApiErrorDisplay({ error, title }: ApiErrorDisplayProps) {
   // evaluated before the body runs, so it cannot call a hook.
   const heading = title ?? t('Error loading data')
 
-  // Extract error details
-  const errorMessage = typeof error === 'object' && 'message' in error 
-    ? String(error.message) 
+  // The message is the SERVER's, not ours: it reaches here from PostgREST, an
+  // RPC or a model validation rule. `serverMessage` looks it up verbatim in the
+  // tenant's own `server` translations and records a miss when the error carried
+  // a PostgREST code — which is the whole runtime half of the translation queue.
+  const errorMessage = typeof error === 'object' && 'message' in error
+    ? serverMessage(error instanceof Error ? error : new Error(String(error.message), { cause: error }))
     : t('An unknown error occurred')
 
   // Try to parse additional details from error

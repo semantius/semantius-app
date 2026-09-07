@@ -3,6 +3,18 @@ import { useAuth } from '@/hooks/useAuth'
 import { useT } from '@/i18n'
 import { getApiConfig, callRpc } from '@/lib/apiClient'
 
+/**
+ * The react-query key for an RPC call.
+ *
+ * Exported because a ROUTE LOADER fills the very same cache entry through
+ * `queryClient.ensureQueryData` (see routes/_app.$moduleId.$table_name.tsx), and
+ * a key written out twice is a key that drifts — the loader would fetch
+ * `get_schema` alongside the hook rather than for it.
+ */
+export function rpcQueryKey(rpcName: string, params?: unknown): unknown[] {
+  return ['rpc', rpcName, params]
+}
+
 interface UseRpcOptions<TParams = Record<string, unknown>> {
   /**
    * RPC function parameters
@@ -45,7 +57,7 @@ export function useRpc<TResult = unknown, TParams = Record<string, unknown>>(
   const { params, enabled = true } = options
 
   return useQuery<TResult, Error>({
-    queryKey: ['rpc', rpcName, params],
+    queryKey: rpcQueryKey(rpcName, params),
     queryFn: async () => {
       if (!token) {
         throw new Error(t('Authentication token is required'))

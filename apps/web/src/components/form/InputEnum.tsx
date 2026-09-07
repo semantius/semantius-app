@@ -16,7 +16,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { useT } from '@/i18n'
+import { enumLabel, useT } from '@/i18n'
+import type { JsonSchemaProperty } from '@/types/metadata'
 import type { FormControlProps } from './types'
 import { useFormContext } from './FormContext'
 import { FormLabel } from './FormLabel'
@@ -52,8 +53,11 @@ export function InputEnum({
   const disabled = inputMode === 'disabled'
   const hidden = inputMode === 'hidden'
 
-  // Get enum values from schema prop
+  // Get enum values from schema prop. `schema` is one localized property from
+  // the route's metadata, so its `enum_labels` (if the active language overrides
+  // any) is already filled — see src/i18n/labels.ts.
   const enumValues: string[] = (schema as any)?.enum || []
+  const labelFor = (value: string) => enumLabel(schema as JsonSchemaProperty | undefined, value)
   const showSearch = enumValues.length > 10
 
   return (
@@ -136,7 +140,9 @@ export function InputEnum({
                   }
                 >
                   <span className="truncate">
-                    {isDisabled ? (currentValue || '') : (currentValue || t('Select an option'))}
+                    {isDisabled
+                      ? (currentValue ? labelFor(currentValue) : '')
+                      : (currentValue ? labelFor(currentValue) : t('Select an option'))}
                   </span>
                   {!isDisabled && <ChevronsUpDown className="ml-auto shrink-0 opacity-50" size={10} />}
                 </PopoverTrigger>
@@ -165,9 +171,14 @@ export function InputEnum({
                     <CommandEmpty>{t('No option found.')}</CommandEmpty>
                     <CommandGroup>
                       {enumValues.map((option) => (
+                        // `value` stays the RAW enum value: it is what
+                        // onSelect hands back and what the form stores. The
+                        // translated label is the visible text and goes into
+                        // `keywords` so typing it still matches.
                         <CommandItem
                           key={option}
                           value={option}
+                          keywords={[labelFor(option)]}
                           onSelect={handleSelect}
                           className="cursor-pointer bg-transparent! hover:bg-accent!"
                         >
@@ -177,7 +188,7 @@ export function InputEnum({
                               currentValue === option ? "opacity-100" : "opacity-0"
                             )}
                           />
-                          {option}
+                          {labelFor(option)}
                         </CommandItem>
                       ))}
                     </CommandGroup>

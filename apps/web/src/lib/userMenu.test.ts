@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { translate } from '@/i18n'
-import { parseBackendType, resolveUserMenu, isExternalUrl, resolveMenuTarget } from './userMenu'
+import { parseBackendType, parseUiCustomizer, resolveUserMenu, isExternalUrl, resolveMenuTarget } from './userMenu'
 
 /**
  * A built-in entry's title is a `MessageDescriptor`, not a string — that is what
@@ -20,6 +20,21 @@ function menuOf(result: ReturnType<typeof resolveUserMenu>) {
 function errorOf(result: ReturnType<typeof resolveUserMenu>) {
   if (!('error' in result)) throw new Error('expected an error, got a menu')
   return result.error
+}
+
+/**
+ * The two halves as one call, the way lib/config.ts composes them: the raw
+ * customizer is parsed ONCE (for the menu and for the locale
+ * registration) and the parsed value is what resolveUserMenu takes.
+ */
+function resolve(
+  backendType: Parameters<typeof resolveUserMenu>[0],
+  raw: string | undefined,
+  orgSlug: string | undefined,
+) {
+  const parsed = parseUiCustomizer(raw)
+  if ('error' in parsed) return parsed
+  return resolveUserMenu(backendType, parsed.value, orgSlug)
 }
 
 describe('parseBackendType', () => {
@@ -44,7 +59,7 @@ describe('parseBackendType', () => {
 
 describe('resolveUserMenu — built-in menus', () => {
   it('substitutes {orgid} with the org slug on the cloud menu', () => {
-    const menu = menuOf(resolveUserMenu('cloud', undefined, 'acme'))
+    const menu = menuOf(resolve('cloud', undefined, 'acme'))
 
     expect(titles(menu)).toEqual(['Settings', 'Profile', 'Platform'])
     // 'Settings' is a RELATIVE in-app route: the tenant is already implied by
@@ -57,7 +72,7 @@ describe('resolveUserMenu — built-in menus', () => {
   })
 
   it('collapses {orgid} to an empty string when there is no slug', () => {
-    const menu = menuOf(resolveUserMenu('cloud', undefined, undefined))
+    const menu = menuOf(resolve('cloud', undefined, undefined))
 
     expect(menu[0].url).toBe('/settings')
     expect(menu[1].url).toBe('https://app.semantius.com/settings?orgid=')
@@ -65,8 +80,8 @@ describe('resolveUserMenu — built-in menus', () => {
   })
 
   it('never mutates the built-ins — a second call is not poisoned by the first', () => {
-    menuOf(resolveUserMenu('cloud', undefined, 'first'))
-    const second = menuOf(resolveUserMenu('cloud', undefined, 'second'))
+    menuOf(resolve('cloud', undefined, 'first'))
+    const second = menuOf(resolve('cloud', undefined, 'second'))
 
     // Must assert on a placeholder-bearing entry: menu[0] is a constant, so it
     // would pass even if resolveUserMenu HAD poisoned the built-ins in place.
@@ -75,7 +90,7 @@ describe('resolveUserMenu — built-in menus', () => {
 
   it('serves the self_hosted menu and ignores any customizer JSON', () => {
     const menu = menuOf(
-      resolveUserMenu('self_hosted', '{"user":{"menu":[{"title":"Ignored","url":"/nope"}]}}', 'acme'),
+      resolve('self_hosted', '{"user":{"menu":[{"title":"Ignored","url":"/nope"}]}}', 'acme'),
     )
 
     // target:'redirect' is load-bearing — /idp is proxied to the IdP, so a
@@ -94,7 +109,7 @@ describe('resolveUserMenu — custom', () => {
     '{"title":"Org","url":"https://example.com/org?orgid={orgid}","permission":"admin"}]}}'
 
   it('parses a valid customizer and substitutes {orgid}', () => {
-    const menu = menuOf(resolveUserMenu('custom', valid, 'acme'))
+    const menu = menuOf(resolve('custom', valid, 'acme'))
 
     expect(menu).toEqual([
       { title: 'Account', url: '/idp/account' },
@@ -103,26 +118,26 @@ describe('resolveUserMenu — custom', () => {
   })
 
   it('errors, naming VITE_UI_CUSTOMIZER, when the customizer is missing or blank', () => {
-    expect(errorOf(resolveUserMenu('custom', undefined, 'acme'))).toContain('VITE_UI_CUSTOMIZER')
-    expect(errorOf(resolveUserMenu('custom', '   ', 'acme'))).toContain('VITE_UI_CUSTOMIZER')
+    expect(errorOf(resolve('custom', undefined, 'acme'))).toContain('VITE_UI_CUSTOMIZER')
+    expect(errorOf(resolve('custom', '   ', 'acme'))).toContain('VITE_UI_CUSTOMIZER')
   })
 
   it('errors on malformed JSON', () => {
-    const error = errorOf(resolveUserMenu('custom', '{"user":', 'acme'))
+    const error = errorOf(resolve('custom', '{"user":', 'acme'))
 
     expect(error).toContain('VITE_UI_CUSTOMIZER')
     expect(error).toContain('not valid JSON')
   })
 
   it('errors when user.menu is absent', () => {
-    expect(errorOf(resolveUserMenu('custom', '{"user":{}}', 'acme'))).toContain('user.menu')
-    expect(errorOf(resolveUserMenu('custom', '{}', 'acme'))).toContain('"user"')
-    expect(errorOf(resolveUserMenu('custom', '[]', 'acme'))).toContain('VITE_UI_CUSTOMIZER')
+    expect(errorOf(resolve('custom', '{"user":{}}', 'acme'))).toContain('user.menu')
+    expect(errorOf(resolve('custom', '{}', 'acme'))).toContain('"user"')
+    expect(errorOf(resolve('custom', '[]', 'acme'))).toContain('VITE_UI_CUSTOMIZER')
   })
 
   it('names the first bad entry by index', () => {
     const json = '{"user":{"menu":[{"title":"Ok","url":"/ok"},{"title":"Broken"}]}}'
-    const error = errorOf(resolveUserMenu('custom', json, 'acme'))
+    const error = errorOf(resolve('custom', json, 'acme'))
 
     expect(error).toContain('entry 1')
     expect(error).toContain('"url"')
@@ -130,7 +145,7 @@ describe('resolveUserMenu — custom', () => {
 
   it('rejects an unknown target, listing the valid ones', () => {
     const json = '{"user":{"menu":[{"title":"Ok","url":"/ok","target":"blank"}]}}'
-    const error = errorOf(resolveUserMenu('custom', json, 'acme'))
+    const error = errorOf(resolve('custom', json, 'acme'))
 
     expect(error).toContain('"target"')
     expect(error).toContain('default, redirect, newtab')
@@ -139,7 +154,7 @@ describe('resolveUserMenu — custom', () => {
   it('rejects a non-string target — true is not a shorthand for redirect', () => {
     const json = '{"user":{"menu":[{"title":"Ok","url":"/ok","target":true}]}}'
 
-    expect(errorOf(resolveUserMenu('custom', json, 'acme'))).toContain('"target"')
+    expect(errorOf(resolve('custom', json, 'acme'))).toContain('"target"')
   })
 
   it('carries every valid target through to the resolved entry', () => {
@@ -147,7 +162,7 @@ describe('resolveUserMenu — custom', () => {
       '{"user":{"menu":[{"title":"IdP","url":"/idp/account","target":"redirect"},' +
       '{"title":"Docs","url":"/docs","target":"newtab"},' +
       '{"title":"Home","url":"/home","target":"default"}]}}'
-    const menu = menuOf(resolveUserMenu('custom', json, 'acme'))
+    const menu = menuOf(resolve('custom', json, 'acme'))
 
     expect(menu.map((e) => e.target)).toEqual(['redirect', 'newtab', 'default'])
   })
@@ -155,11 +170,11 @@ describe('resolveUserMenu — custom', () => {
   it('rejects a non-string permission', () => {
     const json = '{"user":{"menu":[{"title":"Ok","url":"/ok","permission":7}]}}'
 
-    expect(errorOf(resolveUserMenu('custom', json, 'acme'))).toContain('"permission"')
+    expect(errorOf(resolve('custom', json, 'acme'))).toContain('"permission"')
   })
 
   it('accepts an empty menu — an operator may want no account entries at all', () => {
-    expect(menuOf(resolveUserMenu('custom', '{"user":{"menu":[]}}', 'acme'))).toEqual([])
+    expect(menuOf(resolve('custom', '{"user":{"menu":[]}}', 'acme'))).toEqual([])
   })
 })
 

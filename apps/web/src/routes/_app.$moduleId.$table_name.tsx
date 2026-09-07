@@ -2,11 +2,13 @@
 import { createFileRoute, notFound, useParams } from '@tanstack/react-router'
 import { pageTitle } from '@/lib/pageTitle'
 import { statusOf } from '@/lib/retry'
+import { rpcQueryKey } from '@/hooks/useRpc'
 import { lazy, Suspense, useMemo } from 'react'
 import { NotFoundPage } from '@/components/NotFoundPage'
 import { ViewSkeleton } from '@/components/ViewSkeleton'
+import type { QueryClient } from '@tanstack/react-query'
 import type { EntityMetadata } from '@/types/metadata'
-import { translate, useT } from '@/i18n'
+import { TABLE_ATTR, currentLabels, tableLabel, translate, useLocalizedMetadata, useT } from '@/i18n'
 
 // Discover all view components - lazy load for code splitting
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -14,6 +16,9 @@ const viewComponents = import.meta.glob<Record<string, React.ComponentType<any>>
   '../components/views/**/*.{tsx,jsx}',
   { eager: false }
 )
+
+/** The RPC that returns an entity's schema. */
+const GET_SCHEMA = 'get_schema'
 
 // Cache for lazy components to prevent recreation
 const lazyComponentCache = new Map<string, React.ComponentType<any>>()
@@ -23,14 +28,14 @@ export const Route = createFileRoute('/_app/$moduleId/$table_name')({
   loader: async ({ params, context }) => {
     const { table_name } = params
     const token = context.auth.getToken()
-    
+
     // Not-found ONLY when the server said the table is not there. Anything
     // else — a rate limit or cold start that outlasted the retry budget, a
     // network error, a 403 — is thrown, and lands on the router's
     // defaultErrorComponent with a Try Again that re-runs this loader. This
     // loader used to catch everything and answer notFound(), which told a
     // rate-limited user the table did not exist.
-    const metadata = await fetchEntityMetadata(table_name, token)
+    const metadata = await fetchEntityMetadata(table_name, token, context.queryClient)
     if (!metadata) {
       throw notFound()
     }
@@ -46,9 +51,14 @@ export const Route = createFileRoute('/_app/$moduleId/$table_name')({
   // breaks Route.useLoaderData() in the component too.
   head: ({ loaderData, params }) => {
     const data = loaderData as { metadata?: EntityMetadata } | undefined
+    // `currentLabels()` rather than a hook: head() is not a component. It reads
+    // module state synchronously and re-runs on router.invalidate(), which is
+    // exactly what the language switcher calls — so the tab title follows the
+    // language without a refetch (the loader is served from the QueryClient).
+    const fallback = data?.metadata?.table?.plural_label || params.table_name
     return {
       meta: [
-        { title: pageTitle(data?.metadata?.table?.plural_label || params.table_name) },
+        { title: pageTitle(tableLabel(currentLabels(), params.table_name, TABLE_ATTR.plural, fallback)) },
       ],
     }
   },
@@ -68,7 +78,14 @@ export const Route = createFileRoute('/_app/$moduleId/$table_name')({
 function RouteComponent() {
   const t = useT()
   const { moduleId, table_name, key } = useParams({ strict: false })
-  const { metadata } = Route.useLoaderData()
+  const { metadata: rawMetadata } = Route.useLoaderData()
+  // THE choke point for model-label overrides. Everything downstream — View,
+  // DataTableView, SchemaForm, DataFormPage, ConfirmDeleteDialog, ViewSkeleton,
+  // api-select, InputReference — takes its labels from this one `metadata` prop,
+  // so translating here translates all of them. It is applied at RENDER, never
+  // in the loader: the loader's data is the model as the server sent it, and a
+  // language switch must not invalidate it.
+  const metadata = useLocalizedMetadata(rawMetadata)
   
   // Get or create lazy component (cached to prevent Suspense flickering on key changes)
   const Component = useMemo(() => {
@@ -128,6 +145,7 @@ function RouteComponent() {
 async function fetchEntityMetadata(
   table_name: string,
   token: string | null,
+  queryClient: QueryClient | undefined,
 ): Promise<EntityMetadata | null> {
   if (!token) {
     // `translate`: a route loader runs outside React.
@@ -135,8 +153,24 @@ async function fetchEntityMetadata(
   }
 
   const { callRpc } = await import('@/lib/apiClient')
+  const params = { p_table_name: table_name }
+  const fetchSchema = () => callRpc<EntityMetadata>(GET_SCHEMA, params, token)
+
   try {
-    return await callRpc<EntityMetadata>('get_schema', { p_table_name: table_name }, token)
+    // Through the QueryClient with the key `useRpc` already uses, so the schema
+    // is fetched once per table for the life of the session and a re-run of this
+    // loader — which is what router.invalidate() does on every language switch —
+    // costs nothing. `staleTime: Infinity`: a schema changes when the model is
+    // edited, and that path already invalidates its own queries.
+    return queryClient
+      ? await queryClient.ensureQueryData({
+          // rpcQueryKey, not a hand-written array: this fills the SAME entry
+          // `useRpc('get_schema')` reads, and a key spelled out twice drifts.
+          queryKey: rpcQueryKey(GET_SCHEMA, params),
+          queryFn: fetchSchema,
+          staleTime: Infinity,
+        })
+      : await fetchSchema()
   } catch (err) {
     if (statusOf(err) === 404) return null
     throw err

@@ -15,8 +15,10 @@ import { hideAppLoader } from './lib/appLoader'
 import { BootFailure } from './components/BootFailure'
 import { RouteErrorPage } from './components/RouteErrorPage'
 import { SidebarPrefetch } from './components/layout/SidebarPrefetch'
+import { TranslationsPrefetch } from './components/TranslationsPrefetch'
 import { applyDevUrlToken } from './lib/devUrlToken'
 import { activateLocale, i18n, resolveInitialLocale, translate } from './i18n'
+import { enableCollector } from './i18n/missing'
 import './global.css'
 // MUST stay after './global.css'. These are the accessibility corrections to the
 // shadcn palette, kept out of global.css because a `--preset` apply rewrites that
@@ -65,6 +67,9 @@ const router = createRouter({
       isAuthenticated: () => false,
       getToken: () => null,
     },
+    // Filled in below, once the QueryClient exists. Declaring it here keeps the
+    // context shape complete from the first render; RouterContextUpdater
+    // (AuthContext) is what pushes the auth half in.
   } satisfies RouterContext,
 })
 
@@ -98,6 +103,11 @@ const queryClient = new QueryClient({
   },
 })
 
+// The loaders read and fill the same cache the components use — see
+// RouterContext.queryClient in routes/__root.tsx for why that matters to a
+// language switch. Assigned after both exist, because each is created above.
+router.update({ context: { ...router.options.context, queryClient } })
+
 const root = createRoot(document.getElementById('root')!)
 
 // Load the locale, then the config, then render — in that order, and all inside
@@ -112,7 +122,8 @@ const root = createRoot(document.getElementById('root')!)
 //
 // It runs TWICE. The first pass sees only the built-in languages, which is
 // enough to translate BootFailure; the second runs after initConfig(), when the
-// operator's customizer (and, from P4, the tenant's languages) are known. Both
+// operator's customizer is known. The tenant's own languages arrive later still,
+// in TranslationsPrefetch, which resolves a third time. Both
 // passes resolve WITHOUT persisting: saving here would overwrite a cached
 // preference for a language that is only available after login.
 activateLocale(resolveInitialLocale()).then(() => initConfig()).then(async () => {
@@ -133,6 +144,12 @@ activateLocale(resolveInitialLocale()).then(() => initConfig()).then(async () =>
     return
   }
 
+  // Start recording what the app cannot translate. AFTER the config, so the
+  // collector's insert has an API base to go to, and only on a real boot — the
+  // test setup never calls this, which is why the suite's own API errors never
+  // write rows to the tenant.
+  enableCollector()
+
   root.render(
     <StrictMode>
       {/* Outermost provider, above the theme: <Trans> reads the catalog through
@@ -152,6 +169,10 @@ activateLocale(resolveInitialLocale()).then(() => initConfig()).then(async () =>
                   sidebar's modules query in parallel with the userinfo calls
                   the gate waits on. Renders nothing. */}
               <SidebarPrefetch />
+              {/* Same place, same reason: the tenant's translations and the
+                  user's saved language arrive only after login, and nothing
+                  may wait on them. */}
+              <TranslationsPrefetch router={router} />
               <RouterProvider router={router} />
             </AuthProviderWrapper>
           </TooltipProvider>

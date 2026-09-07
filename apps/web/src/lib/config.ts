@@ -11,9 +11,11 @@
 
 import { runtimeEnv } from './runtimeEnv'
 import { currentSecureContextError } from './secureContext'
+import { EMPTY_LOCALE_CONFIG, resolveLocales, setDeploymentLocales, type LocaleConfig } from '@/i18n'
 import {
   BACKEND_TYPE_VALUES,
   parseBackendType,
+  parseUiCustomizer,
   resolveUserMenu,
   type BackendType,
   type UiCustomizer,
@@ -48,6 +50,9 @@ export interface AppConfig {
   // Required: every AppConfig is built from envFallback(), which seeds both.
   backendType: BackendType
   uiCustomizer: UiCustomizer
+  // Languages an operator registered in the same customizer JSON — see
+  // src/i18n/localeConfig.ts. Registered with the store by applyUiCustomizer().
+  locales: LocaleConfig
 }
 
 let _config: AppConfig | null = null
@@ -78,10 +83,11 @@ function envFallback(): AppConfig {
 
     cubeApiUrl: runtimeEnv('VITE_CUBE_API_URL', import.meta.env.VITE_CUBE_API_URL) || undefined,
 
-    // Neutral placeholders. initConfig() overwrites both via applyUiCustomizer()
-    // once the tenant slug is known, on every return path.
+    // Neutral placeholders. initConfig() overwrites all three via
+    // applyUiCustomizer() once the tenant slug is known, on every return path.
     backendType: 'cloud',
-    uiCustomizer: { user: { menu: [] } }
+    uiCustomizer: { user: { menu: [] } },
+    locales: EMPTY_LOCALE_CONFIG,
   }
 }
 
@@ -317,15 +323,36 @@ function applyUiCustomizer(cfg: AppConfig): void {
   }
   cfg.backendType = backendType
 
+  // ONE parse for the two things the customizer now configures. The menu needs
+  // it only under `custom`; the locale registration needs it always, which is
+  // why parsing moved out of resolveUserMenu.
+  const parsed = parseUiCustomizer(rawCustomizer)
+  if ('error' in parsed) {
+    recordConfigError(parsed.error)
+    return
+  }
+
   // On the cloud path cfg.tenantName is the org slug; on the self-hosted path
   // (and on any early return) it is undefined, so `{orgid}` collapses to an
   // empty string rather than leaking the literal placeholder into a URL.
-  const resolved = resolveUserMenu(backendType, rawCustomizer, cfg.tenantName)
+  const resolved = resolveUserMenu(backendType, parsed.value, cfg.tenantName)
   if ('error' in resolved) {
     recordConfigError(resolved.error)
     return
   }
   cfg.uiCustomizer = { user: { menu: resolved.menu } }
+
+  const locales = resolveLocales(parsed.value)
+  if ('error' in locales) {
+    recordConfigError(locales.error)
+    return
+  }
+  cfg.locales = locales.locales
+  // Push rather than pull: `src/i18n` must not import `lib/config`, or the
+  // locale resolution could not run before initConfig() — which is exactly what
+  // the first boot pass does so BootFailure is translated. main.tsx's second
+  // activateLocale() pass is what picks this up.
+  setDeploymentLocales(locales.locales)
 }
 
 /** Record `message` only if nothing earlier already failed (first error wins). */

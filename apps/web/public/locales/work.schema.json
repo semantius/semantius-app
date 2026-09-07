@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://semantius.com/schemas/i18n-work-file.json",
+  "title": "Semantius translation work file",
+  "description": "What one language still needs, in one file, for a translator (usually an agent) to fill in. Written by apps/web/scripts/i18n/translate.mjs into apps/web/.i18n/ (git-ignored) and read back by import.mjs. Every entry carries its English source and where the app met it, so a translation can be made in context; `translation` is the only field to edit.",
+  "type": "object",
+  "required": ["locale", "entries"],
+  "additionalProperties": false,
+  "properties": {
+    "locale": { "type": "string", "minLength": 2, "description": "The catalog language being translated, e.g. de-DE." },
+    "generated": { "type": "string", "description": "When the file was produced. Informational." },
+    "entries": {
+      "type": "object",
+      "description": "The work, grouped by scope. A scope with nothing outstanding is absent.",
+      "additionalProperties": false,
+      "properties": {
+        "message": { "$ref": "#/$defs/entries" },
+        "table": { "$ref": "#/$defs/entries" },
+        "column": { "$ref": "#/$defs/entries" },
+        "enum": { "$ref": "#/$defs/entries" },
+        "module": { "$ref": "#/$defs/entries" },
+        "server": { "$ref": "#/$defs/entries" },
+        "rule": { "$ref": "#/$defs/entries" }
+      }
+    }
+  },
+  "$defs": {
+    "entries": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/entry" }
+    },
+    "entry": {
+      "type": "object",
+      "required": ["key", "source", "translation"],
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "For `message`, the English source text itself — there are no message ids. For a label scope, `<table>.<field>.<attribute>` or `<slug>.<attribute>`. For `server` / `rule`, the message the backend produced, verbatim."
+        },
+        "context": {
+          "type": "string",
+          "description": "Disambiguates two identical English strings with different meanings ('View' the noun vs the verb). Empty when there is none."
+        },
+        "source": { "type": "string", "description": "The English (or, for a runtime message, the original) text to translate." },
+        "translation": { "type": "string", "description": "FILL THIS IN. Empty means still untranslated; import.mjs skips it." },
+        "comment": { "type": "string", "description": "A note the developer left for the translator." },
+        "placeholders": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "The ICU placeholders the source uses. The translation MUST use exactly these — import.mjs refuses the file otherwise, because a dropped placeholder loses data on screen and an invented one renders as literal braces."
+        },
+        "origin": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Where it comes from: source files for a code string, the route or rule the app met a runtime message on."
+        }
+      }
+    }
+  }
+}

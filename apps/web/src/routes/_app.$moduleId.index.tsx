@@ -12,7 +12,9 @@ import { useUpdateRecord } from '@/hooks/useTableMutations'
 import { useTable } from '@/hooks/useTable'
 import { getConfig } from '@/lib/config'
 import { getModuleDisplay } from '@/contexts/AuthContext'
+import { moduleOverride, useLocaleLabels } from '@/i18n'
 import { useT } from '@/i18n'
+import { serverMessage } from '@/lib/apiErrors'
 
 export const Route = createFileRoute('/_app/$moduleId/')({
   // The module's display name lives in rpcUserInfo, which head() cannot reach;
@@ -27,6 +29,7 @@ const EMPTY_CONFIG: DashboardConfig = { portlets: [] }
 
 function ModuleHomeComponent() {
   const t = useT()
+  const labels = useLocaleLabels()
   const { moduleId } = Route.useParams()
   const { rpcUserInfo, token } = useAuth()
   const updateModule = useUpdateRecord<{ id: number; dashboard_config: DashboardConfig | null }>('modules')
@@ -68,7 +71,7 @@ function ModuleHomeComponent() {
     return <NotFoundPage />
   }
 
-  const { displayName, displayTitle } = getModuleDisplay(module)
+  const { displayName, displayTitle } = getModuleDisplay(module, moduleOverride(labels, module.module_slug))
 
   const moduleHeader = (
     <div className="flex items-center gap-4">
@@ -93,7 +96,7 @@ function ModuleHomeComponent() {
         {moduleHeader}
         <Card>
           <CardContent className="py-6 text-destructive text-sm">
-            {t('Failed to save dashboard: {message}', { message: updateModule.error.message })}
+            {t('Failed to save dashboard: {message}', { message: serverMessage(updateModule.error) })}
           </CardContent>
         </Card>
       </div>

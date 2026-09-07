@@ -106,6 +106,47 @@ name for itself ("Deutsch", not "German") and wins over the browser's display
 name.
 
 A language that ships with the product belongs here. A language for ONE
-deployment or ONE tenant will not: an operator's own file and a cloud customer's
-tenant rows are separate layers that load at runtime, and they are not built yet
-— today this folder is the only source of translations.
+deployment or ONE tenant does not — those are separate layers, loaded at runtime
+and never built into the bundle:
+
+| Who | Where its translations live |
+| --- | --- |
+| the product | `<code>.json` in this folder |
+| a self-hosted operator | `/locales/<code>.json` next to the deployed app, registered in `VITE_UI_CUSTOMIZER` |
+| a cloud customer | rows in their own `ui_translations` table |
+
+The root `README.md` has both, under "Internationalization".
+
+## Beyond code strings: model labels and runtime messages
+
+This folder holds ONLY the strings written in the code. Two other kinds of text
+reach a user, and neither can ever appear here:
+
+- **Model labels** — a table's `plural_label`, a column's `title`, an enum value,
+  a module's name. They are rows in the semantic model, so no extractor can see
+  them and `i18n:status` will never report them. They are keyed
+  `<table>.<field>.<attribute>` (an enum by its **stored value**) and live in a
+  deployment file's `labels` section or in tenant rows. A repo catalog that
+  carried them would ship one tenant's model to every deployment, and the catalog
+  test rejects them here for that reason.
+- **Runtime messages** — a PostgREST error, an RPC's `raise`, a message authored
+  in a model validation rule. The app cannot know these in advance at all; it
+  looks them up **verbatim** (never as ICU — they may contain braces) in the
+  `server` and `rule` sections and records every miss as work.
+
+For an agent, the whole picture for one language is one command:
+
+```bash
+# what is outstanding: catalog gaps + model labels + everything the running app
+# met and could not translate
+dotenvx run --quiet -- node apps/web/scripts/i18n/translate.mjs --locale de-DE
+#   -> apps/web/.i18n/work-de-DE.json
+
+# ...fill in every `translation`, keeping `placeholders` exactly as given...
+
+dotenvx run --quiet -- node apps/web/scripts/i18n/import.mjs --locale de-DE
+```
+
+`import.mjs` refuses the whole file if any translation drops or invents an ICU
+placeholder, or fails to compile. `labels.mjs --locale de-DE` is the narrower
+version for model labels alone, and is the step to run **after any model change**.

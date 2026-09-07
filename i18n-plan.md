@@ -20,14 +20,14 @@ Requirements set by the owner:
 
 ## Status
 
-Branch `feat/i18n`, one commit per phase, no PR. **P1-P3 are done and committed; P4 and P5 remain.**
+Branch `feat/i18n`, one commit per phase, no PR. **P1-P4 are done and committed; P5 remains.**
 
 | Phase | State | Commit |
 | --- | --- | --- |
 | P1 Foundation + app shell | done | `31bf10d` |
 | P2 Grid, dialogs, formatting | done | `cadaeb7` |
 | P3 Forms, validation, remaining surfaces | done | `fb26cb7` |
-| P4 Runtime languages | **not started** | |
+| P4 Runtime languages | done | |
 | P5 Translate mode | **not started** | |
 
 Each committed phase passed, independently re-run by the orchestrator: `i18n:extract` twice
@@ -45,7 +45,7 @@ Current numbers, for the next phase to ratchet against:
   hide real strings.
 - `substitutions.test.ts` unchanged at 6.
 
-### Verified against the live test tenant - P4 lands degraded, by design
+### Verified against the live test tenant - P4 landed degraded, by design
 
 Probed before P1 and unchanged since. Each was already anticipated here as a prerequisite;
 none of them blocks P4 from being written, and each has a specified fallback:
@@ -58,10 +58,14 @@ none of them blocks P4 from being written, and each has a specified fallback:
 | `translations.edit` permission | absent; principal holds `admin` | `admin` gates the writer and the translate-mode toggles |
 | `tables` / `fields` / `modules` reads | all 200, with `description` and `updated_at` | the label inventory is viable as specified |
 
-**So P4 can be implemented in full and cannot be fully verified.** The deployment-file layer,
-the model-label overrides and the scripts are testable today; the tenant table, the queue and
+**So P4 was implemented in full and cannot be fully verified.** The deployment-file layer,
+the model-label overrides and the scripts are tested today; the tenant table, the queue and
 the session preference are not, until the platform migration is applied to the `tests` tenant.
-Those must land as loud skips, never as green tests.
+They landed as loud skips in `apps/web/src/i18n/tenantTranslations.test.tsx`, which probes the
+tenant at COLLECTION time (a top-level `await`, not a `beforeAll` — `describe.skipIf` runs
+before any hook, so a flag set in one would make the skip permanent) and warns naming the
+missing table. Everything the tenant already has is asserted for real: the two absence
+predicates against the real 404 bodies, and the label inventory against the live model.
 
 ### Learned while implementing, and binding on P4/P5
 
@@ -334,7 +338,7 @@ Permissions are enforced by the platform's policies and mirrored in the UI: ever
 
 `form/SchemaForm.tsx`, `FormLabel.tsx` ("(required)"), `InputEnum.tsx`, `api-select.tsx`, `InputReference.tsx`, `Playground.tsx`; `ajv-i18n` over `validateData().errors`; `settings/ApiKeysCard.tsx`; `ui-ext/sortable.tsx`, `combobox.tsx`; demo routes (`xcustomers`, `crm.home`, `documents`, `form-playground`) wrapped like everything else. Suppressions pruned to zero outside `src/charts/**`.
 
-### P4 Runtime languages: deployment file, model-label overrides, tenant table and queue (in that order)
+### P4 Runtime languages: deployment file, model-label overrides, tenant table and queue - DONE
 
 `lib/localeConfig.ts` + the `parseUiCustomizer`/`resolveUserMenu` split; deployment-file layer + `public/locales/schema.json` + `docker/nginx.conf` `/locales/` rule; `labels.ts` (`localizeMetadata`, `enumLabel`, `tableLabel`) + `enum_labels` on `JsonSchemaProperty` + the consumer sites listed above; `get_schema` loader onto the QueryClient with `queryClient` in the router context; `src/i18n/localeFile.ts` (file ↔ rows); `src/i18n/labelInventory.ts` + test; `src/i18n/missing.ts` (collector, disabled in test setup) + `translateDynamic` and the `dynamic` map, wired into `ApiErrorDisplay`, `formatDeleteError` and the five direct `error.message` sites; the pending `lib/apiClient.ts` change that makes `callRpc` throw with `cause: { ...body, status, url }` committed first, or RPC messages never reach the collector; the generic `onConflict` option in `hooks/useTableMutations.ts` `useCreateRecord`; the tenant layer (via `useTable`), the tenant-rows writer and `request()` in `store.ts` (the drafts branch and the download arrive in P5), `TranslationsPrefetch` in `main.tsx` with its `router` prop, also re-resolving on `rpcUserInfo` and `userInfo`; the session read (`get_userinfo` `language`/`locale`, then the OIDC `locale` claim) with the cache mirroring, and the switcher's write-back through `set_user_preferences` with the cache-only fallback; `apps/web/scripts/i18n/export.mjs` (with `--messages-into`), `import.mjs`, `labels.mjs`, `translate.mjs`, `status.mjs --tenant`, the shared tenant resolution and `SEMANTIUS_TOKEN`/`--api-url`, `.gitignore` entry for `apps/web/.i18n/`; README "Adding a language" (file, registration, mounting, what the file cannot do) and "Tenant translations" (the DDL, triggers, policies, the model registration, the permission, the queue and the scripts); `docker/README.md`; fixtures, node and browser tests. Prerequisite for the table and queue tests: the platform migration (table, triggers, policies, permission) applied to the test tenant.
 

@@ -111,35 +111,61 @@ export function resolveMenuTarget(entry: UserMenuEntry): NavigationMode {
 }
 
 /**
+ * Parse `VITE_UI_CUSTOMIZER` once, for every consumer of it.
+ *
+ * It is parsed UNCONDITIONALLY — not only under `VITE_BACKEND_TYPE=custom`,
+ * which is all the menu ever needed — because the same JSON now also carries
+ * `locales` (see src/i18n/localeConfig.ts), and an operator running the `cloud` or
+ * `self_hosted` built-in menu must still be able to register a language file.
+ * `user.menu` therefore stays mandatory only for `custom`; every other key is
+ * validated by whoever reads it.
+ *
+ * `{ value: null }` means "nothing configured", which is the normal case.
+ */
+export function parseUiCustomizer(
+  customizerJson: string | undefined,
+): { value: Record<string, unknown> | null } | { error: string } {
+  const raw = (customizerJson ?? '').trim()
+  if (!raw) return { value: null }
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch (err) {
+    return {
+      error: `VITE_UI_CUSTOMIZER is not valid JSON: ${err instanceof Error ? err.message : String(err)}`,
+    }
+  }
+  if (!isPlainObject(parsed)) {
+    return { error: 'VITE_UI_CUSTOMIZER must be a JSON object of the shape {"user":{"menu":[…]}}.' }
+  }
+  return { value: parsed }
+}
+
+/**
  * Resolve the menu for a backend type, substituting `{orgid}` with the org slug.
  * Returns `{ error }` (never throws) so config.ts can turn a bad customizer into
  * the same blocking boot screen a broken VITE_OAUTH_CONFIG produces.
+ *
+ * Takes the ALREADY-PARSED customizer (see parseUiCustomizer) rather than the
+ * raw string: one parse serves both this and the locale registration.
  */
 export function resolveUserMenu(
   backendType: BackendType,
-  customizerJson: string | undefined,
+  customizer: Record<string, unknown> | null,
   orgSlug: string | undefined,
 ): { menu: UserMenuEntry[] } | { error: string } {
   let source: UserMenuEntry[]
 
   if (backendType === 'custom') {
-    const raw = (customizerJson ?? '').trim()
-    if (!raw) {
+    if (!customizer) {
       return {
         error:
           'VITE_BACKEND_TYPE=custom requires VITE_UI_CUSTOMIZER to hold a JSON user-menu ' +
           'definition of the shape {"user":{"menu":[{"title":"…","url":"…"}]}}.',
       }
     }
-    let parsed: unknown
-    try {
-      parsed = JSON.parse(raw)
-    } catch (err) {
-      return {
-        error: `VITE_UI_CUSTOMIZER is not valid JSON: ${err instanceof Error ? err.message : String(err)}`,
-      }
-    }
-    const validated = validateCustomizer(parsed)
+    const validated = validateCustomizer(customizer)
     if ('error' in validated) return validated
     source = validated.menu
   } else {
@@ -151,10 +177,9 @@ export function resolveUserMenu(
   return { menu: source.map((entry) => ({ ...entry, url: entry.url.replaceAll('{orgid}', orgSlug ?? '') })) }
 }
 
-function validateCustomizer(parsed: unknown): { menu: UserMenuEntry[] } | { error: string } {
-  if (!isPlainObject(parsed)) {
-    return { error: 'VITE_UI_CUSTOMIZER must be a JSON object of the shape {"user":{"menu":[…]}}.' }
-  }
+// `parsed` is already known to be a plain object — parseUiCustomizer rejects
+// anything else, and the shape message lives there.
+function validateCustomizer(parsed: Record<string, unknown>): { menu: UserMenuEntry[] } | { error: string } {
   if (!isPlainObject(parsed.user)) {
     return { error: 'VITE_UI_CUSTOMIZER is missing the "user" object — expected {"user":{"menu":[…]}}.' }
   }

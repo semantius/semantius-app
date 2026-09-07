@@ -42,23 +42,36 @@ export interface Module {
  * - DisplayName is initialized from module_name, DisplayTitle from description.
  * - If module_name starts with '_': DisplayName = description, DisplayTitle = ""
  * - If description starts with module_name: DisplayName = description, DisplayTitle = ""
+ *
+ * `override` is the active language's `module` labels for this slug (see
+ * src/i18n/labels.ts). The three rules still decide the SHAPE from the model's
+ * own English values, and the overrides are substituted into whichever slot the
+ * chosen rule fills — because the rules are about how the operator NAMED the
+ * module (a leading underscore, a description that repeats the name), and those
+ * facts do not change when someone translates it. Deciding the shape from
+ * translated text instead would make a module render differently per language.
  */
-export function getModuleDisplay(module: Module): { displayName: string; displayTitle: string } {
+export function getModuleDisplay(
+  module: Module,
+  override?: { name?: string; description?: string },
+): { displayName: string; displayTitle: string } {
   const name = module.module_name
   const desc = module.description || ''
+  const shownName = override?.name || name
+  const shownDesc = override?.description || desc
 
   // Rule a: module name starts with underscore — use description as display name
   if (name.startsWith('_')) {
-    return { displayName: desc || name, displayTitle: '' }
+    return { displayName: desc ? shownDesc : shownName, displayTitle: '' }
   }
 
   // Rule b: description starts with module name — promote description to display name
   if (desc.startsWith(name)) {
-    return { displayName: desc, displayTitle: '' }
+    return { displayName: shownDesc, displayTitle: '' }
   }
 
   // Default: name on top, description below
-  return { displayName: name, displayTitle: desc }
+  return { displayName: shownName, displayTitle: shownDesc }
 }
 
 export interface RpcUserInfo {

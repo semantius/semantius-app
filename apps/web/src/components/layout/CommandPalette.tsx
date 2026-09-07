@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { useAuth } from '@/hooks/useAuth'
-import { useT } from '@/i18n'
+import { MODULE_ATTR, TABLE_ATTR, moduleLabel, moduleOverride, tableLabel, useLocaleLabels, useT } from '@/i18n'
 import { getApiConfig, createApiHeaders } from '@/lib/apiClient'
 import {
   Command,
@@ -145,6 +145,9 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
   const t = useT()
+  // The palette lists entities and modules straight from the model tables, so
+  // like the sidebar it resolves its own label overrides.
+  const labels = useLocaleLabels()
 
   const { data: entities, isLoading: entitiesLoading } = useCatalog<EntityRecord>(
     'entities',
@@ -220,18 +223,23 @@ export function CommandPalette() {
               const slug = moduleSlugById.get(entity.module_id)
               // Skip entities whose module isn't loaded/known — we can't build a URL.
               if (!slug) return null
+              const label = tableLabel(labels, entity.table_name, TABLE_ATTR.plural, entity.plural_label)
+              const description = tableLabel(labels, entity.table_name, TABLE_ATTR.description, entity.description)
               return (
                 <CommandItem
                   key={`entity-${entity.module_id}-${entity.table_name}`}
                   className="cursor-pointer"
-                  value={`${entity.plural_label} ${entity.description} ${entity.table_name}`}
+                  // The search value keeps the ENGLISH label alongside the
+                  // translated one: a user who knows the table by its model name
+                  // (or types the identifier) must still find it.
+                  value={`${label} ${entity.plural_label} ${description} ${entity.table_name}`}
                   onSelect={() => go(`/${slug}/${entity.table_name}`)}
                 >
                   <div className="flex flex-col">
-                    <span>{entity.plural_label}</span>
-                    {!!entity.description && (
+                    <span>{label}</span>
+                    {!!description && (
                       <span className="text-xs text-muted-foreground">
-                        {entity.description}
+                        {description}
                       </span>
                     )}
                   </div>
@@ -243,23 +251,28 @@ export function CommandPalette() {
           <CommandSeparator />
 
           <CommandGroup heading={t('Modules')}>
-            {modules?.map((module) => (
-              <CommandItem
-                key={`module-${module.id}`}
-                className="cursor-pointer"
-                value={`${module.module_name} ${module.description} ${module.module_slug}`}
-                onSelect={() => go(moduleUrl(module.module_slug, module.home_page))}
-              >
-                <div className="flex flex-col">
-                  <span>{module.module_name}</span>
-                  {!!module.description && (
-                    <span className="text-xs text-muted-foreground">
-                      {module.description}
-                    </span>
-                  )}
-                </div>
-              </CommandItem>
-            ))}
+            {modules?.map((module) => {
+              const override = moduleOverride(labels, module.module_slug)
+              const name = override?.name || module.module_name
+              const description = moduleLabel(labels, module.module_slug, MODULE_ATTR.description, module.description)
+              return (
+                <CommandItem
+                  key={`module-${module.id}`}
+                  className="cursor-pointer"
+                  value={`${name} ${module.module_name} ${description} ${module.module_slug}`}
+                  onSelect={() => go(moduleUrl(module.module_slug, module.home_page))}
+                >
+                  <div className="flex flex-col">
+                    <span>{name}</span>
+                    {!!description && (
+                      <span className="text-xs text-muted-foreground">
+                        {description}
+                      </span>
+                    )}
+                  </div>
+                </CommandItem>
+              )
+            })}
           </CommandGroup>
           </>
           )}

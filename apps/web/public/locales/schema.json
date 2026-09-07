@@ -1,0 +1,108 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://semantius.com/schemas/locale-file.json",
+  "title": "Semantius locale file",
+  "description": "One language, in the single shape every translation layer speaks: the repo catalogs under apps/web/src/locales, an operator's deployment file served from /locales/<code>.json, the tenant's ui_translations rows exported as a file, and translate mode's export. Which sections a file MAY carry depends on where it lives — a repo catalog carries messages, contexts and obsolete only (labels, server and rule are tenant or deployment data), which src/test/i18nCatalogs.test.ts enforces separately. The source string is the key: there are no message ids.",
+  "type": "object",
+  "required": ["locale"],
+  "additionalProperties": false,
+  "properties": {
+    "locale": {
+      "type": "string",
+      "minLength": 2,
+      "description": "The catalog language as a BCP-47 tag, e.g. de-DE. This is the language of the TEXT, never the formatting locale — those are two separate preferences."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The language's own name for itself ('Deutsch'). Wins over Intl.DisplayNames in the account menu, which is how a tag the browser has no display name for still reads as a language."
+    },
+    "messages": {
+      "$ref": "#/$defs/translationMap",
+      "description": "Code strings, keyed by the English source text exactly as it appears in the app. An empty value means 'not translated yet' and falls through to the source text."
+    },
+    "contexts": {
+      "type": "object",
+      "description": "The same, for messages that carry a context because one English word has two meanings ('View' the noun, 'View' the verb). Keyed by context, then by source text.",
+      "additionalProperties": { "$ref": "#/$defs/translationMap" }
+    },
+    "labels": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Model-label overrides. These are DATA — table, column, enum and module labels come from the semantic model, so no extractor can see them and they never appear in a repo catalog.",
+      "properties": {
+        "tables": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/tableLabels" }
+        },
+        "modules": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/moduleLabels" }
+        }
+      }
+    },
+    "server": {
+      "$ref": "#/$defs/translationMap",
+      "description": "Messages the app cannot know in advance: PostgREST and RPC text raised by the backend. Looked up VERBATIM and never ICU-compiled, because server text may legitimately contain braces."
+    },
+    "rule": {
+      "$ref": "#/$defs/translationMap",
+      "description": "Messages authored in the model's validation rules, looked up the same way as `server`."
+    },
+    "obsolete": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Translations whose source string no longer exists in the code. Repo catalogs only — written by `i18n:extract`, emptied by `i18n:extract --prune`.",
+      "properties": {
+        "messages": { "$ref": "#/$defs/translationMap" },
+        "contexts": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/translationMap" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "translationMap": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "tableLabels": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "singular_label": { "type": "string" },
+        "plural_label": { "type": "string" },
+        "description": { "type": "string" },
+        "columns": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/columnLabels" }
+        }
+      }
+    },
+    "columnLabels": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "relationship_label": { "type": "string" },
+        "singular_label_parent": { "type": "string" },
+        "plural_label_parent": { "type": "string" },
+        "enum": {
+          "type": "object",
+          "description": "One entry per value of the column's enum, keyed by the stored value — never by its English label.",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "moduleLabels": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" }
+      }
+    }
+  }
+}

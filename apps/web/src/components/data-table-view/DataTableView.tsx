@@ -4,7 +4,7 @@ import { type EntityMetadata, type TableMetadata } from '@/types/metadata'
 import { cn } from '@/lib/utils'
 import { formatNumberForDisplay, resolvePrecision } from '@/lib/number-format'
 import { formatDateForDisplay, isDateFormat } from '@/lib/date-format'
-import { useFormattingLocale, useT, type TranslateFn } from '@/i18n'
+import { enumLabel, useFormattingLocale, useT, type TranslateFn } from '@/i18n'
 import { useTable } from '@/hooks/useTable'
 import { useUpdateRecord } from '@/hooks/useTableMutations'
 import { useConfirmDelete } from '@/hooks/useConfirmDelete'
@@ -738,8 +738,11 @@ export function DataTableView({
         !(property.enum && property.enum.length > 0)
       const columnTitle = property.title || key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 
+      // The filter's VALUE stays the raw enum value the database holds; only
+      // the label is translated, so a filter built in German still queries the
+      // same rows. `enum_labels` is filled by localizeMetadata at the route.
       const options = property.enum
-        ? property.enum.map(v => ({ label: v, value: v }))
+        ? property.enum.map(v => ({ label: enumLabel(property, v), value: v }))
         : undefined
 
       // Sticky-left-pinned columns get a fixed width and always truncate so their
@@ -814,10 +817,14 @@ export function DataTableView({
             // the variant below keeps comparing the RAW value. Only the "no
             // value at all" case is a word of ours, so only that one is a
             // message.
+            // The variant keeps comparing the RAW value — it is data, and a
+            // translated badge must not change color with the language. Only
+            // the displayed text goes through the label override, and the "no
+            // value at all" case is a word of ours, so it stays a message.
             const sv = String(value || '')
             return (
               <Badge variant={sv === 'active' ? 'default' : sv === 'inactive' ? 'secondary' : 'outline'}>
-                {sv || t('Unknown')}
+                {sv ? enumLabel(property, sv) : t('Unknown')}
               </Badge>
             )
           }

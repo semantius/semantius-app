@@ -158,3 +158,70 @@ describe('resolveLocale — the two preferences are independent', () => {
     expect(resolved).toMatchObject({ language: 'de-DE', locale: 'fr-FR' })
   })
 })
+
+describe('resolveLocale — the session, and what stands in for it', () => {
+  it('lets the session outrank the cache, so a choice made elsewhere wins', () => {
+    const resolved = resolve({ sessionLanguage: 'fr-FR', cachedLanguage: 'de-DE' })
+
+    expect(resolved).toMatchObject({ language: 'fr-FR', languageSource: 'session' })
+  })
+
+  it('treats a session `null` as absent — that IS "use the browser default"', () => {
+    const resolved = resolve({ sessionLanguage: null, cachedLanguage: 'de-DE' })
+
+    expect(resolved).toMatchObject({ language: 'de-DE', languageSource: 'cache' })
+  })
+
+  it('falls to the OIDC locale claim only when the session fields say nothing', () => {
+    expect(resolve({ sessionClaimLocale: 'de-AT' })).toMatchObject({
+      language: 'de-DE',
+      locale: 'de-AT',
+      languageSource: 'session',
+      localeSource: 'session',
+    })
+    // A real session preference wins over the identity provider's record of it.
+    expect(resolve({ sessionLanguage: 'fr-FR', sessionClaimLocale: 'de-AT' })).toMatchObject({
+      language: 'fr-FR',
+    })
+  })
+
+  it('ignores a session language the deployment has no catalog for', () => {
+    // Every preview origin shares one localStorage across tenants, and a session
+    // can name a language only some tenants offer. Unavailable counts as absent.
+    const resolved = resolve({ sessionLanguage: 'ja-JP', cachedLanguage: 'de-DE' })
+
+    expect(resolved).toMatchObject({ language: 'de-DE', languageSource: 'cache' })
+  })
+})
+
+describe('resolveLocale — the operator default', () => {
+  it('applies below every preference and above the browser', () => {
+    const resolved = resolve({ operatorDefault: 'fr-FR', browserLanguages: ['de-DE'] })
+
+    expect(resolved).toMatchObject({ language: 'fr-FR', languageSource: 'operator' })
+  })
+
+  it('never overrides a choice the user made', () => {
+    expect(resolve({ operatorDefault: 'fr-FR', cachedLanguage: 'de-DE' })).toMatchObject({
+      language: 'de-DE',
+      languageSource: 'cache',
+    })
+    expect(resolve({ operatorDefault: 'fr-FR', sessionLanguage: 'de-DE' })).toMatchObject({
+      language: 'de-DE',
+      languageSource: 'session',
+    })
+  })
+
+  it("sets the LANGUAGE only — an operator does not choose a number format for anyone", () => {
+    const resolved = resolve({ operatorDefault: 'fr-FR', browserLocale: 'de-CH' })
+
+    expect(resolved).toMatchObject({ locale: 'de-CH', localeSource: 'browser' })
+  })
+
+  it('is ignored when the deployment has no such catalog', () => {
+    expect(resolve({ operatorDefault: 'ja-JP' })).toMatchObject({
+      language: SOURCE_LANGUAGE,
+      languageSource: 'default',
+    })
+  })
+})

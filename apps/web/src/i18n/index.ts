@@ -29,25 +29,126 @@
  * directly, so a component test that renders bare keeps working.
  */
 
-import { useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useSyncExternalStore } from 'react'
 import { i18n } from '@lingui/core'
 import { compileMessageOrThrow, type CompiledMessage } from '@lingui/message-utils/compileMessage'
 import {
   SOURCE_LANGUAGE,
+  catalogSnapshot,
+  currentDynamic,
+  currentLabels,
+  flattenDynamic,
+  flattenLabels,
   flattenMessages,
   messageId,
+  scopedId,
   setCatalogState,
+  subscribeToCatalog,
+  type DynamicScope,
   type MessageDescriptor,
   type TranslationMap,
 } from './catalog'
+import { localizeMetadata } from './labels'
 import { loadLocaleFiles, rememberLocaleNames } from './store'
 import { writeCachedFormattingLocale, writeCachedLanguage } from './resolveLocale'
+import type { EntityMetadata } from '@/types/metadata'
 
 export { i18n }
-export { msg, messageId, splitMessageId, translatedKeys, SOURCE_LANGUAGE, CONTEXT_SEPARATOR } from './catalog'
-export type { MessageDescriptor, LocaleFile, TranslationMap } from './catalog'
-export { availableLocales, languageDisplayName, availableLanguages, localeLayers } from './store'
+export {
+  msg,
+  messageId,
+  splitMessageId,
+  scopedId,
+  splitScopedId,
+  translatedKeys,
+  currentLabels,
+  currentDynamic,
+  currentLanguage,
+  addCatalogEntry,
+  flattenMessages,
+  flattenLabels,
+  flattenDynamic,
+  tableLabelKey,
+  columnLabelKey,
+  enumLabelKey,
+  moduleLabelKey,
+  COLUMN_LABEL_ATTRIBUTES,
+  LABEL_SCOPES,
+  SOURCE_LANGUAGE,
+  CONTEXT_SEPARATOR,
+} from './catalog'
+export type {
+  MessageDescriptor,
+  LocaleFile,
+  TranslationMap,
+  TranslationScope,
+  LabelScope,
+  DynamicScope,
+  ColumnLabelAttribute,
+  LabelFileSection,
+  TableLabelFile,
+  ColumnLabelFile,
+  ModuleLabelFile,
+} from './catalog'
+export {
+  TABLE_ATTR,
+  COLUMN_ATTR,
+  MODULE_ATTR,
+  localizeMetadata,
+  enumLabel,
+  tableLabel,
+  columnLabel,
+  moduleLabel,
+  moduleOverride,
+  labelOf,
+} from './labels'
+export {
+  applyRowToFile,
+  emptyLocaleFile,
+  localeFileToRows,
+  parseLabelKey,
+  rowsToLocaleFiles,
+} from './localeFile'
+export type { TranslationRow } from './localeFile'
+export {
+  buildLabelInventory,
+  diffLabelInventory,
+  parseEnumValues,
+} from './labelInventory'
+export type {
+  InventoryEntry,
+  InventoryDiff,
+  OrphanedEntry,
+  ModelRows,
+  TableRow,
+  FieldRow,
+  ModuleRow,
+} from './labelInventory'
+export {
+  availableLocales,
+  languageDisplayName,
+  availableLanguages,
+  localeLayers,
+  operatorDefaultLanguage,
+  setDeploymentLocales,
+  setTenantLocaleFiles,
+  tenantLocaleFile,
+} from './store'
 export type { LocaleInfo, LocaleLayer } from './store'
+export { resolveLocales, defaultLocaleUrl, EMPTY_LOCALE_CONFIG } from './localeConfig'
+export type { LocaleConfig, DeploymentLocale } from './localeConfig'
+export {
+  TENANT_TABLE,
+  TENANT_PAGE_SIZE,
+  TENANT_MAX_PAGES,
+  SAVE_PREFERENCES_RPC,
+  tenantPageQuery,
+  isTenantTableAbsent,
+  isPreferenceRpcAbsent,
+  savePreferencesParams,
+  sessionPreferenceFrom,
+} from './tenant'
+export type { SavePreferencesParams } from './tenant'
 export {
   resolveInitialLocale,
   resolveLocale,
@@ -57,10 +158,13 @@ export {
   writeCachedLanguage,
   writeCachedFormattingLocale,
   resolvePlaceholderLocale,
+  setSessionPreference,
+  currentSessionPreference,
+  clearSessionPreference,
   LANGUAGE_CACHE_KEY,
   LOCALE_CACHE_KEY,
 } from './resolveLocale'
-export type { LocaleSource, LocaleSources, ResolvedLocale } from './resolveLocale'
+export type { LocaleSource, LocaleSources, ResolvedLocale, SessionPreference } from './resolveLocale'
 
 /** Values interpolated into an ICU message. */
 export type MessageValues = Record<string, unknown>
@@ -150,6 +254,113 @@ export function useLanguage(): string {
   )
 }
 
+// ── Runtime text: `server` and `rule` ───────────────────────────────────────
+//
+// Messages the app cannot know in advance — a PostgREST or RPC message, a
+// message authored in a model validation rule. They are looked up VERBATIM and
+// never ICU-compiled: server text may legitimately contain braces, and running
+// it through the ICU compiler would either throw or silently eat them.
+//
+// Every miss is recorded as translation work (see ./missing.ts), which is what
+// turns "a German user saw an English error once" into a row somebody can act
+// on rather than something nobody ever hears about.
+
+export interface DynamicOptions {
+  /** `server` for PostgREST/RPC text, `rule` for model validation rules. */
+  scope?: DynamicScope
+  /** Where the app met it: a route path, a rule name, an RPC name. */
+  origin?: string
+  /**
+   * The PostgREST error code, when there is one. Only a message whose error
+   * carried a code is RECORDED — that filter is what keeps the app's own
+   * English throws ("Failed to fetch orders") out of the tenant's queue.
+   */
+  code?: string
+}
+
+/**
+ * Translate a message the app did not author. Returns `text` unchanged when
+ * there is no entry, which is the normal case on a fresh deployment.
+ */
+export function translateDynamic(text: string, options: DynamicOptions = {}): string {
+  if (!text) return text
+  const scope = options.scope ?? 'server'
+  const hit = currentDynamic()[scopedId(scope, text)]
+  if (hit) return hit
+  recordDynamicMiss?.(text, scope, options)
+  return text
+}
+
+/**
+ * The collector's hook into `translateDynamic`, installed by ./missing.ts.
+ *
+ * An injection rather than an import so this module keeps no dependency on the
+ * collector: `translateDynamic` is called from route loaders and from tests
+ * where nothing should ever reach the network, and a module-level import would
+ * make the collector's presence a property of the import graph rather than of
+ * the app's own setup.
+ */
+type DynamicMissReporter = (text: string, scope: DynamicScope, options: DynamicOptions) => void
+let recordDynamicMiss: DynamicMissReporter | undefined
+
+export function setDynamicMissReporter(reporter: DynamicMissReporter | undefined): void {
+  recordDynamicMiss = reporter
+}
+
+/**
+ * The collector's hook into `useLocalizedMetadata`, installed the same way and
+ * for the same reason: an entity's labels are the only place the app can see
+ * which MODEL text a language does not cover, and a direct import would make
+ * every test that renders a grid a potential writer to the tenant.
+ */
+type LabelMissReporter = (metadata: EntityMetadata, labels: TranslationMap) => void
+let reportLabelMisses: LabelMissReporter | undefined
+
+export function setLabelMissReporter(reporter: LabelMissReporter | undefined): void {
+  reportLabelMisses = reporter
+}
+
+// ── Model labels in React ───────────────────────────────────────────────────
+
+/**
+ * The active language's model-label overrides, re-rendering when they change.
+ *
+ * Subscribes to the CATALOG's own emitter rather than Lingui's: labels are not
+ * messages and Lingui never holds them, but both are written by the same
+ * `activateLocale` call, so the two events fire together.
+ */
+export function useLocaleLabels(): TranslationMap {
+  useSyncExternalStore(subscribeToCatalog, catalogSnapshot, catalogSnapshot)
+  return currentLabels()
+}
+
+/**
+ * `metadata` with the active language's label overrides applied.
+ *
+ * Memoized on the metadata identity and the catalog version, so a grid that
+ * re-renders for its own reasons does not rebuild the schema, and a language
+ * switch does exactly once.
+ */
+export function useLocalizedMetadata(metadata: EntityMetadata): EntityMetadata
+export function useLocalizedMetadata(metadata: EntityMetadata | undefined): EntityMetadata | undefined
+export function useLocalizedMetadata(metadata: EntityMetadata | undefined): EntityMetadata | undefined {
+  const version = useSyncExternalStore(subscribeToCatalog, catalogSnapshot, catalogSnapshot)
+  // In an effect, never in the memo: recording a miss is a side effect that ends
+  // in a network write, and a render must stay free of those (StrictMode runs it
+  // twice, and a memo can be discarded and recomputed).
+  useEffect(() => {
+    if (metadata) reportLabelMisses?.(metadata, currentLabels())
+  }, [metadata, version])
+  return useMemo(
+    () => (metadata ? localizeMetadata(metadata, currentLabels()) : metadata),
+    // `version` is the dependency that stands in for the label map: the map's
+    // identity changes with it, and reading it here rather than listing it keeps
+    // the memo from depending on a value React cannot compare.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [metadata, version],
+  )
+}
+
 // ── The formatting locale ───────────────────────────────────────────────────
 //
 // Deliberately NOT handed to Lingui. `i18n.loadAndActivate` takes an optional
@@ -228,24 +439,32 @@ function directionOf(language: string): 'ltr' | 'rtl' {
  */
 export async function activateLocale(pref: LocalePreference, options: ActivateOptions = {}): Promise<void> {
   let messages: TranslationMap = {}
+  let labels: TranslationMap = {}
+  let dynamic: TranslationMap = {}
   let language = pref.language
   try {
     const files = await loadLocaleFiles(pref.language)
     rememberLocaleNames(files)
-    // Later layers win. Empty values are dropped by flattenMessages, so a gap in
+    // Later layers win. Empty values are dropped by the flatteners, so a gap in
     // a higher layer falls through to a lower one instead of masking it.
-    for (const file of files) Object.assign(messages, flattenMessages(file))
+    for (const file of files) {
+      Object.assign(messages, flattenMessages(file))
+      Object.assign(labels, flattenLabels(file))
+      Object.assign(dynamic, flattenDynamic(file))
+    }
   } catch (err) {
     console.warn('[i18n] could not load', pref.language, '— falling back to', SOURCE_LANGUAGE, err)
     language = SOURCE_LANGUAGE
     messages = {}
+    labels = {}
+    dynamic = {}
   }
 
   // Both module states are written BEFORE loadAndActivate, because that call is
   // what emits `change` — and every subscriber (useT, useFormattingLocale) reads
   // its snapshot inside that emit. Setting them afterwards would hand the first
   // render after a switch the previous language's values.
-  setCatalogState(language, messages)
+  setCatalogState(language, messages, labels, dynamic)
   currentFormattingLocale = pref.locale || language
   i18n.loadAndActivate({ locale: language, messages })
 

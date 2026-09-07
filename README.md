@@ -278,6 +278,180 @@ Formatting helpers take `useFormattingLocale()`, never the catalog language.
 including the fixed product terms. `en-US.json` is generated and committed like
 `routeTree.gen.ts`; never hand-edit it.
 
+### Adding a language without a rebuild (operators)
+
+A self-hosted operator adds a language by dropping a file next to the deployed
+app and naming it in the customizer. No rebuild, no repo change.
+
+1. Write `<code>.json` against
+   [`/locales/schema.json`](apps/web/public/locales/schema.json), which the build
+   serves — point your editor's `$schema` at it. `apps/web/src/locales/de-DE.json`
+   is a worked example of the `messages` half.
+2. Put it where the app is served from: `apps/web/public/locales/` in this repo's
+   own builds, `/usr/share/nginx/html/locales/` in the Docker image (mount a
+   volume or copy it in — see [`docker/README.md`](docker/README.md)).
+3. Register it in `VITE_UI_CUSTOMIZER`, alongside the user menu it already
+   carries. In `docker/.env` the JSON must stay on ONE line; the parser is
+   line-based.
+
+   ```json
+   {"user":{"menu":[]},
+    "locales":{"default":"de-DE",
+               "available":[{"code":"fr-FR","name":"Français","url":"/locales/fr-FR.json"}]}}
+   ```
+
+   `url` defaults to `/locales/<code>.json`. `name` is the language's own name
+   for itself and wins over the browser's display name — that is how a tag the
+   browser has never heard of still reads as a language in the menu.
+   `locales.default` is what a browser with no saved preference gets; it never
+   overrides a choice someone has made.
+
+A malformed registration **blocks boot** with a message quoting the key, the same
+way a broken `VITE_OAUTH_CONFIG` does. A registration pointing at a file that is
+not there reads as "no such language" and the app stays in English — the loader
+requires `content-type: application/json`, because a web server with a SPA
+fallback answers a missing file with the app's own HTML and a 200.
+
+What a deployment file can carry, beyond `messages` and `contexts`:
+
+- **`labels`** — model-label overrides for tables, columns, enum values and
+  modules (see below).
+- **`server`** and **`rule`** — messages the backend produces, looked up verbatim
+  and never ICU-compiled.
+
+What it **cannot** do, and there is no workaround short of the tenant table: no
+queue (requests stay in the browser's `localStorage`), no saving from inside the
+app, no "changed since translated", no `obsolete`.
+
+### Model labels — table, column and enum names
+
+Table, column, enum and module labels come from the semantic model, not from the
+code, so no extractor can see them and `i18n:status` can never report them. Their
+keys are:
+
+| Scope    | Key |
+| -------- | --- |
+| `table`  | `customers.singular_label` / `.plural_label` / `.description` |
+| `column` | `customers.status.title` / `.description` / `.relationship_label` / `.singular_label_parent` / `.plural_label_parent` |
+| `enum`   | `customers.status.active` — the **stored value**, never its English label |
+| `module` | `crm.name` / `crm.description` |
+
+Overrides apply at render: the model itself is unchanged, filters and comparisons
+keep using the stored values, and switching language re-renders the grid without
+refetching the schema.
+
+Their inventory comes from the model itself:
+
+```bash
+dotenvx run --quiet -- node apps/web/scripts/i18n/labels.mjs --locale de-DE
+dotenvx run --quiet -- node apps/web/scripts/i18n/labels.mjs --locale fr-FR \
+  --file apps/web/public/locales/fr-FR.json
+```
+
+It prints every label the model carries with no translation, every translation
+whose key the model no longer has (**orphaned** — a renamed table or a dropped
+field; deleting one is a translator's call, so it is reported and never pruned),
+and writes a skeleton to fill in. **Run it after any model change**: an agent that
+has just created an entity or a field has produced English labels that nothing
+else in this repo knows about.
+
+### Tenant translations (`ui_translations`)
+
+A cloud customer translates their own deployment by writing rows into a table in
+their own database, editable through the app's own admin grid like any other
+entity. One row per translated item — so a save never read-modify-writes a whole
+file, and two translators cannot clobber each other.
+
+```sql
+create table ui_translations (
+  id          bigint generated always as identity primary key,
+  locale      text not null,                       -- BCP-47, e.g. 'de-DE'
+  scope       text not null default 'message'
+              check (scope in ('message', 'table', 'column', 'enum', 'module', 'server', 'rule')),
+  key         text not null,                       -- message: the source text
+                                                   -- table:  'accounts.plural_label'
+                                                   -- column: 'accounts.status.title'
+                                                   -- enum:   'accounts.status.active'
+                                                   -- module: 'crm.name'
+  context     text not null default '',            -- message context, '' when none
+  translation text not null default '',            -- '' = requested, not yet translated
+  origin      text,                                -- where the app met it: a route, a rule, an RPC
+  requested_by text,                               -- who met it first; set by a trigger from the JWT
+  first_seen  timestamptz not null default now(),
+  updated_by  text,                                -- who translated it last; set by a trigger
+  updated_at  timestamptz not null default now(),
+  unique (locale, scope, key, context)
+);
+```
+
+The rest of the migration, all in the same change:
+
+- a `before insert` trigger setting `requested_by` from the JWT when
+  `translation` is empty (type and default as `user_bookmarks.user_id`), and a
+  `before update` trigger setting `updated_at` / `updated_by`;
+- policies: insert when `translation` is empty and `requested_by` is the caller,
+  **or** when the caller holds `translations.edit`; update and delete need
+  `translations.edit`. (An upsert is an insert first, and a translator's plain
+  insert carries a non-empty translation.)
+- semantic-model registration so the grid renders it: entity `ui_translations` in
+  the `admin` module, singular "Translation", plural "Translations",
+  `id_column: id`, `label_column: key`, `scope` an enum field, `requested_by` /
+  `first_seen` / `updated_by` / `updated_at` read-only, `edit_permission` set to a
+  dedicated `translations.edit` permission; every authenticated user may read;
+- `language` and `locale` columns on `users` (nullable — null means "browser
+  default"), returned by `get_userinfo`, and a `set_user_preferences(language,
+  locale)` RPC that updates the caller's own row.
+
+The app **probes for none of it**. A definitive `PGRST205` / `42P01` disables the
+tenant layer, a definitive `PGRST202` disables the preference write-back for the
+session, and a `get_userinfo` with no `language` field at all leaves this
+browser's own cached choice alone. A bare 404 means none of those — the tenant's
+serverless PostgREST answers one to the first request after an idle period, and
+the fetch interceptor retries it.
+
+**The queue.** Every string the running app fails to translate becomes a row with
+an empty translation: a code string with no catalog entry, a model label with no
+override, and — the ones nothing else can find — a PostgREST message, an RPC's
+`raise`, a message authored in a model validation rule. They are inserted with
+`Prefer: resolution=ignore-duplicates`, so a request can never overwrite a
+translation. A German user meeting an untranslated backend error at 3am leaves a
+row with their id, the time and the route they were on.
+
+```bash
+# what is outstanding, including the queue and the model labels
+dotenvx run --quiet -- node apps/web/scripts/i18n/status.mjs --tenant --locale de-DE
+
+# everything still needed, as one file for an agent to fill in
+dotenvx run --quiet -- node apps/web/scripts/i18n/translate.mjs --locale de-DE
+#   -> apps/web/.i18n/work-de-DE.json  (git-ignored; schema: /locales/work.schema.json)
+
+# write it back: rows on the tenant, code strings into the repo catalog
+dotenvx run --quiet -- node apps/web/scripts/i18n/import.mjs --locale de-DE
+
+# take a language out as a file, or copy tenant translations into repo gaps
+dotenvx run --quiet -- node apps/web/scripts/i18n/export.mjs --locale de-DE --out /tmp/de-DE.json
+dotenvx run --quiet -- node apps/web/scripts/i18n/export.mjs --locale de-DE \
+  --messages-into apps/web/src/locales/de-DE.json
+```
+
+`import.mjs` **refuses the whole file** on any failure — an unknown key, a
+translation that drops or invents an ICU placeholder, one that does not compile.
+None of those are visible in a diff of a thousand entries, and all of them are
+cheap to catch there. `server` and `rule` text is exempt from the compile check:
+it is looked up verbatim and may legitimately contain braces.
+
+All of these need the repo root's `.env` (hence `dotenvx run` rather than a
+package script). They resolve the tenant through the control plane, the way the
+accessibility audit does; a self-hosted deployment sets `SEMANTIUS_TOKEN` and
+passes `--api-url` instead.
+
+**Terminology overrides.** A row with `locale = 'en-US'` replaces the English for
+that tenant — "Customer" → "Patient" — because the source language's layers are
+merged like any other. For a model label the model itself is usually the better
+place, since renaming `singular_label` changes every screen in every language; an
+`en-US` label row is for a tenant that must keep the model's term but show
+another word.
+
 ### Finding what is missing
 
 - `pnpm --filter @semantius/frontend i18n:status -- --verbose` — per language:

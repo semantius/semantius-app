@@ -10,6 +10,9 @@ import {
 } from '@/components/ui/breadcrumb'
 import { useAuth } from '@/hooks/useAuth'
 import { getModuleDisplay } from '@/contexts/AuthContext'
+// `moduleOverride` only — this file has its own local `moduleLabel`, which the
+// i18n export of that name would shadow.
+import { moduleOverride, useLocaleLabels } from '@/i18n'
 
 interface EntityBreadcrumbProps {
   /** Module name (first URL segment, e.g. "crm") */
@@ -41,20 +44,21 @@ export function EntityBreadcrumb({
   parentRecordPath,
 }: EntityBreadcrumbProps) {
   const { rpcUserInfo } = useAuth()
+  const labels = useLocaleLabels()
 
   // Look up the module by slug and use displayName for breadcrumb label
   const { moduleLabel, moduleHomePath } = useMemo(() => {
     const moduleIdLower = moduleId.toLowerCase()
     const found = rpcUserInfo?.modules?.find((m) => m.module_slug.toLowerCase() === moduleIdLower)
     const label = found
-      ? getModuleDisplay(found).displayName
+      ? getModuleDisplay(found, moduleOverride(labels, found.module_slug)).displayName
       : moduleId
         .split('-')
         .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
         .join(' ')
     const homePath = found?.home_page || `/${moduleId}`
     return { moduleLabel: label, moduleHomePath: homePath }
-  }, [moduleId, rpcUserInfo?.modules])
+  }, [moduleId, rpcUserInfo?.modules, labels])
 
   return (
     <Breadcrumb>

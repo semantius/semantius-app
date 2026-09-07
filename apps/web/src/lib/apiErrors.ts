@@ -18,16 +18,49 @@
  * and ESLint bans the import under `components/**`.
  */
 
-import type { MessageValues, TranslateFn } from '@/i18n'
+import { translateDynamic, type MessageValues, type TranslateFn } from '@/i18n'
+
+/**
+ * The PostgREST error code an error carries, or undefined.
+ *
+ * Every thrower in the data layer puts the server's own body on `error.cause`
+ * alongside the status (`useTable`, `callRpc`, the three mutations), so this is
+ * where a `code` lives when there is one.
+ */
+export function codeOf(error: unknown): string | undefined {
+  if (!(error instanceof Error)) return undefined
+  const cause = error.cause
+  if (!cause || typeof cause !== 'object') return undefined
+  const code = (cause as Record<string, unknown>).code
+  return typeof code === 'string' ? code : undefined
+}
+
+/**
+ * The user-facing text for a message the SERVER produced.
+ *
+ * Looked up verbatim in the tenant's own `server` translations and returned
+ * unchanged when there is none — a server message is authored outside this repo
+ * and can never be a key in the app's catalog. Every miss whose error carried a
+ * PostgREST `code` becomes a row in the translation queue, which is how a
+ * model-authored rule message ("Order must have at least one line") becomes
+ * translatable at all.
+ *
+ * The `code` filter is what keeps the app's OWN thrown sentences out of the
+ * queue: those are already catalog messages, and a body that carries a `code`
+ * always carries the server's own `message` with it.
+ */
+export function serverMessage(error: unknown, origin?: string): string {
+  const message = error instanceof Error ? error.message : String(error ?? '')
+  return translateDynamic(message, { scope: 'server', code: codeOf(error), origin })
+}
 
 /**
  * Format a delete-operation error for the user.
  *
  * Recognizes PostgREST's foreign-key constraint violation and explains it; any
- * other message is passed through untouched. Untouched is deliberate: a server
- * message is authored outside this repo and cannot be a key in the app's own
- * catalog. P4 routes those through `translateDynamic`, which looks them up
- * verbatim in the tenant's own translations and records the misses.
+ * other message goes through `serverMessage` — looked up verbatim in the
+ * tenant's own `server` translations, because a server message is authored
+ * outside this repo and cannot be a key in the app's catalog.
  *
  * @param error - the Error thrown by the mutation
  * @param t - the caller's translate function (`useT()`)
@@ -58,5 +91,8 @@ export function formatDeleteError(
     return t('{label} is still used by records in {table} and cannot be deleted.', values)
   }
 
-  return message || t('An unexpected error occurred. Please try again.')
+  // Not ours: a PostgREST constraint message, a model rule's own wording, an
+  // RPC's `raise`. Looked up verbatim in the tenant's `server` translations,
+  // and recorded as work when there is no entry.
+  return serverMessage(error) || t('An unexpected error occurred. Please try again.')
 }

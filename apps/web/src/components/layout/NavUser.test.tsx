@@ -9,6 +9,7 @@ import {
   LANGUAGE_CACHE_KEY,
   LOCALE_CACHE_KEY,
   activateLocale,
+  clearSessionPreference,
   i18n,
   resolveInitialLocale,
 } from '@/i18n'
@@ -254,7 +255,13 @@ describe('NavUser — the language switcher', () => {
     await chooseEntry(ui, 'Deutsch')
     await waitFor(() => expect(localStorage.getItem(LANGUAGE_CACHE_KEY)).toBe('de-DE'))
 
-    // What main.tsx does on the next load, with nothing else carried over.
+    // What main.tsx does on the next load, with nothing else carried over. The
+    // switcher also mirrors the choice into the SESSION preference — which it
+    // has to, or a stale `get_userinfo` value would outrank the fresh choice —
+    // and that is module state a reload discards, so discard it here too.
+    // Without this the assertion below reads `session`, which is the switcher
+    // being remembered rather than the cache being read.
+    clearSessionPreference()
     await activateLocale({ language: 'en-US', locale: 'en-US' })
     expect(i18n.locale).toBe('en-US')
 

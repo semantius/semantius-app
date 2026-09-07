@@ -1,0 +1,48 @@
+{
+  "locale": "fr-FR",
+  "name": "Français",
+  "messages": {
+    "Language": "Langue",
+    "Settings": "Paramètres",
+    "Log out": "Se déconnecter"
+  },
+  "contexts": {
+    "column visibility": {
+      "View": "Affichage"
+    }
+  },
+  "labels": {
+    "tables": {
+      "customers": {
+        "singular_label": "Client",
+        "plural_label": "Clients",
+        "columns": {
+          "status": {
+            "title": "État",
+            "enum": {
+              "active": "Actif"
+            }
+          },
+          "company_name": {
+            "title": "Société"
+          },
+          "contact_name": {
+            "title": "Nom du contact"
+          },
+          "contact_title": {
+            "title": "Fonction"
+          }
+        }
+      }
+    },
+    "modules": {
+      "nwind": {
+        "name": "Vents du Nord",
+        "description": "Base de données exemple Northwind"
+      }
+    }
+  },
+  "server": {
+    "Order must have at least one line": "Une commande doit avoir au moins une ligne"
+  }
+}

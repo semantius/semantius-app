@@ -15,10 +15,16 @@ import {
   languageDisplayName,
   resolveInitialLocale,
   resolvePlaceholderLocale,
+  SAVE_PREFERENCES_RPC,
+  savePreferencesParams,
+  isPreferenceRpcAbsent,
+  setSessionPreference,
+  type SavePreferencesParams,
   useFormattingLocale,
   useLanguage,
   useT,
 } from '@/i18n'
+import { useRpcMutation } from '@/hooks/useRpc'
 
 import {
   Avatar,
@@ -52,6 +58,15 @@ import {
  * well-formed BCP-47 tag, so it can never collide with a real one.
  */
 const BROWSER_DEFAULT = 'browser-default'
+
+/**
+ * Turned off for the rest of the session by a definitive "no such function".
+ *
+ * Module state rather than component state because the menu unmounts every time
+ * it closes, and re-asking a platform that has already said no — once per
+ * language switch, forever — is a request whose answer is known.
+ */
+let sessionWriteBackAvailable = true
 
 // Utility function to generate user initials
 function getUserInitials(name?: string): string {
@@ -125,6 +140,7 @@ export function NavUser({
   // resolution answers with that instead.
   const placeholder = resolvePlaceholderLocale()
   const followsLanguage = formattingLocale === language
+  const savePreferences = useRpcMutation<unknown, SavePreferencesParams>(SAVE_PREFERENCES_RPC)
 
   /**
    * Activate a choice and re-run every route's `head()`.
@@ -136,6 +152,29 @@ export function NavUser({
    */
   const apply = (next: Parameters<typeof activateLocale>[0], persist: Parameters<typeof activateLocale>[1]) => {
     void activateLocale(next, persist).then(() => router.invalidate())
+    savePreference(persist?.persist)
+  }
+
+  /**
+   * Save the choice to the SESSION as well as the cache, so it follows the
+   * person to their next device.
+   *
+   * The platform may not have the RPC yet, and asking whether it does is not
+   * worth a round trip: a definitive PGRST202 ("no such function") turns the
+   * write-back off for the rest of the session and the cache carries the choice
+   * on its own, which is exactly what P1 shipped with. Any other failure is
+   * silent by design — the language HAS changed, and a toast saying the
+   * preference did not sync would be noise the user can do nothing about.
+   */
+  const savePreference = (persist: { language?: string | null; locale?: string | null } | undefined) => {
+    if (!persist) return
+    setSessionPreference(persist)
+    if (!sessionWriteBackAvailable) return
+    savePreferences.mutate(savePreferencesParams(persist), {
+      onError: (error: Error) => {
+        if (isPreferenceRpcAbsent(error)) sessionWriteBackAvailable = false
+      },
+    })
   }
 
   const chooseLanguage = (value: string) => {

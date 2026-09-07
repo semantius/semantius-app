@@ -99,7 +99,7 @@ Key variables (see `.env.example` for the full list and comments):
 | `VITE_OAUTH_*_ENDPOINT` | OAuth endpoints — **usually leave blank** and let `VITE_OAUTH_CONFIG` resolve them; set to override. |
 | `VITE_CONTROL_PLANE_URL` / `VITE_CONTROL_PLANE_ORG` | Optional control-plane tenant lookup. |
 | `VITE_BACKEND_TYPE` | Account-menu flavor: `cloud` (default), `self_hosted`, or `custom`. |
-| `VITE_UI_CUSTOMIZER` | Required with `VITE_BACKEND_TYPE=custom` — single-line JSON account menu. |
+| `VITE_UI_CUSTOMIZER` | Single-line JSON: the account menu (required with `VITE_BACKEND_TYPE=custom`) and the `locales` registration for extra languages. |
 
 **`VITE_OAUTH_CONFIG` shortcut:** instead of setting each `VITE_OAUTH_*_ENDPOINT`,
 point `VITE_OAUTH_CONFIG` at a `.well-known/openid-configuration` URL. The **app**
@@ -163,6 +163,25 @@ VITE_UI_CUSTOMIZER='{"user":{"menu":[{"title":"Account","url":"/idp/account","ta
 ```
 
 A bad value or malformed JSON stops boot with a configuration-error screen.
+
+**Languages.** The same `VITE_UI_CUSTOMIZER` JSON registers translation
+catalogs, so an operator adds a language without rebuilding the image. Put the
+file where nginx serves it — `/usr/share/nginx/html/locales/<code>.json`, a
+mounted volume or a `COPY` in your own layer — and name it:
+
+```
+VITE_UI_CUSTOMIZER='{"locales":{"default":"de-DE","available":[{"code":"fr-FR","name":"Français","url":"/locales/fr-FR.json"}]}}'
+```
+
+`url` defaults to `/locales/<code>.json`; `name` is the language's own name for
+itself; `locales.default` is what a browser with no saved preference gets and
+never overrides a user's own choice. The image serves `/locales/` with
+`Cache-Control: no-cache` and a real 404 for a missing file, so editing a
+translation needs only a reload and a typo in a filename is visible in the
+network tab rather than silently loading the SPA's own HTML. The file's shape is
+`/locales/schema.json`, served by the same image. `locales` and `user` are
+independent — registering a language does **not** require
+`VITE_BACKEND_TYPE=custom`.
 
 ### Adjusting a running deployment
 
@@ -234,7 +253,7 @@ Change visibility → Public. One-time, per package.
 | `Dockerfile.dockerignore` | BuildKit ignore rules (kept beside the Dockerfile). |
 | `gen-config.sh` | Generates `config.js` from env + `.env` (pure env→JS, no curl/jq). |
 | `docker-entrypoint.sh` | Installed as `/docker-entrypoint.d/40-gen-config.sh`; runs `gen-config.sh` before nginx starts. |
-| `nginx.conf` | Static serving + SPA fallback + cache headers. No proxy routes. |
+| `nginx.conf` | Static serving + SPA fallback + cache headers + `/locales/` (no-cache, real 404). No proxy routes. |
 | `docker-compose.yml` | LOCAL build/run definition. |
 | `docker-compose.ghcr.yml` | Run the PUBLISHED GHCR image (no build). |
 | `build.sh` / `start.sh` | Build / run the local image. |

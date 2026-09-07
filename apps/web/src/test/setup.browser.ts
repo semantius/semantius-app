@@ -6,6 +6,7 @@ import {
   LOCALE_CACHE_KEY,
   SOURCE_LANGUAGE,
   activateLocale,
+  clearSessionPreference,
 } from '@/i18n'
 
 // Setup for the `browser` Vitest project (see vite.config.ts): everything that
@@ -37,11 +38,15 @@ beforeAll(async () => {
 
 afterEach(async () => {
   cleanup()
-  // The Lingui singleton and localStorage both outlive a test within a file, so
-  // a test that switches language has to be undone here rather than by every
-  // test that follows it remembering to.
+  // The Lingui singleton, the session preference and localStorage all outlive a
+  // test within a file, so a test that switches language has to be undone here
+  // rather than by every test that follows it remembering to. The session
+  // preference matters as much as the cache keys: the switcher writes it too,
+  // and it OUTRANKS the cache — a leaked one makes "boots from the cached keys
+  // alone" resolve `languageSource: 'session'`.
   localStorage.removeItem(LANGUAGE_CACHE_KEY)
   localStorage.removeItem(LOCALE_CACHE_KEY)
+  clearSessionPreference()
   await activateLocale(SOURCE)
 })
 

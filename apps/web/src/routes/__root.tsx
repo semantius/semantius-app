@@ -13,6 +13,20 @@ export interface RouterContext {
     isAuthenticated: () => boolean
     getToken: () => string | null
   }
+  /**
+   * The app's single QueryClient, so a loader can read and fill the SAME cache
+   * the components use instead of fetching alongside it.
+   *
+   * It is what makes a language switch cheap: switching calls
+   * `router.invalidate()` so every route's `head()` re-runs and `document.title`
+   * follows the new language, and re-running a loader that goes to the network
+   * would refetch `get_schema` for a change that is purely local. Through
+   * `ensureQueryData` with `staleTime: Infinity` it is a cache hit.
+   *
+   * Optional because a router may be created before the client exists (and the
+   * test harness builds a bare one); a loader that needs it says so.
+   */
+  queryClient?: import('@tanstack/react-query').QueryClient
 }
 
 export const Route = createRootRouteWithContext<RouterContext>()({

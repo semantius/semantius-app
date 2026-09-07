@@ -7,13 +7,20 @@
  * rows override that, and a translator's unsaved drafts override everything
  * while they are being written.
  *
- *   repo catalog  <-  deployment file (P4)  <-  tenant rows (P4)  <-  drafts (P5)
+ *   repo catalog  <-  deployment file  <-  tenant rows  <-  drafts (translate mode)
  *
- * Only the repo layer exists today. The shape is the point: adding a layer must
- * not mean rewriting `activateLocale`, and every layer already speaks the one
- * `LocaleFile` shape from ./catalog.ts.
+ * The shape is the point: adding a layer must not mean rewriting
+ * `activateLocale`, and every layer speaks the one `LocaleFile` shape from
+ * ./catalog.ts.
+ *
+ * Nothing here imports `lib/config`. Configuration is PUSHED in
+ * (`setDeploymentLocales`, `setTenantLocaleFiles`) rather than pulled, because
+ * the first boot pass activates a locale BEFORE `initConfig()` runs so that
+ * `BootFailure` is translated — a pull would have to call `getConfig()`, which
+ * throws at that moment.
  */
 
+import { defaultLocaleUrl, EMPTY_LOCALE_CONFIG, type LocaleConfig } from './localeConfig'
 import { SOURCE_LANGUAGE, type LocaleFile } from './catalog'
 
 export interface LocaleLayer {
@@ -64,11 +71,118 @@ const repoLayer: LocaleLayer = {
   },
 }
 
+// ── The operator's deployment files ─────────────────────────────────────────
+//
+// Registered in VITE_UI_CUSTOMIZER's `locales` section (./localeConfig.ts) and
+// served as static files next to the app: `public/locales/` in this repo's own
+// builds, `/usr/share/nginx/html/locales/` in the Docker image, where an
+// operator mounts a volume. Adding a language is a file plus one line of
+// configuration — no rebuild.
+
+let deploymentLocales: LocaleConfig = EMPTY_LOCALE_CONFIG
+
+/** Fetched files, so a language switched back and forth is fetched once. */
+const deploymentFiles = new Map<string, LocaleFile | null>()
+
 /**
- * The layer list, in precedence order (later wins). Exported so P4 can append
- * the deployment-file and tenant layers without this module knowing about them.
+ * Register what the operator configured. Called by `applyUiCustomizer()` in
+ * lib/config.ts, once, before main.tsx's second `activateLocale()` pass.
  */
-export const localeLayers: LocaleLayer[] = [repoLayer]
+export function setDeploymentLocales(config: LocaleConfig): void {
+  deploymentLocales = config
+  deploymentFiles.clear()
+  // Name the languages up front: the switcher has to list a language before its
+  // file has ever been fetched, and `Intl.DisplayNames` knows nothing about a
+  // tag an operator invented.
+  for (const entry of config.available) {
+    if (entry.name) configuredNames.set(entry.code, entry.name)
+  }
+}
+
+/** The operator's default language, for the locale resolution. */
+export function operatorDefaultLanguage(): string | undefined {
+  return deploymentLocales.default
+}
+
+/**
+ * Fetch one registered file.
+ *
+ * ABSOLUTE url on purpose. `lib/apiClient.ts` intercepts every `fetch` whose url
+ * starts with "/" and rewrites it onto the PostgREST base with a bearer token —
+ * so a relative `/locales/fr-FR.json` would be asked of the API rather than of
+ * the web server. Resolving against the origin first is what keeps a static file
+ * a static file.
+ *
+ * The content-type check is not belt-and-braces either: the SPA fallback
+ * (`try_files $uri /index.html`, and the equivalent on Workers) answers a
+ * MISSING file with the app's own HTML and a 200, so `res.ok` alone would hand
+ * `res.json()` a page of markup. A wrong `url` must read as "no such language",
+ * not as a parse error at boot.
+ */
+async function loadDeploymentFile(language: string): Promise<LocaleFile | null> {
+  const entry = deploymentLocales.available.find((candidate) => candidate.code === language)
+  if (!entry) return null
+  if (deploymentFiles.has(language)) return deploymentFiles.get(language) ?? null
+
+  let file: LocaleFile | null = null
+  try {
+    const url = new URL(entry.url || defaultLocaleUrl(language), window.location.origin).toString()
+    const res = await fetch(url)
+    if (!res.ok) {
+      console.warn(`[i18n] locale file for ${language} answered ${res.status} (${url})`)
+    } else if (!(res.headers.get('content-type') ?? '').includes('application/json')) {
+      console.warn(`[i18n] locale file for ${language} is not JSON — is ${url} really there?`)
+    } else {
+      file = (await res.json()) as LocaleFile
+    }
+  } catch (err) {
+    console.warn(`[i18n] locale file for ${language} could not be fetched`, err)
+  }
+  // Cached even on failure: a deployment whose file is missing must not refetch
+  // it on every language switch. `setDeploymentLocales` clears the cache.
+  deploymentFiles.set(language, file)
+  return file
+}
+
+const deploymentLayer: LocaleLayer = {
+  name: 'deployment',
+  load: loadDeploymentFile,
+}
+
+// ── The tenant's rows ───────────────────────────────────────────────────────
+//
+// Pushed in by `TranslationsPrefetch` (components/TranslationsPrefetch.tsx),
+// which reads the `ui_translations` table through the generic `useTable` hook.
+// The layer holds the ALREADY-GROUPED files rather than fetching: this module
+// is not a React component and must not own a query.
+
+let tenantFiles: ReadonlyMap<string, LocaleFile> = new Map()
+
+/** Replace the tenant layer. Called whenever the rows query resolves. */
+export function setTenantLocaleFiles(files: ReadonlyMap<string, LocaleFile>): void {
+  tenantFiles = files
+  for (const file of files.values()) {
+    if (file.name) configuredNames.set(file.locale, file.name)
+  }
+}
+
+/** The tenant's file for `language`, for callers that need it without loading. */
+export function tenantLocaleFile(language: string): LocaleFile | undefined {
+  return tenantFiles.get(language)
+}
+
+const tenantLayer: LocaleLayer = {
+  name: 'tenant',
+  load(language) {
+    return Promise.resolve(tenantFiles.get(language) ?? null)
+  },
+}
+
+/**
+ * The layer list, in precedence order (later wins). Exported so translate mode
+ * can append its drafts layer without this module knowing about it.
+ */
+export const localeLayers: LocaleLayer[] = [repoLayer, deploymentLayer, tenantLayer]
 
 /**
  * Load every layer for `language`, in order.
@@ -100,9 +214,19 @@ export function rememberLocaleNames(files: readonly LocaleFile[]): void {
   }
 }
 
-/** Every language that has a catalog, source language included. */
+/**
+ * Every language that has a catalog anywhere: shipped, deployed or in the
+ * tenant's rows. The source language is always first and always present — its
+ * "catalog" is the English in the code.
+ */
 export function availableLanguages(): readonly string[] {
-  return [SOURCE_LANGUAGE, ...repoLanguages.filter((code) => code !== SOURCE_LANGUAGE)]
+  const codes = new Set<string>([SOURCE_LANGUAGE])
+  for (const code of repoLanguages) codes.add(code)
+  for (const entry of deploymentLocales.available) codes.add(entry.code)
+  for (const code of tenantFiles.keys()) codes.add(code)
+  // Sorted, minus the source language which is pinned to the front, so the
+  // account menu's order does not depend on which layer answered first.
+  return [SOURCE_LANGUAGE, ...[...codes].filter((code) => code !== SOURCE_LANGUAGE).sort()]
 }
 
 /**
