@@ -81,7 +81,12 @@ Branch `feat/i18n`, one commit per phase, no PR. **All five phases are done and 
   which in the Vitest browser project leaves two copies of React in the graph.
 
 Numbers after P5: **458 messages**, `de-DE` 458/458, 2 obsolete (the panel sentence was reworded once during review). The suppression
-baseline did not move. `substitutions.test.ts` unchanged at 6.
+baseline did not move. `substitutions.test.ts` unchanged at 6. `pnpm check`: 80 test files,
+859 passed, 7 skipped (the same seven tenant-table tests). The accessibility audit against the
+P5 preview (`a11y-reports/20260907T140121-i18n-p5.*`): 166/168 views measured, every one at 0
+axe violations, 25 criteria Supports including 3.1.1; the single Partially Supports is the
+pre-existing 1.3.1 `h1 -> h3` jump on drizzle-cube's "No Portlets" empty state, outside
+`apps/web/src`, unchanged since P4.
 
 Each committed phase passed, independently re-run by the orchestrator: `i18n:extract` twice
 with no change, `i18n:status` 0 missing, `pnpm check`, `pnpm build`, a stable
