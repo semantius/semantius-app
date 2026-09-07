@@ -842,10 +842,18 @@ table exists nowhere yet, so that branch was the only reachable one, and an edit
 made in production could never correct the repo — `export.mjs --messages-into`
 fills only EMPTY entries, so a wrong shipped translation stayed wrong.
 
-Two consequences worth keeping. The translate target is its own axis, so
-`pnpm dev` pointed at a stage host is just a different url. And under Vitest the
-plugin writes a SCRATCH directory (`process.env.VITEST`), or a browser test that
-saves would rewrite `src/locales/de-DE.json` for real.
+Three consequences worth keeping. The translate target is its own axis, so
+`pnpm dev` pointed at a stage host is just a different url. Under Vitest the
+plugin writes a SCRATCH directory (`process.env.VITEST`) — and ONLY under
+Vitest: a real `pnpm dev` writes the checkout, which is the entire point.
+
+And **the dev writer must serialize in the extractor's SECTION ORDER, which is
+not alphabetical.** `reconcileCatalog` writes `locale`, `name`, `messages`,
+`contexts`, `obsolete`, sorting the CONTENTS of each by code unit; a plain deep
+sort puts `contexts` above `locale` and `name` last, so a one-word save arrived
+as a 32-line reordering that the next `i18n:extract` reordered back. Verified
+the way it has to be: save through a running dev server, then check that the
+diff is one line AND that `i18n:extract` afterwards is a no-op.
 
 **Lingui's message table can only be REPLACED, so a cleared message needs the
 catalog map pushed back into it.** `addMessageEntry(id, '')` updates
