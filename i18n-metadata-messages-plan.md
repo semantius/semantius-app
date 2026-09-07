@@ -8,7 +8,7 @@ never requested; see `UNAUTHORIZED-DECISIONS.md` for how it got there.
 ## The goal, as stated
 
 1. Messages from **code** are extracted and stored in `en-US.json`. *(works today)*
-2. Messages from **metadata** get a key — `module.entity.field.type` — and are
+1. Messages from **metadata** get a key — `module.entity.field.type` — and are
    stored in `en-US.json` too. *(this plan)*
 
 One mechanism, one index, one translation path. No second concept.
@@ -50,11 +50,27 @@ key says what it is without counting segments. `type` is the model's own column
 name (see below); an enum's last segment is the STORED value, never its label,
 so a relabeling does not move the key.
 
-**One spelling still to confirm: the entity level.** The two examples given were
-`nwind.orders.field.city.title` and `nwind.module.name`, which put the kind
-before the field name and after the module name respectively. `nwind.orders.
-entity.plural_label` above follows the second, treating the kind as naming the
-LEVEL of the attribute that follows. Say if you meant it the other way round.
+**The rule in one sentence: the owning object's path, then the kind, then the
+rest.** The owner of a module attribute is the module (one segment); the owner
+of everything else is the module and entity (two segments).
+
+| Kind | Owner path | Kind | Rest |
+| --- | --- | --- | --- |
+| module | `nwind` | `module` | `name` |
+| entity | `nwind.orders` | `entity` | `plural_label` |
+| field | `nwind.orders` | `field` | `city.title` |
+| enum | `nwind.orders` | `enum` | `status.open` |
+
+**Duplicate-free, checked against the cases that could break it.** An entity
+named `module` is fine: entity keys always carry their marker at position 3
+(`nwind.module.entity.plural_label`), and a three-segment key is always
+module-level. A field named `field`, `enum` or `entity` is fine, because the
+marker is positional, not matched by name. Field and enum are both five segments
+and are separated by that marker. Module slugs, entity names and field names are
+SQL identifiers and cannot contain dots, so the only free-form segment is an enum
+VALUE — and it is always last, so it is the tail after a fixed prefix rather than
+something a parser has to locate. That is strictly better than today, where
+`parseLabelKey` guesses.
 
 An enum value is data and may contain a dot, so the join escapes it and the split
 unescapes — possible only because the id arrives as segments (see "The call
@@ -395,15 +411,14 @@ to convert. This is the cheapest moment there will ever be.
 
 ## Order of work
 
-1. Confirm the entity-level key spelling (the one open item above).
-2. Key builder + the model-to-messages step, with tests, no UI.
-3. `i18n:extract` writes metadata messages into `en-US.json`; `i18n:status`
+1. Key builder + the model-to-messages step, with tests, no UI.
+2. `i18n:extract` writes metadata messages into `en-US.json`; `i18n:status`
    reports them.
-4. Move the endpoint calls into `src/i18n`; revert `baseUrl` from `useTable`
+3. Move the endpoint calls into `src/i18n`; revert `baseUrl` from `useTable`
    and `useCreateRecord`.
-5. Render path: metadata lookups become message lookups.
-6. Delete the label machinery listed above.
-7. Translate mode: one list, one tab.
+4. Render path: metadata lookups become message lookups.
+5. Delete the label machinery listed above.
+6. Translate mode: one list, one tab.
 
 Steps 2 and 3 are the whole idea and are verifiable on their own. Stop after
 step 3 and review before anything else is touched.
