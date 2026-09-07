@@ -265,13 +265,41 @@ storing it would repeat the key.
 
 Removing it makes `en-US.json` an id-to-source map and nothing else.
 
-## Not addressed here
+## Not addressed here: a correction can never reach the repo
 
-The four merge layers (`repo ← deployment file ← tenant rows`, later wins) are
-untouched by this plan and still undiscussed — `UNAUTHORIZED-DECISIONS.md` item 8.
-They apply to metadata messages exactly as they do to code strings, and they are
-the reason an edit made in production shadows the repo value rather than
-correcting it.
+This is the "how would the browser edit an existing wrong message without
+creating a mess" problem, and it is unsolved.
+
+The layers are `repo ← deployment file ← tenant rows`, later wins. So a
+translator who fixes a wrong German string in production writes a tenant row that
+SHADOWS the repo value. That tenant now renders the fix. Every other tenant keeps
+the wrong string, and the repo keeps it too.
+
+The only path back is `scripts/i18n/export.mjs --messages-into`, and **it fills
+only entries that are EMPTY**:
+
+```js
+// export.mjs — the guard that strands the fix
+if (message in section && !section[message]) { … }
+```
+
+A wrong-but-present value is therefore never corrected. The fix stays in one
+tenant forever, and nothing reports the divergence.
+
+The dev target makes this bearable but does not solve it: an edit made under
+`pnpm dev` rewrites the repo catalog directly, so a correction made there IS the
+source and goes through a PR. That only helps whoever has the checkout.
+
+What is still needed, and is not in this plan:
+
+- a decision on whether a tenant edit of a SHIPPED string is a correction or an
+  override — they look identical today and are stored identically;
+- if it can be a correction, a way for it to travel back and overwrite a
+  non-empty repo value, with review;
+- if it is always an override, the UI should say so, and the repo string should
+  be fixed in dev instead.
+
+`UNAUTHORIZED-DECISIONS.md` item 8 is the same subject from the layering side.
 
 ## Migration
 
