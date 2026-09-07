@@ -54,8 +54,12 @@ Everything downstream follows from that one change:
 - `i18n:status` reports both. The catalog test checks both.
 - A removed field's message moves to `obsolete`, exactly as a reworded code
   string does. The "orphaned" concept disappears.
-- The `scope` column collapses. `message` covers code and metadata; only
-  `server` and `rule` (backend text discovered at runtime) remain distinct.
+- The `scope` column collapses to almost nothing. `message` covers code and
+  metadata. `rule` goes with it: a validation-rule message lives in
+  `entities.validation_rules`, which is metadata and is extracted like any other.
+  Only `server` — text PostgREST and RPC functions raise from inside the
+  database — cannot be extracted by anything, and whether that residue justifies
+  keeping the request queue is open (`UNAUTHORIZED-DECISIONS.md` item 4).
 - Translate mode has one list. The "Model labels" tab goes.
 
 **Module-scoped keys are what make a module a unit.** Add a module, its messages
@@ -86,9 +90,23 @@ new translatable string shows up in a diff.
 
 ## The endpoint
 
-Specified separately in `i18n-endpoint-spec.md`, including the open question of
+Specified separately in `i18n-endpoint-spec.md`, including two open questions:
 whether the contract should keep mimicking PostgREST or become a plain
-`{ locale, key, translation }` API with a tenant-side adapter.
+`{ locale, key, translation }` API with a tenant-side adapter, and the ownership
+correction below.
+
+**The i18n layer owns the endpoint calls.** It already owns where translations
+come from — the layer list, `setDeploymentLocales`, `setTenantLocaleFiles`,
+`translateApiUrl()`. The current code instead borrows the generic `useTable` and
+`useCreateRecord` and threads the base url through them as a `baseUrl` argument,
+which sends configuration out of the layer that owns it and back in. The read-all
+and write-one belong in `src/i18n`, and then `baseUrl` reverts out of both shared
+hooks and no call site passes anything.
+
+The repo rule that all data access goes through the generic hooks is about tenant
+business data. Translations are the i18n layer's own store and may sit on a
+different host entirely, so they are the exception — following the rule literally
+is what produced the awkwardness.
 
 ## Customer-created entities
 
@@ -115,6 +133,14 @@ access to their database.
 
 Roughly 900 lines removed against maybe 250 added.
 
+## Not addressed here
+
+The four merge layers (`repo ← deployment file ← tenant rows`, later wins) are
+untouched by this plan and still undiscussed — `UNAUTHORIZED-DECISIONS.md` item 8.
+They apply to metadata messages exactly as they do to code strings, and they are
+the reason an edit made in production shadows the repo value rather than
+correcting it.
+
 ## Migration
 
 None. `ui_translations` does not exist on any deployment, so there are no rows
@@ -126,9 +152,11 @@ to convert. This is the cheapest moment there will ever be.
 2. Key builder + the model-to-messages step, with tests, no UI.
 3. `i18n:extract` writes metadata messages into `en-US.json`; `i18n:status`
    reports them.
-4. Render path: metadata lookups become message lookups.
-5. Delete the label machinery listed above.
-6. Translate mode: one list, one tab.
+4. Move the endpoint calls into `src/i18n`; revert `baseUrl` from `useTable`
+   and `useCreateRecord`.
+5. Render path: metadata lookups become message lookups.
+6. Delete the label machinery listed above.
+7. Translate mode: one list, one tab.
 
 Steps 2 and 3 are the whole idea and are verifiable on their own. Stop after
 step 3 and review before anything else is touched.

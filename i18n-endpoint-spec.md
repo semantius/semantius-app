@@ -75,6 +75,13 @@ else; each target maps that to its own storage.
 The second is smaller and does not leak one implementation's protocol into the
 other two. The cost is one adapter on the tenant side instead of none.
 
+## Who calls it
+
+The **i18n layer**, not the generic table hooks. It already owns the target
+(`translateApiUrl()`) and the layer list, so it owns the read and the write too.
+Today `useTable` and `useCreateRecord` carry a `baseUrl` argument added for this;
+that reverts.
+
 ## Fields
 
 Under `i18n-metadata-messages-plan.md` a message is `{ locale, key, translation }`
