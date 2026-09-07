@@ -4,6 +4,7 @@ import type { IAuthContext } from 'react-oauth2-code-pkce'
 import { ConfigErrorPage } from '@/components/ConfigErrorPage'
 import { getApiConfig, createApiHeaders, setInterceptorToken } from '@/lib/apiClient'
 import { getConfig } from '@/lib/config'
+import { translate } from '@/i18n'
 import type { AnyRouter } from '@tanstack/react-router'
 import type { RouterContext } from '@/routes/__root'
 
@@ -293,7 +294,11 @@ function RouterContextUpdater({
           })
             .then(async (response) => {
               if (!response.ok) {
-                throw await responseError('Failed to fetch user info', response)
+                // `translate`, not a `useT()` in the effect's deps: listing `t`
+                // there would re-run the whole userinfo fetch on a language
+                // switch. The message is captured when the request fails, which
+                // is the same "already in state" trade every toast makes.
+                throw await responseError(translate('Failed to fetch user info'), response)
               }
               const data = await response.json()
               setUserInfo(data)
@@ -302,7 +307,7 @@ function RouterContextUpdater({
             .catch((error) => {
               console.error('Error fetching OAuth user info:', error)
               authErrors.push(error)
-              setUserInfoError(error instanceof Error ? error : new Error('Unknown error'))
+              setUserInfoError(error instanceof Error ? error : new Error(translate('Unknown error')))
               setUserInfo(null)
               return false
             })
@@ -327,7 +332,7 @@ function RouterContextUpdater({
           })
             .then(async (response) => {
               if (!response.ok) {
-                throw await responseError('Failed to fetch RPC user info', response)
+                throw await responseError(translate('Failed to fetch RPC user info'), response)
               }
               const data = await response.json()
               setRpcUserInfo(data)
@@ -336,7 +341,7 @@ function RouterContextUpdater({
             .catch((error) => {
               console.error('Error fetching RPC user info:', error)
               authErrors.push(error)
-              setRpcUserInfoError(error instanceof Error ? error : new Error('Unknown error'))
+              setRpcUserInfoError(error instanceof Error ? error : new Error(translate('Unknown error')))
               setRpcUserInfo(null)
               return false
             })

@@ -2,6 +2,7 @@ import * as React from "react"
 import { CheckIcon, ChevronsUpDownIcon, XIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { useT } from "@/i18n"
 import {
   Command,
   CommandEmpty,
@@ -45,8 +46,8 @@ export function Combobox({
   options,
   value,
   onValueChange,
-  placeholder = "Select an option",
-  searchPlaceholder = "Search...",
+  placeholder,
+  searchPlaceholder,
   showClear = false,
   disabled = false,
   id,
@@ -57,6 +58,12 @@ export function Combobox({
   onBlur,
   className,
 }: ComboboxProps) {
+  const t = useT()
+  // Defaulted here rather than in the parameter list: a default parameter is
+  // evaluated before the body runs, so it cannot call a hook, and a module-level
+  // constant would freeze the English at import time.
+  const placeholderText = placeholder ?? t("Select an option")
+  const searchPlaceholderText = searchPlaceholder ?? t("Search...")
   const [open, setOpen] = React.useState(false)
   // cmdk's Command.List spreads user props BEFORE writing its own generated
   // `id`, so an id passed to <CommandList> is discarded and `aria-controls`
@@ -130,7 +137,7 @@ export function Combobox({
             />
           }
         >
-          <span className="truncate">{disabled ? (value || '') : (value || placeholder)}</span>
+          <span className="truncate">{disabled ? (value || '') : (value || placeholderText)}</span>
           {!disabled && <ChevronsUpDownIcon className="size-4 shrink-0 opacity-50" />}
         </PopoverTrigger>
         {showClearButton && (
@@ -138,7 +145,7 @@ export function Combobox({
           // no key events. size-6 (24px) satisfies 2.5.8 target size.
           <button
             type="button"
-            aria-label="Clear selection"
+            aria-label={t("Clear selection")}
             onClick={handleClear}
             className="text-muted-foreground hover:text-foreground absolute top-1/2 right-7 flex size-6 -translate-y-1/2 items-center justify-center rounded-sm focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
           >
@@ -151,9 +158,9 @@ export function Combobox({
         align="start"
       >
         <Command>
-          {showSearch && <CommandInput placeholder={searchPlaceholder} />}
+          {showSearch && <CommandInput placeholder={searchPlaceholderText} />}
           <CommandList ref={listboxRef}>
-            <CommandEmpty>No option found.</CommandEmpty>
+            <CommandEmpty>{t("No option found.")}</CommandEmpty>
             <CommandGroup>
               {options.map((option) => (
                 <CommandItem

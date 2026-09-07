@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, useRouterState } from '@tanstack/react-router'
-import { translate } from '@/i18n'
+import { translate, useT } from '@/i18n'
 import { pageTitle } from '@/lib/pageTitle'
 import { useTable } from '@/hooks/useTable'
 import { useConfirmDelete } from '@/hooks/useConfirmDelete'
@@ -56,6 +56,7 @@ export const Route = createFileRoute('/_app/xcustomers')({
 })
 
 function CustomersComponent() {
+  const t = useT()
   const navigate = useNavigate()
   const routerState = useRouterState()
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
@@ -160,7 +161,7 @@ function CustomersComponent() {
           onClick={() => handleSort('email')}
           className="hover:bg-transparent p-0 h-auto font-medium"
         >
-          Email Address
+          {t('Email Address')}
           {getSortIcon('email')}
         </Button>
       ),
@@ -176,7 +177,7 @@ function CustomersComponent() {
           onClick={() => handleSort('phone')}
           className="hover:bg-transparent p-0 h-auto font-medium"
         >
-          Phone Number
+          {t('Phone Number')}
           {getSortIcon('phone')}
         </Button>
       ),
@@ -190,7 +191,7 @@ function CustomersComponent() {
           onClick={() => handleSort('company')}
           className="hover:bg-transparent p-0 h-auto font-medium"
         >
-          Company Name
+          {t('Company Name')}
           {getSortIcon('company')}
         </Button>
       ),
@@ -204,7 +205,7 @@ function CustomersComponent() {
           onClick={() => handleSort('status')}
           className="hover:bg-transparent p-0 h-auto font-medium"
         >
-          Status
+          {t('Status')}
           {getSortIcon('status')}
         </Button>
       ),
@@ -233,7 +234,7 @@ function CustomersComponent() {
           onClick={() => handleSort('total_orders')}
           className="hover:bg-transparent p-0 h-auto font-medium"
         >
-          Total Orders
+          {t('Total Orders')}
           {getSortIcon('total_orders')}
         </Button>
       ),
@@ -256,12 +257,12 @@ function CustomersComponent() {
                 />
               }
             >
-              <span className="sr-only">Open menu</span>
+              <span className="sr-only">{t('Open menu')}</span>
               <MoreHorizontal className="h-4 w-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48" sideOffset={5}>
               <DropdownMenuGroup>
-                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                <DropdownMenuLabel>{t('Actions')}</DropdownMenuLabel>
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
               {canEdit && (
@@ -276,7 +277,7 @@ function CustomersComponent() {
                     }}
                   >
                     <Pencil className="mr-2 h-4 w-4" />
-                    Edit in Sidebar
+                    {t('Edit in Sidebar')}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={(e) => {
@@ -285,7 +286,7 @@ function CustomersComponent() {
                     }}
                   >
                     <ExternalLink className="mr-2 h-4 w-4" />
-                    Edit in Modal
+                    {t('Edit in Modal')}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
@@ -294,18 +295,23 @@ function CustomersComponent() {
                       e.stopPropagation()
                       deleteConfirm.showConfirmation(
                         customer.customer_id as string | number,
-                        String(customer.customer_name || customer.email || customer.company || 'this customer')
+                        // Empty, not a stand-in name: the dialog and the toast
+                        // each have their own sentence for the no-name case,
+                        // because a placeholder slotted into
+                        // "{label} {name} deleted" reads as nonsense once the
+                        // sentence inflects.
+                        String(customer.customer_name || customer.email || customer.company || '')
                       )
                     }}
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
-                    Delete
+                    {t('Delete')}
                   </DropdownMenuItem>
                 </>
               )}
               {!canEdit && (
                 <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                  No actions available
+                  {t('No actions available')}
                 </div>
               )}
             </DropdownMenuContent>
@@ -353,10 +359,10 @@ function CustomersComponent() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
-            {metadata?.label || 'Customers'}
+            {metadata?.label || t('Customers')}
           </h1>
           <p className="text-muted-foreground">
-            {metadata?.description || 'Manage customer information and orders'}
+            {metadata?.description || t('Manage customer information and orders')}
           </p>
         </div>
         {canEdit && (
@@ -364,7 +370,7 @@ function CustomersComponent() {
             onClick={() => navigate({ to: '/xcustomers/new' })}
           >
             <Plus className="mr-2 h-4 w-4" />
-            Add Customer
+            {t('Add Customer')}
           </Button>
         )}
       </div>
@@ -373,30 +379,28 @@ function CustomersComponent() {
         <CardHeader>
           <div className="flex items-center gap-2">
             <Users className="h-5 w-5" />
-            <CardTitle>Customer List</CardTitle>
+            <CardTitle>{t('Customer List')}</CardTitle>
           </div>
-          <CardDescription>
-            Browse and manage all customer records
-          </CardDescription>
+          <CardDescription>{t('Browse and manage all customer records')}</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading && (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               <span className="ml-2 text-muted-foreground">
-                Loading customers...
+                {t('Loading customers...')}
               </span>
             </div>
           )}
 
           {error && (
-            <ApiErrorDisplay error={error} title="Error loading customers" />
+            <ApiErrorDisplay error={error} title={t('Error loading customers')} />
           )}
 
           {!isLoading && !error && customers && customers.length === 0 && (
             <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
               <Users className="h-12 w-12 mb-2" />
-              <p>No customers found</p>
+              <p>{t('No customers found')}</p>
               {canEdit && (
                 <Button
                   variant="outline"
@@ -404,7 +408,7 @@ function CustomersComponent() {
                   onClick={() => navigate({ to: '/xcustomers/new' })}
                 >
                   <Plus className="mr-2 h-4 w-4" />
-                  Add your first customer
+                  {t('Add your first customer')}
                 </Button>
               )}
             </div>
@@ -458,12 +462,16 @@ function CustomersComponent() {
             // ancestor to reach them.
             <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-2 py-4">
               <div className="text-sm text-muted-foreground">
-                Showing {pagination.pageIndex * pagination.pageSize + 1} to{' '}
-                {Math.min(
-                  (pagination.pageIndex + 1) * pagination.pageSize,
-                  (customers?.length || 0) + pagination.pageIndex * pagination.pageSize
-                )}{' '}
-                customers
+                {/* One sentence, not three fragments joined by JSX: German
+                    puts "Kunden" before the range, and "Showing" has no
+                    separable equivalent. */}
+                {t('Showing {from} to {to} customers', {
+                  from: pagination.pageIndex * pagination.pageSize + 1,
+                  to: Math.min(
+                    (pagination.pageIndex + 1) * pagination.pageSize,
+                    (customers?.length || 0) + pagination.pageIndex * pagination.pageSize,
+                  ),
+                })}
               </div>
               <div className="flex flex-wrap items-center gap-x-6 gap-y-3 lg:gap-x-8">
                 <div className="flex items-center space-x-2">
@@ -472,7 +480,7 @@ function CustomersComponent() {
                       (4.1.2). Promoting it to a real <label htmlFor> costs
                       nothing and keeps the same visual. */}
                   <label htmlFor="xcustomers-page-size" className="text-sm font-medium">
-                    Rows per page
+                    {t('Rows per page')}
                   </label>
                   <select
                     id="xcustomers-page-size"
@@ -490,7 +498,7 @@ function CustomersComponent() {
                   </select>
                 </div>
                 <div className="flex items-center justify-center text-sm font-medium whitespace-nowrap">
-                  Page {pagination.pageIndex + 1}
+                  {t('Page {page}', { page: pagination.pageIndex + 1 })}
                 </div>
                 <div className="flex items-center space-x-2">
                   <Button
@@ -499,7 +507,7 @@ function CustomersComponent() {
                     onClick={() => setPagination({ ...pagination, pageIndex: 0 })}
                     disabled={pagination.pageIndex === 0}
                   >
-                    <span className="sr-only">Go to first page</span>
+                    <span className="sr-only">{t('Go to first page')}</span>
                     <ChevronsLeft className="h-4 w-4" />
                   </Button>
                   <Button
@@ -508,7 +516,7 @@ function CustomersComponent() {
                     onClick={() => setPagination({ ...pagination, pageIndex: pagination.pageIndex - 1 })}
                     disabled={pagination.pageIndex === 0}
                   >
-                    <span className="sr-only">Go to previous page</span>
+                    <span className="sr-only">{t('Go to previous page')}</span>
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
                   <Button
@@ -517,7 +525,7 @@ function CustomersComponent() {
                     onClick={() => setPagination({ ...pagination, pageIndex: pagination.pageIndex + 1 })}
                     disabled={!customers || customers.length < pagination.pageSize}
                   >
-                    <span className="sr-only">Go to next page</span>
+                    <span className="sr-only">{t('Go to next page')}</span>
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                   <Button
@@ -526,7 +534,7 @@ function CustomersComponent() {
                     onClick={() => setPagination({ ...pagination, pageIndex: pagination.pageIndex + 1 })}
                     disabled={!customers || customers.length < pagination.pageSize}
                   >
-                    <span className="sr-only">Go to last page (approx)</span>
+                    <span className="sr-only">{t('Go to last page (approx)')}</span>
                     <ChevronsRight className="h-4 w-4" />
                   </Button>
                 </div>
@@ -561,7 +569,7 @@ function CustomersComponent() {
       </Dialog>
 
       {/* Delete confirmation dialog */}
-      <ConfirmDeleteDialog {...deleteConfirm} entityType="Customer" />
+      <ConfirmDeleteDialog {...deleteConfirm} entityType={t('Customer')} />
     </div>
   )
 }

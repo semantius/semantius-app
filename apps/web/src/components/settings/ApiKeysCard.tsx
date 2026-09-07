@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Key, Plus, Trash2, Copy, Check, Loader2 } from 'lucide-react'
 import { useRpc, useRpcMutation } from '@/hooks/useRpc'
 import { getConfig } from '@/lib/config'
+import { Trans } from '@lingui/react'
 import { useFormattingLocale, useT } from '@/i18n'
 import { formatDateForDisplay, type DateFormat } from '@/lib/date-format'
 import { Button } from '@/components/ui/button'
@@ -114,7 +115,7 @@ export function ApiKeysCard() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Key className="h-5 w-5" />
-              <CardTitle>API Keys</CardTitle>
+              <CardTitle>{t('API Keys')}</CardTitle>
             </div>
             <Button
               size="sm"
@@ -125,12 +126,10 @@ export function ApiKeysCard() {
               }}
             >
               <Plus className="h-4 w-4" />
-              Add new API key
+              {t('Add new API key')}
             </Button>
           </div>
-          <CardDescription>
-            Manage API keys for programmatic access
-          </CardDescription>
+          <CardDescription>{t('Manage API keys for programmatic access')}</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -143,14 +142,14 @@ export function ApiKeysCard() {
             // with no way to reach the rest of it (1.4.10).
             <div className="overflow-x-auto rounded-md border">
               <table className="w-full min-w-125 text-sm">
-                <caption className="sr-only">API keys</caption>
+                <caption className="sr-only">{t('API keys')}</caption>
                 <thead>
                   <tr className="border-b bg-muted/50">
-                    <th scope="col" className="px-4 py-2 text-left font-medium">Name</th>
-                    <th scope="col" className="px-4 py-2 text-left font-medium">Key</th>
-                    <th scope="col" className="px-4 py-2 text-left font-medium">Created</th>
-                    <th scope="col" className="px-4 py-2 text-left font-medium">Last Used</th>
-                    <th scope="col" className="px-4 py-2 text-right font-medium">Actions</th>
+                    <th scope="col" className="px-4 py-2 text-left font-medium">{t('Name')}</th>
+                    <th scope="col" className="px-4 py-2 text-left font-medium">{t('Key')}</th>
+                    <th scope="col" className="px-4 py-2 text-left font-medium">{t('Created')}</th>
+                    <th scope="col" className="px-4 py-2 text-left font-medium">{t('Last Used')}</th>
+                    <th scope="col" className="px-4 py-2 text-right font-medium">{t('Actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -175,7 +174,7 @@ export function ApiKeysCard() {
                         <Button
                           variant="ghost"
                           size="icon-xs"
-                          aria-label={`Revoke API key ${key.description}`}
+                          aria-label={t('Revoke API key {name}', { name: key.description })}
                           onClick={() => setDeleteTarget(key)}
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
@@ -188,7 +187,7 @@ export function ApiKeysCard() {
             </div>
           ) : (
             <p className="text-sm text-muted-foreground py-4 text-center">
-              No API keys yet. Create one to get started.
+              {t('No API keys yet. Create one to get started.')}
             </p>
           )}
         </CardContent>
@@ -198,13 +197,13 @@ export function ApiKeysCard() {
       <Dialog open={showNameDialog} onOpenChange={setShowNameDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create API Key</DialogTitle>
+            <DialogTitle>{t('Create API Key')}</DialogTitle>
             <DialogDescription>
-              Enter a name to identify this API key.
+              {t('Enter a name to identify this API key.')}
             </DialogDescription>
           </DialogHeader>
           <Input
-            placeholder="e.g. Production, CI/CD, Development"
+            placeholder={t('e.g. Production, CI/CD, Development')}
             value={keyName}
             onChange={(e) => setKeyName(e.target.value)}
             onKeyDown={(e) => {
@@ -224,7 +223,7 @@ export function ApiKeysCard() {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowNameDialog(false)}>
-              Cancel
+              {t('Cancel')}
             </Button>
             <Button
               onClick={handleCreate}
@@ -233,7 +232,7 @@ export function ApiKeysCard() {
               {createMutation.isPending && (
                 <Loader2 className="h-4 w-4 animate-spin" />
               )}
-              Create
+              {t('Create')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -251,9 +250,9 @@ export function ApiKeysCard() {
       >
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>API Key Created</DialogTitle>
+            <DialogTitle>{t('API Key Created')}</DialogTitle>
             <DialogDescription>
-              Copy your API key now. You won't be able to see it again.
+              {t("Copy your API key now. You won't be able to see it again.")}
             </DialogDescription>
           </DialogHeader>
           <div className="relative">
@@ -264,13 +263,13 @@ export function ApiKeysCard() {
               variant="ghost"
               size="icon"
               className="absolute right-1 top-1"
-              aria-label={copied ? 'API key copied' : 'Copy API key'}
+              aria-label={copied ? t('API key copied') : t('Copy API key')}
               onClick={handleCopy}
             >
               {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">Semantius CLI configuration</p>
+          <p className="text-xs text-muted-foreground">{t('Semantius CLI configuration')}</p>
           <div className="relative">
             <code className="block w-full rounded-md bg-muted p-3 pr-12 font-mono text-sm whitespace-pre">
               {`SEMANTIUS_API_KEY=${newApiKey}\nSEMANTIUS_ORG=${orgName}`}
@@ -279,7 +278,7 @@ export function ApiKeysCard() {
               variant="ghost"
               size="icon"
               className="absolute right-1 top-1"
-              aria-label={copiedEnv ? 'CLI configuration copied' : 'Copy CLI configuration'}
+              aria-label={copiedEnv ? t('CLI configuration copied') : t('Copy CLI configuration')}
               onClick={async () => {
                 await navigator.clipboard.writeText(`SEMANTIUS_API_KEY=${newApiKey}\nSEMANTIUS_ORG=${orgName}`)
                 setCopiedEnv(true)
@@ -290,7 +289,7 @@ export function ApiKeysCard() {
             </Button>
           </div>
           <DialogFooter>
-            <Button onClick={() => setShowNewKeyDialog(false)}>Done</Button>
+            <Button onClick={() => setShowNewKeyDialog(false)}>{t('Done')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -307,11 +306,16 @@ export function ApiKeysCard() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Revoke API Key</AlertDialogTitle>
+            <AlertDialogTitle>{t('Revoke API Key')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to revoke{' '}
-              <strong>{deleteTarget?.description}</strong>? This action cannot
-              be undone and any integrations using this key will stop working.
+              {/* One sentence, markup included: which words the name sits
+                  between is a property of the sentence, not something to
+                  reassemble from three fragments per language. */}
+              <Trans
+                id="Are you sure you want to revoke <bold>{name}</bold>? This action cannot be undone and any integrations using this key will stop working."
+                values={{ name: deleteTarget?.description ?? '' }}
+                components={{ bold: <strong /> }}
+              />
             </AlertDialogDescription>
             {revokeMutation.error && (
               <p className="text-sm text-destructive pt-1">
@@ -324,7 +328,7 @@ export function ApiKeysCard() {
               disabled={revokeMutation.isPending}
               onClick={() => setDeleteTarget(null)}
             >
-              Cancel
+              {t('Cancel')}
             </AlertDialogCancel>
             <Button
               variant="destructive"
@@ -334,10 +338,10 @@ export function ApiKeysCard() {
               {revokeMutation.isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Revoking...
+                  {t('Revoking...')}
                 </>
               ) : (
-                'Revoke'
+                t('Revoke')
               )}
             </Button>
           </AlertDialogFooter>

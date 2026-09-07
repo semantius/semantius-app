@@ -1,10 +1,52 @@
 {
   "locale": "en-US",
   "index": {
+    "(required)": {
+      "message": "(required)",
+      "origin": [
+        "src/components/form/FormLabel.tsx"
+      ],
+      "placeholders": []
+    },
     "404 - Page Not Found": {
       "message": "404 - Page Not Found",
       "origin": [
         "src/components/NotFoundPage.tsx"
+      ],
+      "placeholders": []
+    },
+    "<strong>Note:</strong> Do not commit your <code>.env</code> file to version control. It should contain sensitive credentials and is already listed in <code>.gitignore</code>.": {
+      "message": "<strong>Note:</strong> Do not commit your <code>.env</code> file to version control. It should contain sensitive credentials and is already listed in <code>.gitignore</code>.",
+      "origin": [
+        "src/components/ConfigErrorPage.tsx"
+      ],
+      "placeholders": []
+    },
+    "API Key Created": {
+      "message": "API Key Created",
+      "origin": [
+        "src/components/settings/ApiKeysCard.tsx"
+      ],
+      "placeholders": []
+    },
+    "API Keys": {
+      "message": "API Keys",
+      "origin": [
+        "src/components/settings/ApiKeysCard.tsx"
+      ],
+      "placeholders": []
+    },
+    "API key copied": {
+      "message": "API key copied",
+      "origin": [
+        "src/components/settings/ApiKeysCard.tsx"
+      ],
+      "placeholders": []
+    },
+    "API keys": {
+      "message": "API keys",
+      "origin": [
+        "src/components/settings/ApiKeysCard.tsx"
       ],
       "placeholders": []
     },
@@ -18,7 +60,30 @@
     "Actions": {
       "message": "Actions",
       "origin": [
-        "src/components/data-table-view/DataTableView.tsx"
+        "src/components/data-table-view/DataTableView.tsx",
+        "src/components/settings/ApiKeysCard.tsx",
+        "src/routes/_app.xcustomers.tsx"
+      ],
+      "placeholders": []
+    },
+    "Active": {
+      "message": "Active",
+      "origin": [
+        "src/components/customers/CustomerForm.tsx"
+      ],
+      "placeholders": []
+    },
+    "Add Customer": {
+      "message": "Add Customer",
+      "origin": [
+        "src/routes/_app.xcustomers.tsx"
+      ],
+      "placeholders": []
+    },
+    "Add a new customer to the system.": {
+      "message": "Add a new customer to the system.",
+      "origin": [
+        "src/components/customers/CustomerForm.tsx"
       ],
       "placeholders": []
     },
@@ -43,6 +108,13 @@
       ],
       "placeholders": []
     },
+    "Add new API key": {
+      "message": "Add new API key",
+      "origin": [
+        "src/components/settings/ApiKeysCard.tsx"
+      ],
+      "placeholders": []
+    },
     "Add sort": {
       "message": "Add sort",
       "origin": [
@@ -57,6 +129,20 @@
       ],
       "placeholders": []
     },
+    "Add to favorites": {
+      "message": "Add to favorites",
+      "origin": [
+        "src/components/ui-ext/bookmark-icon.tsx"
+      ],
+      "placeholders": []
+    },
+    "Add your first customer": {
+      "message": "Add your first customer",
+      "origin": [
+        "src/routes/_app.xcustomers.tsx"
+      ],
+      "placeholders": []
+    },
     "Add {label}": {
       "message": "Add {label}",
       "origin": [
@@ -65,6 +151,23 @@
       "placeholders": [
         "label"
       ]
+    },
+    "Add {label} to favorites": {
+      "message": "Add {label} to favorites",
+      "origin": [
+        "src/components/ui-ext/bookmark-icon.tsx"
+      ],
+      "placeholders": [
+        "label"
+      ]
+    },
+    "Alt": {
+      "message": "Alt",
+      "origin": [
+        "src/components/ui-ext/bookmark-icon.tsx",
+        "src/components/ui-ext/platform-shortcut.tsx"
+      ],
+      "placeholders": []
     },
     "An unexpected error occurred while loading the application.": {
       "message": "An unexpected error occurred while loading the application.",
@@ -87,10 +190,24 @@
       ],
       "placeholders": []
     },
+    "An unknown error occurred": {
+      "message": "An unknown error occurred",
+      "origin": [
+        "src/components/ApiErrorDisplay.tsx"
+      ],
+      "placeholders": []
+    },
     "Application Failed to Start": {
       "message": "Application Failed to Start",
       "origin": [
         "src/main.tsx"
+      ],
+      "placeholders": []
+    },
+    "Application Settings": {
+      "message": "Application Settings",
+      "origin": [
+        "src/routes/_app.settings.tsx"
       ],
       "placeholders": []
     },
@@ -111,10 +228,38 @@
         "name"
       ]
     },
+    "Are you sure you want to delete this {type}? This action cannot be undone.": {
+      "message": "Are you sure you want to delete this {type}? This action cannot be undone.",
+      "origin": [
+        "src/components/ConfirmDeleteDialog.tsx"
+      ],
+      "placeholders": [
+        "type"
+      ]
+    },
+    "Are you sure you want to revoke <bold>{name}</bold>? This action cannot be undone and any integrations using this key will stop working.": {
+      "message": "Are you sure you want to revoke <bold>{name}</bold>? This action cannot be undone and any integrations using this key will stop working.",
+      "origin": [
+        "src/components/settings/ApiKeysCard.tsx"
+      ],
+      "placeholders": [
+        "name"
+      ]
+    },
     "Ascending": {
       "message": "Ascending",
       "origin": [
         "src/components/niko-table/config/data-table.ts"
+      ],
+      "placeholders": []
+    },
+    "Authentication token is required": {
+      "message": "Authentication token is required",
+      "origin": [
+        "src/hooks/useRpc.ts",
+        "src/hooks/useTable.ts",
+        "src/hooks/useTableMutations.ts",
+        "src/routes/_app.$moduleId.$table_name.tsx"
       ],
       "placeholders": []
     },
@@ -123,6 +268,13 @@
       "origin": [
         "src/components/ErrorPage.tsx",
         "src/components/NotFoundPage.tsx"
+      ],
+      "placeholders": []
+    },
+    "Browse and manage all customer records": {
+      "message": "Browse and manage all customer records",
+      "origin": [
+        "src/routes/_app.xcustomers.tsx"
       ],
       "placeholders": []
     },
@@ -144,6 +296,20 @@
         "locale"
       ]
     },
+    "CLI configuration copied": {
+      "message": "CLI configuration copied",
+      "origin": [
+        "src/components/settings/ApiKeysCard.tsx"
+      ],
+      "placeholders": []
+    },
+    "CRM Home": {
+      "message": "CRM Home",
+      "origin": [
+        "src/routes/_app.crm.home.lazy.tsx"
+      ],
+      "placeholders": []
+    },
     "CRM home": {
       "message": "CRM home",
       "origin": [
@@ -161,7 +327,9 @@
     "Cancel": {
       "message": "Cancel",
       "origin": [
-        "src/components/ConfirmDeleteDialog.tsx"
+        "src/components/ConfirmDeleteDialog.tsx",
+        "src/components/customers/CustomerForm.tsx",
+        "src/components/settings/ApiKeysCard.tsx"
       ],
       "placeholders": []
     },
@@ -209,10 +377,26 @@
       ],
       "placeholders": []
     },
+    "Clear selection": {
+      "message": "Clear selection",
+      "origin": [
+        "src/components/form/InputEnum.tsx",
+        "src/components/form/api-select.tsx",
+        "src/components/ui-ext/combobox.tsx"
+      ],
+      "placeholders": []
+    },
     "Clear sort": {
       "message": "Clear sort",
       "origin": [
         "src/components/niko-table/filters/table-column-sort.tsx"
+      ],
+      "placeholders": []
+    },
+    "Close": {
+      "message": "Close",
+      "origin": [
+        "src/components/customers/CustomerForm.tsx"
       ],
       "placeholders": []
     },
@@ -237,6 +421,21 @@
       ],
       "placeholders": []
     },
+    "Command Palette": {
+      "message": "Command Palette",
+      "origin": [
+        "src/components/ui-ext/command-dialog.tsx"
+      ],
+      "placeholders": []
+    },
+    "Company Name": {
+      "message": "Company Name",
+      "origin": [
+        "src/components/customers/CustomerForm.tsx",
+        "src/routes/_app.xcustomers.tsx"
+      ],
+      "placeholders": []
+    },
     "Completing sign-in": {
       "message": "Completing sign-in",
       "origin": [
@@ -247,6 +446,7 @@
     "Configuration Error": {
       "message": "Configuration Error",
       "origin": [
+        "src/components/ConfigErrorPage.tsx",
         "src/main.tsx"
       ],
       "placeholders": []
@@ -255,6 +455,119 @@
       "message": "Contains",
       "origin": [
         "src/components/niko-table/config/data-table.ts"
+      ],
+      "placeholders": []
+    },
+    "Continue Editing": {
+      "message": "Continue Editing",
+      "origin": [
+        "src/components/customers/CustomerForm.tsx"
+      ],
+      "placeholders": []
+    },
+    "Copy API key": {
+      "message": "Copy API key",
+      "origin": [
+        "src/components/settings/ApiKeysCard.tsx"
+      ],
+      "placeholders": []
+    },
+    "Copy CLI configuration": {
+      "message": "Copy CLI configuration",
+      "origin": [
+        "src/components/settings/ApiKeysCard.tsx"
+      ],
+      "placeholders": []
+    },
+    "Copy the contents from <code>.env.example</code>": {
+      "message": "Copy the contents from <code>.env.example</code>",
+      "origin": [
+        "src/components/ConfigErrorPage.tsx"
+      ],
+      "placeholders": []
+    },
+    "Copy your API key now. You won't be able to see it again.": {
+      "message": "Copy your API key now. You won't be able to see it again.",
+      "origin": [
+        "src/components/settings/ApiKeysCard.tsx"
+      ],
+      "placeholders": []
+    },
+    "Create": {
+      "message": "Create",
+      "origin": [
+        "src/components/form/Playground.tsx",
+        "src/components/settings/ApiKeysCard.tsx"
+      ],
+      "placeholders": []
+    },
+    "Create API Key": {
+      "message": "Create API Key",
+      "origin": [
+        "src/components/settings/ApiKeysCard.tsx"
+      ],
+      "placeholders": []
+    },
+    "Create Customer": {
+      "message": "Create Customer",
+      "origin": [
+        "src/components/customers/CustomerForm.tsx"
+      ],
+      "placeholders": []
+    },
+    "Create New Customer": {
+      "message": "Create New Customer",
+      "origin": [
+        "src/components/customers/CustomerForm.tsx"
+      ],
+      "placeholders": []
+    },
+    "Create a <code>.env</code> file in your project root (or run <code>npm run genconfig</code>)": {
+      "message": "Create a <code>.env</code> file in your project root (or run <code>npm run genconfig</code>)",
+      "origin": [
+        "src/components/ConfigErrorPage.tsx"
+      ],
+      "placeholders": []
+    },
+    "Created": {
+      "message": "Created",
+      "origin": [
+        "src/components/settings/ApiKeysCard.tsx"
+      ],
+      "placeholders": []
+    },
+    "Ctrl": {
+      "message": "Ctrl",
+      "origin": [
+        "src/components/ui-ext/platform-shortcut.tsx"
+      ],
+      "placeholders": []
+    },
+    "Current authentication token (for debugging purposes)": {
+      "message": "Current authentication token (for debugging purposes)",
+      "origin": [
+        "src/routes/_app.settings.tsx"
+      ],
+      "placeholders": []
+    },
+    "Customer": {
+      "message": "Customer",
+      "origin": [
+        "src/routes/_app.xcustomers.tsx"
+      ],
+      "placeholders": []
+    },
+    "Customer Details": {
+      "message": "Customer Details",
+      "origin": [
+        "src/components/customers/CustomerForm.tsx"
+      ],
+      "placeholders": []
+    },
+    "Customer List": {
+      "message": "Customer List",
+      "origin": [
+        "src/routes/_app.xcustomers.tsx"
       ],
       "placeholders": []
     },
@@ -274,6 +587,20 @@
       ],
       "placeholders": []
     },
+    "Data": {
+      "message": "Data",
+      "origin": [
+        "src/components/form/Playground.tsx"
+      ],
+      "placeholders": []
+    },
+    "Debug Information": {
+      "message": "Debug Information",
+      "origin": [
+        "src/routes/_app.settings.tsx"
+      ],
+      "placeholders": []
+    },
     "Default ({language})": {
       "message": "Default ({language})",
       "origin": [
@@ -287,7 +614,8 @@
       "message": "Delete",
       "origin": [
         "src/components/ConfirmDeleteDialog.tsx",
-        "src/components/data-table-view/DataTableView.tsx"
+        "src/components/data-table-view/DataTableView.tsx",
+        "src/routes/_app.xcustomers.tsx"
       ],
       "placeholders": []
     },
@@ -314,6 +642,27 @@
       ],
       "placeholders": []
     },
+    "Detail View": {
+      "message": "Detail View",
+      "origin": [
+        "src/routes/_app.crm.home.lazy.tsx"
+      ],
+      "placeholders": []
+    },
+    "Details": {
+      "message": "Details",
+      "origin": [
+        "src/components/ApiErrorDisplay.tsx"
+      ],
+      "placeholders": []
+    },
+    "Discard Changes": {
+      "message": "Discard Changes",
+      "origin": [
+        "src/components/customers/CustomerForm.tsx"
+      ],
+      "placeholders": []
+    },
     "Documents": {
       "message": "Documents",
       "origin": [
@@ -325,6 +674,13 @@
       "message": "Does not contain",
       "origin": [
         "src/components/niko-table/config/data-table.ts"
+      ],
+      "placeholders": []
+    },
+    "Done": {
+      "message": "Done",
+      "origin": [
+        "src/components/settings/ApiKeysCard.tsx"
       ],
       "placeholders": []
     },
@@ -345,7 +701,15 @@
     "Edit": {
       "message": "Edit",
       "origin": [
-        "src/components/data-table-view/DataTableView.tsx"
+        "src/components/data-table-view/DataTableView.tsx",
+        "src/components/form/Playground.tsx"
+      ],
+      "placeholders": []
+    },
+    "Edit Customer": {
+      "message": "Edit Customer",
+      "origin": [
+        "src/components/customers/CustomerForm.tsx"
       ],
       "placeholders": []
     },
@@ -358,10 +722,46 @@
         "id"
       ]
     },
+    "Edit in Modal": {
+      "message": "Edit in Modal",
+      "origin": [
+        "src/routes/_app.xcustomers.tsx"
+      ],
+      "placeholders": []
+    },
+    "Edit in Sidebar": {
+      "message": "Edit in Sidebar",
+      "origin": [
+        "src/routes/_app.xcustomers.tsx"
+      ],
+      "placeholders": []
+    },
+    "Email Address": {
+      "message": "Email Address",
+      "origin": [
+        "src/components/customers/CustomerForm.tsx",
+        "src/routes/_app.xcustomers.tsx"
+      ],
+      "placeholders": []
+    },
+    "Enter a name to identify this API key.": {
+      "message": "Enter a name to identify this API key.",
+      "origin": [
+        "src/components/settings/ApiKeysCard.tsx"
+      ],
+      "placeholders": []
+    },
     "Enter a value...": {
       "message": "Enter a value...",
       "origin": [
         "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "Entity Information:": {
+      "message": "Entity Information:",
+      "origin": [
+        "src/components/views/admin/Modules0.tsx"
       ],
       "placeholders": []
     },
@@ -386,6 +786,20 @@
       ],
       "placeholders": []
     },
+    "Error loading customers": {
+      "message": "Error loading customers",
+      "origin": [
+        "src/routes/_app.xcustomers.tsx"
+      ],
+      "placeholders": []
+    },
+    "Error loading data": {
+      "message": "Error loading data",
+      "origin": [
+        "src/components/ApiErrorDisplay.tsx"
+      ],
+      "placeholders": []
+    },
     "Error loading record": {
       "message": "Error loading record",
       "origin": [
@@ -399,6 +813,102 @@
         "src/components/data-table-view/DataFormPage.tsx"
       ],
       "placeholders": []
+    },
+    "Example configuration:": {
+      "message": "Example configuration:",
+      "origin": [
+        "src/components/ConfigErrorPage.tsx"
+      ],
+      "placeholders": []
+    },
+    "Failed to call RPC function \"{name}\"": {
+      "message": "Failed to call RPC function \"{name}\"",
+      "origin": [
+        "src/lib/apiClient.ts"
+      ],
+      "placeholders": [
+        "name"
+      ]
+    },
+    "Failed to create {table} record": {
+      "message": "Failed to create {table} record",
+      "origin": [
+        "src/hooks/useTableMutations.ts"
+      ],
+      "placeholders": [
+        "table"
+      ]
+    },
+    "Failed to delete {table} record": {
+      "message": "Failed to delete {table} record",
+      "origin": [
+        "src/hooks/useTableMutations.ts"
+      ],
+      "placeholders": [
+        "table"
+      ]
+    },
+    "Failed to fetch RPC user info": {
+      "message": "Failed to fetch RPC user info",
+      "origin": [
+        "src/contexts/AuthContext.tsx"
+      ],
+      "placeholders": []
+    },
+    "Failed to fetch options": {
+      "message": "Failed to fetch options",
+      "origin": [
+        "src/components/form/api-select.tsx"
+      ],
+      "placeholders": []
+    },
+    "Failed to fetch user info": {
+      "message": "Failed to fetch user info",
+      "origin": [
+        "src/contexts/AuthContext.tsx"
+      ],
+      "placeholders": []
+    },
+    "Failed to fetch user information from API": {
+      "message": "Failed to fetch user information from API",
+      "origin": [
+        "src/components/ProtectedRoute.tsx"
+      ],
+      "placeholders": []
+    },
+    "Failed to fetch user information from OAuth provider": {
+      "message": "Failed to fetch user information from OAuth provider",
+      "origin": [
+        "src/components/ProtectedRoute.tsx"
+      ],
+      "placeholders": []
+    },
+    "Failed to fetch {table}": {
+      "message": "Failed to fetch {table}",
+      "origin": [
+        "src/hooks/useTable.ts"
+      ],
+      "placeholders": [
+        "table"
+      ]
+    },
+    "Failed to save dashboard: {message}": {
+      "message": "Failed to save dashboard: {message}",
+      "origin": [
+        "src/routes/_app.$moduleId.index.tsx"
+      ],
+      "placeholders": [
+        "message"
+      ]
+    },
+    "Failed to update {table} record": {
+      "message": "Failed to update {table} record",
+      "origin": [
+        "src/hooks/useTableMutations.ts"
+      ],
+      "placeholders": [
+        "table"
+      ]
     },
     "False": {
       "message": "False",
@@ -421,6 +931,13 @@
       ],
       "placeholders": []
     },
+    "Fields:": {
+      "message": "Fields:",
+      "origin": [
+        "src/components/views/admin/Modules0.tsx"
+      ],
+      "placeholders": []
+    },
     "Filter": {
       "message": "Filter",
       "origin": [
@@ -435,6 +952,13 @@
       ],
       "placeholders": []
     },
+    "Form Preview": {
+      "message": "Form Preview",
+      "origin": [
+        "src/components/form/Playground.tsx"
+      ],
+      "placeholders": []
+    },
     "Form playground": {
       "message": "Form playground",
       "origin": [
@@ -442,10 +966,25 @@
       ],
       "placeholders": []
     },
+    "Go to first page": {
+      "message": "Go to first page",
+      "origin": [
+        "src/routes/_app.xcustomers.tsx"
+      ],
+      "placeholders": []
+    },
+    "Go to last page (approx)": {
+      "message": "Go to last page (approx)",
+      "origin": [
+        "src/routes/_app.xcustomers.tsx"
+      ],
+      "placeholders": []
+    },
     "Go to next page": {
       "message": "Go to next page",
       "origin": [
-        "src/components/niko-table/filters/table-pagination.tsx"
+        "src/components/niko-table/filters/table-pagination.tsx",
+        "src/routes/_app.xcustomers.tsx"
       ],
       "placeholders": []
     },
@@ -461,7 +1000,8 @@
     "Go to previous page": {
       "message": "Go to previous page",
       "origin": [
-        "src/components/niko-table/filters/table-pagination.tsx"
+        "src/components/niko-table/filters/table-pagination.tsx",
+        "src/routes/_app.xcustomers.tsx"
       ],
       "placeholders": []
     },
@@ -487,6 +1027,17 @@
         "src/components/ui-ext/localized-calendar.tsx"
       ],
       "placeholders": []
+    },
+    "Grabbed sortable item \"{item}\". Current position is {position} of {total}. Use arrow keys to move, space to drop.": {
+      "message": "Grabbed sortable item \"{item}\". Current position is {position} of {total}. Use arrow keys to move, space to drop.",
+      "origin": [
+        "src/components/ui-ext/sortable.tsx"
+      ],
+      "placeholders": [
+        "item",
+        "position",
+        "total"
+      ]
     },
     "Has any of": {
       "message": "Has any of",
@@ -520,6 +1071,50 @@
       "message": "If you didn't intend to log out, click \"Sign In Again\" to return to the application.",
       "origin": [
         "src/components/LogoutConfirmationPage.tsx"
+      ],
+      "placeholders": []
+    },
+    "Inactive": {
+      "message": "Inactive",
+      "origin": [
+        "src/components/customers/CustomerForm.tsx"
+      ],
+      "placeholders": []
+    },
+    "Invalid data": {
+      "message": "Invalid data",
+      "origin": [
+        "src/components/form/Playground.tsx"
+      ],
+      "placeholders": []
+    },
+    "Invalid schema": {
+      "message": "Invalid schema",
+      "origin": [
+        "src/components/form/Playground.tsx",
+        "src/components/form/SchemaForm.tsx"
+      ],
+      "placeholders": []
+    },
+    "Invalid schema: no properties defined": {
+      "message": "Invalid schema: no properties defined",
+      "origin": [
+        "src/components/form/SchemaForm.tsx"
+      ],
+      "placeholders": []
+    },
+    "Invalid table name": {
+      "message": "Invalid table name",
+      "origin": [
+        "src/hooks/useTableMutations.ts",
+        "src/routes/_app.$moduleId.$table_name.tsx"
+      ],
+      "placeholders": []
+    },
+    "Invalid table name: only alphanumeric characters, underscores, and hyphens are allowed": {
+      "message": "Invalid table name: only alphanumeric characters, underscores, and hyphens are allowed",
+      "origin": [
+        "src/hooks/useTable.ts"
       ],
       "placeholders": []
     },
@@ -628,10 +1223,55 @@
       ],
       "placeholders": []
     },
+    "Key": {
+      "message": "Key",
+      "origin": [
+        "src/components/settings/ApiKeysCard.tsx"
+      ],
+      "placeholders": []
+    },
     "Language": {
       "message": "Language",
       "origin": [
         "src/components/layout/NavUser.tsx"
+      ],
+      "placeholders": []
+    },
+    "Last Used": {
+      "message": "Last Used",
+      "origin": [
+        "src/components/settings/ApiKeysCard.tsx"
+      ],
+      "placeholders": []
+    },
+    "Loading customers...": {
+      "message": "Loading customers...",
+      "origin": [
+        "src/routes/_app.xcustomers.tsx"
+      ],
+      "placeholders": []
+    },
+    "Loading dashboard…": {
+      "message": "Loading dashboard…",
+      "origin": [
+        "src/routes/_app.$moduleId.index.tsx"
+      ],
+      "placeholders": []
+    },
+    "Loading editor...": {
+      "message": "Loading editor...",
+      "origin": [
+        "src/components/form/InputCode.tsx",
+        "src/components/form/InputHtml.tsx",
+        "src/components/form/InputJson.tsx",
+        "src/components/form/InputJsonata.tsx"
+      ],
+      "placeholders": []
+    },
+    "Loading schema...": {
+      "message": "Loading schema...",
+      "origin": [
+        "src/routes/form-playground.tsx"
       ],
       "placeholders": []
     },
@@ -642,10 +1282,25 @@
       ],
       "placeholders": []
     },
+    "Loading...": {
+      "message": "Loading...",
+      "origin": [
+        "src/components/form/api-select.tsx",
+        "src/components/niko-table/core/data-table-structure.tsx"
+      ],
+      "placeholders": []
+    },
     "Log out": {
       "message": "Log out",
       "origin": [
         "src/components/layout/NavUser.tsx"
+      ],
+      "placeholders": []
+    },
+    "Logging out...": {
+      "message": "Logging out...",
+      "origin": [
+        "src/routes/logout.tsx"
       ],
       "placeholders": []
     },
@@ -670,10 +1325,38 @@
       ],
       "placeholders": []
     },
+    "Make changes to the customer information.": {
+      "message": "Make changes to the customer information.",
+      "origin": [
+        "src/components/customers/CustomerForm.tsx"
+      ],
+      "placeholders": []
+    },
+    "Manage API keys": {
+      "message": "Manage API keys",
+      "origin": [
+        "src/components/views/admin/Users.tsx"
+      ],
+      "placeholders": []
+    },
+    "Manage API keys for programmatic access": {
+      "message": "Manage API keys for programmatic access",
+      "origin": [
+        "src/components/settings/ApiKeysCard.tsx"
+      ],
+      "placeholders": []
+    },
     "Manage Favorites": {
       "message": "Manage Favorites",
       "origin": [
         "src/components/layout/NavUser.tsx"
+      ],
+      "placeholders": []
+    },
+    "Manage customer information and orders": {
+      "message": "Manage customer information and orders",
+      "origin": [
+        "src/routes/_app.xcustomers.tsx"
       ],
       "placeholders": []
     },
@@ -682,6 +1365,34 @@
       "origin": [
         "src/components/ViewSkeleton.tsx",
         "src/components/views/View.tsx"
+      ],
+      "placeholders": []
+    },
+    "Manage your application settings": {
+      "message": "Manage your application settings",
+      "origin": [
+        "src/routes/_app.settings.tsx"
+      ],
+      "placeholders": []
+    },
+    "Manage your documents here": {
+      "message": "Manage your documents here",
+      "origin": [
+        "src/routes/_app.documents.tsx"
+      ],
+      "placeholders": []
+    },
+    "Missing environment variables:": {
+      "message": "Missing environment variables:",
+      "origin": [
+        "src/components/ConfigErrorPage.tsx"
+      ],
+      "placeholders": []
+    },
+    "Mode:": {
+      "message": "Mode:",
+      "origin": [
+        "src/components/form/Playground.tsx"
       ],
       "placeholders": []
     },
@@ -696,6 +1407,13 @@
       "message": "Modify sorting to organize your rows.",
       "origin": [
         "src/components/niko-table/filters/table-sort-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "Module:": {
+      "message": "Module:",
+      "origin": [
+        "src/components/views/admin/Modules0.tsx"
       ],
       "placeholders": []
     },
@@ -714,10 +1432,24 @@
       ],
       "placeholders": []
     },
+    "Name": {
+      "message": "Name",
+      "origin": [
+        "src/components/settings/ApiKeysCard.tsx"
+      ],
+      "placeholders": []
+    },
     "Never": {
       "message": "Never",
       "origin": [
         "src/components/settings/ApiKeysCard.tsx"
+      ],
+      "placeholders": []
+    },
+    "New Document": {
+      "message": "New Document",
+      "origin": [
+        "src/routes/_app.documents.tsx"
       ],
       "placeholders": []
     },
@@ -751,10 +1483,18 @@
       ],
       "placeholders": []
     },
+    "No API keys yet. Create one to get started.": {
+      "message": "No API keys yet. Create one to get started.",
+      "origin": [
+        "src/components/settings/ApiKeysCard.tsx"
+      ],
+      "placeholders": []
+    },
     "No actions available": {
       "message": "No actions available",
       "origin": [
-        "src/components/data-table-view/DataTableView.tsx"
+        "src/components/data-table-view/DataTableView.tsx",
+        "src/routes/_app.xcustomers.tsx"
       ],
       "placeholders": []
     },
@@ -769,6 +1509,13 @@
       "message": "No columns found.",
       "origin": [
         "src/components/niko-table/filters/table-view-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "No customers found": {
+      "message": "No customers found",
+      "origin": [
+        "src/routes/_app.xcustomers.tsx"
       ],
       "placeholders": []
     },
@@ -791,6 +1538,14 @@
       "message": "No items",
       "origin": [
         "src/components/niko-table/filters/table-pagination.tsx"
+      ],
+      "placeholders": []
+    },
+    "No option found.": {
+      "message": "No option found.",
+      "origin": [
+        "src/components/form/InputEnum.tsx",
+        "src/components/ui-ext/combobox.tsx"
       ],
       "placeholders": []
     },
@@ -823,6 +1578,13 @@
       ],
       "placeholders": []
     },
+    "No token available": {
+      "message": "No token available",
+      "origin": [
+        "src/routes/_app.settings.tsx"
+      ],
+      "placeholders": []
+    },
     "No {entity} found": {
       "message": "No {entity} found",
       "origin": [
@@ -830,6 +1592,15 @@
       ],
       "placeholders": [
         "entity"
+      ]
+    },
+    "No {label} found.": {
+      "message": "No {label} found.",
+      "origin": [
+        "src/components/form/api-select.tsx"
+      ],
+      "placeholders": [
+        "label"
       ]
     },
     "Notifications": {
@@ -843,6 +1614,13 @@
       "message": "Number and date format",
       "origin": [
         "src/components/layout/NavUser.tsx"
+      ],
+      "placeholders": []
+    },
+    "OAuth configuration is missing or invalid": {
+      "message": "OAuth configuration is missing or invalid",
+      "origin": [
+        "src/components/ConfigErrorPage.tsx"
       ],
       "placeholders": []
     },
@@ -860,6 +1638,13 @@
       ],
       "placeholders": []
     },
+    "Open Sidebar": {
+      "message": "Open Sidebar",
+      "origin": [
+        "src/routes/_app.crm.home.lazy.tsx"
+      ],
+      "placeholders": []
+    },
     "Open filter menu (F)": {
       "message": "Open filter menu (F)",
       "origin": [
@@ -870,7 +1655,8 @@
     "Open menu": {
       "message": "Open menu",
       "origin": [
-        "src/components/data-table-view/DataTableView.tsx"
+        "src/components/data-table-view/DataTableView.tsx",
+        "src/routes/_app.xcustomers.tsx"
       ],
       "placeholders": []
     },
@@ -881,6 +1667,15 @@
       ],
       "placeholders": []
     },
+    "Page {page}": {
+      "message": "Page {page}",
+      "origin": [
+        "src/routes/_app.xcustomers.tsx"
+      ],
+      "placeholders": [
+        "page"
+      ]
+    },
     "Page {page} of {total}": {
       "message": "Page {page} of {total}",
       "origin": [
@@ -890,6 +1685,21 @@
         "page",
         "total"
       ]
+    },
+    "Pending": {
+      "message": "Pending",
+      "origin": [
+        "src/components/customers/CustomerForm.tsx"
+      ],
+      "placeholders": []
+    },
+    "Phone Number": {
+      "message": "Phone Number",
+      "origin": [
+        "src/components/customers/CustomerForm.tsx",
+        "src/routes/_app.xcustomers.tsx"
+      ],
+      "placeholders": []
     },
     "Pick a date": {
       "message": "Pick a date",
@@ -903,6 +1713,13 @@
       "message": "Platform",
       "origin": [
         "src/lib/userMenu.ts"
+      ],
+      "placeholders": []
+    },
+    "Please wait while we log you out.": {
+      "message": "Please wait while we log you out.",
+      "origin": [
+        "src/routes/logout.tsx"
       ],
       "placeholders": []
     },
@@ -920,12 +1737,33 @@
       ],
       "placeholders": []
     },
+    "Raw Metadata (from get_schema RPC):": {
+      "message": "Raw Metadata (from get_schema RPC):",
+      "origin": [
+        "src/components/views/admin/Modules0.tsx"
+      ],
+      "placeholders": []
+    },
     "Record": {
       "message": "Record",
       "origin": [
         "src/components/data-table-view/DataFormPage.tsx",
         "src/components/data-table-view/DataTableView.tsx",
         "src/components/views/View.tsx"
+      ],
+      "placeholders": []
+    },
+    "Record Key:": {
+      "message": "Record Key:",
+      "origin": [
+        "src/components/views/admin/Modules0.tsx"
+      ],
+      "placeholders": []
+    },
+    "Record deleted": {
+      "message": "Record deleted",
+      "origin": [
+        "src/hooks/useConfirmDelete.ts"
       ],
       "placeholders": []
     },
@@ -944,6 +1782,43 @@
       ],
       "placeholders": []
     },
+    "Remove from favorites": {
+      "message": "Remove from favorites",
+      "origin": [
+        "src/components/ui-ext/bookmark-icon.tsx"
+      ],
+      "placeholders": []
+    },
+    "Remove {label} from favorites": {
+      "message": "Remove {label} from favorites",
+      "origin": [
+        "src/components/ui-ext/bookmark-icon.tsx"
+      ],
+      "placeholders": [
+        "label"
+      ]
+    },
+    "Replace the placeholder values with your actual OAuth provider settings": {
+      "message": "Replace the placeholder values with your actual OAuth provider settings",
+      "origin": [
+        "src/components/ConfigErrorPage.tsx"
+      ],
+      "placeholders": []
+    },
+    "Required": {
+      "message": "Required",
+      "origin": [
+        "src/components/views/admin/Modules0.tsx"
+      ],
+      "placeholders": []
+    },
+    "Reset": {
+      "message": "Reset",
+      "origin": [
+        "src/components/form/SchemaForm.tsx"
+      ],
+      "placeholders": []
+    },
     "Reset filters": {
       "message": "Reset filters",
       "origin": [
@@ -958,10 +1833,54 @@
       ],
       "placeholders": []
     },
+    "Restart the development server": {
+      "message": "Restart the development server",
+      "origin": [
+        "src/components/ConfigErrorPage.tsx"
+      ],
+      "placeholders": []
+    },
     "Return to Home": {
       "message": "Return to Home",
       "origin": [
         "src/components/ErrorBoundary.tsx"
+      ],
+      "placeholders": []
+    },
+    "Revoke": {
+      "message": "Revoke",
+      "origin": [
+        "src/components/settings/ApiKeysCard.tsx"
+      ],
+      "placeholders": []
+    },
+    "Revoke API Key": {
+      "message": "Revoke API Key",
+      "origin": [
+        "src/components/settings/ApiKeysCard.tsx"
+      ],
+      "placeholders": []
+    },
+    "Revoke API key {name}": {
+      "message": "Revoke API key {name}",
+      "origin": [
+        "src/components/settings/ApiKeysCard.tsx"
+      ],
+      "placeholders": [
+        "name"
+      ]
+    },
+    "Revoking...": {
+      "message": "Revoking...",
+      "origin": [
+        "src/components/settings/ApiKeysCard.tsx"
+      ],
+      "placeholders": []
+    },
+    "Rows per page": {
+      "message": "Rows per page",
+      "origin": [
+        "src/routes/_app.xcustomers.tsx"
       ],
       "placeholders": []
     },
@@ -973,6 +1892,34 @@
       "placeholders": [
         "locale"
       ]
+    },
+    "Sample Documents Route": {
+      "message": "Sample Documents Route",
+      "origin": [
+        "src/routes/_app.documents.tsx"
+      ],
+      "placeholders": []
+    },
+    "Save Changes": {
+      "message": "Save Changes",
+      "origin": [
+        "src/components/customers/CustomerForm.tsx"
+      ],
+      "placeholders": []
+    },
+    "Schema": {
+      "message": "Schema",
+      "origin": [
+        "src/components/form/Playground.tsx"
+      ],
+      "placeholders": []
+    },
+    "Schema Validation Error": {
+      "message": "Schema Validation Error",
+      "origin": [
+        "src/components/form/SchemaForm.tsx"
+      ],
+      "placeholders": []
     },
     "Search apps and modules...": {
       "message": "Search apps and modules...",
@@ -988,11 +1935,27 @@
       ],
       "placeholders": []
     },
+    "Search failed: {status}": {
+      "message": "Search failed: {status}",
+      "origin": [
+        "src/components/form/api-select.tsx"
+      ],
+      "placeholders": [
+        "status"
+      ]
+    },
     "Search fields...": {
       "message": "Search fields...",
       "origin": [
         "src/components/niko-table/filters/table-filter-menu.tsx",
         "src/components/niko-table/filters/table-sort-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "Search for a command to run...": {
+      "message": "Search for a command to run...",
+      "origin": [
+        "src/components/ui-ext/command-dialog.tsx"
       ],
       "placeholders": []
     },
@@ -1035,10 +1998,23 @@
         "field"
       ]
     },
+    "Search {label}...": {
+      "message": "Search {label}...",
+      "origin": [
+        "src/components/form/InputReference.tsx",
+        "src/components/form/api-select.tsx"
+      ],
+      "placeholders": [
+        "label"
+      ]
+    },
     "Search...": {
       "message": "Search...",
       "origin": [
-        "src/components/niko-table/filters/table-search-filter.tsx"
+        "src/components/form/InputEnum.tsx",
+        "src/components/form/InputReference.tsx",
+        "src/components/niko-table/filters/table-search-filter.tsx",
+        "src/components/ui-ext/combobox.tsx"
       ],
       "placeholders": []
     },
@@ -1059,7 +2035,9 @@
     "Select an option": {
       "message": "Select an option",
       "origin": [
-        "src/components/niko-table/filters/table-filter-menu.tsx"
+        "src/components/form/InputEnum.tsx",
+        "src/components/niko-table/filters/table-filter-menu.tsx",
+        "src/components/ui-ext/combobox.tsx"
       ],
       "placeholders": []
     },
@@ -1163,6 +2141,20 @@
         "field"
       ]
     },
+    "Select...": {
+      "message": "Select...",
+      "origin": [
+        "src/components/form/api-select.tsx"
+      ],
+      "placeholders": []
+    },
+    "Semantius CLI configuration": {
+      "message": "Semantius CLI configuration",
+      "origin": [
+        "src/components/settings/ApiKeysCard.tsx"
+      ],
+      "placeholders": []
+    },
     "Settings": {
       "message": "Settings",
       "origin": [
@@ -1170,6 +2162,23 @@
         "src/routes/_app.settings.tsx"
       ],
       "placeholders": []
+    },
+    "Shift": {
+      "message": "Shift",
+      "origin": [
+        "src/components/ui-ext/platform-shortcut.tsx"
+      ],
+      "placeholders": []
+    },
+    "Showing {from} to {to} customers": {
+      "message": "Showing {from} to {to} customers",
+      "origin": [
+        "src/routes/_app.xcustomers.tsx"
+      ],
+      "placeholders": [
+        "from",
+        "to"
+      ]
     },
     "Sign In Again": {
       "message": "Sign In Again",
@@ -1220,6 +2229,13 @@
       ],
       "placeholders": []
     },
+    "Something went wrong while displaying the table.": {
+      "message": "Something went wrong while displaying the table.",
+      "origin": [
+        "src/components/niko-table/core/data-table-error-boundary.tsx"
+      ],
+      "placeholders": []
+    },
     "Sort": {
       "message": "Sort",
       "origin": [
@@ -1248,6 +2264,83 @@
       ],
       "placeholders": []
     },
+    "Sortable item \"{item}\" dropped at position {position} of {total}.": {
+      "message": "Sortable item \"{item}\" dropped at position {position} of {total}.",
+      "origin": [
+        "src/components/ui-ext/sortable.tsx"
+      ],
+      "placeholders": [
+        "item",
+        "position",
+        "total"
+      ]
+    },
+    "Sortable item \"{item}\" dropped. No changes were made.": {
+      "message": "Sortable item \"{item}\" dropped. No changes were made.",
+      "origin": [
+        "src/components/ui-ext/sortable.tsx"
+      ],
+      "placeholders": [
+        "item"
+      ]
+    },
+    "Sortable item \"{item}\" is moving {direction, select, down {down} other {up}} to position {position} of {total}.": {
+      "message": "Sortable item \"{item}\" is moving {direction, select, down {down} other {up}} to position {position} of {total}.",
+      "origin": [
+        "src/components/ui-ext/sortable.tsx"
+      ],
+      "placeholders": [
+        "direction",
+        "item",
+        "position",
+        "total"
+      ]
+    },
+    "Sortable item \"{item}\" moved {direction, select, down {down} other {up}} to position {position} of {total}.": {
+      "message": "Sortable item \"{item}\" moved {direction, select, down {down} other {up}} to position {position} of {total}.",
+      "origin": [
+        "src/components/ui-ext/sortable.tsx"
+      ],
+      "placeholders": [
+        "direction",
+        "item",
+        "position",
+        "total"
+      ]
+    },
+    "Sortable item is no longer over a droppable area. Press escape to cancel.": {
+      "message": "Sortable item is no longer over a droppable area. Press escape to cancel.",
+      "origin": [
+        "src/components/ui-ext/sortable.tsx"
+      ],
+      "placeholders": []
+    },
+    "Sorting canceled. Sortable item \"{item}\" returned to position {position} of {total}.": {
+      "message": "Sorting canceled. Sortable item \"{item}\" returned to position {position} of {total}.",
+      "origin": [
+        "src/components/ui-ext/sortable.tsx"
+      ],
+      "placeholders": [
+        "item",
+        "position",
+        "total"
+      ]
+    },
+    "Status": {
+      "message": "Status",
+      "origin": [
+        "src/components/customers/CustomerForm.tsx",
+        "src/routes/_app.xcustomers.tsx"
+      ],
+      "placeholders": []
+    },
+    "Submit": {
+      "message": "Submit",
+      "origin": [
+        "src/components/form/SchemaForm.tsx"
+      ],
+      "placeholders": []
+    },
     "Successfully Logged Out": {
       "message": "Successfully Logged Out",
       "origin": [
@@ -1255,10 +2348,31 @@
       ],
       "placeholders": []
     },
+    "Suspended": {
+      "message": "Suspended",
+      "origin": [
+        "src/components/customers/CustomerForm.tsx"
+      ],
+      "placeholders": []
+    },
+    "Table Error": {
+      "message": "Table Error",
+      "origin": [
+        "src/components/niko-table/core/data-table-error-boundary.tsx"
+      ],
+      "placeholders": []
+    },
     "Table pagination": {
       "message": "Table pagination",
       "origin": [
         "src/components/niko-table/filters/table-pagination.tsx"
+      ],
+      "placeholders": []
+    },
+    "Table:": {
+      "message": "Table:",
+      "origin": [
+        "src/components/views/admin/Modules0.tsx"
       ],
       "placeholders": []
     },
@@ -1273,6 +2387,13 @@
       "message": "The application could not load its configuration.",
       "origin": [
         "src/main.tsx"
+      ],
+      "placeholders": []
+    },
+    "The login flow could not be started.": {
+      "message": "The login flow could not be started.",
+      "origin": [
+        "src/routes/login.tsx"
       ],
       "placeholders": []
     },
@@ -1320,6 +2441,52 @@
       ],
       "placeholders": []
     },
+    "This is a sample protected route for settings. Add your settings configuration here.": {
+      "message": "This is a sample protected route for settings. Add your settings configuration here.",
+      "origin": [
+        "src/routes/_app.settings.tsx"
+      ],
+      "placeholders": []
+    },
+    "This is a sample protected route. Replace this content with your business logic.": {
+      "message": "This is a sample protected route. Replace this content with your business logic.",
+      "origin": [
+        "src/routes/_app.documents.tsx"
+      ],
+      "placeholders": []
+    },
+    "This is a sidebar opened via a subroute": {
+      "message": "This is a sidebar opened via a subroute",
+      "origin": [
+        "src/routes/_app.crm.home.lazy.tsx"
+      ],
+      "placeholders": []
+    },
+    "This is the sidebar content from the detail subroute.": {
+      "message": "This is the sidebar content from the detail subroute.",
+      "origin": [
+        "src/routes/_app.crm.home.detail.lazy.tsx"
+      ],
+      "placeholders": []
+    },
+    "This origin ({origin}) is not a secure context, so the browser withholds crypto.subtle — the WebCrypto API the PKCE login flow requires. Serve the app over HTTPS, or reach it at http://localhost.": {
+      "message": "This origin ({origin}) is not a secure context, so the browser withholds crypto.subtle — the WebCrypto API the PKCE login flow requires. Serve the app over HTTPS, or reach it at http://localhost.",
+      "origin": [
+        "src/lib/secureContext.ts"
+      ],
+      "placeholders": [
+        "origin"
+      ]
+    },
+    "This {table} record no longer exists": {
+      "message": "This {table} record no longer exists",
+      "origin": [
+        "src/hooks/useTableMutations.ts"
+      ],
+      "placeholders": [
+        "table"
+      ]
+    },
     "Time": {
       "message": "Time",
       "origin": [
@@ -1333,6 +2500,22 @@
         "src/components/niko-table/filters/table-column-sort.tsx"
       ],
       "placeholders": []
+    },
+    "To fix this issue:": {
+      "message": "To fix this issue:",
+      "origin": [
+        "src/components/ConfigErrorPage.tsx"
+      ],
+      "placeholders": []
+    },
+    "To pick up a sortable item, press space or enter. While dragging, use the {orientation, select, vertical {up and down} horizontal {left and right} other {arrow}} keys to move the item. Press space or enter again to drop the item in its new position, or press escape to cancel.": {
+      "message": "To pick up a sortable item, press space or enter. While dragging, use the {orientation, select, vertical {up and down} horizontal {left and right} other {arrow}} keys to move the item. Press space or enter again to drop the item in its new position, or press escape to cancel.",
+      "origin": [
+        "src/components/ui-ext/sortable.tsx"
+      ],
+      "placeholders": [
+        "orientation"
+      ]
     },
     "Today, {day}": {
       "message": "Today, {day}",
@@ -1368,6 +2551,14 @@
         "theme"
       ]
     },
+    "Total Orders": {
+      "message": "Total Orders",
+      "origin": [
+        "src/components/customers/CustomerForm.tsx",
+        "src/routes/_app.xcustomers.tsx"
+      ],
+      "placeholders": []
+    },
     "True": {
       "message": "True",
       "origin": [
@@ -1386,7 +2577,8 @@
       "message": "Try Again",
       "origin": [
         "src/components/AuthFailure.tsx",
-        "src/components/ErrorPage.tsx"
+        "src/components/ErrorPage.tsx",
+        "src/components/niko-table/core/data-table-error-boundary.tsx"
       ],
       "placeholders": []
     },
@@ -1394,6 +2586,27 @@
       "message": "Unknown",
       "origin": [
         "src/components/data-table-view/DataTableView.tsx"
+      ],
+      "placeholders": []
+    },
+    "Unknown error": {
+      "message": "Unknown error",
+      "origin": [
+        "src/contexts/AuthContext.tsx"
+      ],
+      "placeholders": []
+    },
+    "Unknown schema validation error": {
+      "message": "Unknown schema validation error",
+      "origin": [
+        "src/components/form/Playground.tsx"
+      ],
+      "placeholders": []
+    },
+    "Unsaved Changes": {
+      "message": "Unsaved Changes",
+      "origin": [
+        "src/components/customers/CustomerForm.tsx"
       ],
       "placeholders": []
     },
@@ -1411,10 +2624,25 @@
       ],
       "placeholders": []
     },
+    "Validation Error": {
+      "message": "Validation Error",
+      "origin": [
+        "src/components/form/SchemaForm.tsx"
+      ],
+      "placeholders": []
+    },
+    "Validation error": {
+      "message": "Validation error",
+      "origin": [
+        "src/components/form/SchemaForm.tsx"
+      ],
+      "placeholders": []
+    },
     "View": {
       "message": "View",
       "origin": [
-        "src/components/data-table-view/DataTableView.tsx"
+        "src/components/data-table-view/DataTableView.tsx",
+        "src/components/form/Playground.tsx"
       ],
       "placeholders": []
     },
@@ -1425,6 +2653,23 @@
         "src/components/niko-table/filters/table-view-menu.tsx"
       ],
       "placeholders": []
+    },
+    "View customer information.": {
+      "message": "View customer information.",
+      "origin": [
+        "src/components/customers/CustomerForm.tsx"
+      ],
+      "placeholders": []
+    },
+    "View {table}: {record}": {
+      "message": "View {table}: {record}",
+      "origin": [
+        "src/components/views/admin/Modules0.tsx"
+      ],
+      "placeholders": [
+        "record",
+        "table"
+      ]
     },
     "We encountered an unexpected error. Please try again.": {
       "message": "We encountered an unexpected error. Please try again.",
@@ -1454,6 +2699,13 @@
       ],
       "placeholders": []
     },
+    "You can add any content here - forms, data displays, or other components.": {
+      "message": "You can add any content here - forms, data displays, or other components.",
+      "origin": [
+        "src/routes/_app.crm.home.detail.lazy.tsx"
+      ],
+      "placeholders": []
+    },
     "You don't have access to any modules": {
       "message": "You don't have access to any modules",
       "origin": [
@@ -1465,6 +2717,13 @@
       "message": "You have been successfully logged out of your account. Your session has been terminated securely.",
       "origin": [
         "src/components/LogoutConfirmationPage.tsx"
+      ],
+      "placeholders": []
+    },
+    "You have unsaved changes. Are you sure you want to close without saving?": {
+      "message": "You have unsaved changes. Are you sure you want to close without saving?",
+      "origin": [
+        "src/components/customers/CustomerForm.tsx"
       ],
       "placeholders": []
     },
@@ -1489,10 +2748,41 @@
       ],
       "placeholders": []
     },
+    "e.g. Production, CI/CD, Development": {
+      "message": "e.g. Production, CI/CD, Development",
+      "origin": [
+        "src/components/settings/ApiKeysCard.tsx"
+      ],
+      "placeholders": []
+    },
+    "has an invalid precision setting": {
+      "message": "has an invalid precision setting",
+      "origin": [
+        "src/components/form/validationMessages.ts"
+      ],
+      "placeholders": []
+    },
     "item": {
       "message": "item",
       "origin": [
         "src/components/ConfirmDeleteDialog.tsx"
+      ],
+      "placeholders": []
+    },
+    "must have at most {count, plural, one {# decimal place} other {# decimal places}}": {
+      "message": "must have at most {count, plural, one {# decimal place} other {# decimal places}}",
+      "origin": [
+        "src/components/form/validationMessages.ts"
+      ],
+      "placeholders": [
+        "count"
+      ]
+    },
+    "must not be empty": {
+      "message": "must not be empty",
+      "origin": [
+        "src/components/form/SchemaForm.tsx",
+        "src/components/form/validationMessages.ts"
       ],
       "placeholders": []
     },
@@ -1509,13 +2799,6 @@
       "message": "or",
       "origin": [
         "src/components/niko-table/filters/table-filter-menu.tsx"
-      ],
-      "placeholders": []
-    },
-    "this record": {
-      "message": "this record",
-      "origin": [
-        "src/components/data-table-view/DataTableView.tsx"
       ],
       "placeholders": []
     },
@@ -1598,6 +2881,15 @@
         "field"
       ]
     },
+    "{field} is required for update": {
+      "message": "{field} is required for update",
+      "origin": [
+        "src/hooks/useTableMutations.ts"
+      ],
+      "placeholders": [
+        "field"
+      ]
+    },
     "{field} maximum value": {
       "message": "{field} maximum value",
       "origin": [
@@ -1639,6 +2931,15 @@
       "message": "{label} created",
       "origin": [
         "src/components/data-table-view/DataFormPage.tsx"
+      ],
+      "placeholders": [
+        "label"
+      ]
+    },
+    "{label} deleted": {
+      "message": "{label} deleted",
+      "origin": [
+        "src/hooks/useConfirmDelete.ts"
       ],
       "placeholders": [
         "label"

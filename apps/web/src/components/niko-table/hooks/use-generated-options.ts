@@ -3,6 +3,7 @@ import type { Table } from "@tanstack/react-table"
 
 import type { Option } from "../types"
 import { formatLabel } from "../lib/format"
+import { useFormattingLocale } from "@/i18n"
 import { FILTER_VARIANTS } from "../lib/constants"
 import { getFilteredRowsExcludingColumn } from "../lib/filter-rows"
 
@@ -54,6 +55,11 @@ export function useGeneratedOptions<TData>(
     excludeColumns,
     limitPerColumn,
   } = config
+
+  // The FORMATTING locale, not the catalog language: sorting option labels is
+  // collation, and `localeCompare` with no locale followed the browser rather
+  // than the user's chosen format. German sorts "Ä" with "A"; Swedish does not.
+  const formattingLocale = useFormattingLocale()
 
   // Pull state slices to use as memo deps (stable values)
   const state = table.getState()
@@ -231,7 +237,7 @@ export function useGeneratedOptions<TData>(
           label: colAutoOptionsFormat ? formatLabel(value) : value,
           count: colShowCounts ? count : undefined,
         }))
-        .sort((a, b) => a.label.localeCompare(b.label))
+        .sort((a, b) => a.label.localeCompare(b.label, formattingLocale))
 
       const finalOptions =
         typeof limitPerColumn === "number" && limitPerColumn > 0
@@ -277,6 +283,7 @@ export function useGeneratedOptions<TData>(
     // Recompute when filters/global filter change to keep counts in sync
     columnFilters,
     globalFilter,
+    formattingLocale,
   ])
 
   return optionsByColumn

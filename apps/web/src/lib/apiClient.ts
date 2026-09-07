@@ -8,6 +8,7 @@
 import { type EntityMetadata } from "@/types/metadata"
 import { getConfig, tryGetConfig } from "@/lib/config"
 import { retryPolicyFor, withRetry } from "@/lib/retry"
+import { translate } from "@/i18n"
 
 // --- Fetch interceptor ---
 // Module-level token store for the fetch interceptor
@@ -209,7 +210,7 @@ export async function callRpc<TResult = unknown, TParams = Record<string, unknow
 
   if (!response.ok) {
     const errorText = await response.text()
-    let errorMessage = `Failed to call RPC function "${rpcName}"`
+    let errorMessage = translate('Failed to call RPC function "{name}"', { name: rpcName })
     let body: Record<string, unknown> = {}
 
     try {

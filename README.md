@@ -307,9 +307,25 @@ migrated file is still enforced for anything new.
 baseline: `useT()` returns a new function per language, so `t` belongs in the
 dependencies of any `useMemo`, `useEffect` or `useCallback` that calls it.
 
-The rule has one blind spot worth knowing: on a plain HTML tag it only checks the
-`placeholder`, `alt`, `aria-label` and `value` attributes, so a `title=` on a
-`<span>` is invisible to it (on a component, every attribute is checked).
+The rule has two blind spots worth knowing. On a plain HTML tag it only checks
+the `placeholder`, `alt`, `aria-label` and `value` attributes, so a `title=` on a
+`<span>` is invisible to it (on a component, every attribute is checked). And it
+treats a JSX element named `Select`, `Plural` or `SelectOrdinal` as one of
+Lingui's own ICU components and skips **every** string inside it — which shadcn's
+`<Select>` collides with head-on. That one is closed rather than documented: those
+tag names are banned by `no-restricted-syntax`, so the select is imported as
+`Select as SelectRoot` and the rule sees the whole subtree again.
+
+### Validation messages
+
+`validateData()` in `sem-schema` returns raw Ajv errors, and Ajv writes them in
+English inside the validator. `apps/web/src/components/form/validationMessages.ts`
+translates that array with [`ajv-i18n`](https://github.com/ajv-validator/ajv-i18n)
+(MIT, 23 languages), keyed by the LANGUAGE SUBTAG (`de` for `de-DE`); a language
+it does not ship keeps the English Ajv produced. `sem-schema` itself stays free of
+any locale. Its two custom keywords — `inputMode` and `precision` — are not Ajv's,
+so their messages are ours and are written with `t()` *after* the localizer runs
+(`ajv-i18n` rewrites every keyword it does not recognize).
 
 ## Accessibility
 

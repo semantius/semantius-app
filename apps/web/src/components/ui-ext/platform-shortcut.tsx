@@ -3,6 +3,7 @@
 import * as React from "react"
 import { Kbd, KbdGroup } from "@/components/ui/kbd"
 import { cn } from "@/lib/utils"
+import { msg, useT, type MessageDescriptor } from "@/i18n"
 
 // Platform-aware keyboard shortcut display (pattern from
 // shadcn.io/examples/kbd-platform-aware-shortcut): on macOS show the native
@@ -18,11 +19,16 @@ const MAC_SYMBOLS: Record<Modifier, string> = {
   shift: "⇧",
   ctrl: "⌃",
 }
-const PC_LABELS: Record<Modifier, string> = {
-  mod: "Ctrl",
-  alt: "Alt",
-  shift: "Shift",
-  ctrl: "Ctrl",
+// The Mac symbols are glyphs printed on every keyboard, the same everywhere.
+// The PC labels are WORDS printed on the key, and they differ by market — a
+// German keyboard says "Strg", not "Ctrl" — so they are messages. Descriptors,
+// because this is a module constant with no React in it; the component renders
+// them with t().
+const PC_LABELS: Record<Modifier, MessageDescriptor> = {
+  mod: msg("Ctrl"),
+  alt: msg("Alt"),
+  shift: msg("Shift"),
+  ctrl: msg("Ctrl"),
 }
 
 // navigator.platform is only available client-side, so default to the non-Mac
@@ -46,8 +52,9 @@ export function PlatformShortcut({
   keyLabel: string
   className?: string
 }) {
+  const t = useT()
   const isMac = useIsMac()
-  const mod = isMac ? MAC_SYMBOLS[modifier] : PC_LABELS[modifier]
+  const mod = isMac ? MAC_SYMBOLS[modifier] : t(PC_LABELS[modifier])
   return (
     <KbdGroup className={cn(className)}>
       <Kbd>{mod}</Kbd>

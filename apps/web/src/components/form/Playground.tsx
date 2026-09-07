@@ -5,8 +5,17 @@ import { SchemaForm, type FormMode } from '@/components/form'
 import type { SchemaObject } from 'ajv'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { validateSchema } from 'sem-schema'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  // Aliased: eslint-plugin-lingui is blind inside a JSX element literally
+  // named `Select`. See the note in eslint.config.js's no-restricted-syntax.
+  Select as SelectRoot,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
+import { useT } from '@/i18n'
 
 /**
  * Generate default values from schema
@@ -78,6 +87,7 @@ interface FormPlaygroundProps {
 }
 
 export function FormPlayground({ initialSchema }: FormPlaygroundProps) {
+  const t = useT()
   const [schemaText, setSchemaText] = useState(initialSchema || defaultSchema)
   const [dataText, setDataText] = useState(defaultData)
   const [formMode, setFormMode] = useState<FormMode>('edit')
@@ -92,7 +102,7 @@ export function FormPlayground({ initialSchema }: FormPlaygroundProps) {
       if (!validation.valid) {
         const errorMessages = validation.errors?.map(e => 
           `${e.schemaPath}: ${e.message}`
-        ).join('; ') || 'Unknown schema validation error'
+        ).join('; ') || t('Unknown schema validation error')
         return { schema: null, schemaError: errorMessages }
       }
       
@@ -103,7 +113,7 @@ export function FormPlayground({ initialSchema }: FormPlaygroundProps) {
         schemaError: error instanceof Error ? error.message : String(error)
       }
     }
-  }, [schemaText])
+  }, [schemaText, t])
 
   // Parse data - derived state using useMemo
   const { data, dataError } = useMemo(() => {
@@ -147,9 +157,7 @@ export function FormPlayground({ initialSchema }: FormPlaygroundProps) {
         <Panel defaultSize={33} minSize={20}>
           <div className="h-full flex flex-col border-r border-gray-300 overflow-hidden">
             <div className="p-4 border-b border-gray-300 bg-gray-50">
-              <h2 className="text-sm font-semibold m-0">
-                Schema
-              </h2>
+              <h2 className="text-sm font-semibold m-0">{t('Schema')}</h2>
               {schemaError && (
                 <div className="text-red-600 text-xs mt-1">
                   {schemaError}
@@ -179,9 +187,7 @@ export function FormPlayground({ initialSchema }: FormPlaygroundProps) {
         <Panel defaultSize={33} minSize={20}>
           <div className="h-full flex flex-col border-r border-gray-300 overflow-hidden">
             <div className="p-4 border-b border-gray-300 bg-gray-50">
-              <h2 className="text-sm font-semibold m-0">
-                Data
-              </h2>
+              <h2 className="text-sm font-semibold m-0">{t('Data')}</h2>
               {dataError && (
                 <div className="text-red-600 text-xs mt-1">
                   {dataError}
@@ -212,23 +218,23 @@ export function FormPlayground({ initialSchema }: FormPlaygroundProps) {
           <div className="h-full flex flex-col overflow-hidden">
             <div className="p-4 border-b border-gray-300 bg-gray-50">
               <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold m-0">
-                  Form Preview
-                </h2>
+                <h2 className="text-sm font-semibold m-0">{t('Form Preview')}</h2>
                 <div className="flex items-center space-x-2">
                   <Label htmlFor="playground-form-mode" className="text-xs">
-                    Mode:
+                    {t('Mode:')}
                   </Label>
-                  <Select value={formMode} onValueChange={(value) => setFormMode(value as FormMode)}>
+                  <SelectRoot value={formMode} onValueChange={(value) => setFormMode(value as FormMode)}>
                     <SelectTrigger id="playground-form-mode" className="w-[120px] h-8">
-                      <SelectValue>{(v) => ({ edit: "Edit", create: "Create", view: "View" }[v as string] ?? v)}</SelectValue>
+                      {/* Base UI renders the raw VALUE unless a children fn maps
+                          it, so the trigger needs the same labels as the items. */}
+                      <SelectValue>{(v) => (v === 'create' ? t('Create') : v === 'view' ? t('View') : t('Edit'))}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="edit">Edit</SelectItem>
-                      <SelectItem value="create">Create</SelectItem>
-                      <SelectItem value="view">View</SelectItem>
+                      <SelectItem value="edit">{t('Edit')}</SelectItem>
+                      <SelectItem value="create">{t('Create')}</SelectItem>
+                      <SelectItem value="view">{t('View')}</SelectItem>
                     </SelectContent>
-                  </Select>
+                  </SelectRoot>
                 </div>
               </div>
             </div>
@@ -243,8 +249,8 @@ export function FormPlayground({ initialSchema }: FormPlaygroundProps) {
                 />
               ) : (
                 <div className="text-muted-foreground text-sm">
-                  {!schema && 'Invalid schema'}
-                  {!data && schema && 'Invalid data'}
+                  {!schema && t('Invalid schema')}
+                  {!data && schema && t('Invalid data')}
                 </div>
               )}
             </div>

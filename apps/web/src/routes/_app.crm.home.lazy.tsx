@@ -1,5 +1,6 @@
 import { Outlet, useNavigate, useMatchRoute, createLazyFileRoute } from '@tanstack/react-router'
 import { Button } from '@/components/ui/button'
+import { useT } from '@/i18n'
 import {
   Sheet,
   SheetContent,
@@ -13,6 +14,7 @@ export const Route = createLazyFileRoute('/_app/crm/home')({
 })
 
 function RouteComponent() {
+  const t = useT()
   const navigate = useNavigate()
   const matchRoute = useMatchRoute()
   
@@ -29,8 +31,8 @@ function RouteComponent() {
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">CRM Home</h1>
-      <Button onClick={handleOpenSidebar}>Open Sidebar</Button>
+      <h1 className="text-2xl font-bold mb-4">{t('CRM Home')}</h1>
+      <Button onClick={handleOpenSidebar}>{t('Open Sidebar')}</Button>
 
       <Sheet open={isDetailOpen} onOpenChange={(open) => !open && handleCloseSidebar()}>
         {/* data-[side=right]: is required on BOTH width classes, not decorative
@@ -42,10 +44,8 @@ function RouteComponent() {
             448px it asks for. */}
         <SheetContent className="data-[side=right]:w-full data-[side=right]:sm:max-w-md border-l-0">
           <SheetHeader>
-            <SheetTitle>Detail View</SheetTitle>
-            <SheetDescription>
-              This is a sidebar opened via a subroute
-            </SheetDescription>
+            <SheetTitle>{t('Detail View')}</SheetTitle>
+            <SheetDescription>{t('This is a sidebar opened via a subroute')}</SheetDescription>
           </SheetHeader>
           <div className="mt-4">
             <Outlet />

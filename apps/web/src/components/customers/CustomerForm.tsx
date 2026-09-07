@@ -24,6 +24,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Loader2 } from 'lucide-react'
+import { useT } from '@/i18n'
 import { useState } from 'react'
 
 type Customer = Record<string, unknown>
@@ -36,6 +37,7 @@ interface CustomerFormProps {
 }
 
 export function CustomerForm({ customer, mode, onClose, displayMode = 'sidebar' }: CustomerFormProps) {
+  const t = useT()
   const createCustomer = useCreateRecord('customers')
   const updateCustomer = useUpdateRecord('customers')
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
@@ -94,34 +96,34 @@ export function CustomerForm({ customer, mode, onClose, displayMode = 'sidebar' 
     <DialogHeader>
       <DialogTitle>
         {mode === 'create'
-          ? 'Create New Customer'
+          ? t('Create New Customer')
           : mode === 'edit'
-            ? 'Edit Customer'
-            : 'Customer Details'}
+            ? t('Edit Customer')
+            : t('Customer Details')}
       </DialogTitle>
       <DialogDescription>
         {mode === 'create'
-          ? 'Add a new customer to the system.'
+          ? t('Add a new customer to the system.')
           : mode === 'edit'
-            ? 'Make changes to the customer information.'
-            : 'View customer information.'}
+            ? t('Make changes to the customer information.')
+            : t('View customer information.')}
       </DialogDescription>
     </DialogHeader>
   ) : (
     <SheetHeader>
       <SheetTitle>
         {mode === 'create'
-          ? 'Create New Customer'
+          ? t('Create New Customer')
           : mode === 'edit'
-            ? 'Edit Customer'
-            : 'Customer Details'}
+            ? t('Edit Customer')
+            : t('Customer Details')}
       </SheetTitle>
       <SheetDescription>
         {mode === 'create'
-          ? 'Add a new customer to the system.'
+          ? t('Add a new customer to the system.')
           : mode === 'edit'
-            ? 'Make changes to the customer information.'
-            : 'View customer information.'}
+            ? t('Make changes to the customer information.')
+            : t('View customer information.')}
       </SheetDescription>
     </SheetHeader>
   )
@@ -145,7 +147,7 @@ export function CustomerForm({ customer, mode, onClose, displayMode = 'sidebar' 
           {(field) => (
             <div className="space-y-2">
               <Label htmlFor="email">
-                Email Address <span className="text-destructive">*</span>
+                {t('Email Address')} <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="email"
@@ -164,7 +166,7 @@ export function CustomerForm({ customer, mode, onClose, displayMode = 'sidebar' 
         <form.Field name="phone">
           {(field) => (
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number</Label>
+              <Label htmlFor="phone">{t('Phone Number')}</Label>
               <Input
                 id="phone"
                 type="tel"
@@ -181,7 +183,7 @@ export function CustomerForm({ customer, mode, onClose, displayMode = 'sidebar' 
         <form.Field name="company">
           {(field) => (
             <div className="space-y-2">
-              <Label htmlFor="company">Company Name</Label>
+              <Label htmlFor="company">{t('Company Name')}</Label>
               <Input
                 id="company"
                 type="text"
@@ -199,7 +201,7 @@ export function CustomerForm({ customer, mode, onClose, displayMode = 'sidebar' 
           {(field) => (
             <div className="space-y-2">
               <Label htmlFor="status">
-                Status <span className="text-destructive">*</span>
+                {t('Status')} <span className="text-destructive">*</span>
               </Label>
               <select
                 id="status"
@@ -210,10 +212,10 @@ export function CustomerForm({ customer, mode, onClose, displayMode = 'sidebar' 
                 required
                 className="flex h-10 w-full rounded-md border border-input-border bg-background px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-                <option value="pending">Pending</option>
-                <option value="suspended">Suspended</option>
+                <option value="active">{t('Active')}</option>
+                <option value="inactive">{t('Inactive')}</option>
+                <option value="pending">{t('Pending')}</option>
+                <option value="suspended">{t('Suspended')}</option>
               </select>
             </div>
           )}
@@ -223,7 +225,7 @@ export function CustomerForm({ customer, mode, onClose, displayMode = 'sidebar' 
           {(field) => (
             <div className="space-y-2">
               <Label htmlFor="total_orders">
-                Total Orders <span className="text-destructive">*</span>
+                {t('Total Orders')} <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="total_orders"
@@ -244,10 +246,10 @@ export function CustomerForm({ customer, mode, onClose, displayMode = 'sidebar' 
           <div className="flex gap-2 pt-4">
             <Button type="submit" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {mode === 'create' ? 'Create Customer' : 'Save Changes'}
+              {mode === 'create' ? t('Create Customer') : t('Save Changes')}
             </Button>
             <Button type="button" variant="outline" onClick={handleClose} disabled={isLoading}>
-              Cancel
+              {t('Cancel')}
             </Button>
           </div>
         )}
@@ -255,7 +257,7 @@ export function CustomerForm({ customer, mode, onClose, displayMode = 'sidebar' 
         {mode === 'view' && (
           <div className="flex gap-2 pt-4">
             <Button type="button" onClick={onClose}>
-              Close
+              {t('Close')}
             </Button>
           </div>
         )}
@@ -272,14 +274,14 @@ export function CustomerForm({ customer, mode, onClose, displayMode = 'sidebar' 
       <AlertDialog open={showUnsavedDialog} onOpenChange={setShowUnsavedDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
+            <AlertDialogTitle>{t('Unsaved Changes')}</AlertDialogTitle>
             <AlertDialogDescription>
-              You have unsaved changes. Are you sure you want to close without saving?
+              {t('You have unsaved changes. Are you sure you want to close without saving?')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={cancelClose}>Continue Editing</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmClose}>Discard Changes</AlertDialogAction>
+            <AlertDialogCancel onClick={cancelClose}>{t('Continue Editing')}</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmClose}>{t('Discard Changes')}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

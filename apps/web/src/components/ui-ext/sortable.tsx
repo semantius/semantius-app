@@ -40,6 +40,7 @@ import { Slot as SlotPrimitive } from "radix-ui";
 import * as React from "react";
 import * as ReactDOM from "react-dom";
 import { useComposedRefs } from "@/lib/compose-refs";
+import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 
 const orientationConfig = {
@@ -123,6 +124,7 @@ function Sortable<T>(props: SortableProps<T>) {
     ...sortableProps
   } = props;
 
+  const t = useT();
   const id = React.useId();
   const [activeId, setActiveId] = React.useState<UniqueIdentifier | null>(null);
 
@@ -156,20 +158,29 @@ function Sortable<T>(props: SortableProps<T>) {
     return value.map((item) => getItemValue(item));
   }, [value, getItemValue]);
 
+  // Read off `sortableProps` once, at render, so each callback depends on the
+  // HANDLER rather than on the rest object it came out of. `sortableProps` is a
+  // fresh object every render (it is a rest pattern), so depending on it would
+  // rebuild all three callbacks on every render — and `exhaustive-deps` cannot
+  // see a member expression as a dependency, which is why it flagged these.
+  const onDragStartProp = sortableProps.onDragStart;
+  const onDragEndProp = sortableProps.onDragEnd;
+  const onDragCancelProp = sortableProps.onDragCancel;
+
   const onDragStart = React.useCallback(
     (event: DragStartEvent) => {
-      sortableProps.onDragStart?.(event);
+      onDragStartProp?.(event);
 
       if (event.activatorEvent.defaultPrevented) return;
 
       setActiveId(event.active.id);
     },
-    [sortableProps.onDragStart],
+    [onDragStartProp],
   );
 
   const onDragEnd = React.useCallback(
     (event: DragEndEvent) => {
-      sortableProps.onDragEnd?.(event);
+      onDragEndProp?.(event);
 
       if (event.activatorEvent.defaultPrevented) return;
 
@@ -190,72 +201,110 @@ function Sortable<T>(props: SortableProps<T>) {
       }
       setActiveId(null);
     },
-    [value, onValueChange, onMove, getItemValue, sortableProps.onDragEnd],
+    [value, onValueChange, onMove, getItemValue, onDragEndProp],
   );
 
   const onDragCancel = React.useCallback(
     (event: DragEndEvent) => {
-      sortableProps.onDragCancel?.(event);
+      onDragCancelProp?.(event);
 
       if (event.activatorEvent.defaultPrevented) return;
 
       setActiveId(null);
     },
-    [sortableProps.onDragCancel],
+    [onDragCancelProp],
   );
 
+  // dnd-kit reads these out through its own live region, so they are the only
+  // thing a keyboard-and-screen-reader user hears while reordering. The
+  // direction is an ICU `select` inside one sentence rather than a word glued
+  // in: German puts the participle last ("nach unten ... verschoben"), so a
+  // sentence assembled around an interpolated "down" cannot be translated.
   const announcements: Announcements = React.useMemo(
     () => ({
       onDragStart({ active }) {
-        const activeValue = active.id.toString();
-        return `Grabbed sortable item "${activeValue}". Current position is ${active.data.current?.sortable.index + 1} of ${value.length}. Use arrow keys to move, space to drop.`;
+        return t(
+          'Grabbed sortable item "{item}". Current position is {position} of {total}. Use arrow keys to move, space to drop.',
+          {
+            item: active.id.toString(),
+            position: (active.data.current?.sortable.index ?? 0) + 1,
+            total: value.length,
+          },
+        );
       },
       onDragOver({ active, over }) {
         if (over) {
           const overIndex = over.data.current?.sortable.index ?? 0;
           const activeIndex = active.data.current?.sortable.index ?? 0;
-          const moveDirection = overIndex > activeIndex ? "down" : "up";
-          const activeValue = active.id.toString();
-          return `Sortable item "${activeValue}" moved ${moveDirection} to position ${overIndex + 1} of ${value.length}.`;
+          return t(
+            'Sortable item "{item}" moved {direction, select, down {down} other {up}} to position {position} of {total}.',
+            {
+              item: active.id.toString(),
+              direction: overIndex > activeIndex ? "down" : "up",
+              position: overIndex + 1,
+              total: value.length,
+            },
+          );
         }
-        return "Sortable item is no longer over a droppable area. Press escape to cancel.";
+        return t(
+          "Sortable item is no longer over a droppable area. Press escape to cancel.",
+        );
       },
       onDragEnd({ active, over }) {
-        const activeValue = active.id.toString();
         if (over) {
-          const overIndex = over.data.current?.sortable.index ?? 0;
-          return `Sortable item "${activeValue}" dropped at position ${overIndex + 1} of ${value.length}.`;
+          return t(
+            'Sortable item "{item}" dropped at position {position} of {total}.',
+            {
+              item: active.id.toString(),
+              position: (over.data.current?.sortable.index ?? 0) + 1,
+              total: value.length,
+            },
+          );
         }
-        return `Sortable item "${activeValue}" dropped. No changes were made.`;
+        return t('Sortable item "{item}" dropped. No changes were made.', {
+          item: active.id.toString(),
+        });
       },
       onDragCancel({ active }) {
-        const activeIndex = active.data.current?.sortable.index ?? 0;
-        const activeValue = active.id.toString();
-        return `Sorting canceled. Sortable item "${activeValue}" returned to position ${activeIndex + 1} of ${value.length}.`;
+        return t(
+          'Sorting canceled. Sortable item "{item}" returned to position {position} of {total}.',
+          {
+            item: active.id.toString(),
+            position: (active.data.current?.sortable.index ?? 0) + 1,
+            total: value.length,
+          },
+        );
       },
       onDragMove({ active, over }) {
         if (over) {
           const overIndex = over.data.current?.sortable.index ?? 0;
           const activeIndex = active.data.current?.sortable.index ?? 0;
-          const moveDirection = overIndex > activeIndex ? "down" : "up";
-          const activeValue = active.id.toString();
-          return `Sortable item "${activeValue}" is moving ${moveDirection} to position ${overIndex + 1} of ${value.length}.`;
+          return t(
+            'Sortable item "{item}" is moving {direction, select, down {down} other {up}} to position {position} of {total}.',
+            {
+              item: active.id.toString(),
+              direction: overIndex > activeIndex ? "down" : "up",
+              position: overIndex + 1,
+              total: value.length,
+            },
+          );
         }
-        return "Sortable item is no longer over a droppable area. Press escape to cancel.";
+        return t(
+          "Sortable item is no longer over a droppable area. Press escape to cancel.",
+        );
       },
     }),
-    [value],
+    [value, t],
   );
 
   const screenReaderInstructions: ScreenReaderInstructions = React.useMemo(
     () => ({
-      draggable: `
-        To pick up a sortable item, press space or enter.
-        While dragging, use the ${orientation === "vertical" ? "up and down" : orientation === "horizontal" ? "left and right" : "arrow"} keys to move the item.
-        Press space or enter again to drop the item in its new position, or press escape to cancel.
-      `,
+      draggable: t(
+        "To pick up a sortable item, press space or enter. While dragging, use the {orientation, select, vertical {up and down} horizontal {left and right} other {arrow}} keys to move the item. Press space or enter again to drop the item in its new position, or press escape to cancel.",
+        { orientation },
+      ),
     }),
-    [orientation],
+    [orientation, t],
   );
 
   const contextValue = React.useMemo(

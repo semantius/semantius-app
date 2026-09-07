@@ -153,6 +153,39 @@ export default defineConfig([
     ],
     extends: [lingui.configs['flat/recommended']],
     rules: {
+      // ── The ICU tag-name collision, and why this ban is the fix ───────────
+      //
+      // `no-unlocalized-strings` hard-codes `['Trans', 'Plural', 'Select',
+      // 'SelectOrdinal']` as Lingui's own ICU components and marks EVERY
+      // `Literal`/`TemplateLiteral`/`JSXText` in the subtree of one as already
+      // visited (the rule's source, v0.15.0). shadcn's `<Select>` has the same
+      // tag name, so a `SelectItem`'s label, a `SelectValue placeholder` and
+      // every attribute inside a select were invisible — verified with a
+      // fixture through the installed plugin, not read off the source: a bare
+      // `<span>` next to them was reported and nothing inside the `<Select>`
+      // was. A green run over such a file proved nothing about it.
+      //
+      // There is no option to rename what the rule considers an ICU component,
+      // so the disambiguation has to happen at the call site: the four files
+      // that use the select import it as `Select as SelectRoot`, and this rule
+      // is what keeps them that way. It is a JSX TAG-NAME ban, not an import
+      // ban — `no-restricted-imports` matches the imported name and would
+      // reject the alias too.
+      //
+      // `Trans` is deliberately absent: it is Lingui's, and its subtree cannot
+      // hide anything because `TransProps` declares no `children`, so
+      // `<Trans id="…">text</Trans>` is a tsc error (TS2322). The message comes
+      // from `id`, which the extractor reads.
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'JSXOpeningElement[name.name=/^(Plural|Select|SelectOrdinal)$/]',
+          message:
+            'eslint-plugin-lingui treats a JSX element named Select/Plural/SelectOrdinal as one of its own ICU ' +
+            'components and reports no unlocalized string anywhere inside it. Import it under another name ' +
+            "(`import { Select as SelectRoot } from '@/components/ui/select'`) so the rule can see the subtree.",
+        },
+      ],
       'lingui/no-unlocalized-strings': [
         'error',
         {
@@ -212,6 +245,11 @@ export default defineConfig([
           // ambiguous and took ESLint from 6 seconds to over ten minutes on one
           // test file, with no error anywhere to say why.
           ignore: [
+            // The React Server Components directive prologue. A string
+            // statement at the top of a module, never text on a screen — and
+            // the one shape that cannot be reached by any other lever, since it
+            // is not an argument, a property or a variable.
+            '^use client$',
             // HTTP verbs and media types.
             '^(GET|POST|PATCH|PUT|DELETE|HEAD|OPTIONS)$',
             '^application/[a-z0-9+.-]+$',
@@ -232,6 +270,30 @@ export default defineConfig([
           ignoreNames: [
             'className',
             'class',
+            // React's debug name for a component. It shows up in DevTools and
+            // in React's own warnings, never on a screen, and it is by
+            // definition the component's identifier — 46 of them across the
+            // vendored grid. The rule reads this list for `X.displayName = '…'`
+            // assignments and for `static displayName` class properties alike.
+            'displayName',
+            // A name ending in ClassName holds CSS classes: the shared
+            // `inputSurfaceClassName`, and the `itemClassName` /
+            // `triggerClassName` props components take. `cn`/`cva`/`clsx` are
+            // already exempt as CALLS; this covers the same strings where they
+            // are a default or a constant instead.
+            { regex: { pattern: 'ClassName$' } },
+            // An option's value, never its label. The plugin ALREADY allows
+            // `value` on an intrinsic element (`isAllowedDOMAttr` hard-codes
+            // placeholder/alt/aria-label/value), so this only extends the same
+            // treatment to a component — which is what `<SelectItem value="asc">`
+            // and `<option value="active">` are: the identifier that goes into
+            // state, sitting next to the `t()` label the user actually reads.
+            // Every literal `value=` in product code is one of those. Note that
+            // `ignoreNames` is wider than a JSX attribute — it also covers an
+            // object property and a variable declaration of that name — so check
+            // for a `{ value: 'Some sentence' }` before assuming this is free;
+            // there are none today.
+            'value',
             'id',
             'key',
             'href',

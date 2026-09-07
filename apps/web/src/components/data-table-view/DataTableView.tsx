@@ -946,9 +946,12 @@ export function DataTableView({
                     e.stopPropagation()
                     deleteConfirm.showConfirmation(
                       recordId as string | number,
-                      displayValue != null && String(displayValue) !== ''
-                        ? String(displayValue)
-                        : t('this record')
+                      // Empty, not a stand-in phrase: ConfirmDeleteDialog and
+                      // the delete toast each have their own sentence for a
+                      // record with no name, because "this record" pushed into
+                      // "{label} {name} deleted" reads as nonsense once the
+                      // sentence inflects.
+                      displayValue != null ? String(displayValue) : ''
                     )
                   }}
                 >
@@ -987,7 +990,10 @@ export function DataTableView({
     // change identity on a language or format switch, and the cells built here
     // are captured in a memo that would otherwise keep rendering the previous
     // language's "Yes"/"No" and the previous locale's numbers and dates.
-  }, [metadata, excludeColumns, effectiveCanEdit, onEdit, editRoute, onEditModal, deleteConfirm, primaryKeyColumn, displayColumn, leftPinnedKeys, dndEnabled, getRowMenuItems, getRowHref, rowHrefPreservesSearch, t, formattingLocale])
+    // `editRoute` is NOT here: the memo does not read it (the row menu
+    // navigates through `onEdit`), and exhaustive-deps reports an unused
+    // dependency as an error like any other.
+  }, [metadata, excludeColumns, effectiveCanEdit, onEdit, onEditModal, deleteConfirm, primaryKeyColumn, displayColumn, leftPinnedKeys, dndEnabled, getRowMenuItems, getRowHref, rowHrefPreservesSearch, t, formattingLocale])
 
   // Sticky pinning state: the label column (+ anything left of it, when in
   // position 1 or 2) on the left, and the row-actions column on the right.

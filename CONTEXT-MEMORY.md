@@ -518,6 +518,53 @@ therefore not proof that a file is fully migrated — `title`, `aria-description
 `title=` in `src/` is on a component, so nothing is hiding; check when migrating
 a file that adds one.
 
+**The rule is blind to every string inside a `<Select>` — so the tag is
+aliased, and a lint rule keeps it that way.** `no-unlocalized-strings` hard-codes
+`['Trans', 'Plural', 'Select', 'SelectOrdinal']` as Lingui's own ICU components
+and marks EVERY `Literal` / `TemplateLiteral` / `JSXText` in the subtree of one
+as already visited (v0.15.0, `no-unlocalized-strings.js`). shadcn's `<Select>`
+has the same tag name, so a `SelectItem`'s label, a `SelectValue placeholder`
+and every attribute inside a select were invisible, and a green run over such a
+file proved nothing about it — measured with a fixture through the installed
+plugin, where a bare `<span>` beside them was reported and nothing inside the
+`<Select>` was.
+
+There is no option to rename what the rule considers an ICU component, so the
+disambiguation is at the call site: the four files that use it import
+`Select as SelectRoot` and a `no-restricted-syntax` entry in `eslint.config.js`
+rejects the JSX tag names `Select` / `Plural` / `SelectOrdinal` outright. It has
+to be a TAG-NAME ban — `no-restricted-imports` matches the imported name and
+would reject the alias too. With the alias in place the real rule sees the whole
+subtree, which is why `value` is in `ignoreNames`: a `<SelectItem value="asc">`
+is an identifier next to its `t()` label, and the plugin already exempts `value`
+on an intrinsic element for exactly that reason.
+
+`Trans` is deliberately NOT in that ban and needs no test: `TransProps` declares
+no `children`, so `<Trans id="…">text</Trans>` is a **tsc error** (TS2322,
+verified). Its message comes from `id`, which the extractor reads.
+
+**What is left in `eslint-suppressions.json` after P3 is not language.** The
+count fell 947 → 610 and the residue is six families, none of which a catalog
+can hold: PostgREST query fragments and URL templates, identifiers and enum
+members (`'asc'`, `'default'`, a column name, an RPC name, a lucide icon id),
+CSS class and custom-property strings, `throw new Error` invariants and
+`console.warn` developer messages, **operator-facing boot diagnostics** (see
+below), and `src/components/ui/**`, which is CLI-owned and cannot be hand-edited
+at all. Read the number as "strings the rule cannot tell apart from text", not
+as "untranslated UI". Audited by random sample plus a prose filter over all of
+them; nothing user-visible is hiding in there.
+
+**A boot diagnostic is not language; a boot INSTRUCTION is.** `lib/config.ts`
+(44) and `lib/userMenu.ts` (29) stay English because they are machine reports
+for the operator who wrote the `.env`: an HTTP status with the URL that produced
+it, a missing-field list, a stack trace, and validation messages that quote
+`VITE_UI_CUSTOMIZER`'s JSON keys verbatim ("`\"title\"` must be a non-empty
+string"). Translating those makes the operator map German back onto English
+keys. The line is CONTENT, not the `detail` slot it happens to land in —
+`lib/secureContext.ts` renders into the same `BootFailure` `detail` and IS
+translated, because it is a sentence telling a human what to do ("Serve the app
+over HTTPS, or reach it at http://localhost").
+
 **Two `ignores` beyond the plan's `src/charts/**`, both deliberate.**
 (1) *Tests and their helpers* (`**/*.{test,spec}.*`, `**/__tests__/**`,
 `src/test/**`): a test's strings are assertions, fixtures and query strings, and
@@ -564,6 +611,27 @@ prefer `Intl` over date-fns: it needs no chunk and is right on the first render.
 would render the current catalog but could not re-render the component holding
 the string, and the ESLint ban on `translate` under `components/**` is only
 enforced at the import site. A component passes its own `useT()` down.
+
+**The data layer's own error sentences are UI text, and translating them does
+not collide with the runtime collector.** `useTable`, `useTableMutations`,
+`useRpc`, `callRpc`, the `$table_name` loader and `AuthContext` all end up in
+`ApiErrorDisplay`, a toast or a delete dialog, so their messages go through the
+catalog like anything else on screen. The reason that is safe alongside P4's
+`translateDynamic` — which looks a server message up VERBATIM and records a
+`server` row for a miss — is that the two never meet: an app-authored fallback
+("Failed to fetch {table}") is only reached when the response body carried no
+PostgREST `message`, and a body with a `code` always carries one, so the
+collector's "record only when `cause` has a `code`" filter never sees a
+translated app string. Keep that property when touching either side: if a
+thrower ever attaches a `code` while keeping its own wording, German text starts
+appearing as tenant rows.
+
+**Outside `components/**` the hook/module split is a judgment call, not a lint
+rule.** `RouterContextUpdater` in `contexts/AuthContext.tsx` is a component and
+uses `translate()` on purpose: its messages are produced inside the userinfo
+effect, and listing a `t` from `useT()` in that effect's deps would refetch
+userinfo on every language switch. The message is frozen at the moment the
+request failed, which is the same trade every toast already makes.
 
 ### Routing Conventions
 
@@ -1154,7 +1222,12 @@ Always inspect API responses with `curl` before implementing — never assume re
 ### Ideas already tried and rejected — do not re-propose
 
 jsdom in any project; polyfilling a browser API to make a test pass; stubbing
-`window.location`; axe in jsdom; isolated component tests with invented props;
+`window.location`; axe in jsdom; `useTsTypes` on `lingui/no-unlocalized-strings`
+(measured: it needs type-aware parsing — `parserOptions.projectService` — for
+every file ESLint touches, which took a `src` run from 32s to 53s, and bought
+48 of 702 violations, because the residue is `string`-typed query fragments and
+identifiers rather than string-literal unions); isolated component tests with
+invented props;
 `/form-playground` as a test surface; MSW with recorded fixtures; deleting
 Playwright; a pre-push hook; seeding `loginInProgress` to fake a failed token
 exchange; routing the test token through `#jwt` instead of `globalSetup`; a

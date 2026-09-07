@@ -5,6 +5,7 @@ import { FormLabel } from './FormLabel'
 import { FormDescription } from './FormDescription'
 import { FormError } from './FormError'
 import { describedBy, labelledBy } from './fieldAria'
+import { useT } from '@/i18n'
 
 // Lazy load CodeMirror
 const CodeMirrorEditor = lazy(() => import('./CodeMirrorJson'))
@@ -60,6 +61,7 @@ export function InputJson({
   validators,
   schema,
 }: FormControlProps) {
+  const t = useT()
   const { form, formMode } = useFormContext()
   
   // Derive props from inputMode
@@ -129,7 +131,7 @@ export function InputJson({
           <div className="pt-2 space-y-1">
             <FormLabel htmlFor={name} label={label} required={required} error={!!field.state.meta.errors?.[0]} />
             <div className={`border rounded-md overflow-hidden ${field.state.meta.errors?.[0] ? 'border-destructive' : 'border-input-border'}`}>
-              <Suspense fallback={<div className="p-4 text-muted-foreground">Loading editor...</div>}>
+              <Suspense fallback={<div className="p-4 text-muted-foreground">{t('Loading editor...')}</div>}>
                 <JsonEditorBoundary
                   value={stringValue}
                   onChange={field.handleChange}

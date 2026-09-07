@@ -1,5 +1,6 @@
 import { useQuery, useMutation, type UseQueryResult, type UseMutationResult } from '@tanstack/react-query'
 import { useAuth } from '@/hooks/useAuth'
+import { useT } from '@/i18n'
 import { getApiConfig, callRpc } from '@/lib/apiClient'
 
 interface UseRpcOptions<TParams = Record<string, unknown>> {
@@ -37,6 +38,7 @@ export function useRpc<TResult = unknown, TParams = Record<string, unknown>>(
   rpcName: string,
   options: UseRpcOptions<TParams> = {}
 ): UseQueryResult<TResult, Error> {
+  const t = useT()
   const { token } = useAuth()
   const { baseUrl: apiBaseUrl } = getApiConfig()
 
@@ -46,7 +48,7 @@ export function useRpc<TResult = unknown, TParams = Record<string, unknown>>(
     queryKey: ['rpc', rpcName, params],
     queryFn: async () => {
       if (!token) {
-        throw new Error('Authentication token is required')
+        throw new Error(t('Authentication token is required'))
       }
       return await callRpc<TResult, TParams>(rpcName, params || {} as TParams, token)
     },
@@ -85,12 +87,13 @@ export function useRpcMutation<TResult = unknown, TParams = Record<string, unkno
     onError?: (error: Error) => void
   }
 ): UseMutationResult<TResult, Error, TParams> {
+  const t = useT()
   const { token } = useAuth()
 
   return useMutation<TResult, Error, TParams>({
     mutationFn: async (params: TParams) => {
       if (!token) {
-        throw new Error('Authentication token is required')
+        throw new Error(t('Authentication token is required'))
       }
       return await callRpc<TResult, TParams>(rpcName, params, token)
     },

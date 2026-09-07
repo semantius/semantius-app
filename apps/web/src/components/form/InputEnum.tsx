@@ -16,6 +16,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import { useT } from '@/i18n'
 import type { FormControlProps } from './types'
 import { useFormContext } from './FormContext'
 import { FormLabel } from './FormLabel'
@@ -31,6 +32,7 @@ export function InputEnum({
   validators,
   schema,
 }: FormControlProps) {
+  const t = useT()
   const { form, formMode } = useFormContext()
   const [open, setOpen] = useState(false)
   // cmdk's Command.List spreads user props BEFORE writing its own generated
@@ -134,7 +136,7 @@ export function InputEnum({
                   }
                 >
                   <span className="truncate">
-                    {isDisabled ? (currentValue || '') : (currentValue || 'Select an option')}
+                    {isDisabled ? (currentValue || '') : (currentValue || t('Select an option'))}
                   </span>
                   {!isDisabled && <ChevronsUpDown className="ml-auto shrink-0 opacity-50" size={10} />}
                 </PopoverTrigger>
@@ -144,7 +146,7 @@ export function InputEnum({
                   // 2.5.8; the glyph stays 12px.
                   <button
                     type="button"
-                    aria-label="Clear selection"
+                    aria-label={t('Clear selection')}
                     className="absolute top-1/2 right-7 flex size-6 -translate-y-1/2 items-center justify-center rounded-sm opacity-0 transition-opacity focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring group-hover/combobox:opacity-100 group-focus-within/combobox:opacity-100 group-has-aria-expanded/combobox:opacity-100"
                     onPointerDown={(e) => {
                       e.preventDefault()
@@ -158,9 +160,9 @@ export function InputEnum({
               </div>
               <PopoverContent className="w-(--anchor-width) p-0" align="start">
                 <Command>
-                  {showSearch && <CommandInput placeholder="Search..." />}
+                  {showSearch && <CommandInput placeholder={t('Search...')} />}
                   <CommandList ref={listboxRef}>
-                    <CommandEmpty>No option found.</CommandEmpty>
+                    <CommandEmpty>{t('No option found.')}</CommandEmpty>
                     <CommandGroup>
                       {enumValues.map((option) => (
                         <CommandItem

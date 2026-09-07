@@ -16,6 +16,13 @@ import { useT } from '@/i18n'
 interface ConfirmDeleteDialogProps {
   isOpen: boolean
   setIsOpen: (open: boolean) => void
+  /**
+   * The record's own name, or `''` when it has none. Empty is a real state, not
+   * a missing value: the caller must NOT substitute a stand-in phrase, because
+   * "this record" slotted into a sentence around it reads as nonsense in an
+   * inflecting language ("Kunde diesen Datensatz gelöscht"). The no-name case
+   * gets its own sentence here and in useConfirmDelete's toast.
+   */
   displayName: string
   isPending: boolean
   error?: Error | null
@@ -61,11 +68,15 @@ export function ConfirmDeleteDialog({
               what it renders is decided here, so a translation can never inject
               markup.
             */}
-            <Trans
-              id="Are you sure you want to delete <bold>{name}</bold>? This action cannot be undone."
-              values={{ name: displayName }}
-              components={{ bold: <strong /> }}
-            />
+            {displayName ? (
+              <Trans
+                id="Are you sure you want to delete <bold>{name}</bold>? This action cannot be undone."
+                values={{ name: displayName }}
+                components={{ bold: <strong /> }}
+              />
+            ) : (
+              t('Are you sure you want to delete this {type}? This action cannot be undone.', { type })
+            )}
           </AlertDialogDescription>
           {error && (
             <p role="alert" className="text-sm font-medium text-destructive pt-1">

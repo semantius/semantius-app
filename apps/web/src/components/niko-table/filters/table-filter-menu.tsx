@@ -68,7 +68,10 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import {
-  Select,
+  // Aliased on purpose: eslint-plugin-lingui treats a JSX element named
+  // `Select` as its own ICU component and goes blind inside it. See the
+  // no-restricted-syntax note in eslint.config.js.
+  Select as SelectRoot,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -87,7 +90,7 @@ import {
   getFilterOperators,
   processFiltersForLogic,
 } from "../lib/data-table"
-import { formatDate } from "../lib/format"
+import { fieldNameFor, formatDate } from "../lib/format"
 import { useKeyboardShortcut } from "../hooks"
 import { cn } from "@/lib/utils"
 import { useFormattingLocale, useT, type TranslateFn } from "@/i18n"
@@ -1228,6 +1231,7 @@ function FilterEmptyInput<TData>({
   filter,
 }: Pick<FilterInputProps<TData>, "inputId" | "columnMeta" | "filter">) {
   const t = useT()
+  const fieldName = fieldNameFor(columnMeta?.label, String(filter.id))
   return (
     <div
       id={inputId}
@@ -1237,8 +1241,8 @@ function FilterEmptyInput<TData>({
       // not always sit where the English "not" does.
       aria-label={
         filter.operator === FILTER_OPERATORS.EMPTY
-          ? t("{field} filter is empty", { field: columnMeta?.label })
-          : t("{field} filter is not empty", { field: columnMeta?.label })
+          ? t("{field} filter is empty", { field: fieldName })
+          : t("{field} filter is not empty", { field: fieldName })
       }
       aria-live="polite"
       className="h-8 w-full rounded border bg-transparent dark:bg-input/30"
@@ -1260,6 +1264,7 @@ function FilterTextNumberInput<TData>({
   "filter" | "inputId" | "columnMeta" | "onFilterUpdate"
 >) {
   const t = useT()
+  const fieldName = fieldNameFor(columnMeta?.label, String(filter.id))
   const isNumber =
     filter.variant === FILTER_VARIANTS.NUMBER ||
     filter.variant === FILTER_VARIANTS.RANGE
@@ -1268,7 +1273,7 @@ function FilterTextNumberInput<TData>({
     <Input
       id={inputId}
       type={isNumber ? FILTER_VARIANTS.NUMBER : FILTER_VARIANTS.TEXT}
-      aria-label={t("{field} filter value", { field: columnMeta?.label })}
+      aria-label={t("{field} filter value", { field: fieldName })}
       inputMode={isNumber ? "numeric" : undefined}
       placeholder={columnMeta?.placeholder ?? t("Enter a value...")}
       className="h-8 w-full rounded"
@@ -1297,10 +1302,11 @@ function FilterBooleanSelect<TData>({
   const t = useT()
   if (Array.isArray(filter.value)) return null
 
+  const fieldName = fieldNameFor(columnMeta?.label, String(filter.id))
   const inputListboxId = `${inputId}-listbox`
 
   return (
-    <Select
+    <SelectRoot
       open={showValueSelector}
       onOpenChange={setShowValueSelector}
       value={filter.value}
@@ -1313,7 +1319,7 @@ function FilterBooleanSelect<TData>({
       <SelectTrigger
         id={inputId}
         aria-controls={inputListboxId}
-        aria-label={t("{field} boolean filter", { field: columnMeta?.label })}
+        aria-label={t("{field} boolean filter", { field: fieldName })}
         size="sm"
         className="w-full rounded"
       >
@@ -1325,7 +1331,7 @@ function FilterBooleanSelect<TData>({
         <SelectItem value="true">{t("True")}</SelectItem>
         <SelectItem value="false">{t("False")}</SelectItem>
       </SelectContent>
-    </Select>
+    </SelectRoot>
   )
 }
 FilterBooleanSelect.displayName = "FilterBooleanSelect"
@@ -1342,6 +1348,7 @@ function FilterFacetedSelect<TData>({
   setShowValueSelector,
 }: FilterInputProps<TData>) {
   const t = useT()
+  const fieldName = fieldNameFor(columnMeta?.label, String(filter.id))
   const inputListboxId = `${inputId}-listbox`
   const multiple = filter.variant === FILTER_VARIANTS.MULTI_SELECT
   const selectedValues = multiple
@@ -1375,8 +1382,8 @@ function FilterFacetedSelect<TData>({
             // spells it — never lowercased or pluralized in code.
             aria-label={
               multiple
-                ? t("{field} filter values", { field: columnMeta?.label })
-                : t("{field} filter value", { field: columnMeta?.label })
+                ? t("{field} filter values", { field: fieldName })
+                : t("{field} filter value", { field: fieldName })
             }
             variant="outline"
             size="sm"
@@ -1404,7 +1411,7 @@ function FilterFacetedSelect<TData>({
         className="w-[200px] origin-(--transform-origin)"
       >
         <FacetedInput
-          aria-label={t("Search {field} options", { field: columnMeta?.label })}
+          aria-label={t("Search {field} options", { field: fieldName })}
           placeholder={columnMeta?.placeholder ?? t("Search options...")}
         />
         <FacetedList>
@@ -1443,6 +1450,7 @@ function FilterDatePicker<TData>({
   // The FORMATTING locale, never the catalog language: a German UI with the
   // browser left on de-CH still writes Swiss dates.
   const locale = useFormattingLocale()
+  const fieldName = fieldNameFor(columnMeta?.label, String(filter.id))
   const inputListboxId = `${inputId}-listbox`
   const isRange = filter.operator === FILTER_OPERATORS.BETWEEN
 
@@ -1470,7 +1478,7 @@ function FilterDatePicker<TData>({
           <Button
             id={inputId}
             aria-controls={inputListboxId}
-            aria-label={t("{field} date filter", { field: columnMeta?.label })}
+            aria-label={t("{field} date filter", { field: fieldName })}
             variant="outline"
             size="sm"
             className={cn(
@@ -1499,7 +1507,7 @@ function FilterDatePicker<TData>({
       >
         {isRange ? (
           <LocalizedCalendar
-            aria-label={t("Select {field} date range", { field: columnMeta?.label })}
+            aria-label={t("Select {field} date range", { field: fieldName })}
             mode={FILTER_VARIANTS.RANGE}
             captionLayout="dropdown"
             selected={
@@ -1526,7 +1534,7 @@ function FilterDatePicker<TData>({
           />
         ) : (
           <LocalizedCalendar
-            aria-label={t("Select {field} date", { field: columnMeta?.label })}
+            aria-label={t("Select {field} date", { field: fieldName })}
             mode="single"
             captionLayout="dropdown"
             selected={dateValue[0] ? new Date(Number(dateValue[0])) : undefined}
@@ -1640,7 +1648,7 @@ function FilterJoinOperator<TData>({
 
   return (
     <div className="min-w-[72px] text-center">
-      <Select
+      <SelectRoot
         value={filter.joinOperator || JOIN_OPERATORS.AND}
         onValueChange={(value) => {
           if (value !== null) onFilterUpdate(filter.filterId, { joinOperator: value as JoinOperator })
@@ -1668,7 +1676,7 @@ function FilterJoinOperator<TData>({
             </SelectItem>
           ))}
         </SelectContent>
-      </Select>
+      </SelectRoot>
     </div>
   )
 }
@@ -1793,7 +1801,7 @@ function FilterOperatorSelector<TData>({
   }
 
   return (
-    <Select
+    <SelectRoot
       open={showOperatorSelector}
       onOpenChange={setShowOperatorSelector}
       value={filter.operator}
@@ -1840,7 +1848,7 @@ function FilterOperatorSelector<TData>({
           </SelectItem>
         ))}
       </SelectContent>
-    </Select>
+    </SelectRoot>
   )
 }
 FilterOperatorSelector.displayName = "FilterOperatorSelector"

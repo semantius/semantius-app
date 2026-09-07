@@ -8,6 +8,8 @@ import { StickyContainer } from '@/components/ui-ext/sticky-container'
 import type { SchemaObject } from 'ajv'
 import { InputText } from './InputText'
 import { FormProvider } from './FormContext'
+import { localizeValidationErrors } from './validationMessages'
+import { useLanguage, useT, type TranslateFn } from '@/i18n'
 import type { InputMode } from './types'
 
 export type FormMode = 'edit' | 'create' | 'view'
@@ -133,21 +135,34 @@ function generateDefaultValue(schema: SchemaObject): Record<string, any> {
 
 /**
  * Validate a single field value against its schema
- * 
+ *
+ * `t` and `language` are parameters rather than hooks because this runs outside
+ * React — it is called from the field validators and from the form context. The
+ * component that owns the form reads them once and passes them down, which is
+ * the same shape `formatDeleteError` uses.
+ *
  * @param value - The value to validate
  * @param fieldSchema - The JSON Schema for this specific field
  * @param fieldName - The name of the field being validated
+ * @param t - The active translate function
+ * @param language - The catalog language, for the Ajv message localizer
  * @returns Error message if validation fails, undefined if valid
  */
-function validateField(value: any, fieldSchema: SchemaObject, fieldName: string): string | undefined {
+function validateField(
+  value: any,
+  fieldSchema: SchemaObject,
+  fieldName: string,
+  t: TranslateFn,
+  language: string,
+): string | undefined {
   // Check if field has inputMode: 'required'
   const inputMode = (fieldSchema as any).inputMode
   const isRequired = inputMode === 'required'
-  
+
   // For required fields, check for empty values
   if (isRequired) {
     if (value === undefined || value === null || value === '') {
-      return 'must not be empty'
+      return t('must not be empty')
     }
   }
 
@@ -171,11 +186,12 @@ function validateField(value: any, fieldSchema: SchemaObject, fieldName: string)
   const result = validateData(tempData, tempSchema)
 
   if (!result.valid && result.errors) {
+    localizeValidationErrors(result.errors, language, t)
     // Find the first error for this field
-    const fieldError = result.errors.find((err: any) => 
+    const fieldError = result.errors.find((err: any) =>
       err.instancePath === `/${fieldName}` || err.instancePath === ''
     )
-    return fieldError ? fieldError.message : 'Validation error'
+    return fieldError ? fieldError.message : t('Validation error')
   }
 
   return undefined
@@ -217,6 +233,11 @@ function getWidthClasses(width: string): string {
 }
 
 export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', id, onBeforeSubmit, parentField, footerContent }: SchemaFormProps) {
+  const t = useT()
+  // The Ajv message localizer is keyed by language, not by the formatting
+  // locale: a validation message is prose, so it follows the catalog.
+  const language = useLanguage()
+
   // Merge schema defaults under initialValue so explicit values win
   // but defaults fill gaps (e.g. parent FK pre-filled, other fields blank).
   const defaultValue = { ...generateDefaultValue(schema), ...(initialValue || {}) }
@@ -330,7 +351,7 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
         result = validateData(validationValue, validationSchema)
       } catch (error) {
         // Schema validation error (invalid schema structure)
-        const errorMessage = error instanceof Error ? error.message : 'Invalid schema'
+        const errorMessage = error instanceof Error ? error.message : t('Invalid schema')
         console.error('Schema validation error:', errorMessage)
         
         // Set a form-level error to display the schema error
@@ -348,7 +369,11 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
       if (!result.valid) {
         // Log validation failure for debugging
         console.warn('Form validation failed:', result.errors)
-        
+
+        // Ajv writes its own messages in English; translate them before any of
+        // them is copied into field or form state below.
+        localizeValidationErrors(result.errors, language, t)
+
         // Track errors that couldn't be assigned to fields
         const unhandledErrors: string[] = []
         let firstErrorField: string | null = null
@@ -439,7 +464,7 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
   })
 
   if (!schema.properties || typeof schema.properties !== 'object') {
-    return <div>Invalid schema: no properties defined</div>
+    return <div>{t('Invalid schema: no properties defined')}</div>
   }
 
   const properties = schema.properties as Record<string, SchemaObject>
@@ -452,7 +477,7 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
     validateField: (value: any, fieldName: string) => {
       const fieldSchema = properties[fieldName]
       if (!fieldSchema) return undefined
-      return validateField(value, fieldSchema, fieldName)
+      return validateField(value, fieldSchema, fieldName, t, language)
     },
   }
 
@@ -505,7 +530,7 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
                   </svg>
                 </div>
                 <div className="ml-3">
-                  <h3 className="text-sm font-medium text-red-800">Schema Validation Error</h3>
+                  <h3 className="text-sm font-medium text-red-800">{t('Schema Validation Error')}</h3>
                   <div className="mt-2 text-sm text-red-700">
                     {schemaErrors[0]}
                   </div>
@@ -529,7 +554,7 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
                   </svg>
                 </div>
                 <div className="ml-3">
-                  <h3 className="text-sm font-medium text-red-800">Validation Error</h3>
+                  <h3 className="text-sm font-medium text-red-800">{t('Validation Error')}</h3>
                   <div className="mt-2 text-sm text-red-700">
                     <ul className="list-disc list-inside space-y-1">
                       {validationErrors.map((error, idx) => (
@@ -629,7 +654,7 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
                     validators={shouldValidate ? {
                       // Only validate on submit, not on blur
                       // This prevents blur validation from canceling submit button clicks
-                      onSubmit: ({ value }) => validateField(value, propSchema, key),
+                      onSubmit: ({ value }) => validateField(value, propSchema, key, t, language),
                     } : undefined}
                   />
                 </div>
@@ -659,13 +684,13 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
               visible; a sibling after the sticky bar would be pushed off-screen. */}
           {footerContent && <div className="mb-4">{footerContent}</div>}
           <div className="flex gap-4">
-            <Button type="submit">Submit</Button>
+            <Button type="submit">{t('Submit')}</Button>
             <Button
               type="button"
               variant="outline"
               onClick={() => form.reset()}
             >
-              Reset
+              {t('Reset')}
             </Button>
           </div>
         </StickyContainer>

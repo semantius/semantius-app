@@ -4,6 +4,7 @@ import React from "react"
 import { AlertCircle } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import { translate } from "@/i18n"
 
 export interface DataTableErrorBoundaryProps {
   /**
@@ -111,18 +112,22 @@ export class DataTableErrorBoundary extends React.Component<
         return this.props.fallback
       }
 
-      const { showResetButton = true, resetButtonText = "Try Again" } =
-        this.props
+      // `translate`, not `useT`: this is one of the three class components that
+      // cannot call a hook. The accepted cost is that the text does not follow a
+      // language switch until the boundary re-renders — and a boundary that has
+      // caught an error is about to be reset anyway.
+      const { showResetButton = true, resetButtonText } = this.props
+      const resetLabel = resetButtonText ?? translate("Try Again")
 
       // Default error UI
       return (
         <Alert variant="destructive" className="my-4">
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Table Error</AlertTitle>
+          <AlertTitle>{translate("Table Error")}</AlertTitle>
           <AlertDescription className="mt-2 flex flex-col gap-2">
             <p>
               {this.state.error?.message ||
-                "Something went wrong while displaying the table."}
+                translate("Something went wrong while displaying the table.")}
             </p>
             {showResetButton && (
               <Button
@@ -131,7 +136,7 @@ export class DataTableErrorBoundary extends React.Component<
                 onClick={this.handleReset}
                 className="mt-2 w-fit"
               >
-                {resetButtonText}
+                {resetLabel}
               </Button>
             )}
           </AlertDescription>

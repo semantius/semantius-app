@@ -83,7 +83,14 @@ export function ModuleSwitcher({
       const match = modules.find(m => m.slug.toLowerCase() === lower)
       if (match) { setActiveModule(match); return }
     }
-    if (!activeModule) setActiveModule(modules[0])
+    // The functional updater reads the CURRENT value without depending on it,
+    // which is what keeps `activeModule` out of the dependency list.
+    // Putting it there is not idempotent, whatever it looks like: a module
+    // click sets `activeModule` optimistically and THEN navigates, and the
+    // router's params update asynchronously — so an effect that re-runs on
+    // `activeModule` matches the url the user is leaving and sets the module
+    // straight back, until the navigation lands.
+    setActiveModule((current) => current ?? modules[0])
   }, [moduleId, modules])
 
   React.useEffect(() => {

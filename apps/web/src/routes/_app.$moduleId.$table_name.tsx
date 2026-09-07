@@ -6,6 +6,7 @@ import { lazy, Suspense, useMemo } from 'react'
 import { NotFoundPage } from '@/components/NotFoundPage'
 import { ViewSkeleton } from '@/components/ViewSkeleton'
 import type { EntityMetadata } from '@/types/metadata'
+import { translate, useT } from '@/i18n'
 
 // Discover all view components - lazy load for code splitting
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -65,6 +66,7 @@ export const Route = createFileRoute('/_app/$moduleId/$table_name')({
 })
 
 function RouteComponent() {
+  const t = useT()
   const { moduleId, table_name, key } = useParams({ strict: false })
   const { metadata } = Route.useLoaderData()
   
@@ -95,7 +97,7 @@ function RouteComponent() {
   }, [table_name, moduleId])
   
   if (!Component) {
-    return <div>Invalid table name</div>
+    return <div>{t('Invalid table name')}</div>
   }
   
   return (
@@ -128,7 +130,8 @@ async function fetchEntityMetadata(
   token: string | null,
 ): Promise<EntityMetadata | null> {
   if (!token) {
-    throw new Error('Authentication token is required')
+    // `translate`: a route loader runs outside React.
+    throw new Error(translate('Authentication token is required'))
   }
 
   const { callRpc } = await import('@/lib/apiClient')

@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { translate } from '@/i18n'
+import { translate, useT } from '@/i18n'
 import { pageTitle } from '@/lib/pageTitle'
 import { hideAppLoader } from '@/lib/appLoader'
 import { useState, useEffect } from 'react'
@@ -20,6 +20,7 @@ export const Route = createFileRoute('/form-playground')({
 })
 
 function FormPlaygroundWrapper() {
+  const t = useT()
   const { schema: schemaUrl } = Route.useSearch()
   const [initialSchema, setInitialSchema] = useState<string | undefined>(undefined)
   const [loading, setLoading] = useState(false)
@@ -62,7 +63,7 @@ function FormPlaygroundWrapper() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen text-base text-muted-foreground">
-        Loading schema...
+        {t('Loading schema...')}
       </div>
     )
   }

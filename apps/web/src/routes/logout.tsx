@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { translate } from '@/i18n'
+import { translate, useT } from '@/i18n'
 import { pageTitle } from '@/lib/pageTitle'
 import { useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
@@ -12,6 +12,7 @@ export const Route = createFileRoute('/logout')({
 })
 
 function LogoutRoute() {
+  const t = useT()
   const { logOut } = useAuth()
   const navigate = useNavigate()
 
@@ -77,8 +78,8 @@ function LogoutRoute() {
   return (
     <div className="flex h-screen items-center justify-center">
       <div className="text-center">
-        <h2 className="text-xl font-semibold">Logging out...</h2>
-        <p className="mt-2 text-muted-foreground">Please wait while we log you out.</p>
+        <h2 className="text-xl font-semibold">{t('Logging out...')}</h2>
+        <p className="mt-2 text-muted-foreground">{t('Please wait while we log you out.')}</p>
       </div>
     </div>
   )

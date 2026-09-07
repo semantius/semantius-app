@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/hooks/useAuth'
+import { useT } from '@/i18n'
 import { getApiConfig, createApiHeaders } from '@/lib/apiClient'
 
 interface UseTableOptions<T = Record<string, unknown>> {
@@ -56,6 +57,11 @@ export function useTable<T = Record<string, unknown>>(
   tableName: string,
   options: UseTableOptions<T> = {}
 ): UseTableResult<T> {
+  // The messages thrown below are what ApiErrorDisplay puts on screen, so they
+  // are UI text and go through the catalog like anything else a user reads.
+  // `useT` rather than `translate`: the closure is rebuilt on every render, so a
+  // language switch reaches the next failure.
+  const t = useT()
   const { token } = useAuth()
   const { baseUrl: apiBaseUrl } = getApiConfig()
 
@@ -66,12 +72,12 @@ export function useTable<T = Record<string, unknown>>(
     queryFn: async () => {
       // Validate token is available (should always be true due to enabled check)
       if (!token) {
-        throw new Error('Authentication token is required')
+        throw new Error(t('Authentication token is required'))
       }
 
       // Validate table name to prevent path traversal attacks
       if (!/^[a-zA-Z0-9_-]+$/.test(tableName)) {
-        throw new Error('Invalid table name: only alphanumeric characters, underscores, and hyphens are allowed')
+        throw new Error(t('Invalid table name: only alphanumeric characters, underscores, and hyphens are allowed'))
       }
 
       const url = query 
@@ -90,7 +96,7 @@ export function useTable<T = Record<string, unknown>>(
       if (!response.ok) {
         // Try to parse error response for better error messages
         let errorDetails: Record<string, unknown> | undefined
-        let errorMessage = `Failed to fetch ${tableName}`
+        let errorMessage = t('Failed to fetch {table}', { table: tableName })
         
         try {
           const errorData = await response.json()

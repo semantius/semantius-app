@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { useFormattingLocale, useT } from "@/i18n"
 import { formatNumberForDisplay } from "@/lib/number-format"
+import { fieldNameFor } from "../lib/format"
 import type { ExtendedColumnFilter } from "../types"
 
 interface TableRangeFilterProps<TData> extends React.ComponentProps<"div"> {
@@ -94,7 +95,7 @@ export function TableRangeFilter<TData>({
       <Input
         id={`${inputId}-min`}
         type="number"
-        aria-label={t("{field} minimum value", { field: meta?.label })}
+        aria-label={t("{field} minimum value", { field: fieldNameFor(meta?.label, column.id) })}
         // The bounds are carried by the native min/max below. aria-valuemin/max
         // belong to role=spinbutton/slider and were being announced to nobody here.
         data-slot="range-min"
@@ -110,7 +111,7 @@ export function TableRangeFilter<TData>({
       <Input
         id={`${inputId}-max`}
         type="number"
-        aria-label={t("{field} maximum value", { field: meta?.label })}
+        aria-label={t("{field} maximum value", { field: fieldNameFor(meta?.label, column.id) })}
         data-slot="range-max"
         inputMode="numeric"
         placeholder={max.toString()}

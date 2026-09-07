@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/hooks/useAuth'
+import { useT } from '@/i18n'
 import { getApiConfig, createApiHeaders, refreshSchemaCache } from '@/lib/apiClient'
 import { getConfig } from '@/lib/config'
 
@@ -14,6 +15,9 @@ import { getConfig } from '@/lib/config'
  * createCustomer.mutate({ email: 'test@example.com', status: 'active' })
  */
 export function useCreateRecord<T = Record<string, unknown>>(tableName: string) {
+  // These messages are what ApiErrorDisplay and the delete dialog put on
+  // screen, so they are UI text and go through the catalog.
+  const t = useT()
   const { token } = useAuth()
   const { baseUrl: apiBaseUrl } = getApiConfig()
   const queryClient = useQueryClient()
@@ -21,12 +25,12 @@ export function useCreateRecord<T = Record<string, unknown>>(tableName: string) 
   return useMutation<T, Error, Partial<T>>({
     mutationFn: async (data) => {
       if (!token) {
-        throw new Error('Authentication token is required')
+        throw new Error(t('Authentication token is required'))
       }
 
       // Validate table name
       if (!/^[a-zA-Z0-9_-]+$/.test(tableName)) {
-        throw new Error('Invalid table name')
+        throw new Error(t('Invalid table name'))
       }
 
       const url = `${apiBaseUrl}/${tableName}`
@@ -43,7 +47,7 @@ export function useCreateRecord<T = Record<string, unknown>>(tableName: string) 
       })
 
       if (!response.ok) {
-        let errorMessage = `Failed to create ${tableName} record`
+        let errorMessage = t('Failed to create {table} record', { table: tableName })
         let errorDetails: Record<string, unknown> | undefined
 
         try {
@@ -97,6 +101,7 @@ export function useUpdateRecord<T extends Record<string, unknown>>(
   tableName: string,
   idField: string = 'id'
 ) {
+  const t = useT()
   const { token } = useAuth()
   const { baseUrl: apiBaseUrl } = getApiConfig()
   const queryClient = useQueryClient()
@@ -104,17 +109,17 @@ export function useUpdateRecord<T extends Record<string, unknown>>(
   return useMutation<T, Error, Partial<T> & { [key: string]: unknown }>({
     mutationFn: async (data) => {
       if (!token) {
-        throw new Error('Authentication token is required')
+        throw new Error(t('Authentication token is required'))
       }
 
       // Validate table name
       if (!/^[a-zA-Z0-9_-]+$/.test(tableName)) {
-        throw new Error('Invalid table name')
+        throw new Error(t('Invalid table name'))
       }
 
       const id = data[idField]
       if (!id) {
-        throw new Error(`${idField} is required for update`)
+        throw new Error(t('{field} is required for update', { field: idField }))
       }
 
       // Create a copy without the ID field for the update payload
@@ -135,7 +140,7 @@ export function useUpdateRecord<T extends Record<string, unknown>>(
       })
 
       if (!response.ok) {
-        let errorMessage = `Failed to update ${tableName} record`
+        let errorMessage = t('Failed to update {table} record', { table: tableName })
         let errorDetails: Record<string, unknown> | undefined
 
         try {
@@ -166,7 +171,7 @@ export function useUpdateRecord<T extends Record<string, unknown>>(
       // `Prefer: return=representation` above is what makes the empty array
       // observable at all.
       if (Array.isArray(result) && result.length === 0) {
-        throw new Error(`This ${tableName} record no longer exists`, {
+        throw new Error(t('This {table} record no longer exists', { table: tableName }), {
           cause: { status: 404, matched: 0, [idField]: id },
         })
       }
@@ -196,6 +201,7 @@ export function useUpdateRecord<T extends Record<string, unknown>>(
  * deleteCustomer.mutate(123)
  */
 export function useDeleteRecord(tableName: string, idField: string = 'id') {
+  const t = useT()
   const { token } = useAuth()
   const { baseUrl: apiBaseUrl } = getApiConfig()
   const queryClient = useQueryClient()
@@ -203,12 +209,12 @@ export function useDeleteRecord(tableName: string, idField: string = 'id') {
   return useMutation<void, Error, string | number>({
     mutationFn: async (id) => {
       if (!token) {
-        throw new Error('Authentication token is required')
+        throw new Error(t('Authentication token is required'))
       }
 
       // Validate table name
       if (!/^[a-zA-Z0-9_-]+$/.test(tableName)) {
-        throw new Error('Invalid table name')
+        throw new Error(t('Invalid table name'))
       }
 
       const url = `${apiBaseUrl}/${tableName}?${idField}=eq.${id}`
@@ -227,7 +233,7 @@ export function useDeleteRecord(tableName: string, idField: string = 'id') {
       })
 
       if (!response.ok) {
-        let errorMessage = `Failed to delete ${tableName} record`
+        let errorMessage = t('Failed to delete {table} record', { table: tableName })
         let errorDetails: Record<string, unknown> | undefined
 
         try {
@@ -253,7 +259,7 @@ export function useDeleteRecord(tableName: string, idField: string = 'id') {
       // See the Prefer header above: `[]` means no row carried this id.
       const deleted: unknown = await response.json().catch(() => [])
       if (Array.isArray(deleted) && deleted.length === 0) {
-        throw new Error(`This ${tableName} record no longer exists`, {
+        throw new Error(t('This {table} record no longer exists', { table: tableName }), {
           cause: { status: 404, matched: 0, [idField]: id },
         })
       }

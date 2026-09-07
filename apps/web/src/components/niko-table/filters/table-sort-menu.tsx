@@ -30,7 +30,10 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import {
-  Select,
+  // Aliased on purpose: eslint-plugin-lingui treats a JSX element named
+  // `Select` as its own ICU component and goes blind inside it. See the
+  // no-restricted-syntax note in eslint.config.js.
+  Select as SelectRoot,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -167,7 +170,7 @@ function TableSortItem({
             </Command>
           </PopoverContent>
         </Popover>
-        <Select
+        <SelectRoot
           open={showDirectionSelector}
           onOpenChange={setShowDirectionSelector}
           value={sort.desc ? "desc" : "asc"}
@@ -188,7 +191,7 @@ function TableSortItem({
             <SelectItem value="asc">{t(labels.asc)}</SelectItem>
             <SelectItem value="desc">{t(labels.desc)}</SelectItem>
           </SelectContent>
-        </Select>
+        </SelectRoot>
         <Button
           aria-controls={sortItemId}
           variant="outline"

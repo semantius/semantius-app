@@ -1,19 +1,24 @@
 import { useState } from 'react'
 import { AlertCircle, ChevronDown, ChevronUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useT } from '@/i18n'
 
 interface ApiErrorDisplayProps {
   error: Error | { message: string; [key: string]: unknown }
   title?: string
 }
 
-export function ApiErrorDisplay({ error, title = 'Error loading data' }: ApiErrorDisplayProps) {
+export function ApiErrorDisplay({ error, title }: ApiErrorDisplayProps) {
+  const t = useT()
   const [isExpanded, setIsExpanded] = useState(false)
+  // Defaulted in the body, not in the parameter list: a default parameter is
+  // evaluated before the body runs, so it cannot call a hook.
+  const heading = title ?? t('Error loading data')
 
   // Extract error details
   const errorMessage = typeof error === 'object' && 'message' in error 
     ? String(error.message) 
-    : 'An unknown error occurred'
+    : t('An unknown error occurred')
 
   // Try to parse additional details from error
   let errorDetails: Record<string, unknown> = {}
@@ -47,7 +52,7 @@ export function ApiErrorDisplay({ error, title = 'Error loading data' }: ApiErro
       <div className="flex items-start gap-3 p-4">
         <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
-          <p className="font-medium text-destructive">{title}</p>
+          <p className="font-medium text-destructive">{heading}</p>
           {/* text-foreground, not text-muted-foreground: muted on the card's
               bg-destructive/10 tint is below 4.5:1 (1.4.3), caught by a route
               audit on a view that happened to render this card. The same goes
@@ -65,12 +70,12 @@ export function ApiErrorDisplay({ error, title = 'Error loading data' }: ApiErro
                 {isExpanded ? (
                   <>
                     <ChevronUp className="h-3 w-3 mr-1" />
-                    Details
+                    {t('Details')}
                   </>
                 ) : (
                   <>
                     <ChevronDown className="h-3 w-3 mr-1" />
-                    Details
+                    {t('Details')}
                   </>
                 )}
               </Button>
