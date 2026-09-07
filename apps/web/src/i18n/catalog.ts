@@ -84,6 +84,24 @@ export type DynamicScope = 'server' | 'rule'
 export const LABEL_SCOPES: readonly LabelScope[] = ['table', 'column', 'enum', 'module']
 
 /**
+ * The scopes as named constants, for code OUTSIDE this directory.
+ *
+ * `entry.scope === 'message'` is an identifier comparison, but the lingui rule
+ * cannot tell an identifier from a sentence and reports the literal; a
+ * constant defined here, where the rule already expects machinery, reads the
+ * same and costs no suppression entry.
+ */
+export const SCOPE = {
+  message: 'message',
+  table: 'table',
+  column: 'column',
+  enum: 'enum',
+  module: 'module',
+  server: 'server',
+  rule: 'rule',
+} as const satisfies Record<TranslationScope, TranslationScope>
+
+/**
  * The runtime id of anything that is not a `message`: the scope, a colon, the
  * key. Message ids are the source text itself (plus a context), so they need no
  * prefix — and could not have one, since the source text IS the key.
@@ -280,6 +298,12 @@ export function flattenDynamic(file: LocaleFile): TranslationMap {
 
 let activeLanguage = SOURCE_LANGUAGE
 let activeKeys: ReadonlySet<string> = new Set()
+/**
+ * The merged MESSAGE translations, as raw ICU. Lingui holds the same map and
+ * renders from it; this copy exists so translate mode can show a message's
+ * current translation without reaching into Lingui's internals.
+ */
+let activeMessages: TranslationMap = {}
 let activeLabels: TranslationMap = {}
 let activeDynamic: TranslationMap = {}
 let catalogVersion = 0
@@ -313,11 +337,17 @@ export function setCatalogState(
   dynamic: TranslationMap = {},
 ): void {
   activeLanguage = language
+  activeMessages = messages
   activeLabels = labels
   activeDynamic = dynamic
   activeKeys = new Set([...Object.keys(messages), ...Object.keys(labels), ...Object.keys(dynamic)])
   catalogVersion++
   for (const listener of listeners) listener()
+}
+
+/** The active language's message translations, keyed by runtime id. */
+export function currentMessages(): TranslationMap {
+  return activeMessages
 }
 
 /** The active language's model-label overrides, keyed `scope:key`. */
@@ -349,6 +379,22 @@ export function addCatalogEntry(scope: Exclude<TranslationScope, 'message'>, key
   else delete next[id]
   if (target === 'dynamic') activeDynamic = next
   else activeLabels = next
+  activeKeys = text ? new Set([...activeKeys, id]) : new Set([...activeKeys].filter((k) => k !== id))
+  catalogVersion++
+  for (const listener of listeners) listener()
+}
+
+/**
+ * The message-scope counterpart of `addCatalogEntry`, for a translate-mode save
+ * of a code string. The caller ALSO hands the text to Lingui's merging
+ * `i18n.load` — Lingui is what renders it; this keeps `translatedKeys` and the
+ * panel's view of the current translation in step with it.
+ */
+export function addMessageEntry(id: string, text: string): void {
+  const next = { ...activeMessages }
+  if (text) next[id] = text
+  else delete next[id]
+  activeMessages = next
   activeKeys = text ? new Set([...activeKeys, id]) : new Set([...activeKeys].filter((k) => k !== id))
   catalogVersion++
   for (const listener of listeners) listener()

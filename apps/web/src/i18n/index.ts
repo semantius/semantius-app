@@ -37,6 +37,7 @@ import {
   catalogSnapshot,
   currentDynamic,
   currentLabels,
+  currentLanguage,
   flattenDynamic,
   flattenLabels,
   flattenMessages,
@@ -51,6 +52,7 @@ import {
 import { localizeMetadata } from './labels'
 import { loadLocaleFiles, rememberLocaleNames } from './store'
 import { writeCachedFormattingLocale, writeCachedLanguage } from './resolveLocale'
+import { clearReverseIndex, isRecordingRenders, recordRender } from './reverseIndex'
 import type { EntityMetadata } from '@/types/metadata'
 
 export { i18n }
@@ -61,10 +63,15 @@ export {
   scopedId,
   splitScopedId,
   translatedKeys,
+  currentMessages,
   currentLabels,
   currentDynamic,
   currentLanguage,
   addCatalogEntry,
+  addMessageEntry,
+  subscribeToCatalog,
+  catalogSnapshot,
+  SCOPE,
   flattenMessages,
   flattenLabels,
   flattenDynamic,
@@ -129,20 +136,98 @@ export {
   languageDisplayName,
   availableLanguages,
   localeLayers,
+  loadLocaleFiles,
+  mergeLocaleFiles,
   operatorDefaultLanguage,
   setDeploymentLocales,
   setTenantLocaleFiles,
+  setTenantTableAvailable,
+  tenantTableAvailable,
   tenantLocaleFile,
 } from './store'
 export type { LocaleInfo, LocaleLayer } from './store'
+export {
+  clearDrafts,
+  draftFile,
+  draftId,
+  draftIds,
+  readDrafts,
+  saveDraft,
+} from './drafts'
+export type { DraftRow } from './drafts'
+export {
+  clearReverseIndex,
+  isRecordingRenders,
+  normalizeRenderedText,
+  recordRender,
+  renderedSourceOf,
+  resolveRenderedText,
+  reverseIndexSize,
+  setRecordingRenders,
+} from './reverseIndex'
+export {
+  MARK_MISSING_KEY,
+  TRANSLATE_MODE_KEY,
+  WRITER_TARGET,
+  PANEL_TAB,
+  CATALOG_FILTER,
+  LABEL_VIEW,
+  canTranslate,
+  canWriteTenant,
+  setMarkMissing,
+  setMissingCount,
+  setTranslateMode,
+  translateModeFlags,
+  useTranslateModeFlags,
+} from './translateModeState'
+export type {
+  TranslateModeFlags,
+  WriterTarget,
+  PanelTab,
+  CatalogFilter,
+  LabelView,
+} from './translateModeState'
+export { placeholdersOf, placeholderDiff, compileError } from './placeholders'
+export type { PlaceholderDiff } from './placeholders'
+export {
+  messageIndex,
+  messageEntries,
+  labelEntry,
+  dynamicEntry,
+  inventoryEntry,
+  requestEntry,
+  entryForId,
+  currentTranslationOf,
+} from './entries'
+export type { TranslationEntry } from './entries'
+export {
+  HIGHLIGHT_NAME,
+  MISSING_ATTRIBUTE,
+  UI_ATTRIBUTE,
+  SCANNED_ATTRIBUTES,
+  supportsHighlightApi,
+  scanAndMark,
+  clearMarks,
+  highlightedTexts,
+  resolveClickTarget,
+} from './highlighter'
+export type { ScanResult, ClickTarget } from './highlighter'
+export { buildExportFile, completeWorkList, downloadLocaleFile, serializeLocaleFile } from './exportFile'
 export { resolveLocales, defaultLocaleUrl, EMPTY_LOCALE_CONFIG } from './localeConfig'
 export type { LocaleConfig, DeploymentLocale } from './localeConfig'
 export {
   TENANT_TABLE,
   TENANT_PAGE_SIZE,
   TENANT_MAX_PAGES,
+  TRANSLATION_CONFLICT_COLUMNS,
+  TRANSLATE_PERMISSION,
+  FALLBACK_TRANSLATE_PERMISSION,
+  MODEL_TABLES,
+  MODEL_QUERIES,
   SAVE_PREFERENCES_RPC,
   tenantPageQuery,
+  queueQuery,
+  translatedAtQuery,
   isTenantTableAbsent,
   isPreferenceRpcAbsent,
   savePreferencesParams,
@@ -213,10 +298,20 @@ i18n.setMessagesCompiler((message: string): CompiledMessage => {
  * they have different names.
  */
 export const translate: TranslateFn = (message, values) => {
-  if (typeof message === 'string') return i18n._(message, values)
-  // The id carries the context; `message` is the fallback when the catalog has
-  // no entry, because the id is not readable text on its own.
-  return i18n._(messageId(message), values, { message: message.message })
+  let rendered: string
+  if (typeof message === 'string') {
+    rendered = i18n._(message, values)
+  } else {
+    // The id carries the context; `message` is the fallback when the catalog has
+    // no entry, because the id is not readable text on its own.
+    rendered = i18n._(messageId(message), values, { message: message.message })
+  }
+  // Translate mode's reverse index — one boolean check per call while it is
+  // off, a map write while somebody is translating. See ./reverseIndex.ts.
+  if (isRecordingRenders()) {
+    recordRender(rendered, messageId(message), typeof message === 'string' ? message : message.message)
+  }
+  return rendered
 }
 
 /**
@@ -285,7 +380,9 @@ export interface DynamicOptions {
 export function translateDynamic(text: string, options: DynamicOptions = {}): string {
   if (!text) return text
   const scope = options.scope ?? 'server'
-  const hit = currentDynamic()[scopedId(scope, text)]
+  const id = scopedId(scope, text)
+  const hit = currentDynamic()[id]
+  if (isRecordingRenders()) recordRender(hit || text, id, text)
   if (hit) return hit
   recordDynamicMiss?.(text, scope, options)
   return text
@@ -464,6 +561,11 @@ export async function activateLocale(pref: LocalePreference, options: ActivateOp
   // what emits `change` — and every subscriber (useT, useFormattingLocale) reads
   // its snapshot inside that emit. Setting them afterwards would hand the first
   // render after a switch the previous language's values.
+  //
+  // The reverse index goes first: the text it holds was rendered by the
+  // language being replaced, and the re-render this triggers records the new
+  // one.
+  clearReverseIndex()
   setCatalogState(language, messages, labels, dynamic)
   currentFormattingLocale = pref.locale || language
   i18n.loadAndActivate({ locale: language, messages })
@@ -478,4 +580,16 @@ export async function activateLocale(pref: LocalePreference, options: ActivateOp
     if (persist.language !== undefined) writeCachedLanguage(persist.language)
     if (persist.locale !== undefined) writeCachedFormattingLocale(persist.locale)
   }
+}
+
+/**
+ * Re-run `activateLocale` for what is already active.
+ *
+ * Translate mode's way of making a change canonical: a draft saved or cleared
+ * lives in a LAYER, and only a full activation folds the layers again (and
+ * re-renders every `useT()` consumer, which is also what fills the reverse
+ * index after recording is switched on). Never persists.
+ */
+export async function reactivateLocale(): Promise<void> {
+  await activateLocale({ language: currentLanguage(), locale: currentFormattingLocale })
 }

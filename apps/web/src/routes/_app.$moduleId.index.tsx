@@ -71,7 +71,7 @@ function ModuleHomeComponent() {
     return <NotFoundPage />
   }
 
-  const { displayName, displayTitle } = getModuleDisplay(module, moduleOverride(labels, module.module_slug))
+  const { displayName, displayTitle } = getModuleDisplay(module, moduleOverride(labels, module.module_slug, module))
 
   const moduleHeader = (
     <div className="flex items-center gap-4">

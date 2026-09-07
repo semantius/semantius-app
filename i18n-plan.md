@@ -20,7 +20,7 @@ Requirements set by the owner:
 
 ## Status
 
-Branch `feat/i18n`, one commit per phase, no PR. **P1-P4 are done and committed; P5 remains.**
+Branch `feat/i18n`, one commit per phase, no PR. **All five phases are done and committed.**
 
 | Phase | State | Commit |
 | --- | --- | --- |
@@ -28,14 +28,66 @@ Branch `feat/i18n`, one commit per phase, no PR. **P1-P4 are done and committed;
 | P2 Grid, dialogs, formatting | done | `cadaeb7` |
 | P3 Forms, validation, remaining surfaces | done | `fb26cb7` |
 | P4 Runtime languages | done | `dd2662e`, `310730b` |
-| P5 Translate mode | **not started** | |
+| P5 Translate mode | done | see `git log -1 -- apps/web/src/i18n/translateMode` |
+
+### What P5 built, and where it deviates from the section "Translate mode" below
+
+- **The reverse index is recorded at the PRODUCER, not by wrapping `t()`.** `translate()`,
+  `labelOf()`, `localizeMetadata()`'s enum walk, `moduleOverride()` and `translateDynamic()`
+  each hand their output to `src/i18n/reverseIndex.ts` while recording is on — one boolean
+  check per call otherwise. `moduleOverride` gained an optional third argument (the module
+  row) so the module name that renders when nothing overrides it is recorded too, and
+  `localizeMetadata` no longer short-circuits on an empty label map while recording (its
+  identity contract still holds). `activateLocale` clears the index; `reactivateLocale()`
+  (new) is what fills it after the mode is switched on, by re-rendering every consumer.
+- **Editing is Alt+click, not click.** A plain click in translate mode must still open the
+  menu or follow the link the text sits on — otherwise the entries inside a submenu can never
+  be reached to translate them. Alt+click is what every in-context tool does for this reason.
+- **The editor is a Dialog, not a Popover.** `ModalInert` and Base UI focus management handle
+  a modal for free, and the shadcn Popover wrapper does not expose the positioner's `anchor`
+  for a virtual click point. The panel is a modal Sheet for the same reason: `ModalInert`
+  makes `#root` inert for ANY open dialog outside it, so a non-modal panel would block the
+  page just the same while announcing itself as something else.
+- **Marks are CSS Custom Highlights; attribute hosts (and the no-API fallback) carry
+  `data-i18n-missing`**, styled with a box-shadow so a focus outline is never overridden.
+  The scan walks `document.body` (so a menu or a Sheet, portaled beside `#root`, is covered)
+  and skips subtrees marked `data-i18n-ui`, which is translate mode's own editor, panel and
+  button. The scan is one throttled pass per settled burst of mutations and per catalog
+  change.
+- **The writer is `useCreateRecord(TENANT_TABLE, { onConflict })`**, the generic option P4 left
+  out, proven against `modules.module_slug` (a real unique constraint on the tenant) in
+  `useTableMutations.test.tsx`; the `ui_translations` path itself still waits on the
+  migration. Which writer applies is decided from `tenantTableAvailable()` (set by the
+  prefetch from the definitive body) and `canWriteTenant(permissions)` — never a probe. The
+  drafts layer is the last entry of `localeLayers` and lives in `src/i18n/drafts.ts` as rows
+  in `localStorage['semantius-i18n-draft:<code>']`.
+- **Two switches, persisted per browser**, gated by `canTranslate()` (`translations.edit`, or
+  `admin` until the migration): the switches, the missing count and the host live in
+  `src/i18n/translateModeState.ts` and `components/TranslateModeHost.tsx`, which lazy-loads
+  `src/i18n/translateMode/` (the chunk carries the `en-US.json` index). Translate mode marks
+  as well; "Mark missing" alone is marks without the editor.
+- **Machinery moved out of the lazy chunk into top-level `src/i18n/*.ts`** —
+  `reverseIndex.ts`, `highlighter.ts`, `entries.ts`, `placeholders.ts`, `exportFile.ts`,
+  `drafts.ts`, `translateModeState.ts` — because those files carry identifiers, attribute
+  names and storage keys the lint rule cannot tell from text, and the folder-wide exemption
+  was deliberately NOT extended to `translateMode/`. The UI files there carry only `t()`
+  strings; the scope names they compare against are the `SCOPE` constants from `catalog.ts`.
+- **`shadcn add tabs` emits a broken `import { cn } from "cn"`** (both the pinned 4.19 and
+  4.21) and adds a bogus `cn` package, so `ui-ext/tabs.tsx` carries the registry markup with
+  the import fixed, and says why.
+- **The lazy chunk's dependencies are named in `optimizeDeps.include`** (`sonner`,
+  `@base-ui/react/tabs`): Vite discovers them on first load otherwise and RELOADS the page,
+  which in the Vitest browser project leaves two copies of React in the graph.
+
+Numbers after P5: **455 messages**, `de-DE` 455/455, 1 obsolete (unchanged). The suppression
+baseline did not move. `substitutions.test.ts` unchanged at 6.
 
 Each committed phase passed, independently re-run by the orchestrator: `i18n:extract` twice
 with no change, `i18n:status` 0 missing, `pnpm check`, `pnpm build`, a stable
 `eslint --prune-suppressions`, the American-English grep, and a Cloudflare preview deploy
 opened in German with a screenshot under `screenshots/`.
 
-Current numbers, for P5 to ratchet against:
+Numbers after P4 (what P5 ratcheted against; the post-P5 numbers are under "What P5 built"):
 
 - **398 messages** in `src/locales/en-US.json`, `de-DE` 398/398 translated, 1 obsolete.
 - **`eslint-suppressions.json` totals 610** suppressed violations. It may only fall. It did
@@ -433,10 +485,10 @@ Permissions are enforced by the platform's policies and mirrored in the UI: ever
 What it covered (as specified; where the implementation differs, see Deviations in Status):
 `lib/localeConfig.ts` + the `parseUiCustomizer`/`resolveUserMenu` split; deployment-file layer + `public/locales/schema.json` + `docker/nginx.conf` `/locales/` rule; `labels.ts` (`localizeMetadata`, `enumLabel`, `tableLabel`) + `enum_labels` on `JsonSchemaProperty` + the consumer sites listed above; `get_schema` loader onto the QueryClient with `queryClient` in the router context; `src/i18n/localeFile.ts` (file ↔ rows); `src/i18n/labelInventory.ts` + test; `src/i18n/missing.ts` (collector, disabled in test setup) + `translateDynamic` and the `dynamic` map, wired into `ApiErrorDisplay`, `formatDeleteError` and the five direct `error.message` sites; the pending `lib/apiClient.ts` change that makes `callRpc` throw with `cause: { ...body, status, url }` committed first, or RPC messages never reach the collector; the generic `onConflict` option in `hooks/useTableMutations.ts` `useCreateRecord`; the tenant layer (via `useTable`), the tenant-rows writer and `request()` in `store.ts` (the drafts branch and the download arrive in P5), `TranslationsPrefetch` in `main.tsx` with its `router` prop, also re-resolving on `rpcUserInfo` and `userInfo`; the session read (`get_userinfo` `language`/`locale`, then the OIDC `locale` claim) with the cache mirroring, and the switcher's write-back through `set_user_preferences` with the cache-only fallback; `apps/web/scripts/i18n/export.mjs` (with `--messages-into`), `import.mjs`, `labels.mjs`, `translate.mjs`, `status.mjs --tenant`, the shared tenant resolution and `SEMANTIUS_TOKEN`/`--api-url`, `.gitignore` entry for `apps/web/.i18n/`; README "Adding a language" (file, registration, mounting, what the file cannot do) and "Tenant translations" (the DDL, triggers, policies, the model registration, the permission, the queue and the scripts); `docker/README.md`; fixtures, node and browser tests. Prerequisite for the table and queue tests: the platform migration (table, triggers, policies, permission) applied to the test tenant.
 
-### P5 Translate mode - NEXT
+### P5 Translate mode - DONE
 
-See "What P5 inherits from P4" in Status for the seams that already exist and the one
-thing P4 deliberately left (`useCreateRecord`'s `onConflict`).
+See "What P5 built" in Status for what landed and where it deviates. The paragraph below is
+the specification it was built from.
 
 
 `src/i18n/translateMode/` (reverse index + highlights, label renders recorded too, `EditorPopover`, `Panel` with the catalog tab and its filters "missing" / "requested" / "drafts" / "on this page", the localStorage request list where there is no table, the model-labels tab with the whole-model inventory view and its filters, missing count in the Language submenu, export); NavUser toggles; drafts; tests.

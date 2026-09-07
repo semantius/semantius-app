@@ -134,6 +134,43 @@ describe('useTableMutations', () => {
       await waitFor(() => expect(result.current.isError).toBe(true))
       expect(result.current.error?.message).toBe('Invalid table name')
     })
+
+    it('upserts on the columns named in onConflict, merging into the existing row', async () => {
+      // `modules.module_slug` is a real unique constraint on the tenant, so
+      // the second insert genuinely conflicts and PostgREST genuinely merges —
+      // the row keeps its id and takes the new description. This is the
+      // option translate mode's writer uses on `ui_translations`.
+      const row = await createModule()
+      const { result } = renderHook(() => useCreateRecord(TABLE, { onConflict: ['module_slug'] }), {
+        wrapper: appWrapper,
+      })
+
+      result.current.mutate({
+        ...moduleFixture(),
+        module_slug: row.module_slug,
+        module_name: row.module_name,
+        description: 'merged by the upsert',
+      })
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true))
+      const merged = result.current.data as Record<string, unknown>
+      expect(merged.id).toBe(row.id)
+      expect(merged.description).toBe('merged by the upsert')
+
+      const persisted = await readModule(row.id)
+      expect(persisted?.description).toBe('merged by the upsert')
+    })
+
+    it('refuses a conflict column that could escape the query string', async () => {
+      const { result } = renderHook(() => useCreateRecord(TABLE, { onConflict: ['module_slug)&x=1'] }), {
+        wrapper: appWrapper,
+      })
+
+      result.current.mutate(moduleFixture())
+
+      await waitFor(() => expect(result.current.isError).toBe(true))
+      expect(result.current.error?.message).toBe('Invalid column name')
+    })
   })
 
   describe('useUpdateRecord', () => {

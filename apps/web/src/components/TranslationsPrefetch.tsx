@@ -12,6 +12,7 @@ import {
   sessionPreferenceFrom,
   setSessionPreference,
   setTenantLocaleFiles,
+  setTenantTableAvailable,
   tenantPageQuery,
   type LocaleFile,
   type TranslationRow,
@@ -87,13 +88,17 @@ export function TranslationsPrefetch({ router }: { router: AnyRouter }) {
 
   useEffect(() => {
     if (!files) return
+    // What translate mode's writer decides on: a row where the table exists,
+    // a browser draft where it does not. Decided here, from the definitive
+    // body, so the writer never has to probe.
+    setTenantTableAvailable(!(first.error && isTenantTableAbsent(first.error)))
     setTenantLocaleFiles(files)
     setSessionPreference(sessionPreferenceFrom(rpcUserInfo, userInfo))
     // Idempotent, so StrictMode's doubled effect changes nothing: activation
     // replaces the message table with the same content, and invalidate() re-runs
     // loaders that are already cached (get_schema is on the QueryClient).
     void activateLocale(resolveInitialLocale()).then(() => router.invalidate())
-  }, [files, rpcUserInfo, userInfo, router])
+  }, [files, first.error, rpcUserInfo, userInfo, router])
 
   return null
 }

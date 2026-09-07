@@ -463,7 +463,40 @@ another word.
   compile, or when a repo catalog carries a section that belongs to a tenant. It
   only **reports** a missing translation: that renders in English, which is a
   degraded screen rather than a broken build.
-- In the app, a missing string simply renders in English.
+- In the app, a missing string simply renders in English — and translate mode
+  (below) marks it.
+
+### Translate mode
+
+Anyone holding `translations.edit` (or `admin`, until the migration that creates
+the permission has landed) finds two switches at the foot of the **Language**
+submenu in the account menu:
+
+- **Mark missing translations** highlights every piece of text on the page that
+  the active language has no translation for — code strings, model labels, the
+  value of an `aria-label` or a `placeholder`. The marks are CSS Custom
+  Highlights, so the DOM, the accessible names and the layout are untouched.
+  Nothing is marked in `en-US`: the source language is never missing anything.
+- **Translate mode** adds in-context editing and a panel. **Alt+click** any
+  text the app produced to edit its translation where it stands (a plain click
+  still does what it always did, which is how a menu is opened to reach the
+  entries inside it). The editor shows the source, its context and origin files,
+  checks the ICU placeholders live and refuses a translation that does not
+  compile. The floating **Translations** button opens the panel: the whole
+  catalog with search and the filters *missing* / *requested* (the queue) /
+  *drafts* / *on this page*, a **Model labels** tab for the current page or the
+  whole model (*missing only*, *orphaned*, *changed since translated*, *newest
+  first*), **Download `<code>.json`** and **Reset drafts**. While the mode is on,
+  the Language submenu shows how much the language still lacks.
+
+Where a save goes is decided by capability, never by a probe: a **row** in
+`ui_translations` when the tenant has the table and you hold
+`translations.edit`; otherwise a **draft** in this browser's storage, which
+overrides every other layer until it is reset and leaves through the download.
+The downloaded file is the full merge of every layer plus an empty entry for
+every index message and every model label still untranslated — a complete work
+list, for an agent (`import.mjs`) or for an operator's deployment file. A draft
+never reaches the repo catalog or another user on its own.
 
 ### Enforcement
 

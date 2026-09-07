@@ -29,6 +29,7 @@ import {
   type LabelScope,
   type TranslationMap,
 } from './catalog'
+import { isRecordingRenders, recordRender } from './reverseIndex'
 
 /**
  * The attribute names, as constants.
@@ -73,7 +74,12 @@ export function labelOf(
   key: string,
   fallback: string | undefined,
 ): string | undefined {
-  return labels[scopedId(scope, key)] || fallback
+  const id = scopedId(scope, key)
+  const value = labels[id] || fallback
+  // Translate mode's reverse index: what this label rendered as, and the
+  // model's own text for the editor to show. See ./reverseIndex.ts.
+  if (value && isRecordingRenders()) recordRender(value, id, fallback ?? value)
+  return value
 }
 
 /** One of a table's own labels: `tableLabel(labels, 'accounts', 'plural_label', meta…)`. */
@@ -129,9 +135,24 @@ export function moduleLabel(
 export function moduleOverride(
   labels: TranslationMap,
   slug: string,
+  /**
+   * The module's own labels, so translate mode can record what renders when
+   * nothing overrides them. Optional because the value is the same without it.
+   */
+  source?: { module_name?: string; description?: string },
 ): { name?: string; description?: string } | undefined {
-  const name = labels[scopedId('module', moduleLabelKey(slug, 'name'))]
-  const description = labels[scopedId('module', moduleLabelKey(slug, 'description'))]
+  const nameId = scopedId('module', moduleLabelKey(slug, 'name'))
+  const descriptionId = scopedId('module', moduleLabelKey(slug, 'description'))
+  const name = labels[nameId]
+  const description = labels[descriptionId]
+  if (isRecordingRenders() && source) {
+    // Both, because `getModuleDisplay` shows the description in place of a
+    // name that starts with an underscore — either may be the text on screen.
+    if (name || source.module_name) recordRender(name || source.module_name!, nameId, source.module_name ?? name!)
+    if (description || source.description) {
+      recordRender(description || source.description!, descriptionId, source.description ?? description!)
+    }
+  }
   return name || description ? { name, description } : undefined
 }
 
@@ -157,7 +178,11 @@ export function enumLabel(property: JsonSchemaProperty | undefined, value: strin
  */
 export function localizeMetadata(meta: EntityMetadata, labels: TranslationMap): EntityMetadata {
   const table = meta.table?.table_name
-  if (!table || Object.keys(labels).length === 0) return meta
+  // The walk below is also what RECORDS every label for translate mode, so it
+  // has to run even when nothing overrides anything while a translator is
+  // looking; the identity contract still holds, because an unchanged table,
+  // property set and child list hand back the same objects.
+  if (!table || (Object.keys(labels).length === 0 && !isRecordingRenders())) return meta
 
   const localizedTable = localizeTable(meta.table!, labels)
   const localizedProperties = localizeProperties(table, meta.properties, labels)
@@ -227,8 +252,13 @@ function localizeEnum(
 ): Record<string, string> | undefined {
   if (!property.enum || property.enum.length === 0) return property.enum_labels
   let out: Record<string, string> | undefined
+  const recording = isRecordingRenders()
   for (const value of property.enum) {
-    const label = labels[scopedId('enum', enumLabelKey(table, field, value))]
+    const id = scopedId('enum', enumLabelKey(table, field, value))
+    const label = labels[id]
+    // The stored value is both the fallback `enumLabel()` renders and the
+    // "source" a translator sees: the model holds no English label for it.
+    if (recording) recordRender(label || value, id, value)
     if (label) {
       out ??= { ...property.enum_labels }
       out[value] = label

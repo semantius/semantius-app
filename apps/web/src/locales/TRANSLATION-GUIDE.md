@@ -45,6 +45,18 @@ and `rule` sections of the shared catalog shape are rejected in this folder.
    string means the same thing; otherwise leave it. `i18n:extract --prune`
    empties the section.
 
+## Translating in the app
+
+The running app has a translate mode (root README, "Translate mode"): mark what
+is missing, Alt+click a string to translate it in context, or work through the
+panel. A save becomes a row in the tenant's `ui_translations` table where that
+exists, and a browser draft otherwise; **Download `<code>.json`** exports the
+full merge with an empty entry for everything still open — the same shape as
+the files in this folder, with the `labels`, `server` and `rule` sections that
+belong to a tenant. A code string translated in the app reaches this folder
+only through `export.mjs --messages-into`, reviewed in a PR like any other
+change here.
+
 ## Fixed terms (de-DE)
 
 These are the words the product uses for its own concepts. Use them

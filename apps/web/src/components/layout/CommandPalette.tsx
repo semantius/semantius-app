@@ -252,7 +252,7 @@ export function CommandPalette() {
 
           <CommandGroup heading={t('Modules')}>
             {modules?.map((module) => {
-              const override = moduleOverride(labels, module.module_slug)
+              const override = moduleOverride(labels, module.module_slug, module)
               const name = override?.name || module.module_name
               const description = moduleLabel(labels, module.module_slug, MODULE_ATTR.description, module.description)
               return (

@@ -51,7 +51,7 @@ export function EntityBreadcrumb({
     const moduleIdLower = moduleId.toLowerCase()
     const found = rpcUserInfo?.modules?.find((m) => m.module_slug.toLowerCase() === moduleIdLower)
     const label = found
-      ? getModuleDisplay(found, moduleOverride(labels, found.module_slug)).displayName
+      ? getModuleDisplay(found, moduleOverride(labels, found.module_slug, found)).displayName
       : moduleId
         .split('-')
         .map((word) => word.charAt(0).toUpperCase() + word.slice(1))

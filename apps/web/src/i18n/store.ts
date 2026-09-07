@@ -22,6 +22,8 @@
 
 import { defaultLocaleUrl, EMPTY_LOCALE_CONFIG, type LocaleConfig } from './localeConfig'
 import { SOURCE_LANGUAGE, type LocaleFile } from './catalog'
+import { draftFile } from './drafts'
+import { emptyLocaleFile, localeFileToRows, rowsToLocaleFiles } from './localeFile'
 
 export interface LocaleLayer {
   /** Named for diagnostics — a failing layer says which one it was. */
@@ -158,12 +160,30 @@ const deploymentLayer: LocaleLayer = {
 
 let tenantFiles: ReadonlyMap<string, LocaleFile> = new Map()
 
+/**
+ * Whether the tenant HAS the table — decided by the prefetch from a definitive
+ * body, never by a status. Unknown until the first read answers, and unknown
+ * reads as "no": a save made before the answer is a draft, which is the
+ * outcome that loses nothing.
+ */
+let tenantTableState: boolean | undefined
+
 /** Replace the tenant layer. Called whenever the rows query resolves. */
 export function setTenantLocaleFiles(files: ReadonlyMap<string, LocaleFile>): void {
   tenantFiles = files
   for (const file of files.values()) {
     if (file.name) configuredNames.set(file.locale, file.name)
   }
+}
+
+/** Record what the prefetch learned about the table. */
+export function setTenantTableAvailable(available: boolean | undefined): void {
+  tenantTableState = available
+}
+
+/** Whether a translate-mode save may become a row at all. */
+export function tenantTableAvailable(): boolean {
+  return tenantTableState === true
 }
 
 /** The tenant's file for `language`, for callers that need it without loading. */
@@ -178,11 +198,41 @@ const tenantLayer: LocaleLayer = {
   },
 }
 
+// ── A translator's unsaved drafts ───────────────────────────────────────────
+//
+// The last layer, so an edit made in translate mode overrides every other source
+// while it exists. See ./drafts.ts for where they go and when they are the
+// writer at all.
+
+const draftsLayer: LocaleLayer = {
+  name: 'drafts',
+  load(language) {
+    return Promise.resolve(draftFile(language))
+  },
+}
+
 /**
- * The layer list, in precedence order (later wins). Exported so translate mode
- * can append its drafts layer without this module knowing about it.
+ * The layer list, in precedence order (later wins). Exported so a test can
+ * see the order, and so a future platform-side channel is one more entry.
  */
-export const localeLayers: LocaleLayer[] = [repoLayer, deploymentLayer, tenantLayer]
+export const localeLayers: LocaleLayer[] = [repoLayer, deploymentLayer, tenantLayer, draftsLayer]
+
+/**
+ * Fold a language's layers into ONE file, the way `activateLocale` sees them:
+ * later files win, and an empty value never wins over a filled one — an empty
+ * entry in a higher layer is "not translated here", not "translate to nothing".
+ *
+ * Goes through rows rather than merging the nested shape by hand, so the
+ * precedence rule is written once (in `rowsToLocaleFiles`, which assigns in
+ * order) and the label nesting cannot be merged one level short.
+ */
+export function mergeLocaleFiles(language: string, files: readonly LocaleFile[]): LocaleFile {
+  const rows = files.flatMap((file) => localeFileToRows({ ...file, locale: language }))
+  const merged = rowsToLocaleFiles(rows).get(language) ?? emptyLocaleFile(language)
+  const named = [...files].reverse().find((file) => file.name)
+  if (named?.name) merged.name = named.name
+  return merged
+}
 
 /**
  * Load every layer for `language`, in order.

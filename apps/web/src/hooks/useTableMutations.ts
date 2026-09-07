@@ -3,24 +3,44 @@ import { useAuth } from '@/hooks/useAuth'
 import { useT } from '@/i18n'
 import { getApiConfig, createApiHeaders, refreshSchemaCache } from '@/lib/apiClient'
 import { getConfig } from '@/lib/config'
+import { UPSERT_PREFER, UPSERT_QUERY } from '@/lib/postgrest'
+
+export interface CreateRecordOptions {
+  /**
+   * Make the insert an UPSERT on these columns.
+   *
+   * Sent as PostgREST's `?on_conflict=a,b` with
+   * `Prefer: resolution=merge-duplicates`, so a row whose unique key already
+   * exists is UPDATED with the body instead of answering 409. The columns must
+   * name a unique or exclusion constraint the table actually has — PostgREST
+   * answers `42P10` otherwise. The first caller is translate mode's writer
+   * (`ui_translations`, unique on locale/scope/key/context).
+   */
+  onConflict?: readonly string[]
+}
 
 /**
  * Generic hook for creating records in a PostgREST table
- * 
+ *
  * @param tableName - Name of the table in the PostgREST API
+ * @param options - `onConflict` turns the insert into an upsert
  * @returns Mutation hook for creating records
- * 
+ *
  * @example
  * const createCustomer = useCreateRecord('customers')
  * createCustomer.mutate({ email: 'test@example.com', status: 'active' })
  */
-export function useCreateRecord<T = Record<string, unknown>>(tableName: string) {
+export function useCreateRecord<T = Record<string, unknown>>(
+  tableName: string,
+  options: CreateRecordOptions = {},
+) {
   // These messages are what ApiErrorDisplay and the delete dialog put on
   // screen, so they are UI text and go through the catalog.
   const t = useT()
   const { token } = useAuth()
   const { baseUrl: apiBaseUrl } = getApiConfig()
   const queryClient = useQueryClient()
+  const conflictColumns = options.onConflict?.length ? options.onConflict : undefined
 
   return useMutation<T, Error, Partial<T>>({
     mutationFn: async (data) => {
@@ -33,11 +53,19 @@ export function useCreateRecord<T = Record<string, unknown>>(tableName: string) 
         throw new Error(t('Invalid table name'))
       }
 
-      const url = `${apiBaseUrl}/${tableName}`
+      // Same rule for the conflict target: it goes into the URL.
+      if (conflictColumns && !conflictColumns.every((column) => /^[a-zA-Z0-9_]+$/.test(column))) {
+        throw new Error(t('Invalid column name'))
+      }
+
+      const url = conflictColumns
+        ? `${apiBaseUrl}/${tableName}?${UPSERT_QUERY}=${conflictColumns.join(',')}`
+        : `${apiBaseUrl}/${tableName}`
       const headers = {
         ...createApiHeaders(token),
         'Content-Type': 'application/json',
-        'Prefer': 'return=representation', // Return the created record
+        // Return the created (or, on an upsert, the merged) record.
+        'Prefer': conflictColumns ? UPSERT_PREFER : 'return=representation',
       }
 
       const response = await fetch(url, {

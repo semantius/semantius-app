@@ -50,7 +50,7 @@ function useModules(): { modules: ModuleItem[]; loading: boolean } {
 
   const modules = React.useMemo<ModuleItem[]>(() =>
     (data ?? []).map((module) => {
-      const { displayName, displayTitle } = getModuleDisplay(module, moduleOverride(labels, module.module_slug))
+      const { displayName, displayTitle } = getModuleDisplay(module, moduleOverride(labels, module.module_slug, module))
       return {
         name: module.module_name,
         displayName,

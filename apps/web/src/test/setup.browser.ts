@@ -7,6 +7,9 @@ import {
   SOURCE_LANGUAGE,
   activateLocale,
   clearSessionPreference,
+  setMarkMissing,
+  setRecordingRenders,
+  setTranslateMode,
 } from '@/i18n'
 
 // Setup for the `browser` Vitest project (see vite.config.ts): everything that
@@ -47,6 +50,11 @@ afterEach(async () => {
   localStorage.removeItem(LANGUAGE_CACHE_KEY)
   localStorage.removeItem(LOCALE_CACHE_KEY)
   clearSessionPreference()
+  // Translate mode's switches persist in localStorage too, and a leaked one
+  // would mount the translate-mode chunk under every later AppLayout render.
+  setMarkMissing(false)
+  setTranslateMode(false)
+  setRecordingRenders(false)
   await activateLocale(SOURCE)
 })
 

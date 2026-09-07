@@ -23,6 +23,10 @@ import {
   useFormattingLocale,
   useLanguage,
   useT,
+  canTranslate,
+  setMarkMissing,
+  setTranslateMode,
+  useTranslateModeFlags,
 } from '@/i18n'
 import { useRpcMutation } from '@/hooks/useRpc'
 
@@ -33,6 +37,7 @@ import {
 } from '@/components/ui/avatar'
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
@@ -208,6 +213,18 @@ export function NavUser({
       ? t('Default ({language})', { language: placeholderName })
       : t('Browser default ({language})', { language: placeholderName })
 
+  // ── Translate mode ────────────────────────────────────────────────────────
+  //
+  // Two switches at the foot of the Language submenu, for anyone who may
+  // translate (see canTranslate). While translate mode is on, the submenu's
+  // own label carries the count of what the active language still lacks.
+  const translateFlags = useTranslateModeFlags()
+  const mayTranslate = canTranslate(userPermissions)
+  const languageLabel =
+    translateFlags.editing && translateFlags.missingCount > 0
+      ? t('Language ({count} missing)', { count: translateFlags.missingCount })
+      : t('Language')
+
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -325,7 +342,7 @@ export function NavUser({
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuSub>
-              <DropdownMenuSubTrigger>{t('Language')}</DropdownMenuSubTrigger>
+              <DropdownMenuSubTrigger>{languageLabel}</DropdownMenuSubTrigger>
               <DropdownMenuSubContent>
                 <DropdownMenuRadioGroup
                   value={languageIsSaved ? language : BROWSER_DEFAULT}
@@ -339,6 +356,23 @@ export function NavUser({
                     </DropdownMenuRadioItem>
                   ))}
                 </DropdownMenuRadioGroup>
+                {mayTranslate && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuCheckboxItem
+                      checked={translateFlags.marking}
+                      onCheckedChange={(checked) => setMarkMissing(checked)}
+                    >
+                      {t('Mark missing translations')}
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem
+                      checked={translateFlags.editing}
+                      onCheckedChange={(checked) => setTranslateMode(checked)}
+                    >
+                      {t('Translate mode')}
+                    </DropdownMenuCheckboxItem>
+                  </>
+                )}
               </DropdownMenuSubContent>
             </DropdownMenuSub>
             <DropdownMenuSub>

@@ -19,6 +19,58 @@ import type { SessionPreference } from './resolveLocale'
 /** The one table this feature adds. Created by the platform migration. */
 export const TENANT_TABLE = 'ui_translations'
 
+/**
+ * The table's unique key, as `on_conflict` wants it. A translate-mode save is
+ * an UPSERT on these four columns (`Prefer: resolution=merge-duplicates`), one
+ * row per save; the collector's insert uses the same columns with
+ * `ignore-duplicates`, which is what keeps a request from overwriting a
+ * translation.
+ */
+export const TRANSLATION_CONFLICT_COLUMNS: readonly string[] = ['locale', 'scope', 'key', 'context']
+
+/** The permission the migration creates for writing translations. */
+export const TRANSLATE_PERMISSION = 'translations.edit'
+
+/** What stands in for it on a tenant whose migration has not landed. */
+export const FALLBACK_TRANSLATE_PERMISSION = 'admin'
+
+/**
+ * The queue for one language: every request the collector recorded, newest
+ * first. Read by the translate-mode panel when it opens, never prefetched.
+ */
+export function queueQuery(locale: string): string {
+  return (
+    'select=id,scope,key,context,origin,first_seen&translation=eq.' +
+    `&locale=eq.${encodeURIComponent(locale)}&order=first_seen.desc&limit=${TENANT_PAGE_SIZE}`
+  )
+}
+
+/**
+ * When each of a language's translations was last written — the panel's
+ * "changed since translated" compares this against the model's `updated_at`.
+ */
+export function translatedAtQuery(locale: string): string {
+  return (
+    'select=scope,key,context,updated_at&translation=neq.' +
+    `&locale=eq.${encodeURIComponent(locale)}&limit=${TENANT_PAGE_SIZE}`
+  )
+}
+
+/** The three model reads the label inventory is built from. */
+export const MODEL_TABLES = {
+  tables: 'tables',
+  fields: 'fields',
+  modules: 'modules',
+} as const
+
+export const MODEL_QUERIES = {
+  tables: 'select=table_name,singular_label,plural_label,description,updated_at&limit=1000',
+  fields:
+    'select=table_name,field_name,title,description,enum_values,relationship_label,' +
+    'singular_label_parent,plural_label_parent,updated_at&limit=5000',
+  modules: 'select=module_slug,module_name,description,updated_at&limit=1000',
+} as const
+
 /** One page. PostgREST's own `max-rows` may cap it lower, which is harmless. */
 export const TENANT_PAGE_SIZE = 1000
 

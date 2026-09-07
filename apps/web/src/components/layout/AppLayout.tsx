@@ -5,6 +5,7 @@ import { AppSidebar } from './AppSidebar'
 import { CommandPalette } from './CommandPalette'
 import { SkipLink } from '@/components/a11y/SkipLink'
 import { MAIN_CONTENT_ID } from '@/components/a11y/landmarks'
+import { TranslateModeHost } from '@/components/TranslateModeHost'
 import {
   SidebarInset,
   SidebarProvider
@@ -18,6 +19,8 @@ export function AppLayout() {
       {/* First focusable element in the document — see SkipLink. */}
       <SkipLink />
       <CommandPalette />
+      {/* Renders nothing unless a translator switched it on in the account menu. */}
+      <TranslateModeHost />
       <AppSidebar />
       {/* SidebarInset renders the app's only <main>, named for the landmark
           list. The skip link's target and the route announcer's focus target

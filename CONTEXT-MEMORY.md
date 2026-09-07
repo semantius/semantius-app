@@ -772,6 +772,62 @@ at COLLECTION time with a top-level `await`, not in a `beforeAll`, because
 `describe.skipIf` is evaluated before any hook runs and a flag set in a hook would
 make the skip permanent. `fields.enum_values` really is a JSON array, and
 `tables` / `fields` / `modules` really do expose every column the inventory reads.
+`modules.module_slug` IS a unique constraint, which is what `useCreateRecord`'s
+`onConflict` is proven against while the translations table is missing.
+
+**Translate mode resolves the page through a reverse index RECORDED AT THE
+PRODUCER, never by wrapping `t()` or reading the DOM for meaning.** `translate()`,
+`labelOf()`, `localizeMetadata()`'s enum walk, `moduleOverride()` and
+`translateDynamic()` each hand their rendered output plus its id to
+`src/i18n/reverseIndex.ts` while recording is on (one boolean check per call
+otherwise); a text node or an `aria-label` is then looked up AS RENDERED, values
+interpolated. Two consequences that are easy to break: a new producer of
+user-visible text has to record too, or its output is invisible to marking and
+Alt+click; and a memo that skips the walk (`localizeMetadata` used to return early
+on an empty label map) skips the recording — the walk must run while recording
+even when nothing changes. `activateLocale` clears the index, and switching the
+mode on calls `reactivateLocale()` so every `useT()` consumer re-renders and
+records; a component that reads `translate()` at module scope is never
+re-recorded, which is one more reason the `components/**` ban exists.
+
+**The marks are CSS Custom Highlights, and the DOM is not mutated for them.**
+Ranges over text nodes go into `CSS.highlights` under `semantius-i18n-missing`;
+attribute hosts (and the fallback where the API is missing) get
+`data-i18n-missing`, styled with a box-shadow rather than an outline so a focus
+ring is never overridden. The scan walks `document.body`, because every Base UI
+popup is portaled beside `#root`, and prunes subtrees marked `data-i18n-ui` —
+translate mode's own dialog, panel and button. Anything that adds a scanned
+attribute (`aria-label`, `aria-description`, `placeholder`, `title`, `alt`) is
+in the observer's `attributeFilter`; `data-i18n-missing` deliberately is not, or
+the scan would observe itself.
+
+**Editing is Alt+click, and the editor and panel are MODAL.** A plain click in
+translate mode still opens the menu or follows the link the text sits on —
+otherwise the entries inside a submenu could never be reached to translate them.
+`ModalInert` makes `#root` inert for ANY `[role=dialog][data-open]` outside it,
+modal or not, so a "non-modal" panel would block the page exactly as a modal one
+does while announcing itself as something else; in-context editing is therefore
+done with the panel closed.
+
+**Where a save goes is decided by capability, never by a probe.** A row through
+`useCreateRecord(TENANT_TABLE, { onConflict: TRANSLATION_CONFLICT_COLUMNS })`
+when `tenantTableAvailable()` (set by `TranslationsPrefetch` from a DEFINITIVE
+body) and the user holds `translations.edit`; a browser draft otherwise
+(`src/i18n/drafts.ts`, rows under `semantius-i18n-draft:<code>`, the LAST
+layer in `localeLayers`). A message save also goes into Lingui through its
+merging `i18n.load` — the one place that call is used — plus `addMessageEntry`,
+so `translatedKeys` and the panel agree with what renders; a cleared message
+has to go through `reactivateLocale()`, because Lingui's table can only be
+replaced. `admin` gates the SWITCHES until the migration exists; it does not make
+a save a row.
+
+**A dependency reached only through a lazy chunk must be named in
+`optimizeDeps.include`.** Vite's crawler never sees `sonner` or
+`@base-ui/react/tabs` behind `import('@/i18n/translateMode')`, discovers them on
+first load and RELOADS the page; in the Vitest browser project that reload lands
+mid-test and leaves two copies of React in the module graph ("Invalid hook call"
+inside `<TabsRoot>`), which reads like a component bug. Vitest prints the fix in
+its own warning; `vite.config.ts` carries it.
 
 ### Routing Conventions
 
@@ -836,6 +892,11 @@ Combine with `&`: `?select=id,name&status=eq.active&order=created_at.desc&limit=
 ### shadcn/ui
 
 - Always install via CLI: `npx shadcn@latest add <component> -y` — never create manually
+- **`shadcn add tabs` currently emits `import { cn } from "cn"`** (the repo's pinned 4.19
+  and 4.21 alike) and "installs" a bogus `cn@0.2.6` into `package.json` instead of resolving
+  `aliases.utils`. The output cannot be hand-fixed in `ui/`, so `ui-ext/tabs.tsx` carries the
+  registry markup with the import corrected and says why. Revert `package.json` and the
+  lockfile after any such run, and check the first lines of a freshly added `ui/` file.
 - Never modify files in `src/components/ui/` — they are CLI-managed and upgradable
 - Config: `components.json` (points to `src/global.css`)
 - To customize: use `className` props at the call site (e.g., `<SheetContent className="border-l-0">`) — never modify `src/components/ui/*`

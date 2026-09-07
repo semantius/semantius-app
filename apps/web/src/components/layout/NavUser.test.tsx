@@ -8,10 +8,12 @@ import type { UserMenuEntry } from '@/lib/userMenu'
 import {
   LANGUAGE_CACHE_KEY,
   LOCALE_CACHE_KEY,
+  MARK_MISSING_KEY,
   activateLocale,
   clearSessionPreference,
   i18n,
   resolveInitialLocale,
+  translateModeFlags,
 } from '@/i18n'
 
 /**
@@ -304,5 +306,27 @@ describe('NavUser — the language switcher', () => {
     // The two preferences are separate: dropping the format must not drop the
     // language with it.
     expect(localStorage.getItem(LANGUAGE_CACHE_KEY)).toBe('de-DE')
+  })
+
+  it('offers the translate-mode switches to a user who may translate, and remembers the choice', async () => {
+    const { ui } = await openMenu()
+    await openSubmenu(ui, 'Language')
+
+    // Gated on the real permissions: the run's identity holds `admin`, which
+    // stands in for `translations.edit` until the platform migration lands.
+    // rpcUserInfo arrives asynchronously, so the switches do too.
+    const mark = await screen.findByRole('menuitemcheckbox', { name: 'Mark missing translations' })
+    expect(mark).toHaveAttribute('aria-checked', 'false')
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Translate mode' })).toBeInTheDocument()
+
+    await chooseEntry(ui, 'Mark')
+
+    await waitFor(() => expect(translateModeFlags().marking).toBe(true))
+    // Per browser, so a translator who reloads keeps the marks.
+    expect(localStorage.getItem(MARK_MISSING_KEY)).toBe('1')
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Mark missing translations' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    )
   })
 })

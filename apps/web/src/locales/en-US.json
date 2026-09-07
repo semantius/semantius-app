@@ -161,6 +161,13 @@
         "label"
       ]
     },
+    "All": {
+      "message": "All",
+      "origin": [
+        "src/i18n/translateMode/Panel.tsx"
+      ],
+      "placeholders": []
+    },
     "Alt": {
       "message": "Alt",
       "origin": [
@@ -329,7 +336,23 @@
       "origin": [
         "src/components/ConfirmDeleteDialog.tsx",
         "src/components/customers/CustomerForm.tsx",
-        "src/components/settings/ApiKeysCard.tsx"
+        "src/components/settings/ApiKeysCard.tsx",
+        "src/i18n/translateMode/EditorDialog.tsx",
+        "src/i18n/translateMode/Panel.tsx"
+      ],
+      "placeholders": []
+    },
+    "Catalog": {
+      "message": "Catalog",
+      "origin": [
+        "src/i18n/translateMode/Panel.tsx"
+      ],
+      "placeholders": []
+    },
+    "Changed since translated": {
+      "message": "Changed since translated",
+      "origin": [
+        "src/i18n/translateMode/LabelsTab.tsx"
       ],
       "placeholders": []
     },
@@ -362,6 +385,13 @@
       "placeholders": [
         "field"
       ]
+    },
+    "Clear": {
+      "message": "Clear",
+      "origin": [
+        "src/i18n/translateMode/EditorDialog.tsx"
+      ],
+      "placeholders": []
     },
     "Clear all filters": {
       "message": "Clear all filters",
@@ -404,6 +434,14 @@
       "message": "Close toast",
       "origin": [
         "src/components/AppToaster.tsx"
+      ],
+      "placeholders": []
+    },
+    "Column\u0004translation scope": {
+      "message": "Column",
+      "context": "translation scope",
+      "origin": [
+        "src/i18n/translateMode/scopeLabels.ts"
       ],
       "placeholders": []
     },
@@ -457,6 +495,15 @@
         "src/components/niko-table/config/data-table.ts"
       ],
       "placeholders": []
+    },
+    "Context: {context}": {
+      "message": "Context: {context}",
+      "origin": [
+        "src/i18n/translateMode/EditorDialog.tsx"
+      ],
+      "placeholders": [
+        "context"
+      ]
     },
     "Continue Editing": {
       "message": "Continue Editing",
@@ -684,6 +731,29 @@
       ],
       "placeholders": []
     },
+    "Download {file}": {
+      "message": "Download {file}",
+      "origin": [
+        "src/i18n/translateMode/Panel.tsx"
+      ],
+      "placeholders": [
+        "file"
+      ]
+    },
+    "Draft": {
+      "message": "Draft",
+      "origin": [
+        "src/i18n/translateMode/EntryList.tsx"
+      ],
+      "placeholders": []
+    },
+    "Drafts": {
+      "message": "Drafts",
+      "origin": [
+        "src/i18n/translateMode/Panel.tsx"
+      ],
+      "placeholders": []
+    },
     "Drag to reorder": {
       "message": "Drag to reorder",
       "origin": [
@@ -744,6 +814,13 @@
       ],
       "placeholders": []
     },
+    "English is the source language. An entry saved here overrides the wording for this tenant.": {
+      "message": "English is the source language. An entry saved here overrides the wording for this tenant.",
+      "origin": [
+        "src/i18n/translateMode/Panel.tsx"
+      ],
+      "placeholders": []
+    },
     "Enter a name to identify this API key.": {
       "message": "Enter a name to identify this API key.",
       "origin": [
@@ -762,6 +839,14 @@
       "message": "Entity Information:",
       "origin": [
         "src/components/views/admin/Modules0.tsx"
+      ],
+      "placeholders": []
+    },
+    "Enum value\u0004translation scope": {
+      "message": "Enum value",
+      "context": "translation scope",
+      "origin": [
+        "src/i18n/translateMode/scopeLabels.ts"
       ],
       "placeholders": []
     },
@@ -941,7 +1026,8 @@
     "Filter": {
       "message": "Filter",
       "origin": [
-        "src/components/niko-table/filters/table-filter-menu.tsx"
+        "src/components/niko-table/filters/table-filter-menu.tsx",
+        "src/i18n/translateMode/Panel.tsx"
       ],
       "placeholders": []
     },
@@ -1078,6 +1164,13 @@
       "message": "Inactive",
       "origin": [
         "src/components/customers/CustomerForm.tsx"
+      ],
+      "placeholders": []
+    },
+    "Invalid column name": {
+      "message": "Invalid column name",
+      "origin": [
+        "src/hooks/useTableMutations.ts"
       ],
       "placeholders": []
     },
@@ -1237,6 +1330,15 @@
       ],
       "placeholders": []
     },
+    "Language ({count} missing)": {
+      "message": "Language ({count} missing)",
+      "origin": [
+        "src/components/layout/NavUser.tsx"
+      ],
+      "placeholders": [
+        "count"
+      ]
+    },
     "Last Used": {
       "message": "Last Used",
       "origin": [
@@ -1382,6 +1484,29 @@
       ],
       "placeholders": []
     },
+    "Mark missing translations": {
+      "message": "Mark missing translations",
+      "origin": [
+        "src/components/layout/NavUser.tsx"
+      ],
+      "placeholders": []
+    },
+    "Message\u0004translation scope": {
+      "message": "Message",
+      "context": "translation scope",
+      "origin": [
+        "src/i18n/translateMode/scopeLabels.ts"
+      ],
+      "placeholders": []
+    },
+    "Missing": {
+      "message": "Missing",
+      "origin": [
+        "src/i18n/translateMode/EntryList.tsx",
+        "src/i18n/translateMode/Panel.tsx"
+      ],
+      "placeholders": []
+    },
     "Missing environment variables:": {
       "message": "Missing environment variables:",
       "origin": [
@@ -1389,10 +1514,33 @@
       ],
       "placeholders": []
     },
+    "Missing only": {
+      "message": "Missing only",
+      "origin": [
+        "src/i18n/translateMode/LabelsTab.tsx"
+      ],
+      "placeholders": []
+    },
+    "Missing placeholders: {list}": {
+      "message": "Missing placeholders: {list}",
+      "origin": [
+        "src/i18n/translateMode/EditorDialog.tsx"
+      ],
+      "placeholders": [
+        "list"
+      ]
+    },
     "Mode:": {
       "message": "Mode:",
       "origin": [
         "src/components/form/Playground.tsx"
+      ],
+      "placeholders": []
+    },
+    "Model labels": {
+      "message": "Model labels",
+      "origin": [
+        "src/i18n/translateMode/Panel.tsx"
       ],
       "placeholders": []
     },
@@ -1407,6 +1555,14 @@
       "message": "Modify sorting to organize your rows.",
       "origin": [
         "src/components/niko-table/filters/table-sort-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "Module\u0004translation scope": {
+      "message": "Module",
+      "context": "translation scope",
+      "origin": [
+        "src/i18n/translateMode/scopeLabels.ts"
       ],
       "placeholders": []
     },
@@ -1472,7 +1628,8 @@
     "Newest first": {
       "message": "Newest first",
       "origin": [
-        "src/components/niko-table/config/data-table.ts"
+        "src/components/niko-table/config/data-table.ts",
+        "src/i18n/translateMode/LabelsTab.tsx"
       ],
       "placeholders": []
     },
@@ -1541,6 +1698,20 @@
       ],
       "placeholders": []
     },
+    "No model labels match these filters.": {
+      "message": "No model labels match these filters.",
+      "origin": [
+        "src/i18n/translateMode/LabelsTab.tsx"
+      ],
+      "placeholders": []
+    },
+    "No model labels on this page.": {
+      "message": "No model labels on this page.",
+      "origin": [
+        "src/i18n/translateMode/LabelsTab.tsx"
+      ],
+      "placeholders": []
+    },
     "No option found.": {
       "message": "No option found.",
       "origin": [
@@ -1603,6 +1774,13 @@
         "label"
       ]
     },
+    "Nothing matches this filter.": {
+      "message": "Nothing matches this filter.",
+      "origin": [
+        "src/i18n/translateMode/Panel.tsx"
+      ],
+      "placeholders": []
+    },
     "Notifications": {
       "message": "Notifications",
       "origin": [
@@ -1628,6 +1806,13 @@
       "message": "Oldest first",
       "origin": [
         "src/components/niko-table/config/data-table.ts"
+      ],
+      "placeholders": []
+    },
+    "On this page": {
+      "message": "On this page",
+      "origin": [
+        "src/i18n/translateMode/Panel.tsx"
       ],
       "placeholders": []
     },
@@ -1657,6 +1842,20 @@
       "origin": [
         "src/components/data-table-view/DataTableView.tsx",
         "src/routes/_app.xcustomers.tsx"
+      ],
+      "placeholders": []
+    },
+    "Orphaned": {
+      "message": "Orphaned",
+      "origin": [
+        "src/i18n/translateMode/LabelsTab.tsx"
+      ],
+      "placeholders": []
+    },
+    "Override wording": {
+      "message": "Override wording",
+      "origin": [
+        "src/i18n/translateMode/EditorDialog.tsx"
       ],
       "placeholders": []
     },
@@ -1744,6 +1943,13 @@
       ],
       "placeholders": []
     },
+    "Reading the model…": {
+      "message": "Reading the model…",
+      "origin": [
+        "src/i18n/translateMode/LabelsTab.tsx"
+      ],
+      "placeholders": []
+    },
     "Record": {
       "message": "Record",
       "origin": [
@@ -1805,6 +2011,13 @@
       ],
       "placeholders": []
     },
+    "Requested": {
+      "message": "Requested",
+      "origin": [
+        "src/i18n/translateMode/Panel.tsx"
+      ],
+      "placeholders": []
+    },
     "Required": {
       "message": "Required",
       "origin": [
@@ -1816,6 +2029,20 @@
       "message": "Reset",
       "origin": [
         "src/components/form/SchemaForm.tsx"
+      ],
+      "placeholders": []
+    },
+    "Reset drafts": {
+      "message": "Reset drafts",
+      "origin": [
+        "src/i18n/translateMode/Panel.tsx"
+      ],
+      "placeholders": []
+    },
+    "Reset drafts?": {
+      "message": "Reset drafts?",
+      "origin": [
+        "src/i18n/translateMode/Panel.tsx"
       ],
       "placeholders": []
     },
@@ -1884,6 +2111,14 @@
       ],
       "placeholders": []
     },
+    "Rule message\u0004translation scope": {
+      "message": "Rule message",
+      "context": "translation scope",
+      "origin": [
+        "src/i18n/translateMode/scopeLabels.ts"
+      ],
+      "placeholders": []
+    },
     "Same as language ({locale})": {
       "message": "Same as language ({locale})",
       "origin": [
@@ -1900,10 +2135,45 @@
       ],
       "placeholders": []
     },
+    "Save": {
+      "message": "Save",
+      "origin": [
+        "src/i18n/translateMode/EditorDialog.tsx"
+      ],
+      "placeholders": []
+    },
     "Save Changes": {
       "message": "Save Changes",
       "origin": [
         "src/components/customers/CustomerForm.tsx"
+      ],
+      "placeholders": []
+    },
+    "Saved as a draft in this browser. Download the file to keep it.": {
+      "message": "Saved as a draft in this browser. Download the file to keep it.",
+      "origin": [
+        "src/i18n/translateMode/EditorDialog.tsx"
+      ],
+      "placeholders": []
+    },
+    "Saved to this tenant, for every user.": {
+      "message": "Saved to this tenant, for every user.",
+      "origin": [
+        "src/i18n/translateMode/EditorDialog.tsx"
+      ],
+      "placeholders": []
+    },
+    "Saving as browser drafts": {
+      "message": "Saving as browser drafts",
+      "origin": [
+        "src/i18n/translateMode/Panel.tsx"
+      ],
+      "placeholders": []
+    },
+    "Saving to this tenant": {
+      "message": "Saving to this tenant",
+      "origin": [
+        "src/i18n/translateMode/Panel.tsx"
       ],
       "placeholders": []
     },
@@ -1973,10 +2243,24 @@
       ],
       "placeholders": []
     },
+    "Search source text or translation": {
+      "message": "Search source text or translation",
+      "origin": [
+        "src/i18n/translateMode/Panel.tsx"
+      ],
+      "placeholders": []
+    },
     "Search table": {
       "message": "Search table",
       "origin": [
         "src/components/niko-table/filters/table-search-filter.tsx"
+      ],
+      "placeholders": []
+    },
+    "Search translations": {
+      "message": "Search translations",
+      "origin": [
+        "src/i18n/translateMode/Panel.tsx"
       ],
       "placeholders": []
     },
@@ -2155,6 +2439,14 @@
       ],
       "placeholders": []
     },
+    "Server message\u0004translation scope": {
+      "message": "Server message",
+      "context": "translation scope",
+      "origin": [
+        "src/i18n/translateMode/scopeLabels.ts"
+      ],
+      "placeholders": []
+    },
     "Settings": {
       "message": "Settings",
       "origin": [
@@ -2169,6 +2461,15 @@
         "src/components/ui-ext/platform-shortcut.tsx"
       ],
       "placeholders": []
+    },
+    "Show {count} more": {
+      "message": "Show {count} more",
+      "origin": [
+        "src/i18n/translateMode/EntryList.tsx"
+      ],
+      "placeholders": [
+        "count"
+      ]
     },
     "Showing {from} to {to} customers": {
       "message": "Showing {from} to {to} customers",
@@ -2326,6 +2627,13 @@
         "total"
       ]
     },
+    "Source": {
+      "message": "Source",
+      "origin": [
+        "src/i18n/translateMode/EditorDialog.tsx"
+      ],
+      "placeholders": []
+    },
     "Status": {
       "message": "Status",
       "origin": [
@@ -2352,6 +2660,14 @@
       "message": "Suspended",
       "origin": [
         "src/components/customers/CustomerForm.tsx"
+      ],
+      "placeholders": []
+    },
+    "Table\u0004translation scope": {
+      "message": "Table",
+      "context": "translation scope",
+      "origin": [
+        "src/i18n/translateMode/scopeLabels.ts"
       ],
       "placeholders": []
     },
@@ -2408,6 +2724,13 @@
       "message": "The page you're looking for doesn't exist or has been moved.",
       "origin": [
         "src/components/NotFoundPage.tsx"
+      ],
+      "placeholders": []
+    },
+    "The translation could not be saved": {
+      "message": "The translation could not be saved",
+      "origin": [
+        "src/i18n/translateMode/useTranslationWriter.ts"
       ],
       "placeholders": []
     },
@@ -2476,6 +2799,29 @@
       ],
       "placeholders": [
         "origin"
+      ]
+    },
+    "This page": {
+      "message": "This page",
+      "origin": [
+        "src/i18n/translateMode/LabelsTab.tsx"
+      ],
+      "placeholders": []
+    },
+    "This text has more than one meaning": {
+      "message": "This text has more than one meaning",
+      "origin": [
+        "src/i18n/translateMode/EditorDialog.tsx"
+      ],
+      "placeholders": []
+    },
+    "This translation does not compile: {problem}": {
+      "message": "This translation does not compile: {problem}",
+      "origin": [
+        "src/i18n/translateMode/EditorDialog.tsx"
+      ],
+      "placeholders": [
+        "problem"
       ]
     },
     "This {table} record no longer exists": {
@@ -2559,6 +2905,35 @@
       ],
       "placeholders": []
     },
+    "Translate": {
+      "message": "Translate",
+      "origin": [
+        "src/i18n/translateMode/EditorDialog.tsx"
+      ],
+      "placeholders": []
+    },
+    "Translate mode": {
+      "message": "Translate mode",
+      "origin": [
+        "src/components/layout/NavUser.tsx"
+      ],
+      "placeholders": []
+    },
+    "Translation": {
+      "message": "Translation",
+      "origin": [
+        "src/i18n/translateMode/EditorDialog.tsx"
+      ],
+      "placeholders": []
+    },
+    "Translations": {
+      "message": "Translations",
+      "origin": [
+        "src/i18n/translateMode/Panel.tsx",
+        "src/i18n/translateMode/index.tsx"
+      ],
+      "placeholders": []
+    },
     "True": {
       "message": "True",
       "origin": [
@@ -2581,6 +2956,15 @@
         "src/components/niko-table/core/data-table-error-boundary.tsx"
       ],
       "placeholders": []
+    },
+    "Unexpected placeholders: {list}": {
+      "message": "Unexpected placeholders: {list}",
+      "origin": [
+        "src/i18n/translateMode/EditorDialog.tsx"
+      ],
+      "placeholders": [
+        "list"
+      ]
     },
     "Unknown": {
       "message": "Unknown",
@@ -2689,6 +3073,20 @@
       "message": "Where",
       "origin": [
         "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "Which labels to show": {
+      "message": "Which labels to show",
+      "origin": [
+        "src/i18n/translateMode/LabelsTab.tsx"
+      ],
+      "placeholders": []
+    },
+    "Whole model": {
+      "message": "Whole model",
+      "origin": [
+        "src/i18n/translateMode/LabelsTab.tsx"
       ],
       "placeholders": []
     },
@@ -2808,6 +3206,24 @@
         "src/components/niko-table/filters/table-range-filter.tsx"
       ],
       "placeholders": []
+    },
+    "{count, plural, one {# draft} other {# drafts}} kept in this browser will be discarded. Download the file first to keep them.": {
+      "message": "{count, plural, one {# draft} other {# drafts}} kept in this browser will be discarded. Download the file first to keep them.",
+      "origin": [
+        "src/i18n/translateMode/Panel.tsx"
+      ],
+      "placeholders": [
+        "count"
+      ]
+    },
+    "{count, plural, one {# missing translation} other {# missing translations}}": {
+      "message": "{count, plural, one {# missing translation} other {# missing translations}}",
+      "origin": [
+        "src/i18n/translateMode/index.tsx"
+      ],
+      "placeholders": [
+        "count"
+      ]
     },
     "{count} selected": {
       "message": "{count} selected",
@@ -2985,6 +3401,17 @@
         "name"
       ]
     },
+    "{language}: {missing, plural, one {# string} other {# strings}} of {total} still in English": {
+      "message": "{language}: {missing, plural, one {# string} other {# strings}} of {total} still in English",
+      "origin": [
+        "src/i18n/translateMode/Panel.tsx"
+      ],
+      "placeholders": [
+        "language",
+        "missing",
+        "total"
+      ]
+    },
     "{name} deleted": {
       "message": "{name} deleted",
       "origin": [
@@ -2992,6 +3419,16 @@
       ],
       "placeholders": [
         "name"
+      ]
+    },
+    "{scope}: {key}": {
+      "message": "{scope}: {key}",
+      "origin": [
+        "src/i18n/translateMode/EditorDialog.tsx"
+      ],
+      "placeholders": [
+        "key",
+        "scope"
       ]
     },
     "{start}-{end} of {total, plural, one {# item} other {# items}}": {

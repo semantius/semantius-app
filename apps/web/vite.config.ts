@@ -69,6 +69,17 @@ export default defineConfig(({ mode }) => ({
     },
     dedupe: ['@codemirror/state', '@codemirror/view', '@lezer/common'],
   },
+  optimizeDeps: {
+    // Reached only through the LAZY translate-mode chunk
+    // (src/i18n/translateMode/, loaded by components/TranslateModeHost.tsx),
+    // so Vite's import crawler does not see them at startup and discovers them
+    // the first time the chunk loads — at which point it re-optimizes and
+    // RELOADS the page. In the dev server that is a flash; in the Vitest
+    // browser project it reloads a running test, and the half-loaded module
+    // graph then holds two copies of React ("Invalid hook call" inside
+    // <TabsRoot>). Naming them here is what Vitest asks for in that message.
+    include: ['sonner', '@base-ui/react/tabs'],
+  },
   test: {
     globals: true,
     watch: false,

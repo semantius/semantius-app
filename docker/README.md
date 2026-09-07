@@ -183,6 +183,13 @@ network tab rather than silently loading the SPA's own HTML. The file's shape is
 independent — registering a language does **not** require
 `VITE_BACKEND_TYPE=custom`.
 
+The app's translate mode (root README, "Translate mode") works against a file
+too: an admin marks what is missing and edits in context, the edits stay in
+that browser as drafts, and **Download `<code>.json`** exports the full merge
+with an empty entry for everything still open — the file to put back under
+`/locales/`. Saving directly to the deployment from the app is not possible;
+that needs the tenant table.
+
 ### Adjusting a running deployment
 
 Edit `docker/.env`, then `docker compose -f docker/docker-compose.yml restart`.

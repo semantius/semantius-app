@@ -99,7 +99,7 @@ function IndexComponent() {
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {modules.map((module) => {
-            const { displayName, displayTitle } = getModuleDisplay(module, moduleOverride(labels, module.module_slug))
+            const { displayName, displayTitle } = getModuleDisplay(module, moduleOverride(labels, module.module_slug, module))
             return (
               // A module tile is a navigation target, so it is a link — not a
               // <Card onClick>. The click-only card was unreachable by keyboard,

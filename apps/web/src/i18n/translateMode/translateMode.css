@@ -1,0 +1,28 @@
+/*
+ * Translate mode's marks. Loaded with the lazy chunk, so nothing here exists
+ * for a user who never switches the mode on.
+ *
+ * `::highlight()` accepts only color, background-color, text-decoration and
+ * text-shadow — no outline, no border — which is exactly why it cannot disturb
+ * layout. The attribute rule is the fallback for browsers without the API and
+ * the only option for an attribute host; it is a box-shadow rather than an
+ * outline so it never fights the focus ring, which is an outline.
+ */
+::highlight(semantius-i18n-missing) {
+  background-color: rgb(253 224 71 / 0.55);
+  text-decoration: underline wavy rgb(161 98 7);
+}
+
+.dark ::highlight(semantius-i18n-missing) {
+  background-color: rgb(202 138 4 / 0.45);
+  text-decoration-color: rgb(253 224 71);
+}
+
+[data-i18n-missing] {
+  box-shadow: 0 0 0 2px rgb(161 98 7);
+  border-radius: 2px;
+}
+
+.dark [data-i18n-missing] {
+  box-shadow: 0 0 0 2px rgb(253 224 71);
+}
