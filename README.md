@@ -130,6 +130,7 @@ The callback url is /oauth2_callback like http://localhost:5173/oauth2_callback
 | `VITE_CONTROL_PLANE_URL` | Semantius control plane (default on) — set to an explicit empty value for self-hosted |
 | `VITE_CONTROL_PLANE_ORG` | Org slug when using the control plane                    |
 | `VITE_CUBE_API_URL`    | Cube.js analytics API URL (defaults from the tenant)       |
+| `VITE_TRANSLATE_API_URL` | Where translate mode reads and writes. Unset = this app's own API. Under `pnpm dev` it defaults to the dev server, which writes the repo |
 
 **→ [BACKEND.md](BACKEND.md)** is the reference for what these point at: the two
 deployment shapes, the REST and RPC endpoints, the model schema `get_schema`
@@ -499,14 +500,24 @@ submenu in the account menu:
   first*), **Download `<code>.json`** and **Reset drafts**. While the mode is on,
   the Language submenu shows how much the language still lacks.
 
-Where a save goes is decided by capability, never by a probe: a **row** in
-`ui_translations` when the tenant has the table and you hold
-`translations.edit`; otherwise a **draft** in this browser's storage, which
-overrides every other layer until it is reset and leaves through the download.
-The downloaded file is the full merge of every layer plus an empty entry for
-every index message and every model label still untranslated — a complete work
-list, for an agent (`import.mjs`) or for an operator's deployment file. A draft
-never reaches the repo catalog or another user on its own.
+**There is one writer and no fallback.** Every environment speaks the same
+contract — an upsert on `ui_translations` keyed by `(locale, scope, key,
+context)` — and only the base url differs, which is `VITE_TRANSLATE_API_URL`:
+
+| Target | Base | A save becomes |
+| --- | --- | --- |
+| dev | the Vite dev server (the default under `pnpm dev`) | a change in `src/locales/<code>.json` for a code string, `public/locales/<code>.json` for a model label |
+| stage | whatever host answers the same three calls | whatever that host does |
+| prod | unset, so the tenant's own PostgREST | a row in `ui_translations` |
+
+Translate mode is **not offered at all** where there is no such target or no
+permission: an editor that cannot save is worse than no editor, so there is no
+browser draft and no file download.
+
+That split is what keeps corrections honest. Fixing a genuinely wrong shipped
+German string is a dev change that lands in the repo and goes through a PR; a
+row on a tenant is an override for that tenant, which is a different thing and
+should not be how the source gets fixed.
 
 Two things to know while translating: the marks and the click resolve text AS
 RENDERED, so a data value that happens to equal a rendered string (a cell

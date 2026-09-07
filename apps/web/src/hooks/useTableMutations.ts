@@ -17,6 +17,11 @@ export interface CreateRecordOptions {
    * (`ui_translations`, unique on locale/scope/key/context).
    */
   onConflict?: readonly string[]
+  /**
+   * A different PostgREST base to write to. Defaults to the app's own API; the
+   * translate target (`VITE_TRANSLATE_API_URL`) is the one caller today.
+   */
+  baseUrl?: string
 }
 
 /**
@@ -38,7 +43,7 @@ export function useCreateRecord<T = Record<string, unknown>>(
   // screen, so they are UI text and go through the catalog.
   const t = useT()
   const { token } = useAuth()
-  const { baseUrl: apiBaseUrl } = getApiConfig()
+  const apiBaseUrl = options.baseUrl ?? getApiConfig().baseUrl
   const queryClient = useQueryClient()
   const conflictColumns = options.onConflict?.length ? options.onConflict : undefined
 

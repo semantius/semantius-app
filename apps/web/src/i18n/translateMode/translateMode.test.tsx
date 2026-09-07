@@ -7,22 +7,37 @@ import {
   MISSING_ATTRIBUTE,
   SOURCE_LANGUAGE,
   activateLocale,
-  buildExportFile,
-  clearDrafts,
   highlightedTexts,
-  messageIndex,
-  readDrafts,
-  saveDraft,
   setMarkMissing,
   setTranslateMode,
   supportsHighlightApi,
   TABLE_ATTR,
   tableLabel,
+  translate,
   translateModeFlags,
   translatedKeys,
   useLocaleLabels,
   useT,
 } from '@/i18n'
+import { disableCollector, enableCollector, flush } from '@/i18n/missing'
+import { translateApiUrl } from '@/i18n/translateTarget'
+
+/** Ask the translate endpoint directly — never through the code under test. */
+async function endpointRows(locale: string): Promise<{ scope: string; key: string; translation: string }[]> {
+  const res = await fetch(`${translateApiUrl()}/ui_translations?locale=eq.${locale}`)
+  return (await res.json()) as { scope: string; key: string; translation: string }[]
+}
+
+/** Undo whatever a test wrote, through the same endpoint. */
+async function clearEndpoint(locale: string, keys: string[]): Promise<void> {
+  for (const key of keys) {
+    await fetch(`${translateApiUrl()}/ui_translations?on_conflict=locale,scope,key,context`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates' },
+      body: JSON.stringify({ locale, scope: 'message', key, context: '', translation: '' }),
+    })
+  }
+}
 
 /**
  * Translate mode, in a real browser, through the real app providers.
@@ -83,11 +98,13 @@ describe('translate mode', () => {
 
   beforeEach(async () => {
     await bootApp()
-    clearDrafts('de-DE')
   })
 
-  afterEach(() => {
-    clearDrafts('de-DE')
+  afterEach(async () => {
+    await clearEndpoint('de-DE', [UNTRANSLATED])
+    // The collector is opt-in and off in the setup file; a test that turns it
+    // on has to turn it off, or every later test writes to the tenant.
+    disableCollector()
   })
 
   it('runs where CSS Custom Highlights exist', () => {
@@ -156,27 +173,65 @@ describe('translate mode', () => {
     await waitFor(() => expect(highlightedTexts()).toEqual(['Probe Rows', 'Probe Row']))
     expect(translatedKeys('de-DE').has(UNTRANSLATED)).toBe(true)
 
-    // The writer: this tenant has no table, so the save is a browser draft.
-    expect(readDrafts('de-DE')).toEqual([
-      { scope: 'message', key: UNTRANSLATED, context: '', translation: 'Ein Satz, den kein Katalog kennt' },
-    ])
+    // And the ENDPOINT holds it — read back over a separate request that does
+    // not go through the code under test. There is no draft and no download:
+    // one contract, whatever is behind it.
+    const saved = await endpointRows('de-DE')
+    expect(saved).toContainEqual(
+      expect.objectContaining({ key: UNTRANSLATED, translation: 'Ein Satz, den kein Katalog kennt' }),
+    )
 
-    // And the export carries it — the way a draft leaves a browser.
-    const exported = await buildExportFile('de-DE', messageIndex(), [])
-    expect(exported.messages?.[UNTRANSLATED]).toBe('Ein Satz, den kein Katalog kennt')
-
-    // Alt+click the translated text: the editor offers to remove the draft —
-    // the one thing a draft can honestly clear — and the source shows again.
+    // Clearing writes an empty translation through the same call, and the
+    // source text shows through again.
     await ui.keyboard('{Alt>}')
     await ui.click(screen.getByText('Ein Satz, den kein Katalog kennt'))
     await ui.keyboard('{/Alt}')
     const again = await screen.findByRole('dialog', { name: 'Übersetzen' })
     expect(within(again).getByRole('textbox', { name: 'Übersetzung' })).toHaveValue('Ein Satz, den kein Katalog kennt')
-    await ui.click(within(again).getByRole('button', { name: 'Entwurf entfernen' }))
+    await ui.click(within(again).getByRole('button', { name: 'Leeren' }))
 
     await waitFor(() => expect(screen.getByText(UNTRANSLATED)).toBeInTheDocument())
-    expect(readDrafts('de-DE')).toEqual([])
     await waitFor(() => expect(highlightedTexts()).toEqual([UNTRANSLATED, 'Probe Rows', 'Probe Row']))
+  })
+
+  it('opens the editor on right-click, which is what a person tries first', async () => {
+    // Alt+click alone was undiscoverable: the owner tried click and right-click
+    // on marked text and reported that nothing happened. Right-click needs no
+    // keyboard and conflicts with nothing the app itself does.
+    setTranslateMode(true)
+    await activateLocale(GERMAN)
+    const ui = userEvent.setup()
+    renderInApp(<Page />)
+    await screen.findByRole('button', { name: /Übersetzungen/ })
+    await waitFor(() => expect(highlightedTexts()).toContain(UNTRANSLATED))
+
+    await ui.pointer({ target: screen.getByText(UNTRANSLATED), keys: '[MouseRight]' })
+
+    const dialog = await screen.findByRole('dialog', { name: 'Übersetzen' })
+    expect(within(dialog).getByText(UNTRANSLATED)).toBeInTheDocument()
+  })
+
+  it('leaves the browser menu alone over text it did not produce, and over its own UI', async () => {
+    setTranslateMode(true)
+    await activateLocale(GERMAN)
+    const ui = userEvent.setup()
+    renderInApp(
+      <>
+        <Page />
+        <p>Ein Datenwert, den keine Übersetzung erzeugt hat</p>
+      </>,
+    )
+    await screen.findByRole('button', { name: /Übersetzungen/ })
+
+    // Nothing produced this string, so the handler stands down and the native
+    // context menu opens — which is what `preventDefault` being conditional on
+    // a resolved target buys.
+    await ui.pointer({
+      target: screen.getByText('Ein Datenwert, den keine Übersetzung erzeugt hat'),
+      keys: '[MouseRight]',
+    })
+
+    expect(screen.queryByRole('dialog', { name: 'Übersetzen' })).not.toBeInTheDocument()
   })
 
   it('reaches a model label interpolated into a translated sentence', async () => {
@@ -275,34 +330,63 @@ describe('translate mode', () => {
     await ui.click(within(panel).getByRole('button', { name: 'Auf dieser Seite' }))
     const entry = await within(panel).findByRole('button', { name: new RegExp(UNTRANSLATED) })
     expect(within(entry).getByText('Fehlt')).toBeInTheDocument()
-    expect(within(panel).getByRole('button', { name: /de-DE\.json/ })).toBeInTheDocument()
 
     await ui.click(entry)
     const editor = await screen.findByRole('dialog', { name: 'Übersetzen' })
     expect(within(editor).getByRole('textbox', { name: 'Übersetzung' })).toHaveValue('')
   })
 
-  it('asks before discarding drafts, and then discards them', async () => {
+  it('shows a request the collector recorded after the panel had already mounted', async () => {
+    // The panel is MOUNTED as soon as translate mode is on, with the sheet
+    // closed, so its queue was read once — before anything had been recorded —
+    // and nothing refreshed it afterwards. The list looked permanently empty
+    // while the page was covered in marks.
     setTranslateMode(true)
-    // A draft made the way the writer makes one: the real function, then the
-    // layers folded again so the panel sees it.
-    saveDraft('de-DE', { scope: 'message', key: UNTRANSLATED, context: '', translation: 'Entwurf' })
     await activateLocale(GERMAN)
     const ui = userEvent.setup()
     renderInApp(<Page />)
+    await screen.findByRole('button', { name: /Übersetzungen/ })
 
-    await ui.click(await screen.findByRole('button', { name: /Übersetzungen/ }))
+    // Record one, the way the running app does: an empty-translation row
+    // inserted with `ignore-duplicates`, which the endpoint keeps as an empty
+    // entry — the same thing an untranslated key in a catalog file is.
+    enableCollector()
+    expect(translate(UNTRANSLATED)).toBe(UNTRANSLATED)
+    await flush()
+    await waitFor(async () =>
+      expect((await endpointRows('de-DE')).some((row) => row.key === UNTRANSLATED)).toBe(true),
+    )
+
+    await ui.click(screen.getByRole('button', { name: /Übersetzungen/ }))
     const panel = await screen.findByRole('dialog', { name: 'Übersetzungen' })
-    await ui.click(within(panel).getByRole('button', { name: 'Entwürfe zurücksetzen' }))
+    await ui.click(within(panel).getByRole('button', { name: 'Angefragt' }))
 
-    // Drafts live only in this browser, so the reset is unrecoverable and asks.
-    const confirm = await screen.findByRole('alertdialog', { name: 'Entwürfe zurücksetzen?' })
-    expect(readDrafts('de-DE')).toHaveLength(1)
-    await ui.click(within(confirm).getByRole('button', { name: 'Entwürfe zurücksetzen' }))
+    expect(await within(panel).findByRole('button', { name: new RegExp(UNTRANSLATED) })).toBeInTheDocument()
+  })
 
-    await waitFor(() => expect(readDrafts('de-DE')).toEqual([]))
-    // And the page is back to the untranslated source text.
-    await waitFor(() => expect(screen.getByText(UNTRANSLATED)).toBeInTheDocument())
+  it('sends you to the labels tab when the marks on the page are model labels', async () => {
+    // Every shipped code string has German, so "Missing" is legitimately empty
+    // — while the page is full of yellow, all of it model labels. "Nothing
+    // matches this filter" reads as broken there.
+    setTranslateMode(true)
+    await activateLocale(GERMAN)
+    const ui = userEvent.setup()
+    renderInApp(<Page />)
+    // The count of marked labels comes from the scan, so wait for it — opening
+    // the panel first would read zero and show the plain empty sentence.
+    await screen.findByRole('button', { name: /Übersetzungen/ })
+    await waitFor(() => expect(highlightedTexts()).toContain('Probe Rows'))
+
+    await ui.click(screen.getByRole('button', { name: /Übersetzungen/ }))
+    const panel = await screen.findByRole('dialog', { name: 'Übersetzungen' })
+    await ui.click(within(panel).getByRole('button', { name: 'Fehlt' }))
+
+    // The way out of an empty "Missing" list on a page full of marks: a button,
+    // not the tab of the same name.
+    await ui.click(await within(panel).findByRole('button', { name: 'Modellbezeichnungen' }))
+
+    // The labels tab, showing what the page actually has.
+    expect(await within(panel).findByRole('button', { name: /Probe Rows/ })).toBeInTheDocument()
   })
 
   it('renders nothing while both switches are off', async () => {

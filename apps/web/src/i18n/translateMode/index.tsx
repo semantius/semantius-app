@@ -24,6 +24,7 @@ import {
   type TranslationEntry,
 } from '@/i18n'
 import { EditorDialog, type EditorRequest } from './EditorDialog'
+import { EDIT_HINT } from './hint'
 import { Panel } from './Panel'
 import './translateMode.css'
 
@@ -33,10 +34,17 @@ import './translateMode.css'
  */
 const SCAN_DELAY_MS = 150
 
+/**
+ * Whether the hint has been shown in this page's lifetime. Module state in the
+ * lazy chunk, so it survives the component unmounting (switching the mode off
+ * and on again does not re-teach) and dies with the page (a reload does).
+ */
+let hintShown = false
+
 export interface TranslateModeProps {
   /** Mark untranslated text. */
   marking: boolean
-  /** The full mode: marks, Alt+click editing, the panel. */
+  /** The full mode: marks, in-context editing, the panel. */
   editing: boolean
 }
 
@@ -51,9 +59,9 @@ export interface TranslateModeProps {
  *   marking   a MutationObserver over the document, throttled, re-scanning
  *             text nodes and the scanned attributes and painting CSS Custom
  *             Highlights over the ones whose id has no translation;
- *   editing   Alt+click on any text our own functions produced opens the
- *             editor for it — Alt, so a plain click still opens the menu or
- *             follows the link the text is on;
+ *   editing   right-click or Alt+click on any text our own functions produced
+ *             opens the editor for it; a plain click is left alone so it still
+ *             opens the menu or follows the link the text sits on;
  *   the panel the whole catalog, the model labels, the export.
  *
  * In the source language nothing is marked (nothing is missing there) and the
@@ -82,15 +90,16 @@ export default function TranslateMode({ marking, editing }: TranslateModeProps) 
     }
   }, [])
 
-  // Say how to use it, once, to whoever just switched it on. A plain click
-  // still opens the menu or follows the link the text is on — which is the
-  // right behavior and the reason nothing on screen reveals the editor.
+  // Say how to use it, once per page load — not only to whoever flipped the
+  // switch. The switch persists, so a reload would otherwise leave somebody
+  // staring at marked text with no idea what opens it, which is exactly what
+  // happened: a plain click still opens the menu or follows the link the text
+  // is on, and nothing on screen reveals the editor.
   useEffect(() => {
-    if (!editing || !consumeJustEnabled()) return
-    toast.info(t('Translate mode is on'), {
-      description: t('Alt+click any text to translate it where it stands, or open the Translations panel.'),
-      duration: 8000,
-    })
+    if (!editing || hintShown) return
+    hintShown = true
+    consumeJustEnabled()
+    toast.info(t('Translate mode is on'), { description: t(EDIT_HINT), duration: 10000 })
   }, [editing, t])
 
   // Scan on every settled burst of mutations, and whenever the catalog changes
@@ -141,22 +150,38 @@ export default function TranslateMode({ marking, editing }: TranslateModeProps) 
     // `version` stands in for the key set, which changes with it.
   }, [language, isSource, present, version])
 
-  // Alt+click anywhere: resolve what was clicked and open the editor for it.
+  // Two gestures, because one of them is undiscoverable on its own.
+  //
+  //   right-click  what a person actually tries, and it needs no keyboard. It
+  //                costs the browser's own context menu while the mode is on,
+  //                which is a fair trade for an explicit, opt-in editing mode —
+  //                and only over text this app produced: anywhere else, and
+  //                inside translate mode's own UI, the native menu still opens.
+  //   Alt+click    for a pointer whose right button is spoken for, and because
+  //                a plain click has to keep opening the menu or following the
+  //                link the text sits on.
   useEffect(() => {
     if (!editing) return
-    const onClick = (event: MouseEvent) => {
-      if (!event.altKey) return
+    const open = (event: MouseEvent) => {
       const hit = resolveClickTarget(event)
       if (!hit) return
-      event.preventDefault()
-      event.stopPropagation()
       const entries = hit.ids
         .map(entryForId)
         .filter((entry): entry is TranslationEntry => entry !== undefined)
-      if (entries.length > 0) setRequest({ entries })
+      if (entries.length === 0) return
+      event.preventDefault()
+      event.stopPropagation()
+      setRequest({ entries })
+    }
+    const onClick = (event: MouseEvent) => {
+      if (event.altKey) open(event)
     }
     document.addEventListener('click', onClick, true)
-    return () => document.removeEventListener('click', onClick, true)
+    document.addEventListener('contextmenu', open, true)
+    return () => {
+      document.removeEventListener('click', onClick, true)
+      document.removeEventListener('contextmenu', open, true)
+    }
   }, [editing])
 
   return (
@@ -166,8 +191,7 @@ export default function TranslateMode({ marking, editing }: TranslateModeProps) 
           type="button"
           size="sm"
           data-i18n-ui=""
-          // The only place the Alt+click gesture is permanently written down.
-          title={t('Alt+click any text to translate it where it stands.')}
+          title={t(EDIT_HINT)}
           className="fixed right-4 bottom-4 z-40 shadow-lg"
           onClick={() => setPanelOpen(true)}
         >

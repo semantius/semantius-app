@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { SCOPE, currentTranslationOf, useT, type TranslationEntry } from '@/i18n'
@@ -11,20 +11,18 @@ export interface EntryListProps {
   entries: readonly TranslationEntry[]
   /** Ids that have a translation in the active language. */
   translated: ReadonlySet<string>
-  /** Ids currently held as browser drafts. */
-  drafts: ReadonlySet<string>
   onEdit(entry: TranslationEntry): void
-  /** What to say when there is nothing to list. */
-  empty: string
+  /** What to show when there is nothing to list — a sentence, or a way out. */
+  empty: ReactNode
 }
 
 /** The one list both panel tabs render: source, badges, current translation. */
-export function EntryList({ entries, translated, drafts, onEdit, empty }: EntryListProps) {
+export function EntryList({ entries, translated, onEdit, empty }: EntryListProps) {
   const t = useT()
   const [limit, setLimit] = useState(PAGE)
 
   if (entries.length === 0) {
-    return <p className="px-2 py-4 text-muted-foreground">{empty}</p>
+    return <div className="px-2 py-4 text-muted-foreground">{empty}</div>
   }
 
   return (
@@ -43,7 +41,6 @@ export function EntryList({ entries, translated, drafts, onEdit, empty }: EntryL
                   <span className="font-medium">{entry.source}</span>
                   {entry.context && <Badge variant="outline">{entry.context}</Badge>}
                   {entry.scope !== SCOPE.message && <Badge variant="secondary">{scopeLabel(t, entry.scope)}</Badge>}
-                  {drafts.has(entry.id) && <Badge variant="outline">{t('Draft')}</Badge>}
                 </span>
                 <span className="text-muted-foreground">
                   {translation ||

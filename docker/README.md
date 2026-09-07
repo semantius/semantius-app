@@ -100,6 +100,7 @@ Key variables (see `.env.example` for the full list and comments):
 | `VITE_CONTROL_PLANE_URL` / `VITE_CONTROL_PLANE_ORG` | Optional control-plane tenant lookup. |
 | `VITE_BACKEND_TYPE` | Account-menu flavor: `cloud` (default), `self_hosted`, or `custom`. |
 | `VITE_UI_CUSTOMIZER` | Single-line JSON: the account menu (required with `VITE_BACKEND_TYPE=custom`) and the `locales` registration for extra languages. |
+| `VITE_TRANSLATE_API_URL` | Where translate mode reads and writes translations (a PostgREST base). Unset = this deployment's own API. |
 
 **`VITE_OAUTH_CONFIG` shortcut:** instead of setting each `VITE_OAUTH_*_ENDPOINT`,
 point `VITE_OAUTH_CONFIG` at a `.well-known/openid-configuration` URL. The **app**
@@ -142,7 +143,7 @@ Optional extras as needed: `VITE_CONTROL_PLANE_URL`, `VITE_CONTROL_PLANE_ORG`,
 `VITE_CUBE_API_URL`, `VITE_API_TYPE`, `VITE_SUPABASE_APIKEY`,
 `VITE_OAUTH_AUDIENCE`, `VITE_OAUTH_SCOPE`, `VITE_OAUTH_LOGOUT_ENDPOINT`,
 `VITE_OAUTH_LOGOUT_REDIRECT`, `VITE_OAUTH_REDIRECT_URI`,
-`VITE_BACKEND_TYPE`, `VITE_UI_CUSTOMIZER`.
+`VITE_BACKEND_TYPE`, `VITE_UI_CUSTOMIZER`, `VITE_TRANSLATE_API_URL`.
 
 **Account menu.** `VITE_BACKEND_TYPE` picks the built-in menu — `cloud` (default,
 links to app.semantius.com) or `self_hosted` (Account → `/idp/account`, User
@@ -183,12 +184,11 @@ network tab rather than silently loading the SPA's own HTML. The file's shape is
 independent — registering a language does **not** require
 `VITE_BACKEND_TYPE=custom`.
 
-The app's translate mode (root README, "Translate mode") works against a file
-too: an admin marks what is missing and edits in context, the edits stay in
-that browser as drafts, and **Download `<code>.json`** exports the full merge
-with an empty entry for everything still open — the file to put back under
-`/locales/`. Saving directly to the deployment from the app is not possible;
-that needs the tenant table.
+The app's translate mode (root README, "Translate mode") needs somewhere to
+write, which is `VITE_TRANSLATE_API_URL` — unset, this deployment's own API,
+so it works as soon as the tenant has the `ui_translations` table. Without such
+a target the mode is not offered at all. Editing the files under `/locales/`
+by hand, or generating them with the `i18n` scripts, stays the other way in.
 
 ### Adjusting a running deployment
 

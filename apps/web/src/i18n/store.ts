@@ -22,8 +22,6 @@
 
 import { defaultLocaleUrl, EMPTY_LOCALE_CONFIG, type LocaleConfig } from './localeConfig'
 import { SOURCE_LANGUAGE, type LocaleFile } from './catalog'
-import { draftFile } from './drafts'
-import { emptyLocaleFile, localeFileToRows, rowsToLocaleFiles } from './localeFile'
 
 export interface LocaleLayer {
   /** Named for diagnostics — a failing layer says which one it was. */
@@ -198,41 +196,15 @@ const tenantLayer: LocaleLayer = {
   },
 }
 
-// ── A translator's unsaved drafts ───────────────────────────────────────────
-//
-// The last layer, so an edit made in translate mode overrides every other source
-// while it exists. See ./drafts.ts for where they go and when they are the
-// writer at all.
-
-const draftsLayer: LocaleLayer = {
-  name: 'drafts',
-  load(language) {
-    return Promise.resolve(draftFile(language))
-  },
-}
-
 /**
- * The layer list, in precedence order (later wins). Exported so a test can
- * see the order, and so a future platform-side channel is one more entry.
- */
-export const localeLayers: LocaleLayer[] = [repoLayer, deploymentLayer, tenantLayer, draftsLayer]
-
-/**
- * Fold a language's layers into ONE file, the way `activateLocale` sees them:
- * later files win, and an empty value never wins over a filled one — an empty
- * entry in a higher layer is "not translated here", not "translate to nothing".
+ * The layer list, in precedence order (later wins). Exported so a test can see
+ * the order, and so a future platform-side channel is one more entry.
  *
- * Goes through rows rather than merging the nested shape by hand, so the
- * precedence rule is written once (in `rowsToLocaleFiles`, which assigns in
- * order) and the label nesting cannot be merged one level short.
+ * There is no drafts layer. Translate mode writes to the ONE endpoint its
+ * target provides (`./translateTarget.ts`) and is not offered where there is
+ * none, so an edit is never kept in a browser waiting to be exported.
  */
-export function mergeLocaleFiles(language: string, files: readonly LocaleFile[]): LocaleFile {
-  const rows = files.flatMap((file) => localeFileToRows({ ...file, locale: language }))
-  const merged = rowsToLocaleFiles(rows).get(language) ?? emptyLocaleFile(language)
-  const named = [...files].reverse().find((file) => file.name)
-  if (named?.name) merged.name = named.name
-  return merged
-}
+export const localeLayers: LocaleLayer[] = [repoLayer, deploymentLayer, tenantLayer]
 
 /**
  * Load every layer for `language`, in order.

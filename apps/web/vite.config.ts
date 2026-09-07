@@ -5,6 +5,7 @@ import { playwright } from '@vitest/browser-playwright'
 
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import { fileURLToPath, URL } from 'node:url'
+import { i18nDevWriter } from './vite-plugins/i18nDevWriter'
 
 // There are exactly two environments, and which one a test runs in follows what
 // the code under test touches — not the folder it sits in:
@@ -59,6 +60,9 @@ export default defineConfig(({ mode }) => ({
     }),
     viteReact(),
     tailwindcss(),
+    // Translate mode's writer on a developer's machine: it writes the repo's
+    // own catalog and deployment files. `apply: 'serve'`, so no build has it.
+    i18nDevWriter(),
   ],
   define: {
     '__BUILD_DATE__': JSON.stringify(new Date().toISOString()),

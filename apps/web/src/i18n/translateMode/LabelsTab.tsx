@@ -44,7 +44,6 @@ export interface LabelsTabProps {
   /** Whether this tab is showing — the "changed since" read waits for it. */
   active: boolean
   translated: ReadonlySet<string>
-  drafts: ReadonlySet<string>
   onEdit(entry: TranslationEntry): void
 }
 
@@ -73,7 +72,6 @@ export function LabelsTab({
   inventoryLoading,
   active,
   translated,
-  drafts,
   onEdit,
 }: LabelsTabProps) {
   const t = useT()
@@ -192,7 +190,6 @@ export function LabelsTab({
         <EntryList
           entries={entries}
           translated={translated}
-          drafts={drafts}
           onEdit={onEdit}
           empty={whole ? t('No model labels match these filters.') : t('No model labels on this page.')}
         />

@@ -20,6 +20,16 @@ interface UseTableOptions<T = Record<string, unknown>> {
    * Whether to include total count in response (uses PostgREST Prefer: count=estimated header)
    */
   count?: boolean
+  /**
+   * A different PostgREST base to read from.
+   *
+   * Defaults to the app's own API. The one caller today is the translate
+   * target (`VITE_TRANSLATE_API_URL`), which may be the dev server rather than
+   * the tenant — the table and the query are identical, only the host differs.
+   * It is part of the query key, because the same table at two bases is two
+   * different sets of rows.
+   */
+  baseUrl?: string
 }
 
 export interface UseTableResult<T> {
@@ -63,12 +73,12 @@ export function useTable<T = Record<string, unknown>>(
   // language switch reaches the next failure.
   const t = useT()
   const { token } = useAuth()
-  const { baseUrl: apiBaseUrl } = getApiConfig()
 
   const { query, enabled = true, placeholderData, count = false } = options
+  const apiBaseUrl = options.baseUrl ?? getApiConfig().baseUrl
 
   const queryResult = useQuery<{ data: T[], totalCount?: number }, Error>({
-    queryKey: ['table', tableName, query, count],
+    queryKey: ['table', tableName, query, count, apiBaseUrl],
     queryFn: async () => {
       // Validate token is available (should always be true due to enabled check)
       if (!token) {

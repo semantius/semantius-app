@@ -108,6 +108,32 @@ per-browser cache. `get_userinfo` correspondingly returns no `language` or
 `locale` field yet — an **absent** field and a `null` one mean different things,
 so both are read with `in`, never a truthiness check.
 
+### The translate endpoint
+
+Translate mode reads and writes through the SAME three calls at every target,
+and only the base url differs — `VITE_TRANSLATE_API_URL`, which is its own axis
+and not derived from the app's environment:
+
+| Target | Base | A save becomes |
+| --- | --- | --- |
+| dev | the Vite dev server, the default under `pnpm dev` | a change in `apps/web/src/locales/<code>.json` (code strings) or `apps/web/public/locales/<code>.json` (labels, server, rule) |
+| stage | any host answering the same calls | whatever that host does |
+| prod | unset, so this app's own API | a row in `ui_translations` |
+
+```
+GET  {base}/ui_translations?select=…&translation=neq.&order=id.asc   the layer
+POST {base}/ui_translations?on_conflict=locale,scope,key,context     a save
+     Prefer: resolution=merge-duplicates,return=representation
+POST {base}/ui_translations?on_conflict=locale,scope,key,context     the queue
+     Prefer: resolution=ignore-duplicates,return=minimal
+```
+
+Nothing new has to exist in Postgres beyond the table and its policies. The dev
+server implements the same shape over files (`apps/web/vite-plugins/`), including
+`ignore-duplicates` as an empty entry — which is what an untranslated key in a
+catalog file already is. Where no target answers, translate mode is not offered:
+there is no browser draft and no file download.
+
 ### Not PostgREST
 
 | Call | Why |

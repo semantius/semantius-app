@@ -1,76 +1,51 @@
 import { useCallback } from 'react'
 import { toast } from 'sonner'
-import { useAuth } from '@/hooks/useAuth'
 import { useCreateRecord } from '@/hooks/useTableMutations'
 import {
   SCOPE,
   TENANT_TABLE,
   TRANSLATION_CONFLICT_COLUMNS,
-  WRITER_TARGET,
   addCatalogEntry,
   addMessageEntry,
-  canWriteTenant,
-  draftId,
+  currentMessages,
   i18n,
-  reactivateLocale,
-  saveDraft,
-  tenantTableAvailable,
   useT,
-  type DraftRow,
   type TranslationRow,
-  type WriterTarget,
 } from '@/i18n'
+import { translateApiUrl } from '@/i18n/translateTarget'
+import type { SaveRow } from '@/i18n/translationRow'
+import { rowId } from '@/i18n/translationRow'
 
 /**
- * Where a translate-mode save goes.
+ * The one writer. There is no second one and no fallback.
  *
- * Exactly one writer, chosen by capability: the tenant's `ui_translations`
- * table when it exists AND the user holds `translations.edit`; a browser draft
- * otherwise. Decided per render from what the prefetch learned
- * (`tenantTableAvailable`) and from `rpcUserInfo.permissions`, so it needs no
- * probe and cannot be wrong for longer than one render. Cheap enough for the
- * panel, which only shows the answer, to call on its own.
- */
-export function useWriterTarget(): WriterTarget {
-  const { rpcUserInfo } = useAuth()
-  const permissions = (rpcUserInfo?.permissions as string[] | undefined) ?? []
-  return tenantTableAvailable() && canWriteTenant(permissions) ? WRITER_TARGET.tenant : WRITER_TARGET.draft
-}
-
-/**
- * The save itself, for the editor.
+ * Every environment speaks the same contract — an upsert on `ui_translations`
+ * keyed by `(locale, scope, key, context)` — and only the BASE differs
+ * (`src/i18n/translateTarget.ts`): the dev server writing this repo, a stage
+ * host, or the tenant's own table. A deployment with nowhere to write does not
+ * offer translate mode at all, which is why nothing here degrades to a browser
+ * draft or a file download.
  *
- * A save also applies IMMEDIATELY: a message goes into Lingui through its
- * merging `load` (the one place the merging call is used — everything else
- * replaces), a label or runtime text into the catalog's live map. For a draft
- * the layers are then re-folded so the change is canonical; for a row, the
- * mutation's own invalidation refetches the tenant layer through the prefetch.
- *
- * CLEARING (an empty translation) means two different things. As a draft it
- * removes the draft, so the layer beneath shows through again — which is all a
- * draft can do; the editor offers it only while a draft exists. As a row it
- * writes `translation = ''`, which is how `import.mjs` clears one too and
- * turns the row back into a request; the live map drops the entry at once,
- * while a MESSAGE keeps rendering the old text until the prefetch's refetch
- * re-folds the layers, because Lingui's table can only be replaced.
+ * A save also applies IMMEDIATELY: a message through Lingui's merging `load`
+ * (the one place that call is used — everything else replaces), a label or
+ * runtime text into the catalog's live map. The mutation's own invalidation
+ * then refetches the layer, so what is on screen and what the endpoint holds
+ * converge without a reload.
  */
 export function useTranslationWriter(language: string): {
-  target: WriterTarget
-  save(row: DraftRow): Promise<boolean>
+  save(row: SaveRow): Promise<boolean>
 } {
   const t = useT()
-  const target = useWriterTarget()
-  const create = useCreateRecord<TranslationRow>(TENANT_TABLE, { onConflict: TRANSLATION_CONFLICT_COLUMNS })
+  const create = useCreateRecord<TranslationRow>(TENANT_TABLE, {
+    onConflict: TRANSLATION_CONFLICT_COLUMNS,
+    baseUrl: translateApiUrl(),
+  })
   const { mutateAsync } = create
 
   const save = useCallback(
-    async (row: DraftRow): Promise<boolean> => {
+    async (row: SaveRow): Promise<boolean> => {
       try {
-        if (target === WRITER_TARGET.tenant) {
-          await mutateAsync({ locale: language, ...row })
-        } else {
-          saveDraft(language, row)
-        }
+        await mutateAsync({ locale: language, ...row })
       } catch (err) {
         toast.error(t('The translation could not be saved'), {
           description: err instanceof Error ? err.message : undefined,
@@ -78,22 +53,22 @@ export function useTranslationWriter(language: string): {
         return false
       }
 
-      const id = draftId(row)
+      const id = rowId(row)
       if (row.scope === SCOPE.message) {
-        if (row.translation) i18n.load(language, { [id]: row.translation })
+        // The catalog's own map first, then Lingui from it. Lingui's table can
+        // only be REPLACED, never have one key removed — so a cleared message
+        // has to go this way round or the old value keeps rendering. Re-folding
+        // the layers instead would read the stale ones: the endpoint's refresh
+        // is the mutation's invalidation, which has not landed yet.
         addMessageEntry(id, row.translation)
+        i18n.loadAndActivate({ locale: language, messages: { ...currentMessages() } })
       } else {
         addCatalogEntry(row.scope, row.key, row.translation)
       }
-      // A draft is a layer: fold the layers again so the change is canonical
-      // (and so a removed draft actually uncovers what it overrode). A row is
-      // re-folded by the prefetch once the mutation's invalidation refetches
-      // it — re-folding here would only re-read the STALE tenant layer.
-      if (target === WRITER_TARGET.draft) await reactivateLocale()
       return true
     },
-    [language, mutateAsync, t, target],
+    [language, mutateAsync, t],
   )
 
-  return { target, save }
+  return { save }
 }

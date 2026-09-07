@@ -176,27 +176,6 @@
       ],
       "placeholders": []
     },
-    "Alt+click any text on the page to translate it where it stands.": {
-      "message": "Alt+click any text on the page to translate it where it stands.",
-      "origin": [
-        "src/i18n/translateMode/Panel.tsx"
-      ],
-      "placeholders": []
-    },
-    "Alt+click any text to translate it where it stands, or open the Translations panel.": {
-      "message": "Alt+click any text to translate it where it stands, or open the Translations panel.",
-      "origin": [
-        "src/i18n/translateMode/index.tsx"
-      ],
-      "placeholders": []
-    },
-    "Alt+click any text to translate it where it stands.": {
-      "message": "Alt+click any text to translate it where it stands.",
-      "origin": [
-        "src/i18n/translateMode/index.tsx"
-      ],
-      "placeholders": []
-    },
     "An unexpected error occurred while loading the application.": {
       "message": "An unexpected error occurred while loading the application.",
       "origin": [
@@ -358,8 +337,7 @@
         "src/components/ConfirmDeleteDialog.tsx",
         "src/components/customers/CustomerForm.tsx",
         "src/components/settings/ApiKeysCard.tsx",
-        "src/i18n/translateMode/EditorDialog.tsx",
-        "src/i18n/translateMode/Panel.tsx"
+        "src/i18n/translateMode/EditorDialog.tsx"
       ],
       "placeholders": []
     },
@@ -749,29 +727,6 @@
       "message": "Done",
       "origin": [
         "src/components/settings/ApiKeysCard.tsx"
-      ],
-      "placeholders": []
-    },
-    "Download {file}": {
-      "message": "Download {file}",
-      "origin": [
-        "src/i18n/translateMode/Panel.tsx"
-      ],
-      "placeholders": [
-        "file"
-      ]
-    },
-    "Draft": {
-      "message": "Draft",
-      "origin": [
-        "src/i18n/translateMode/EntryList.tsx"
-      ],
-      "placeholders": []
-    },
-    "Drafts": {
-      "message": "Drafts",
-      "origin": [
-        "src/i18n/translateMode/Panel.tsx"
       ],
       "placeholders": []
     },
@@ -2009,13 +1964,6 @@
       ],
       "placeholders": []
     },
-    "Remove draft": {
-      "message": "Remove draft",
-      "origin": [
-        "src/i18n/translateMode/EditorDialog.tsx"
-      ],
-      "placeholders": []
-    },
     "Remove filter": {
       "message": "Remove filter",
       "origin": [
@@ -2064,20 +2012,6 @@
       "message": "Reset",
       "origin": [
         "src/components/form/SchemaForm.tsx"
-      ],
-      "placeholders": []
-    },
-    "Reset drafts": {
-      "message": "Reset drafts",
-      "origin": [
-        "src/i18n/translateMode/Panel.tsx"
-      ],
-      "placeholders": []
-    },
-    "Reset drafts?": {
-      "message": "Reset drafts?",
-      "origin": [
-        "src/i18n/translateMode/Panel.tsx"
       ],
       "placeholders": []
     },
@@ -2139,6 +2073,13 @@
       ],
       "placeholders": []
     },
+    "Right-click or Alt+click any text to translate it where it stands.": {
+      "message": "Right-click or Alt+click any text to translate it where it stands.",
+      "origin": [
+        "src/i18n/translateMode/hint.ts"
+      ],
+      "placeholders": []
+    },
     "Rows per page": {
       "message": "Rows per page",
       "origin": [
@@ -2184,8 +2125,8 @@
       ],
       "placeholders": []
     },
-    "Saved as a draft in this browser. Download the file to keep it.": {
-      "message": "Saved as a draft in this browser. Download the file to keep it.",
+    "Saved into this checkout, as a change you can review and commit.": {
+      "message": "Saved into this checkout, as a change you can review and commit.",
       "origin": [
         "src/i18n/translateMode/EditorDialog.tsx"
       ],
@@ -2195,20 +2136,6 @@
       "message": "Saved to this tenant, for every user.",
       "origin": [
         "src/i18n/translateMode/EditorDialog.tsx"
-      ],
-      "placeholders": []
-    },
-    "Saving as browser drafts": {
-      "message": "Saving as browser drafts",
-      "origin": [
-        "src/i18n/translateMode/Panel.tsx"
-      ],
-      "placeholders": []
-    },
-    "Saving to this tenant": {
-      "message": "Saving to this tenant",
-      "origin": [
-        "src/i18n/translateMode/Panel.tsx"
       ],
       "placeholders": []
     },
@@ -3256,8 +3183,8 @@
       ],
       "placeholders": []
     },
-    "{count, plural, one {# draft} other {# drafts}} kept in this browser will be discarded. Download the file first to keep them.": {
-      "message": "{count, plural, one {# draft} other {# drafts}} kept in this browser will be discarded. Download the file first to keep them.",
+    "{count, plural, one {# marked item on this page is a model label} other {# marked items on this page are model labels}}, not a code string.": {
+      "message": "{count, plural, one {# marked item on this page is a model label} other {# marked items on this page are model labels}}, not a code string.",
       "origin": [
         "src/i18n/translateMode/Panel.tsx"
       ],

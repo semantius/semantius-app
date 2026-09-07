@@ -380,7 +380,18 @@ Operator menu titles from `VITE_UI_CUSTOMIZER` are plain strings; they are trans
 
 ### Layers and the writer (`src/i18n/store.ts`)
 
-Loading is an ordered list of layers, each `load(locale): Promise<LocaleFile | null>`: repo catalog (lazy `import.meta.glob`, index excluded) ← deployment file (fetch by absolute URL: `apiClient.ts:44` rewrites `/`-relative `fetch` calls to the API base with a bearer token; require `content-type: application/json`, the SPA fallback answers a missing file with HTML 200) ← tenant rows ← drafts (`localStorage['semantius-i18n-draft:<code>']`). `translatedKeys(locale)` is the union of non-empty keys across layers. Exactly one **writer** is chosen by capability: the tenant table when it exists and `rpcUserInfo.permissions` contains `translations.edit`; otherwise drafts plus "Download `<code>.json`" (the full merge, which also lists every index key and every inventory label with an empty value where untranslated, so a fresh locale exports a complete work list). Operator files are read-only from the app. "Reset" clears drafts and reloads the layers. Separate from the writer, the store exposes `request(locale, entries)` for the collector: rows on the tenant, localStorage otherwise. A later platform-side label channel would be one more layer.
+Loading is an ordered list of layers, each `load(locale): Promise<LocaleFile | null>`: repo catalog (lazy `import.meta.glob`, index excluded) ← deployment file (fetch by absolute URL: `apiClient.ts:44` rewrites `/`-relative `fetch` calls to the API base with a bearer token; require `content-type: application/json`, the SPA fallback answers a missing file with HTML 200) ← tenant rows ← drafts (`localStorage['semantius-i18n-draft:<code>']`). `translatedKeys(locale)` is the union of non-empty keys across layers.
+
+> **SUPERSEDED.** This paragraph specified drafts in `localStorage` plus a
+> "Download `<code>.json`" as the writer wherever the tenant table was absent —
+> which is every deployment that exists, so the dead-end branch was the only one
+> anyone could reach, and an edit made in production could never correct the
+> repo. It was built that way and then removed. What replaces it: ONE writer and
+> one contract at every target (an upsert on `ui_translations`), with only the
+> base url differing — `VITE_TRANSLATE_API_URL`, the dev server writing this
+> repo's locale files, a stage host, or the tenant's own table. Where no target
+> answers, translate mode is not offered at all. See "The translate endpoint" in
+> BACKEND.md. Separate from the writer, the store exposes `request(locale, entries)` for the collector: rows on the tenant, localStorage otherwise. A later platform-side label channel would be one more layer.
 
 ### Terminology overrides in `en-US`
 

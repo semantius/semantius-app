@@ -137,7 +137,6 @@ export {
   availableLanguages,
   localeLayers,
   loadLocaleFiles,
-  mergeLocaleFiles,
   operatorDefaultLanguage,
   setDeploymentLocales,
   setTenantLocaleFiles,
@@ -146,15 +145,6 @@ export {
   tenantLocaleFile,
 } from './store'
 export type { LocaleInfo, LocaleLayer } from './store'
-export {
-  clearDrafts,
-  draftFile,
-  draftId,
-  draftIds,
-  readDrafts,
-  saveDraft,
-} from './drafts'
-export type { DraftRow } from './drafts'
 export {
   clearReverseIndex,
   embeddedSegments,
@@ -170,12 +160,10 @@ export type { EmbeddedSegment } from './reverseIndex'
 export {
   MARK_MISSING_KEY,
   TRANSLATE_MODE_KEY,
-  WRITER_TARGET,
   PANEL_TAB,
   CATALOG_FILTER,
   LABEL_VIEW,
   canTranslate,
-  canWriteTenant,
   consumeJustEnabled,
   setMarkMissing,
   setMissingCount,
@@ -185,7 +173,6 @@ export {
 } from './translateModeState'
 export type {
   TranslateModeFlags,
-  WriterTarget,
   PanelTab,
   CatalogFilter,
   LabelView,
@@ -215,7 +202,6 @@ export {
   resolveClickTarget,
 } from './highlighter'
 export type { ScanResult, ClickTarget } from './highlighter'
-export { buildExportFile, completeWorkList, downloadLocaleFile, serializeLocaleFile } from './exportFile'
 export { resolveLocales, defaultLocaleUrl, EMPTY_LOCALE_CONFIG } from './localeConfig'
 export type { LocaleConfig, DeploymentLocale } from './localeConfig'
 export {
@@ -601,3 +587,5 @@ export async function activateLocale(pref: LocalePreference, options: ActivateOp
 export async function reactivateLocale(): Promise<void> {
   await activateLocale({ language: currentLanguage(), locale: currentFormattingLocale })
 }
+export { rowId } from './translationRow'
+export type { SaveRow } from './translationRow'

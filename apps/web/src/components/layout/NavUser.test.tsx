@@ -300,6 +300,12 @@ describe('NavUser — the language switcher', () => {
       expect(screen.getByRole('menuitem', { name: 'Zahlen- und Datumsformat' })).toBeInTheDocument(),
     )
     await openSubmenu(ui, 'Zahlen')
+    // Wait for an entry that exists ONLY in the format submenu before the
+    // typeahead below. Both submenus carry a "Browserstandard …" entry, so on a
+    // loaded machine a submenu that has not opened yet sends the next keystrokes
+    // to the LANGUAGE list, which chooses its browser default instead — the
+    // language becomes en-US and the assertion reads a stale-looking locale.
+    await screen.findByRole('menuitemradio', { name: /^Wie die Sprache/ })
     await chooseEntry(ui, 'Browserstandard')
 
     await waitFor(() => expect(localStorage.getItem(LOCALE_CACHE_KEY)).toBeNull())

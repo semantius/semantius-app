@@ -12,14 +12,12 @@
  */
 
 import { useSyncExternalStore } from 'react'
+import { tenantTableAvailable } from './store'
 import { FALLBACK_TRANSLATE_PERMISSION, TRANSLATE_PERMISSION } from './tenant'
+import { translateTargetIsRepo } from './translateTarget'
 
 export const MARK_MISSING_KEY = 'semantius-i18n-mark'
 export const TRANSLATE_MODE_KEY = 'semantius-i18n-translate'
-
-/** Where a save goes. Decided per render by `useTranslationWriter`. */
-export const WRITER_TARGET = { tenant: 'tenant', draft: 'draft' } as const
-export type WriterTarget = (typeof WRITER_TARGET)[keyof typeof WRITER_TARGET]
 
 /** The panel's tabs and its catalog filters — identifiers, named here so the UI files carry no bare literals. */
 export const PANEL_TAB = { catalog: 'catalog', labels: 'labels' } as const
@@ -29,7 +27,6 @@ export const CATALOG_FILTER = {
   all: 'all',
   missing: 'missing',
   requested: 'requested',
-  drafts: 'drafts',
   onPage: 'on-page',
 } as const
 export type CatalogFilter = (typeof CATALOG_FILTER)[keyof typeof CATALOG_FILTER]
@@ -131,20 +128,21 @@ export function setMissingCount(count: number): void {
 }
 
 /**
- * Who sees the switches at all.
+ * Whether translate mode is offered at all.
  *
- * `translations.edit` is the permission the platform migration creates; until
- * a tenant has it, `admin` stands in — an admin can always at least draft and
- * export. Whether a save becomes a ROW is a separate, narrower question
- * (`canWriteTenant`): drafting needs no permission the platform enforces, a row
- * does.
+ * There is exactly one writer and no fallback, so the mode exists only where a
+ * translation has somewhere real to go: the dev server writing this checkout,
+ * or a translate target whose `ui_translations` table answered. A deployment
+ * with neither does not show the switches — an editor that cannot save is
+ * worse than no editor.
+ *
+ * `translations.edit` is the permission the platform migration creates; until a
+ * tenant has it, `admin` stands in. The dev server needs neither: it writes the
+ * repo of whoever is running it.
  */
 export function canTranslate(permissions: readonly string[] | undefined): boolean {
+  if (translateTargetIsRepo()) return true
+  if (!tenantTableAvailable()) return false
   if (!permissions) return false
   return permissions.includes(TRANSLATE_PERMISSION) || permissions.includes(FALLBACK_TRANSLATE_PERMISSION)
-}
-
-/** Whether a save may go to the tenant's table, permission-wise. */
-export function canWriteTenant(permissions: readonly string[] | undefined): boolean {
-  return permissions?.includes(TRANSLATE_PERMISSION) ?? false
 }

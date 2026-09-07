@@ -827,17 +827,33 @@ modal or not, so a "non-modal" panel would block the page exactly as a modal one
 does while announcing itself as something else; in-context editing is therefore
 done with the panel closed.
 
-**Where a save goes is decided by capability, never by a probe.** A row through
-`useCreateRecord(TENANT_TABLE, { onConflict: TRANSLATION_CONFLICT_COLUMNS })`
-when `tenantTableAvailable()` (set by `TranslationsPrefetch` from a DEFINITIVE
-body) and the user holds `translations.edit`; a browser draft otherwise
-(`src/i18n/drafts.ts`, rows under `semantius-i18n-draft:<code>`, the LAST
-layer in `localeLayers`). A message save also goes into Lingui through its
-merging `i18n.load` — the one place that call is used — plus `addMessageEntry`,
-so `translatedKeys` and the panel agree with what renders; a cleared message
-has to go through `reactivateLocale()`, because Lingui's table can only be
-replaced. `admin` gates the SWITCHES until the migration exists; it does not make
-a save a row.
+**There is ONE writer, one contract, and no fallback — a draft or a download is
+not a save.** Every target speaks the same three calls (an upsert on
+`ui_translations` keyed by `(locale, scope, key, context)`, the layer read, and
+the `ignore-duplicates` queue insert) and only the BASE differs:
+`VITE_TRANSLATE_API_URL`, resolved by `src/i18n/translateTarget.ts`. Unset it is
+the app's own API, which in a deployment is the tenant; under `vite dev` it
+defaults to the app origin, where `vite-plugins/i18nDevWriter.ts` answers by
+writing the repo — a code string into `src/locales/<code>.json`, everything else
+into `public/locales/<code>.json`, because a repo catalog may not hold labels.
+Translate mode is NOT OFFERED where no target answers (`canTranslate`), which is
+the whole reason the earlier drafts-plus-download branch is gone: the tenant
+table exists nowhere yet, so that branch was the only reachable one, and an edit
+made in production could never correct the repo — `export.mjs --messages-into`
+fills only EMPTY entries, so a wrong shipped translation stayed wrong.
+
+Two consequences worth keeping. The translate target is its own axis, so
+`pnpm dev` pointed at a stage host is just a different url. And under Vitest the
+plugin writes a SCRATCH directory (`process.env.VITEST`), or a browser test that
+saves would rewrite `src/locales/de-DE.json` for real.
+
+**Lingui's message table can only be REPLACED, so a cleared message needs the
+catalog map pushed back into it.** `addMessageEntry(id, '')` updates
+`currentMessages()`, and the writer then calls
+`i18n.loadAndActivate({ locale, messages: { ...currentMessages() } })`.
+`reactivateLocale()` is wrong there: it re-folds the LAYERS, which still hold the
+old value until the mutation's invalidation lands, so the cleared string comes
+straight back.
 
 **A dependency reached only through a lazy chunk must be named in
 `optimizeDeps.include`.** Vite's crawler never sees `sonner` or

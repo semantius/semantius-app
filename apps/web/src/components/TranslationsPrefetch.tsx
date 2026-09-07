@@ -17,6 +17,7 @@ import {
   type LocaleFile,
   type TranslationRow,
 } from '@/i18n'
+import { translateApiUrl } from '@/i18n/translateTarget'
 
 /**
  * Headless: the tenant's own translations, and the user's saved language.
@@ -53,10 +54,14 @@ export function TranslationsPrefetch({ router }: { router: AnyRouter }) {
   // retried rather than read as "no such table"), and it is what makes a row
   // edited in the admin grid refresh this layer — any generic mutation on the
   // table invalidates the ['table', TENANT_TABLE] key.
+  // The translate target, which may be the dev server writing this repo rather
+  // than the tenant — same table, same query, different host.
+  const baseUrl = translateApiUrl()
   const first = useTable<TranslationRow>(TENANT_TABLE, {
     query: tenantPageQuery(0),
     count: true,
     enabled: !!token,
+    baseUrl,
   })
 
   // Further pages, one hook each: hooks cannot be called in a loop, and the
@@ -64,14 +69,17 @@ export function TranslationsPrefetch({ router }: { router: AnyRouter }) {
   const total = first.totalCount ?? 0
   const second = useTable<TranslationRow>(TENANT_TABLE, {
     query: tenantPageQuery(1),
+    baseUrl,
     enabled: !!token && total > TENANT_PAGE_SIZE,
   })
   const third = useTable<TranslationRow>(TENANT_TABLE, {
     query: tenantPageQuery(2),
+    baseUrl,
     enabled: !!token && total > TENANT_PAGE_SIZE * 2,
   })
   const fourth = useTable<TranslationRow>(TENANT_TABLE, {
     query: tenantPageQuery(3),
+    baseUrl,
     enabled: !!token && total > TENANT_PAGE_SIZE * 3,
   })
 
@@ -88,9 +96,9 @@ export function TranslationsPrefetch({ router }: { router: AnyRouter }) {
 
   useEffect(() => {
     if (!files) return
-    // What translate mode's writer decides on: a row where the table exists,
-    // a browser draft where it does not. Decided here, from the definitive
-    // body, so the writer never has to probe.
+    // Whether translate mode is offered at all: a definitive "no such table"
+    // means this target holds no translations, and the mode is not shown.
+    // Decided here, from the body, so nothing downstream has to probe.
     setTenantTableAvailable(!(first.error && isTenantTableAbsent(first.error)))
     setTenantLocaleFiles(files)
     setSessionPreference(sessionPreferenceFrom(rpcUserInfo, userInfo))
