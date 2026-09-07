@@ -47,9 +47,8 @@ inherited.
 
 Everything downstream follows from that one change:
 
-- `en-US.json` holds both kinds. Same file, same shape, same `origin` field
-  (a code string's origin is a source file; a metadata message's origin is the
-  model).
+- `en-US.json` holds both kinds, in the same shape (see "Drop `origin`" below —
+  that shape is smaller than today's).
 - `de-DE.json` and every other catalog holds both. Same empty-value convention.
 - `i18n:status` reports both. The catalog test checks both.
 - A removed field's message moves to `obsolete`, exactly as a reworded code
@@ -132,6 +131,26 @@ access to their database.
 - `localizeMetadata` collapses into a plain message lookup keyed by the model path
 
 Roughly 900 lines removed against maybe 250 added.
+
+## Drop `origin` from the index
+
+`en-US.json` stores an `origin` array per entry — the files a string is used in,
+with no line numbers, deliberately, so a moved line does not churn the file. It
+is **41% of the file** and should go.
+
+Its one stated justification was a heuristic: an entry with more than one origin
+file means the same English word is used in two places and may need a `context`
+to split. That heuristic is unsound in both directions. Two meanings can sit in
+one file, so it misses them; one meaning used in five files trips it, so most of
+the 45 multi-origin entries today are noise. The `View` split that motivated it
+would not have been found this way — the disambiguated one is in a single file.
+
+What is left is weak context for a translator, when the source text IS the key
+and `grep -r "the string" src` answers the same question exactly. And for a
+metadata message the origin is the model, which the key already encodes, so
+storing it would repeat the key.
+
+Removing it makes `en-US.json` an id-to-source map and nothing else.
 
 ## Not addressed here
 
