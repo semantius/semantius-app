@@ -210,27 +210,25 @@ This is the honest version of the "changed since translated" filter that exists
 today, which compares `updated_at` timestamps and therefore fires on every
 unrelated model edit.
 
-## The one hard problem
+## Where the model comes from: a committed snapshot — decided
 
-**The model is in a database. `i18n:extract` reads the repo.** So something has
-to bring the shipped model into a place the extractor can read, offline and
-deterministically.
+`i18n:extract` reads the repo and nothing else. The model lives in a database, so
+something has to put the shipped model where the extractor can read it.
 
-Two options, and this is the decision the plan needs from you:
+**Each shipped module keeps a JSON dump of its entities, fields and modules in
+the repo, and `i18n:extract` reads code plus that snapshot.** Adding a field
+changes the snapshot, so it arrives as a diff and a PR like everything else, and
+extraction stays offline, deterministic and runnable by anyone with a clone —
+including CI.
 
-**A. A committed model snapshot.** Each shipped module keeps a JSON dump of its
-entities, fields and modules in the repo. `i18n:extract` reads code *and* that
-snapshot. Adding a field means the snapshot changes, so it is a diff and a PR
-like everything else, and extraction stays offline. Cost: the snapshot must be
-regenerated when the model changes, and it can drift from the live model.
+The cost is that the snapshot has to be regenerated when the model changes, and
+can drift from the live model until it is. Regenerating is `model.mjs`'s job (see
+the script table below).
 
-**B. Extract against a reference tenant.** `i18n:extract` gains a mode that
-connects and reads the model. No snapshot to maintain. Cost: extraction needs
-credentials and a network, stops being deterministic, and `en-US.json` is no
-longer derivable from the repo alone.
-
-A is recommended: it keeps the property that made this scheme worth having — a
-new translatable string shows up in a diff.
+Extracting against a live tenant was considered and **rejected**: it would make
+`en-US.json` underivable from the repo, require credentials and a network to run,
+break for anyone without access, and let someone editing a tenant's model change
+a committed file with no code change behind it.
 
 ## The endpoint
 
@@ -287,7 +285,7 @@ Roughly 900 lines removed against maybe 250 added.
 | `tenant.mjs` | unchanged — auth and paging, still needed by import, export, translate. |
 | `translate.mjs` | simplifies — its input becomes the index alone, not the index plus an inventory. |
 | `import.mjs`, `export.mjs` | simplify — no label scopes to route. |
-| `model.mjs` | **repurposed under option A** — generates the committed snapshot instead of feeding the inventory. Under option B it folds into `extract.mjs`. |
+| `model.mjs` | **repurposed** — generates the committed model snapshot instead of feeding the inventory. |
 | `labelInventory.mjs` | **deleted** |
 | `labels.mjs` | **deleted** |
 
@@ -383,7 +381,7 @@ to convert. This is the cheapest moment there will ever be.
 
 ## Order of work
 
-1. Agree the key spelling and option A or B above.
+1. Confirm the entity-level key spelling (the one open item above).
 2. Key builder + the model-to-messages step, with tests, no UI.
 3. `i18n:extract` writes metadata messages into `en-US.json`; `i18n:status`
    reports them.
