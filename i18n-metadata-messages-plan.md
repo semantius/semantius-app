@@ -33,17 +33,32 @@ The consequences, all of which you hit:
 **A metadata message is a message.** It has a key instead of using its English as
 the key, and that is the only difference from a code string.
 
+A **kind segment** names what the key is about, because segment count alone is
+ambiguous: a field key and an enum key are both otherwise `module.entity.x.y`,
+and nothing says whether the last part is an attribute or a stored value — a
+status column can legitimately hold a value called `title`.
+
 ```
-key       module.entity.field.type
-          nwind.orders.ship_city.title
-          nwind.orders.__table__.plural        (entity-level: no field)
-          nwind.__module__.name                (module-level: no entity, no field)
-type      the model attribute — title, description, plural, singular, hint, …
+module   nwind.module.name
+entity   nwind.orders.entity.plural_label
+field    nwind.orders.field.city.title
+enum     nwind.orders.enum.status.open
 ```
 
-Decide the entity-level and module-level spelling before implementing; the
-placeholders above are deliberately ugly so they get replaced rather than
-inherited.
+The kind is inserted uniformly, not only where a collision would occur, so every
+key says what it is without counting segments. `type` is the model's own column
+name (see below); an enum's last segment is the STORED value, never its label,
+so a relabeling does not move the key.
+
+**One spelling still to confirm: the entity level.** The two examples given were
+`nwind.orders.field.city.title` and `nwind.module.name`, which put the kind
+before the field name and after the module name respectively. `nwind.orders.
+entity.plural_label` above follows the second, treating the kind as naming the
+LEVEL of the attribute that follows. Say if you meant it the other way round.
+
+An enum value is data and may contain a dot, so the join escapes it and the split
+unescapes — possible only because the id arrives as segments (see "The call
+site").
 
 Everything downstream follows from that one change:
 
