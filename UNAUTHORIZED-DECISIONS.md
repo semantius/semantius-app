@@ -39,21 +39,20 @@ records nothing. **Dies with (1).**
 Follows from (1): model text needed its own list because it was not messages.
 **Dies with (1).**
 
-## 4. The request queue
+## 4. The request queue — RESOLVED
 
-Every string the running app fails to translate is inserted as an empty row, so
-it can be found later — a whole subsystem (`src/i18n/missing.ts`, the collector,
-the `origin` / `requested_by` / `first_seen` columns, the "Requested" filter).
+Every string the running app fails to translate is inserted as an empty row.
 
-**Mostly dies with (1), but not entirely.** Once metadata messages are extracted,
-the queue is redundant for them, and it was always redundant for code strings.
-What it still covers is text that no extraction can reach: messages PostgREST and
-RPC functions raise from inside the database. Model validation-rule messages live
-in `entities.validation_rules`, so they are metadata and would be extracted like
-any other.
+**Kept, and it is the whole discovery mechanism.** Metadata is never processed
+offline (a model script cannot enumerate what nested JsonLogic raises with
+values interpolated), so running the app IS how model text and database text are
+found. That is requirement 10.
 
-**Open:** whether that residue justifies keeping the subsystem, or whether those
-messages should be reached another way.
+Two corrections it needs: it writes through the **configured target** like every
+other write, instead of POSTing at a relative `/ui_translations`; and recording
+is a property of the **mode** — `dev` and `stage` record, `prod` does not, `off`
+is the default for prod. `origin` / `requested_by` / `first_seen` and the
+"Requested" filter go with the row-per-message table.
 
 ## 5. Browser drafts as a writer — REMOVED
 
@@ -72,24 +71,30 @@ Which of two writers applied was decided per render from the table's presence an
 the user's permission, rather than there being one endpoint. Replaced in
 `3a126a6` by one contract at one configurable base.
 
-## 8. Four merge layers
+## 8. Four merge layers — RESOLVED
 
-`repo ← deployment file ← tenant rows ← drafts`, later wins. The drafts layer is
-gone. The other three remain, and they are the reason an edit made in production
-shadows the repo value rather than correcting it.
+`repo <- deployment file <- tenant rows <- drafts`, later wins.
 
-**Open:** still undiscussed.
+**Replaced by two sources.** One file per language (the complete language for
+that product version, served so an operator can replace it without a rebuild)
+and one JSON record per language in the database (per-message overrides and
+customer-added text), merged per key, database over file. A production write is
+an override by design — that is what the database record is for — so there is no
+divergence to report.
 
-## 9. Languages named by endonym
+The `src/locales` / `public/locales` split goes with it: it only ever existed to
+route by scope.
 
-`Deutsch` rather than `Intl.DisplayNames`, with the region added back only when
-two available languages share a subtag.
+## 9. Languages named by endonym — RESOLVED, kept
 
-**Open:** cosmetic, but never asked for.
-
----
+`Deutsch` rather than `Intl.DisplayNames`. Correct as it stands:
+`Intl.DisplayNames` names a language in the CURRENT UI language, so a German
+speaker on an English UI would be offered "German" and would have to know the
+English word for their own language to find it.
 
 ## Still to decide
 
-(1), (2) and (3) are covered by `i18n-metadata-messages-plan.md`.
-(4), (8) and (9) are live and undiscussed.
+Nothing on this list. The one thing deliberately postponed is interpolated
+**error** text — see `i18n-metadata-messages-plan.md`, section 6 and "Deferred".
+Errors are skipped in this iteration and addressed in the next, starting on the
+backend.

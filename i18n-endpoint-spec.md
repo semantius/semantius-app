@@ -1,60 +1,99 @@
 # Specification: the translation endpoint
 
-**Status: proposed for review. Implemented in part; see "What exists today".**
+**Status: settled with the owner. Not implemented — what exists today is the
+PostgREST-shaped version described at the bottom.**
 
-One endpoint contract, three implementations behind it. The client is identical
-everywhere; only the base url differs (`VITE_TRANSLATE_API_URL`).
+One contract, several targets. The client is identical everywhere; only the base
+url and the mode differ (`VITE_TRANSLATE_API_URL`, `setTranslateTarget`).
 
-| Target | Base | Storage |
-| --- | --- | --- |
-| dev | the Vite dev server | this repo's JSON files |
-| stage | any host | that host's storage |
-| prod | unset → the app's own API | the tenant's `ui_translations` table |
+## The two operations
 
-## The four operations
-
-### 1. Read all messages for a language
+### Read a language
 
 ```
-GET {base}/ui_translations?locale=eq.de-DE
-→ 200 [ { locale, key, translation, … }, … ]
+GET {base}/translations?locale=de-DE
+→ 200 { "<key>": "<translation>", … }
 ```
 
-Everything the target holds for that language. This is what the app loads at
-startup to render a translated UI.
+The whole JSON for that language. This is what the app loads at startup.
 
-### 2. Read one message  *(optional)*
-
-```
-GET {base}/ui_translations?locale=eq.de-DE&key=eq.nwind.orders.ship_city.title
-→ 200 [ { … } ]     // an array; empty when absent
-```
-
-Not needed by the app, which loads all of (1) and keeps it in memory. Useful for
-scripts and for checking a single value without pulling a language.
-
-### 3. Write one message
+### Write one message
 
 ```
-POST {base}/ui_translations
+POST {base}/translations
      { locale, key, translation }
-→ 200 { locale, key, translation }
+→ 200
 ```
 
-Idempotent on `(locale, key)`: writing an existing key replaces its value. An
-empty `translation` clears it, and the source text shows through again.
+**The client sends one message. The server merges it into the single
+per-language record.** An empty `translation` clears the message and the source
+text shows through again.
 
-### 4. The write updates the JSON
+There is no conflict for the client to resolve, because the client never holds
+or sends the document. That is the whole reason `on_conflict`, `Prefer`, array
+bodies, `scope` and `context` are gone: they are PostgREST's vocabulary, and
+they reached the client only because the current code POSTs straight at a table.
 
-On the dev target the write lands in the repo's own catalog file, in the same
-byte-for-byte format `i18n:extract` produces, so a save is a one-line diff and a
-following `i18n:extract` is a no-op. On the tenant it is a row. Same call either
-way.
+## The targets
 
-## The design question to settle
+| Mode | Base answers with | Storage | Discovery |
+| --- | --- | --- | --- |
+| `dev` | the Vite dev server | this checkout's language file | yes |
+| `stage` | a stage host | a manually managed copy of that file | yes |
+| `prod` | the app's own API | the database record for that language | no |
+| `off` | nothing | — | no |
 
-**What exists today mimics PostgREST**, because the tenant implementation *is*
-PostgREST and making the client byte-identical seemed to follow:
+`off` is the default for prod. The mode is explicit configuration — never
+derived from `import.meta.env.DEV`, because a local app can point at a stage
+target and a deployed one can point anywhere.
+
+**Discovery uses the same write call.** A string the app rendered and could not
+translate is written with an empty `translation`. In `prod` nothing is recorded;
+the translator finds untranslated text by the on-screen marking instead.
+
+## Where a language is read from
+
+Two sources, merged per key, database over file:
+
+- **one file per language** — the complete language for that product version,
+  served as a static file so an operator can replace it without a rebuild.
+- **one JSON record per language in the database** — per-message overrides and
+  customer-added text. Not in the file we ship, so it survives a product update.
+
+## Who calls it
+
+The **i18n layer**, not the generic table hooks. It already owns the layer list
+and the configuration push (`setDeploymentLocales`, `setTenantLocaleFiles`), so
+it owns the read and the write too. `useTable` and `useCreateRecord` carry a
+`baseUrl` argument added for this; that reverts, and no call site passes
+anything.
+
+The target is **pushed in once**, carrying its mode:
+
+```ts
+setTranslateTarget({ url, mode })
+```
+
+Nothing below reads the environment and nothing pulls — the same rule the rest
+of the layer follows, because the first boot pass runs before `initConfig()`,
+which throws at that moment.
+
+## Fields
+
+A message is `{ locale, key, translation }`. Nothing else.
+
+- **`context` — deleted.** A free-text prefix that existed only because a code
+  string had no other way to be disambiguated. A key is now an array of
+  segments, and a disambiguating segment does the same job better
+  (`i18n-metadata-messages-plan.md`, "The three call forms"). No column, no
+  `contexts` file section, no U+0004.
+- **`scope` — deleted.** Code and metadata are both messages, told apart by the
+  reserved `module.` root. Error text is out of scope for this iteration
+  (`i18n-metadata-messages-plan.md`, section 6), so nothing else needs a scope.
+
+## What exists today
+
+The PostgREST-shaped form:
 
 ```
 POST {base}/ui_translations?on_conflict=locale,scope,key,context
@@ -62,52 +101,14 @@ POST {base}/ui_translations?on_conflict=locale,scope,key,context
      [ { locale, scope, key, context, translation } ]
 ```
 
-That drags PostgREST's vocabulary — `on_conflict`, `Prefer`, `translation=eq.`,
-array bodies, `scope`, `context` — into a contract that a dev server and a stage
-host now have to reimplement. The dev writer already does, and it is the ugliest
-part of it.
+Verified working against a running dev server — a save rewrote
+`src/locales/de-DE.json` as a one-line diff and the read returned 453 rows — but
+it makes the dev server and any stage host reimplement PostgREST's semantics,
+and `vite-plugins/i18nDevWriter.ts` is 244 lines largely because of it.
+`src/i18n/missing.ts` bypasses the target entirely and POSTs at a relative
+`/ui_translations`, which the fetch interceptor rewrites onto the deployment's
+own API — so today a translation typed in dev lands in the repo while every
+discovery lands in a table that answers `PGRST205`.
 
-**The alternative** is the four operations above as a plain, purpose-built API,
-with the tenant implementation being a thin PostgREST-backed adapter rather than
-the contract itself. The client gets `{ locale, key, translation }` and nothing
-else; each target maps that to its own storage.
-
-The second is smaller and does not leak one implementation's protocol into the
-other two. The cost is one adapter on the tenant side instead of none.
-
-## Who calls it
-
-The **i18n layer**, not the generic table hooks. It already owns the target
-(`translateApiUrl()`) and the layer list, so it owns the read and the write too.
-Today `useTable` and `useCreateRecord` carry a `baseUrl` argument added for this;
-that reverts.
-
-The target is **pushed into the layer once** — `setTranslateTarget({ url, mode })`
-alongside the other configuration — rather than read from the environment on
-every call, which is what `translateApiUrl()` does today and what the rest of the
-layer deliberately avoids.
-
-## Fields
-
-Under `i18n-metadata-messages-plan.md` a message is `{ locale, key, translation }`
-and nothing more, because metadata messages become messages and `scope` collapses.
-Two current columns then need a decision:
-
-- **`context`** — **deleted.** It was a free-text prefix that existed only because
-  a code string had no other way to be disambiguated. The key is now always an
-  array of segments, and a disambiguating segment does the same job better
-  (`i18n-metadata-messages-plan.md`, "The three call forms"). No column, no
-  `contexts` file section, no U+0004.
-- **`scope`** — collapses. Only backend-raised text (`server`) is not a message
-  with a key, and whether that survives at all is open (see
-  `UNAUTHORIZED-DECISIONS.md` item 4).
-
-## What exists today
-
-Operations 1, 3 and 4 work, in the PostgREST-shaped form, verified against a
-running dev server: a save rewrote `src/locales/de-DE.json` as a one-line diff, a
-metadata label landed in `public/locales/de-DE.json`, and the read returned 453
-rows. Operation 2 falls out of the query syntax but is unused.
-
-The tenant implementation does not exist anywhere yet — `ui_translations` answers
-`PGRST205` on every deployment — so the contract can still be changed for free.
+The database implementation does not exist on any deployment, so the contract
+can still be changed for free.

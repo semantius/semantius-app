@@ -1,0 +1,16 @@
+Accessibility audit — https://featin-20260907113448-semantius-app.ma532.workers.dev
+165/168 views measured, 3 cantTell
+
+   29  Not Evaluated
+   25  Supports
+    1  Partially Supports
+
+Failing criteria:
+  1.3.1 Info and Relationships (A) — Partially Supports: 13 finding(s) across 13 of 165 views.
+      module-home @ 320 / light: heading level jumps h1 -> h3 ("No Portlets")
+      module-home @ 390 / light: heading level jumps h1 -> h3 ("No Portlets")
+      module-home @ 640 / light: heading level jumps h1 -> h3 ("No Portlets")
+      module-home @ 768 / light: heading level jumps h1 -> h3 ("No Portlets")
+      … 9 more
+
+29 criteria are Not Evaluated (not a pass): 1.1.1, 1.2.3, 1.3.2, 1.3.3, 2.1.2, 2.1.4, 2.3.1, 2.4.3, 2.5.1, 2.5.2, 2.5.4, 3.2.1, 3.2.2, 3.2.6, 3.3.1, 3.3.7, 1.2.4, 1.2.5, 1.4.5, 1.4.13, 2.4.5, 2.4.6, 2.5.7, 3.2.3, 3.2.4, 3.3.3, 3.3.4, 3.3.8, 4.1.3
