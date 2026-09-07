@@ -36,6 +36,7 @@ The open-source UI of [Semantius](https://github.com/semantius/semantius) — th
 ├── packages/
 │   └── sem-schema/                 # Custom JSON Schema vocabulary
 ├── workplace/                      # Setup, deploy, and PR-gate scripts (setup.sh, wrangler.jsonc)
+├── BACKEND.md                      # What the app talks to: shapes, endpoints, schema
 ├── release.sh                      # Cuts a release: version bump + tag → Docker publish
 ├── turbo.json
 └── pnpm-workspace.yaml
@@ -130,6 +131,10 @@ The callback url is /oauth2_callback like http://localhost:5173/oauth2_callback
 | `VITE_CONTROL_PLANE_ORG` | Org slug when using the control plane                    |
 | `VITE_CUBE_API_URL`    | Cube.js analytics API URL (defaults from the tenant)       |
 
+**→ [BACKEND.md](BACKEND.md)** is the reference for what these point at: the two
+deployment shapes, the REST and RPC endpoints, the model schema `get_schema`
+returns, and the error codes that mean something specific.
+
 ### User Interface
 
 The account menu in the sidebar footer is configuration-driven — see
@@ -139,6 +144,11 @@ The account menu in the sidebar footer is configuration-driven — see
 | -------------------- | ---------------------------------------------------------------------------------- |
 | `VITE_BACKEND_TYPE`  | `cloud` (default), `self_hosted`, or `custom`. Selects the built-in account menu.  |
 | `VITE_UI_CUSTOMIZER` | Required when `VITE_BACKEND_TYPE=custom` — JSON defining the account menu.         |
+
+> **`VITE_BACKEND_TYPE` does not choose a backend.** Despite the name it moves no
+> request: it picks which built-in account menu renders, and nothing else. Where
+> the data comes from is `VITE_CONTROL_PLANE_URL` and `VITE_API_BASE_URL` above —
+> see [BACKEND.md](BACKEND.md#backend-is-two-independent-settings).
 
 Built-in menus:
 
