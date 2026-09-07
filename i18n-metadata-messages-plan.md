@@ -106,6 +106,31 @@ recommended: what to show when the model says nothing is a rendering decision an
 it differs per surface — a column header falls back to the field name, a hint
 falls back to nothing.
 
+## `context` disappears for metadata
+
+`context` is a weak id prefix — a way to manufacture a second key when the only
+key you have is the English text. `View` the noun and `View` the verb share an
+English string, so one of them carries `context: 'column visibility'` and the
+runtime id becomes `View` + U+0004 + the context. Today that produces
+`messages["View"] = "Anzeigen"` (the row-menu verb) and
+`contexts["column visibility"]["View"] = "Ansicht"` (the column-visibility noun).
+
+A metadata message has a real key, so it never needs one: two identical labels
+in different entities are already distinct keys.
+
+Two facts about the mechanism, since it looks invented and is not. `context` is
+Lingui's and gettext's before it — `msgctxt`, what `pgettext` exists for. The
+U+0004 SEPARATOR is ours by choice: Lingui's own `generateMessageId` HASHES
+(`sha256(msg + separator + context)`), which would destroy the property the whole
+scheme rests on, that the source text is a readable key. Lingui never sees the
+difference; it is handed a string id and looks it up.
+
+**Consequence for the wire format:** `context` exists only for code strings. If it
+folds into the code-string key rather than staying a separate column, then a
+message is `{ locale, key, translation }` for both kinds and U+0004 becomes an
+internal detail of how a code-string key is spelled — invisible to the endpoint
+and to the database. See `i18n-endpoint-spec.md`.
+
 ## When the English changes
 
 This is the half of the key that has to be got right.
@@ -200,6 +225,25 @@ access to their database.
 - `localizeMetadata` collapses into a plain message lookup keyed by the model path
 
 Roughly 900 lines removed against maybe 250 added.
+
+## What happens to `scripts/i18n`
+
+| File | Fate |
+| --- | --- |
+| `extract.mjs` | **grows** — gains the model as a second source and writes metadata messages into `en-US.json`. This is where the work lands. |
+| `status.mjs` | **shrinks** — reports both kinds from one index; the `--tenant` label branch goes. |
+| `localeFile.mjs` | **shrinks** — `messages` / `contexts` / `server` stay; `parseLabelKey`, the four label scopes and the nested `labels` section go. |
+| `tenant.mjs` | unchanged — auth and paging, still needed by import, export, translate. |
+| `translate.mjs` | simplifies — its input becomes the index alone, not the index plus an inventory. |
+| `import.mjs`, `export.mjs` | simplify — no label scopes to route. |
+| `model.mjs` | **repurposed under option A** — generates the committed snapshot instead of feeding the inventory. Under option B it folds into `extract.mjs`. |
+| `labelInventory.mjs` | **deleted** |
+| `labels.mjs` | **deleted** |
+
+Each `.d.mts` follows its `.mjs`. Afterwards `extract` and `status` are the whole
+story for discovering untranslated text, both kinds, offline from the repo; the
+tenant-facing scripts exist only to move a language between a file and a
+customer's database, which is the only job that legitimately needs credentials.
 
 ## Drop `origin` from the index
 
