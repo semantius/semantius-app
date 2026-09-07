@@ -18,6 +18,97 @@ Requirements set by the owner:
 10. **Messages the app cannot know in advance** (backend rule messages, RPC and PostgREST text) are collected at runtime and stored as translation work.
 11. **Language and formatting locale are two preferences and part of the user's session**, following the user across devices; when the session has none, the browser's language and locale are the placeholder.
 
+## Status
+
+Branch `feat/i18n`, one commit per phase, no PR. **P1-P3 are done and committed; P4 and P5 remain.**
+
+| Phase | State | Commit |
+| --- | --- | --- |
+| P1 Foundation + app shell | done | `31bf10d` |
+| P2 Grid, dialogs, formatting | done | `cadaeb7` |
+| P3 Forms, validation, remaining surfaces | done | `fb26cb7` |
+| P4 Runtime languages | **not started** | |
+| P5 Translate mode | **not started** | |
+
+Each committed phase passed, independently re-run by the orchestrator: `i18n:extract` twice
+with no change, `i18n:status` 0 missing, `pnpm check`, `pnpm build`, a stable
+`eslint --prune-suppressions`, the American-English grep, and a Cloudflare preview deploy
+opened in German with a screenshot under `screenshots/`.
+
+Current numbers, for the next phase to ratchet against:
+
+- **398 messages** in `src/locales/en-US.json`, `de-DE` 398/398 translated, 1 obsolete.
+- **`eslint-suppressions.json` totals 610** suppressed violations. It may only fall. It did
+  not reach the zero this document asks for in P3, and the reasoning is recorded in
+  CONTEXT-MEMORY: what is left is identifiers, PostgREST fragments, CSS strings, internal
+  invariants and CLI-owned `ui/**`, and widening an `ignore` far enough to reach zero would
+  hide real strings.
+- `substitutions.test.ts` unchanged at 6.
+
+### Verified against the live test tenant - P4 lands degraded, by design
+
+Probed before P1 and unchanged since. Each was already anticipated here as a prerequisite;
+none of them blocks P4 from being written, and each has a specified fallback:
+
+| Prerequisite | Actual state | What P4 must therefore do |
+| --- | --- | --- |
+| `ui_translations` table | absent - `GET` answers 404 `{"code":"PGRST205"}` | tenant layer disables on the definitive body; the table, queue and collector tests skip with a message naming it |
+| `set_user_preferences` RPC | absent - 404 `{"code":"PGRST202"}` | the switcher persists to the cache only |
+| `get_userinfo` `language`/`locale` | not returned at all | read defensively; fall through to the OIDC claim, then the browser placeholder |
+| `translations.edit` permission | absent; principal holds `admin` | `admin` gates the writer and the translate-mode toggles |
+| `tables` / `fields` / `modules` reads | all 200, with `description` and `updated_at` | the label inventory is viable as specified |
+
+**So P4 can be implemented in full and cannot be fully verified.** The deployment-file layer,
+the model-label overrides and the scripts are testable today; the tenant table, the queue and
+the session preference are not, until the platform migration is applied to the `tests` tenant.
+Those must land as loud skips, never as green tests.
+
+### Learned while implementing, and binding on P4/P5
+
+Full detail is in CONTEXT-MEMORY's Internationalization section; these are the ones that
+change how the remaining phases must be written.
+
+- **The lint rule is blind to a JSX subtree it thinks is its own.** `eslint-plugin-lingui`
+  hard-codes `Trans`/`Plural`/`Select`/`SelectOrdinal` and marks every string inside one as
+  visited, so shadcn's `<Select>` hid its contents from the rule through all three phases. The
+  four call sites now import `Select as SelectRoot`, and a `no-restricted-syntax` rule bans the
+  bare tag name. **Any new `<Select>` must use the alias**, and a green lint run is only
+  meaningful because of that ban.
+- **The extractor accepts a whitelist of first-argument forms**, not a blacklist: a string
+  literal, a template with no substitutions, an object literal with a literal `message`, or a
+  bare reference. It first enumerated the bad forms and fell through to accepting everything
+  else, so `t(('a' + n))` passed in silence.
+- **Two words spelled the same are not one message.** `View` was the noun in the columns menu
+  and the verb in the row menu, and German could only pick one. An `en-US.json` index entry
+  with more than one origin is the signal; `t({ message, context })` is the fix.
+- **`ignoreFunctions` is an entry-point whitelist, not an argument matcher.** The plugin walks
+  to the nearest ancestor call and recurses through a curried callee, so naming
+  `createFileRoute` there would exempt every route's whole options object.
+- **Exceeding a file's recorded suppression count makes ESLint report all of that file's
+  violations for the rule**, not just the excess - so a partially migrated file that gains one
+  string reads as wholly broken.
+- **A boot error's `detail` slot is a content question, not a slot question.** A machine report
+  (status, URL, JSON keys, stack) stays English; a sentence telling a human what to do is
+  language. `lib/config.ts` and `lib/userMenu.ts` are the first kind and stay English.
+- **Translating the app's own thrown data-layer errors does not break P4's collector**, because
+  the collector records a `server` miss only for an error whose `cause` carries a PostgREST
+  `code`, and such a body always has its own `message`. Preserve that invariant.
+- Deviations accepted, with reasons in CONTEXT-MEMORY: the switcher names languages by endonym
+  rather than `Intl.DisplayNames`; `activateLocale`'s `persist` is a three-state object
+  (save / `null` clears / omitted leaves alone) because "Use browser default" needs all three;
+  the lingui rule ignores test files and `src/i18n/*.ts`.
+
+### Open, and owned by a later phase
+
+- **The German validation messages are unit-verified, not browser-verified.** `ajv-i18n` is
+  wired and renders correct German when driven directly, but no validation message could be
+  provoked on the deployed preview - submitting an empty required form, and an over-length
+  value, both left `aria-invalid` at `false` with no message. **This is identical in English**,
+  so it is not an i18n regression, but it means the on-screen path is unproven and there may be
+  a pre-existing defect in form validation display worth a separate look.
+- `t('No {label} found.')` reads "Keine Kunde gefunden" where a reference declares no
+  `plural_label`. The English has the same defect; P4's model labels own it.
+- `useTable` and the three mutations append `response.statusText` to a now-German sentence.
 ## Decision
 
 **Lingui's runtime only** (`@lingui/core` 2 KB, `@lingui/react` 1.7 KB, `@lingui/message-utils` ~5 KB gzip for the ICU compiler), used without its macros, Babel plugin, Vite plugin and CLI. It supplies ICU plurals and selects via `Intl.PluralRules`, a provider that re-renders on locale change, and a `<Trans>` component for rich text. Everything else is ours and small: a `t()` function, an extractor on the TypeScript compiler API, JSON catalogs.
@@ -223,7 +314,7 @@ Permissions are enforced by the platform's policies and mirrored in the UI: ever
 
 ## Phases (one PR each, each deployed and screenshotted per CLAUDE.md)
 
-### P1 Foundation + app shell (German switcher visible)
+### P1 Foundation + app shell (German switcher visible) - DONE (`31bf10d`)
 
 1. `apps/web/package.json`: `@lingui/core`, `@lingui/react`, `@lingui/message-utils`; dev `eslint-plugin-lingui`; scripts `i18n:extract`, `i18n:status`. No engines change: CI, Docker and the sandbox already pin Node 22, and only the runtime packages are used.
 2. `apps/web/scripts/i18n/extract.mjs`, `status.mjs` (repo catalogs only until P4); `src/locales/en-US.json` (generated) and `de-DE.json` (translated); `src/locales/TRANSLATION-GUIDE.md`.
@@ -235,11 +326,11 @@ Permissions are enforced by the platform's policies and mirrored in the UI: ever
 8. `NavUser.test.tsx` (lang, both cache keys, "Abmelden", boot from the cached keys, the "Browser default" entry checked when nothing is cached); `src/test/i18nCatalogs.test.ts`; `eslint.config.js` lingui block for `src/**` + `no-restricted-imports` + `eslint --suppress-all` baseline; verify `<Trans components={{ bold }}>` named tags and the rule's recognition of `t(...)`.
 9. Root `README.md` `## Internationalization` (between its Packages and Accessibility sections): the API, the workflow for adding a string (including the same-PR German rule), the discovery path; CONTEXT-MEMORY section (below).
 
-### P2 Grid, dialogs, formatting
+### P2 Grid, dialogs, formatting - DONE (`cadaeb7`)
 
 `niko-table/config/data-table.ts` (48 labels → `msg`), `filters/*` menus, pagination (ICU plural), `DataTableView.tsx` (Yes/No, empty state, search placeholder, delete `entityType`), `ConfirmDeleteDialog.tsx` (`<Trans>` with `bold`), `hooks/useConfirmDelete.ts`, `DataFormPage.tsx`, `lib/apiErrors.ts` (drop `singularize`, use model labels; unknown server messages pass through untouched until P4 adds `translateDynamic`), `ViewSkeleton.tsx`, `views/View.tsx` sentences; number/date helpers wired to the locale, `niko-table/lib/format.ts` fix, `src/i18n/dateFnsLocale.ts`, `ui-ext/localized-calendar.tsx` + both pickers + filter calendars, `Toaster` label. `eslint --prune-suppressions`.
 
-### P3 Forms, settings, remaining surfaces
+### P3 Forms, settings, remaining surfaces - DONE (`fb26cb7`)
 
 `form/SchemaForm.tsx`, `FormLabel.tsx` ("(required)"), `InputEnum.tsx`, `api-select.tsx`, `InputReference.tsx`, `Playground.tsx`; `ajv-i18n` over `validateData().errors`; `settings/ApiKeysCard.tsx`; `ui-ext/sortable.tsx`, `combobox.tsx`; demo routes (`xcustomers`, `crm.home`, `documents`, `form-playground`) wrapped like everything else. Suppressions pruned to zero outside `src/charts/**`.
 
