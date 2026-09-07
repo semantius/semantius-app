@@ -84,6 +84,12 @@ longer derivable from the repo alone.
 A is recommended: it keeps the property that made this scheme worth having — a
 new translatable string shows up in a diff.
 
+## The endpoint
+
+Specified separately in `i18n-endpoint-spec.md`, including the open question of
+whether the contract should keep mimicking PostgREST or become a plain
+`{ locale, key, translation }` API with a tenant-side adapter.
+
 ## Customer-created entities
 
 A customer who adds an entity in their own deployment goes through the **same**
