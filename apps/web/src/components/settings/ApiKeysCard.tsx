@@ -3,6 +3,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Key, Plus, Trash2, Copy, Check, Loader2 } from 'lucide-react'
 import { useRpc, useRpcMutation } from '@/hooks/useRpc'
 import { getConfig } from '@/lib/config'
+import { useFormattingLocale, useT } from '@/i18n'
+import { formatDateForDisplay, type DateFormat } from '@/lib/date-format'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -42,8 +44,17 @@ interface CreateApiKeyResult {
   api_key: string
 }
 
+/**
+ * Both timestamp columns render as a plain calendar date. Named once rather than
+ * repeated at the two call sites: a bare 'date' is a discriminator, not text,
+ * and one occurrence of it is one thing for a reader to recognize.
+ */
+const KEY_DATE: DateFormat = 'date'
+
 export function ApiKeysCard() {
   const queryClient = useQueryClient()
+  const t = useT()
+  const formattingLocale = useFormattingLocale()
 
   // Fetch existing API keys
   const { data: apiKeys, isLoading } = useRpc<ApiKey[]>('list_api_keys', {
@@ -148,12 +159,17 @@ export function ApiKeysCard() {
                       <td className="px-4 py-2">{key.description}</td>
                       <td className="px-4 py-2 font-mono text-sm text-muted-foreground">{key.key_id}-...</td>
                       <td className="px-4 py-2 text-muted-foreground">
-                        {new Date(key.created_at).toLocaleDateString()}
+                        {/* Through the shared helper with the FORMATTING locale,
+                            not a bare toLocaleDateString(): the helper is the
+                            single source of truth for date display, and the bare
+                            call followed the browser rather than the user's
+                            chosen format. */}
+                        {formatDateForDisplay(key.created_at, KEY_DATE, { locale: formattingLocale })}
                       </td>
                       <td className="px-4 py-2 text-muted-foreground">
                         {key.last_used_at
-                          ? new Date(key.last_used_at).toLocaleDateString()
-                          : 'Never'}
+                          ? formatDateForDisplay(key.last_used_at, KEY_DATE, { locale: formattingLocale })
+                          : t('Never')}
                       </td>
                       <td className="px-4 py-2 text-right">
                         <Button

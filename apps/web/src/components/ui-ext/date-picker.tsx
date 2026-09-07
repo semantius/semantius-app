@@ -3,7 +3,9 @@ import { CalendarIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Calendar } from "@/components/ui/calendar"
+import { LocalizedCalendar } from "@/components/ui-ext/localized-calendar"
+import { useT } from "@/i18n"
+import { useDateFnsLocale } from "@/i18n/dateFnsLocale"
 import {
   Popover,
   PopoverContent,
@@ -34,7 +36,7 @@ interface DatePickerProps {
 export function DatePicker({
   date,
   onDateChange,
-  placeholder = "Pick a date",
+  placeholder,
   disabled = false,
   readOnly = false,
   className,
@@ -43,12 +45,17 @@ export function DatePicker({
   "aria-invalid": ariaInvalid,
   label,
 }: DatePickerProps) {
+  const t = useT()
+  // date-fns takes a locale OBJECT, not a tag, so 'PPP' ("April 29th, 2022")
+  // stays English until this resolves — see src/i18n/dateFnsLocale.ts.
+  const locale = useDateFnsLocale()
+
   return (
     <div className={cn("relative flex gap-2 max-w-[280px]", className)}>
       <Input
         id={id}
-        value={date ? format(date, "PPP") : ""}
-        placeholder={placeholder}
+        value={date ? format(date, "PPP", { locale }) : ""}
+        placeholder={placeholder ?? t("Pick a date")}
         disabled={disabled}
         readOnly
         aria-describedby={ariaDescribedBy}
@@ -75,11 +82,13 @@ export function DatePicker({
               name. Naming the field it belongs to matters once a form has several
               date fields — "Choose date" three times over identifies nothing. */}
           <span className="sr-only">
-            {label ? `Choose ${label} from calendar` : "Choose date from calendar"}
+            {label
+              ? t("Choose {field} from calendar", { field: label })
+              : t("Choose date from calendar")}
           </span>
         </PopoverTrigger>
         <PopoverContent className="w-auto overflow-hidden p-0" align="end" alignOffset={-8} sideOffset={10}>
-          <Calendar
+          <LocalizedCalendar
             mode="single"
             selected={date}
             onSelect={onDateChange}

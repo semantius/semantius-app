@@ -52,7 +52,7 @@ import * as React from "react"
 import { TableRangeFilter } from "./table-range-filter"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Calendar } from "@/components/ui/calendar"
+import { LocalizedCalendar } from "@/components/ui-ext/localized-calendar"
 import {
   Command,
   CommandEmpty,
@@ -90,6 +90,7 @@ import {
 import { formatDate } from "../lib/format"
 import { useKeyboardShortcut } from "../hooks"
 import { cn } from "@/lib/utils"
+import { useFormattingLocale, useT, type TranslateFn } from "@/i18n"
 import {
   FILTER_OPERATORS,
   FILTER_VARIANTS,
@@ -336,10 +337,11 @@ interface FacetedBadgeListProps extends React.ComponentProps<"div"> {
 }
 
 function FacetedBadgeList(props: FacetedBadgeListProps) {
+  const t = useT()
   const {
     options = [],
     max = 2,
-    placeholder = "Select options...",
+    placeholder,
     className,
     badgeClassName,
     ...badgeListProps
@@ -364,7 +366,7 @@ function FacetedBadgeList(props: FacetedBadgeListProps) {
         {...badgeListProps}
         className="flex w-full items-center gap-1 text-muted-foreground"
       >
-        {placeholder}
+        {placeholder ?? t("Select options...")}
         <ChevronsUpDown className="ml-auto size-4 shrink-0 opacity-50" />
       </div>
     )
@@ -380,7 +382,11 @@ function FacetedBadgeList(props: FacetedBadgeListProps) {
           variant="secondary"
           className={cn("rounded-sm px-1 font-normal", badgeClassName)}
         >
-          {values.length} selected
+          {/* No plural form in the SOURCE, because "selected" does not inflect
+              in English and two identical branches say nothing. A translation
+              may still be an ICU plural on the same `count` argument — the
+              catalog check compares argument NAMES, not shapes. */}
+          {t("{count} selected", { count: values.length })}
         </Badge>
       ) : (
         values.map(value => (
@@ -815,6 +821,7 @@ export function TableFilterMenu<TData>({
   joinOperator?: JoinOperator
   onJoinOperatorChange?: (operator: JoinOperator) => void
 }) {
+  const t = useT()
   const id = React.useId()
   const labelId = React.useId()
   const descriptionId = React.useId()
@@ -962,10 +969,10 @@ export function TableFilterMenu<TData>({
     >
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger
-          render={<Button variant="outline" size="sm" title="Open filter menu (F)" />}
+          render={<Button variant="outline" size="sm" title={t("Open filter menu (F)")} />}
         >
           <ListFilter />
-          Filter
+          {t("Filter")}
           {filters.length > 0 && (
             <Badge
               variant="secondary"
@@ -983,7 +990,7 @@ export function TableFilterMenu<TData>({
         >
           <div className="flex flex-col gap-1">
             <h4 id={labelId} className="leading-none font-medium">
-              {filters.length > 0 ? "Filters" : "No filters applied"}
+              {filters.length > 0 ? t("Filters") : t("No filters applied")}
             </h4>
             <p
               id={descriptionId}
@@ -993,8 +1000,8 @@ export function TableFilterMenu<TData>({
               )}
             >
               {filters.length > 0
-                ? "Modify filters to refine your rows."
-                : "Add filters to refine your rows."}
+                ? t("Modify filters to refine your rows.")
+                : t("Add filters to refine your rows.")}
             </p>
           </div>
           {filters.length > 0 ? (
@@ -1020,9 +1027,9 @@ export function TableFilterMenu<TData>({
               className="rounded"
               ref={addButtonRef}
               onClick={onFilterAdd}
-              title="Add a new filter"
+              title={t("Add a new filter")}
             >
-              Add filter
+              {t("Add filter")}
             </Button>
             {filters.length > 0 ? (
               <Button
@@ -1030,9 +1037,9 @@ export function TableFilterMenu<TData>({
                 size="sm"
                 className="rounded"
                 onClick={onFiltersReset}
-                title="Clear all filters"
+                title={t("Clear all filters")}
               >
-                Reset filters
+                {t("Reset filters")}
               </Button>
             ) : null}
           </div>
@@ -1072,6 +1079,7 @@ function TableFilterItem<TData>({
   onFilterUpdate,
   onFilterRemove,
 }: TableFilterItemProps<TData>) {
+  const t = useT()
   const [showFieldSelector, setShowFieldSelector] = React.useState(false)
   const [showOperatorSelector, setShowOperatorSelector] = React.useState(false)
   const [showValueSelector, setShowValueSelector] = React.useState(false)
@@ -1175,7 +1183,7 @@ function TableFilterItem<TData>({
           size="icon"
           className="size-8 rounded"
           onClick={() => onFilterRemove(filter.filterId)}
-          title="Remove filter"
+          title={t("Remove filter")}
         >
           <Trash2 />
         </Button>
@@ -1186,7 +1194,7 @@ function TableFilterItem<TData>({
             variant="outline"
             size="icon"
             className="size-8 rounded"
-            title="Drag to reorder filters"
+            title={t("Drag to reorder filters")}
           >
             <Grip />
           </Button>
@@ -1219,13 +1227,19 @@ function FilterEmptyInput<TData>({
   columnMeta,
   filter,
 }: Pick<FilterInputProps<TData>, "inputId" | "columnMeta" | "filter">) {
+  const t = useT()
   return (
     <div
       id={inputId}
       role="status"
-      aria-label={`${columnMeta?.label} filter is ${
-        filter.operator === FILTER_OPERATORS.EMPTY ? "empty" : "not empty"
-      }`}
+      // Two whole sentences, not one with a word swapped in: "is empty" and "is
+      // not empty" are a single verb phrase in most languages and negation does
+      // not always sit where the English "not" does.
+      aria-label={
+        filter.operator === FILTER_OPERATORS.EMPTY
+          ? t("{field} filter is empty", { field: columnMeta?.label })
+          : t("{field} filter is not empty", { field: columnMeta?.label })
+      }
       aria-live="polite"
       className="h-8 w-full rounded border bg-transparent dark:bg-input/30"
     />
@@ -1245,6 +1259,7 @@ function FilterTextNumberInput<TData>({
   FilterInputProps<TData>,
   "filter" | "inputId" | "columnMeta" | "onFilterUpdate"
 >) {
+  const t = useT()
   const isNumber =
     filter.variant === FILTER_VARIANTS.NUMBER ||
     filter.variant === FILTER_VARIANTS.RANGE
@@ -1253,9 +1268,9 @@ function FilterTextNumberInput<TData>({
     <Input
       id={inputId}
       type={isNumber ? FILTER_VARIANTS.NUMBER : FILTER_VARIANTS.TEXT}
-      aria-label={`${columnMeta?.label} filter value`}
+      aria-label={t("{field} filter value", { field: columnMeta?.label })}
       inputMode={isNumber ? "numeric" : undefined}
-      placeholder={columnMeta?.placeholder ?? "Enter a value..."}
+      placeholder={columnMeta?.placeholder ?? t("Enter a value...")}
       className="h-8 w-full rounded"
       value={typeof filter.value === "string" ? filter.value : ""}
       onChange={event =>
@@ -1279,6 +1294,7 @@ function FilterBooleanSelect<TData>({
   showValueSelector,
   setShowValueSelector,
 }: FilterInputProps<TData>) {
+  const t = useT()
   if (Array.isArray(filter.value)) return null
 
   const inputListboxId = `${inputId}-listbox`
@@ -1297,17 +1313,17 @@ function FilterBooleanSelect<TData>({
       <SelectTrigger
         id={inputId}
         aria-controls={inputListboxId}
-        aria-label={`${columnMeta?.label} boolean filter`}
+        aria-label={t("{field} boolean filter", { field: columnMeta?.label })}
         size="sm"
         className="w-full rounded"
       >
-        <SelectValue placeholder={filter.value ? "True" : "False"}>
-          {(v) => (v === "true" ? "True" : v === "false" ? "False" : v)}
+        <SelectValue placeholder={filter.value ? t("True") : t("False")}>
+          {(v) => (v === "true" ? t("True") : v === "false" ? t("False") : v)}
         </SelectValue>
       </SelectTrigger>
       <SelectContent id={inputListboxId}>
-        <SelectItem value="true">True</SelectItem>
-        <SelectItem value="false">False</SelectItem>
+        <SelectItem value="true">{t("True")}</SelectItem>
+        <SelectItem value="false">{t("False")}</SelectItem>
       </SelectContent>
     </Select>
   )
@@ -1325,6 +1341,7 @@ function FilterFacetedSelect<TData>({
   showValueSelector,
   setShowValueSelector,
 }: FilterInputProps<TData>) {
+  const t = useT()
   const inputListboxId = `${inputId}-listbox`
   const multiple = filter.variant === FILTER_VARIANTS.MULTI_SELECT
   const selectedValues = multiple
@@ -1352,11 +1369,25 @@ function FilterFacetedSelect<TData>({
           <Button
             id={inputId}
             aria-controls={inputListboxId}
-            aria-label={`${columnMeta?.label} filter value${multiple ? "s" : ""}`}
+            // Singular and plural are separate MESSAGES, never an "s" appended
+            // to one: English is the only language in which that works, and a
+            // model label is data that must be inserted exactly as the model
+            // spells it — never lowercased or pluralized in code.
+            aria-label={
+              multiple
+                ? t("{field} filter values", { field: columnMeta?.label })
+                : t("{field} filter value", { field: columnMeta?.label })
+            }
             variant="outline"
             size="sm"
             className="w-full rounded font-normal"
-            title={`Select ${columnMeta?.label?.toLowerCase() ?? "option"}${multiple ? "s" : ""}`}
+            title={
+              columnMeta?.label
+                ? t("Select {field}", { field: columnMeta.label })
+                : multiple
+                  ? t("Select options")
+                  : t("Select an option")
+            }
           />
         }
       >
@@ -1364,7 +1395,7 @@ function FilterFacetedSelect<TData>({
           options={columnMeta?.options}
           placeholder={
             columnMeta?.placeholder ??
-            `Select option${multiple ? "s" : ""}...`
+            (multiple ? t("Select options...") : t("Select an option..."))
           }
         />
       </FacetedTrigger>
@@ -1373,11 +1404,11 @@ function FilterFacetedSelect<TData>({
         className="w-[200px] origin-(--transform-origin)"
       >
         <FacetedInput
-          aria-label={`Search ${columnMeta?.label} options`}
-          placeholder={columnMeta?.placeholder ?? "Search options..."}
+          aria-label={t("Search {field} options", { field: columnMeta?.label })}
+          placeholder={columnMeta?.placeholder ?? t("Search options...")}
         />
         <FacetedList>
-          <FacetedEmpty>No options found.</FacetedEmpty>
+          <FacetedEmpty>{t("No options found.")}</FacetedEmpty>
           <FacetedGroup>
             {columnMeta?.options?.map((option: Option) => (
               <FacetedItem key={option.value} value={option.value}>
@@ -1408,20 +1439,29 @@ function FilterDatePicker<TData>({
   showValueSelector,
   setShowValueSelector,
 }: FilterInputProps<TData>) {
+  const t = useT()
+  // The FORMATTING locale, never the catalog language: a German UI with the
+  // browser left on de-CH still writes Swiss dates.
+  const locale = useFormattingLocale()
   const inputListboxId = `${inputId}-listbox`
+  const isRange = filter.operator === FILTER_OPERATORS.BETWEEN
 
   const dateValue = Array.isArray(filter.value)
     ? filter.value.filter(Boolean)
     : [filter.value, filter.value].filter(Boolean)
 
   const displayValue =
-    filter.operator === FILTER_OPERATORS.BETWEEN && dateValue.length === 2
-      ? `${formatDate(new Date(Number(dateValue[0])))} - ${formatDate(
-          new Date(Number(dateValue[1])),
-        )}`
+    isRange && dateValue.length === 2
+      ? // A message, not a join: the separator between two dates is a language's
+        // own punctuation, and German writes an en dash where English writes a
+        // hyphen.
+        t("{from} - {to}", {
+          from: formatDate(new Date(Number(dateValue[0])), {}, locale),
+          to: formatDate(new Date(Number(dateValue[1])), {}, locale),
+        })
       : dateValue[0]
-        ? formatDate(new Date(Number(dateValue[0])))
-        : "Pick a date"
+        ? formatDate(new Date(Number(dateValue[0])), {}, locale)
+        : t("Pick a date")
 
   return (
     <Popover open={showValueSelector} onOpenChange={setShowValueSelector}>
@@ -1430,14 +1470,22 @@ function FilterDatePicker<TData>({
           <Button
             id={inputId}
             aria-controls={inputListboxId}
-            aria-label={`${columnMeta?.label} date filter`}
+            aria-label={t("{field} date filter", { field: columnMeta?.label })}
             variant="outline"
             size="sm"
             className={cn(
               "w-full justify-start rounded text-left font-normal",
               !filter.value && "text-muted-foreground",
             )}
-            title={`Select ${columnMeta?.label?.toLowerCase() ?? FILTER_VARIANTS.DATE}${filter.operator === FILTER_OPERATORS.BETWEEN ? " range" : ""}`}
+            title={
+              columnMeta?.label
+                ? isRange
+                  ? t("Select {field} range", { field: columnMeta.label })
+                  : t("Select {field}", { field: columnMeta.label })
+                : isRange
+                  ? t("Select date range")
+                  : t("Select date")
+            }
           />
         }
       >
@@ -1449,9 +1497,9 @@ function FilterDatePicker<TData>({
         align="start"
         className="w-auto origin-(--transform-origin) p-0"
       >
-        {filter.operator === FILTER_OPERATORS.BETWEEN ? (
-          <Calendar
-            aria-label={`Select ${columnMeta?.label} date range`}
+        {isRange ? (
+          <LocalizedCalendar
+            aria-label={t("Select {field} date range", { field: columnMeta?.label })}
             mode={FILTER_VARIANTS.RANGE}
             captionLayout="dropdown"
             selected={
@@ -1477,8 +1525,8 @@ function FilterDatePicker<TData>({
             }}
           />
         ) : (
-          <Calendar
-            aria-label={`Select ${columnMeta?.label} date`}
+          <LocalizedCalendar
+            aria-label={t("Select {field} date", { field: columnMeta?.label })}
             mode="single"
             captionLayout="dropdown"
             selected={dateValue[0] ? new Date(Number(dateValue[0])) : undefined}
@@ -1554,6 +1602,15 @@ FilterDatePicker.displayName = "FilterDatePicker"
 /* ----------------------- Filter Item Sub-Components ----------------------- */
 
 /**
+ * The word joining two filters. Lowercase in the source because the trigger and
+ * the list are `lowercase` by CSS; a language that capitalizes these writes them
+ * as it likes and the transform leaves the meaning alone.
+ */
+function joinOperatorLabel(t: TranslateFn, value: string | null | undefined): string {
+  return value === JOIN_OPERATORS.OR ? t("or") : t("and")
+}
+
+/**
  * Join operator selector (AND/OR) for filters after the first one
  */
 function FilterJoinOperator<TData>({
@@ -1570,12 +1627,13 @@ function FilterJoinOperator<TData>({
     updates: Partial<Omit<ExtendedColumnFilter<TData>, "filterId">>,
   ) => void
 }) {
+  const t = useT()
   const joinOperatorListboxId = `${filterItemId}-join-operator-listbox`
 
   if (index === 0) {
     return (
       <div className="min-w-[72px] text-center">
-        <span className="text-sm text-muted-foreground">Where</span>
+        <span className="text-sm text-muted-foreground">{t("Where")}</span>
       </div>
     )
   }
@@ -1589,12 +1647,16 @@ function FilterJoinOperator<TData>({
         }}
       >
         <SelectTrigger
-          aria-label="Select join operator"
+          aria-label={t("Select join operator")}
           aria-controls={joinOperatorListboxId}
           size="sm"
           className="rounded lowercase"
         >
-          <SelectValue placeholder={filter.joinOperator || "and"} />
+          {/* A children function, because with no `items` on the Root a Base UI
+              SelectValue renders the RAW value — the untranslated "and"/"or". */}
+          <SelectValue placeholder={joinOperatorLabel(t, filter.joinOperator)}>
+            {(v) => joinOperatorLabel(t, v)}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent
           id={joinOperatorListboxId}
@@ -1602,7 +1664,7 @@ function FilterJoinOperator<TData>({
         >
           {dataTableConfig.joinOperators.map(operator => (
             <SelectItem key={operator} value={operator}>
-              {operator}
+              {joinOperatorLabel(t, operator)}
             </SelectItem>
           ))}
         </SelectContent>
@@ -1633,6 +1695,7 @@ function FilterFieldSelector<TData>({
   showFieldSelector: boolean
   setShowFieldSelector: (value: boolean) => void
 }) {
+  const t = useT()
   const fieldListboxId = `${filterItemId}-field-listbox`
 
   return (
@@ -1644,13 +1707,13 @@ function FilterFieldSelector<TData>({
             variant="outline"
             size="sm"
             className="w-32 justify-between rounded font-normal"
-            title="Select field to filter"
+            title={t("Select field to filter")}
           />
         }
       >
         <span className="truncate">
           {columns.find(column => column.id === filter.id)?.columnDef.meta
-            ?.label ?? "Select field"}
+            ?.label ?? t("Select field")}
         </span>
         <ChevronsUpDown className="opacity-50" />
       </PopoverTrigger>
@@ -1660,9 +1723,9 @@ function FilterFieldSelector<TData>({
         className="w-52 origin-(--transform-origin) p-0"
       >
         <Command>
-          <CommandInput placeholder="Search fields..." />
+          <CommandInput placeholder={t("Search fields...")} />
           <CommandList>
-            <CommandEmpty>No fields found.</CommandEmpty>
+            <CommandEmpty>{t("No fields found.")}</CommandEmpty>
             <CommandGroup>
               {columns.map(column => (
                 <CommandItem
@@ -1721,8 +1784,13 @@ function FilterOperatorSelector<TData>({
   showOperatorSelector: boolean
   setShowOperatorSelector: (value: boolean) => void
 }) {
+  const t = useT()
   const operatorListboxId = `${filterItemId}-operator-listbox`
   const filterOperators = getFilterOperators(filter.variant)
+  const operatorLabel = (value: string | null | undefined) => {
+    const found = filterOperators.find(op => op.value === value)
+    return found ? t(found.label) : String(value)
+  }
 
   return (
     <Select
@@ -1741,16 +1809,20 @@ function FilterOperatorSelector<TData>({
           })
       }}
     >
+      {/* `lowercase` is a CSS transform over TRANSLATED text, which is safe only
+          while every operator label is a verb phrase — "ist leer", "enthält
+          nicht". Give an operator a label containing a noun and German (which
+          capitalizes every noun) renders it wrong, with nothing in the catalog
+          to show for it. Check the rendered menu, not the catalog, when adding
+          one. Same for the join-operator select above. */}
       <SelectTrigger
         aria-controls={operatorListboxId}
         size="sm"
         className="w-32 rounded lowercase"
       >
         <div className="truncate">
-          <SelectValue placeholder={filter.operator}>
-            {(v) =>
-              filterOperators.find(op => op.value === v)?.label ?? String(v)
-            }
+          <SelectValue placeholder={operatorLabel(filter.operator)}>
+            {(v) => operatorLabel(v)}
           </SelectValue>
         </div>
       </SelectTrigger>
@@ -1764,7 +1836,7 @@ function FilterOperatorSelector<TData>({
             value={operator.value}
             className="lowercase"
           >
-            {operator.label}
+            {t(operator.label)}
           </SelectItem>
         ))}
       </SelectContent>

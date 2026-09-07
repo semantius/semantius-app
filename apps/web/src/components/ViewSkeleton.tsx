@@ -1,4 +1,5 @@
 import { Skeleton } from '@/components/ui/skeleton'
+import { useT } from '@/i18n'
 import type { EntityMetadata } from '@/types/metadata'
 
 /**
@@ -14,6 +15,7 @@ import type { EntityMetadata } from '@/types/metadata'
  * from the entity, so the crossfade only has to replace the rows.
  */
 export function ViewSkeleton({ metadata }: { metadata?: EntityMetadata }) {
+  const t = useT()
   const columns = skeletonColumns(metadata)
 
   return (
@@ -33,7 +35,7 @@ export function ViewSkeleton({ metadata }: { metadata?: EntityMetadata }) {
           {metadata ? (
             /* Same classes as the real heading in views/View.tsx. */
             <h1 className="text-3xl font-bold tracking-tight">
-              {metadata.table?.plural_label || 'Records'}
+              {metadata.table?.plural_label || t('Records')}
             </h1>
           ) : (
             /* h-9 wrapper = the text-3xl line box, so the block occupies the
@@ -45,7 +47,7 @@ export function ViewSkeleton({ metadata }: { metadata?: EntityMetadata }) {
           )}
           {metadata ? (
             <p className="text-muted-foreground">
-              {metadata.table?.description || 'Manage records'}
+              {metadata.table?.description || t('Manage records')}
             </p>
           ) : (
             <div className="flex h-6 items-center">

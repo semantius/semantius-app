@@ -4,6 +4,7 @@ import { type EntityMetadata, type TableMetadata } from '@/types/metadata'
 import { cn } from '@/lib/utils'
 import { formatNumberForDisplay, resolvePrecision } from '@/lib/number-format'
 import { formatDateForDisplay, isDateFormat } from '@/lib/date-format'
+import { useFormattingLocale, useT, type TranslateFn } from '@/i18n'
 import { useTable } from '@/hooks/useTable'
 import { useUpdateRecord } from '@/hooks/useTableMutations'
 import { useConfirmDelete } from '@/hooks/useConfirmDelete'
@@ -63,13 +64,14 @@ type RecordType = Record<string, unknown>
 // listeners — no second useSortable here. Rendered as a <button> so the row's
 // click handler ignores grabs (it skips clicks inside buttons).
 function RowDragHandle() {
+  const t = useT()
   const ctx = useContext(RowDragContext)
   if (!ctx) return null
   return (
     <button
       ref={ctx.setActivatorNodeRef}
       type="button"
-      aria-label="Drag to reorder"
+      aria-label={t('Drag to reorder')}
       className={cn(
         'flex items-center justify-center text-muted-foreground hover:text-foreground',
         'cursor-grab touch-none rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring',
@@ -336,6 +338,11 @@ export function DataTableView({
   if (!tableMetadata.table_name) throw new Error('DataTableView requires metadata.table.table_name to be defined')
   if (!tableMetadata.id_column) throw new Error('DataTableView requires metadata.table.id_column to be defined')
   if (!tableMetadata.label_column) throw new Error('DataTableView requires metadata.table.label_column to be defined')
+
+  const t = useT()
+  // The FORMATTING locale drives every Intl call; the catalog language never
+  // does. They are separate preferences (see src/i18n).
+  const formattingLocale = useFormattingLocale()
 
   const tableName = tableMetadata.table_name
   const primaryKeyColumn = tableMetadata.id_column
@@ -799,14 +806,18 @@ export function DataTableView({
           }
 
           if (property.type === 'boolean') {
-            return <Badge variant={value ? 'default' : 'secondary'}>{value ? 'Yes' : 'No'}</Badge>
+            return <Badge variant={value ? 'default' : 'secondary'}>{value ? t('Yes') : t('No')}</Badge>
           }
 
           if (property.enum && Array.isArray(property.enum)) {
-            const sv = String(value || 'unknown')
+            // The enum value exactly as the model spells it — it is data, and
+            // the variant below keeps comparing the RAW value. Only the "no
+            // value at all" case is a word of ours, so only that one is a
+            // message.
+            const sv = String(value || '')
             return (
               <Badge variant={sv === 'active' ? 'default' : sv === 'inactive' ? 'secondary' : 'outline'}>
-                {sv}
+                {sv || t('Unknown')}
               </Badge>
             )
           }
@@ -817,13 +828,16 @@ export function DataTableView({
             // grouping for the primary-key id column — a grouped id like "1,002" reads wrong.
             return (
               <div className="text-right tabular-nums">
-                {formatNumberForDisplay(value, precision, { grouping: key !== primaryKeyColumn })}
+                {formatNumberForDisplay(value, precision, {
+                  locale: formattingLocale,
+                  grouping: key !== primaryKeyColumn,
+                })}
               </div>
             )
           }
 
           if (isDateFormat(property.format)) {
-            const text = formatDateForDisplay(value, property.format) || '-'
+            const text = formatDateForDisplay(value, property.format, { locale: formattingLocale }) || '-'
             return <div className={truncateClasses} style={truncateStyle} title={showTitle ? text : undefined}>{text}</div>
           }
 
@@ -876,13 +890,13 @@ export function DataTableView({
                 />
               }
             >
-              <span className="sr-only">Open menu</span>
+              <span className="sr-only">{t('Open menu')}</span>
               <MoreHorizontal className="h-4 w-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48" sideOffset={5}>
               <DropdownMenuGroup>
                 <DropdownMenuLabel>
-                  Actions
+                  {t('Actions')}
                   {showRecordIdentifier && displayValue != null && String(displayValue) !== '' && (
                     <div className="text-xs font-medium text-foreground mt-0.5 truncate">
                       {String(displayValue)}
@@ -896,12 +910,12 @@ export function DataTableView({
                   {effectiveCanEdit ? (
                     <>
                       <Pencil className="mr-2 h-4 w-4" />
-                      Edit
+                      {t('Edit')}
                     </>
                   ) : (
                     <>
                       <Eye className="mr-2 h-4 w-4" />
-                      View
+                      {t('View')}
                     </>
                   )}
                 </DropdownMenuItem>
@@ -934,16 +948,16 @@ export function DataTableView({
                       recordId as string | number,
                       displayValue != null && String(displayValue) !== ''
                         ? String(displayValue)
-                        : 'this record'
+                        : t('this record')
                     )
                   }}
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
-                  Delete
+                  {t('Delete')}
                 </DropdownMenuItem>
               )}
               {!hasOpenHandler && !effectiveCanEdit && extraItems.length === 0 && (
-                <div className="px-2 py-1.5 text-sm text-muted-foreground">No actions available</div>
+                <div className="px-2 py-1.5 text-sm text-muted-foreground">{t('No actions available')}</div>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -969,7 +983,11 @@ export function DataTableView({
     }
 
     return cols
-  }, [metadata, excludeColumns, effectiveCanEdit, onEdit, editRoute, onEditModal, deleteConfirm, primaryKeyColumn, displayColumn, leftPinnedKeys, dndEnabled, getRowMenuItems, getRowHref, rowHrefPreservesSearch])
+    // `t` and `formattingLocale` are dependencies for the same reason: both
+    // change identity on a language or format switch, and the cells built here
+    // are captured in a memo that would otherwise keep rendering the previous
+    // language's "Yes"/"No" and the previous locale's numbers and dates.
+  }, [metadata, excludeColumns, effectiveCanEdit, onEdit, editRoute, onEditModal, deleteConfirm, primaryKeyColumn, displayColumn, leftPinnedKeys, dndEnabled, getRowMenuItems, getRowHref, rowHrefPreservesSearch, t, formattingLocale])
 
   // Sticky pinning state: the label column (+ anything left of it, when in
   // position 1 or 2) on the left, and the row-actions column on the right.
@@ -1006,7 +1024,7 @@ export function DataTableView({
     return (
       <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
         {_emptyIcon || <div className="h-12 w-12 mb-2" />}
-        <p>{emptyMessage || 'No records found'}</p>
+        <p>{emptyMessage || t('No records found')}</p>
       </div>
     )
   }
@@ -1055,7 +1073,14 @@ export function DataTableView({
             <div className="flex flex-1 gap-2">
               {tableMetadata.searchable && (
                 <DataTableSearchFilter
-                  placeholder={`Search ${tableMetadata.plural_label || 'records'}...`}
+                  // The model's plural label EXACTLY as the model spells it —
+                  // never lowercased, which is what this did and which German
+                  // (where every noun is capitalized) would have rendered wrong.
+                  placeholder={
+                    tableMetadata.plural_label
+                      ? t('Search {entity}...', { entity: tableMetadata.plural_label })
+                      : t('Search records...')
+                  }
                   value={searchText}
                   onChange={handleSearchChange}
                   className="max-w-[400px]"
@@ -1105,7 +1130,7 @@ export function DataTableView({
 
       <ConfirmDeleteDialog
         {...deleteConfirm}
-        entityType={metadata.table?.singular_label || metadata.title || 'Record'}
+        entityType={metadata.table?.singular_label || metadata.title || t('Record')}
       />
     </>
   )

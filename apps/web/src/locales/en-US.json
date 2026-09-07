@@ -15,6 +15,57 @@
       ],
       "placeholders": []
     },
+    "Actions": {
+      "message": "Actions",
+      "origin": [
+        "src/components/data-table-view/DataTableView.tsx"
+      ],
+      "placeholders": []
+    },
+    "Add a new filter": {
+      "message": "Add a new filter",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "Add filter": {
+      "message": "Add filter",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "Add filters to refine your rows.": {
+      "message": "Add filters to refine your rows.",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "Add sort": {
+      "message": "Add sort",
+      "origin": [
+        "src/components/niko-table/filters/table-sort-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "Add sorting to organize your rows.": {
+      "message": "Add sorting to organize your rows.",
+      "origin": [
+        "src/components/niko-table/filters/table-sort-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "Add {label}": {
+      "message": "Add {label}",
+      "origin": [
+        "src/components/views/View.tsx"
+      ],
+      "placeholders": [
+        "label"
+      ]
+    },
     "An unexpected error occurred while loading the application.": {
       "message": "An unexpected error occurred while loading the application.",
       "origin": [
@@ -26,6 +77,13 @@
       "message": "An unexpected error occurred. Please try again or contact support if the problem persists.",
       "origin": [
         "src/components/ErrorBoundary.tsx"
+      ],
+      "placeholders": []
+    },
+    "An unexpected error occurred. Please try again.": {
+      "message": "An unexpected error occurred. Please try again.",
+      "origin": [
+        "src/lib/apiErrors.ts"
       ],
       "placeholders": []
     },
@@ -41,6 +99,22 @@
       "origin": [
         "src/components/layout/CommandPalette.tsx",
         "src/components/layout/NavApps.tsx"
+      ],
+      "placeholders": []
+    },
+    "Are you sure you want to delete <bold>{name}</bold>? This action cannot be undone.": {
+      "message": "Are you sure you want to delete <bold>{name}</bold>? This action cannot be undone.",
+      "origin": [
+        "src/components/ConfirmDeleteDialog.tsx"
+      ],
+      "placeholders": [
+        "name"
+      ]
+    },
+    "Ascending": {
+      "message": "Ascending",
+      "origin": [
+        "src/components/niko-table/config/data-table.ts"
       ],
       "placeholders": []
     },
@@ -84,6 +158,85 @@
       ],
       "placeholders": []
     },
+    "Cancel": {
+      "message": "Cancel",
+      "origin": [
+        "src/components/ConfirmDeleteDialog.tsx"
+      ],
+      "placeholders": []
+    },
+    "Choose date from calendar": {
+      "message": "Choose date from calendar",
+      "origin": [
+        "src/components/ui-ext/date-picker.tsx"
+      ],
+      "placeholders": []
+    },
+    "Choose the month": {
+      "message": "Choose the month",
+      "origin": [
+        "src/components/ui-ext/localized-calendar.tsx"
+      ],
+      "placeholders": []
+    },
+    "Choose the year": {
+      "message": "Choose the year",
+      "origin": [
+        "src/components/ui-ext/localized-calendar.tsx"
+      ],
+      "placeholders": []
+    },
+    "Choose {field} from calendar": {
+      "message": "Choose {field} from calendar",
+      "origin": [
+        "src/components/ui-ext/date-picker.tsx"
+      ],
+      "placeholders": [
+        "field"
+      ]
+    },
+    "Clear all filters": {
+      "message": "Clear all filters",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "Clear search": {
+      "message": "Clear search",
+      "origin": [
+        "src/components/niko-table/filters/table-search-filter.tsx"
+      ],
+      "placeholders": []
+    },
+    "Clear sort": {
+      "message": "Clear sort",
+      "origin": [
+        "src/components/niko-table/filters/table-column-sort.tsx"
+      ],
+      "placeholders": []
+    },
+    "Close toast": {
+      "message": "Close toast",
+      "origin": [
+        "src/components/AppToaster.tsx"
+      ],
+      "placeholders": []
+    },
+    "Column actions": {
+      "message": "Column actions",
+      "origin": [
+        "src/components/niko-table/filters/table-column-actions.tsx"
+      ],
+      "placeholders": []
+    },
+    "Column sort": {
+      "message": "Column sort",
+      "origin": [
+        "src/components/niko-table/filters/table-column-sort.tsx"
+      ],
+      "placeholders": []
+    },
     "Completing sign-in": {
       "message": "Completing sign-in",
       "origin": [
@@ -95,6 +248,13 @@
       "message": "Configuration Error",
       "origin": [
         "src/main.tsx"
+      ],
+      "placeholders": []
+    },
+    "Contains": {
+      "message": "Contains",
+      "origin": [
+        "src/components/niko-table/config/data-table.ts"
       ],
       "placeholders": []
     },
@@ -123,10 +283,69 @@
         "language"
       ]
     },
+    "Delete": {
+      "message": "Delete",
+      "origin": [
+        "src/components/ConfirmDeleteDialog.tsx",
+        "src/components/data-table-view/DataTableView.tsx"
+      ],
+      "placeholders": []
+    },
+    "Delete {type}": {
+      "message": "Delete {type}",
+      "origin": [
+        "src/components/ConfirmDeleteDialog.tsx"
+      ],
+      "placeholders": [
+        "type"
+      ]
+    },
+    "Deleting...": {
+      "message": "Deleting...",
+      "origin": [
+        "src/components/ConfirmDeleteDialog.tsx"
+      ],
+      "placeholders": []
+    },
+    "Descending": {
+      "message": "Descending",
+      "origin": [
+        "src/components/niko-table/config/data-table.ts"
+      ],
+      "placeholders": []
+    },
     "Documents": {
       "message": "Documents",
       "origin": [
         "src/routes/_app.documents.tsx"
+      ],
+      "placeholders": []
+    },
+    "Does not contain": {
+      "message": "Does not contain",
+      "origin": [
+        "src/components/niko-table/config/data-table.ts"
+      ],
+      "placeholders": []
+    },
+    "Drag to reorder": {
+      "message": "Drag to reorder",
+      "origin": [
+        "src/components/data-table-view/DataTableView.tsx"
+      ],
+      "placeholders": []
+    },
+    "Drag to reorder filters": {
+      "message": "Drag to reorder filters",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "Edit": {
+      "message": "Edit",
+      "origin": [
+        "src/components/data-table-view/DataTableView.tsx"
       ],
       "placeholders": []
     },
@@ -139,10 +358,24 @@
         "id"
       ]
     },
+    "Enter a value...": {
+      "message": "Enter a value...",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": []
+    },
     "Error Details:": {
       "message": "Error Details:",
       "origin": [
         "src/components/ErrorPage.tsx"
+      ],
+      "placeholders": []
+    },
+    "Error creating record": {
+      "message": "Error creating record",
+      "origin": [
+        "src/components/data-table-view/DataFormPage.tsx"
       ],
       "placeholders": []
     },
@@ -153,6 +386,34 @@
       ],
       "placeholders": []
     },
+    "Error loading record": {
+      "message": "Error loading record",
+      "origin": [
+        "src/components/data-table-view/DataFormPage.tsx"
+      ],
+      "placeholders": []
+    },
+    "Error updating record": {
+      "message": "Error updating record",
+      "origin": [
+        "src/components/data-table-view/DataFormPage.tsx"
+      ],
+      "placeholders": []
+    },
+    "False": {
+      "message": "False",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "False first": {
+      "message": "False first",
+      "origin": [
+        "src/components/niko-table/config/data-table.ts"
+      ],
+      "placeholders": []
+    },
     "Favorites": {
       "message": "Favorites",
       "origin": [
@@ -160,10 +421,91 @@
       ],
       "placeholders": []
     },
+    "Filter": {
+      "message": "Filter",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "Filters": {
+      "message": "Filters",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": []
+    },
     "Form playground": {
       "message": "Form playground",
       "origin": [
         "src/routes/form-playground.tsx"
+      ],
+      "placeholders": []
+    },
+    "Go to next page": {
+      "message": "Go to next page",
+      "origin": [
+        "src/components/niko-table/filters/table-pagination.tsx"
+      ],
+      "placeholders": []
+    },
+    "Go to next page, page {page}": {
+      "message": "Go to next page, page {page}",
+      "origin": [
+        "src/components/niko-table/filters/table-pagination.tsx"
+      ],
+      "placeholders": [
+        "page"
+      ]
+    },
+    "Go to previous page": {
+      "message": "Go to previous page",
+      "origin": [
+        "src/components/niko-table/filters/table-pagination.tsx"
+      ],
+      "placeholders": []
+    },
+    "Go to previous page, page {page}": {
+      "message": "Go to previous page, page {page}",
+      "origin": [
+        "src/components/niko-table/filters/table-pagination.tsx"
+      ],
+      "placeholders": [
+        "page"
+      ]
+    },
+    "Go to the next month": {
+      "message": "Go to the next month",
+      "origin": [
+        "src/components/ui-ext/localized-calendar.tsx"
+      ],
+      "placeholders": []
+    },
+    "Go to the previous month": {
+      "message": "Go to the previous month",
+      "origin": [
+        "src/components/ui-ext/localized-calendar.tsx"
+      ],
+      "placeholders": []
+    },
+    "Has any of": {
+      "message": "Has any of",
+      "origin": [
+        "src/components/niko-table/config/data-table.ts"
+      ],
+      "placeholders": []
+    },
+    "Has none of": {
+      "message": "Has none of",
+      "origin": [
+        "src/components/niko-table/config/data-table.ts"
+      ],
+      "placeholders": []
+    },
+    "High to low": {
+      "message": "High to low",
+      "origin": [
+        "src/components/niko-table/config/data-table.ts"
       ],
       "placeholders": []
     },
@@ -178,6 +520,111 @@
       "message": "If you didn't intend to log out, click \"Sign In Again\" to return to the application.",
       "origin": [
         "src/components/LogoutConfirmationPage.tsx"
+      ],
+      "placeholders": []
+    },
+    "Is": {
+      "message": "Is",
+      "origin": [
+        "src/components/niko-table/config/data-table.ts"
+      ],
+      "placeholders": []
+    },
+    "Is after": {
+      "message": "Is after",
+      "origin": [
+        "src/components/niko-table/config/data-table.ts"
+      ],
+      "placeholders": []
+    },
+    "Is before": {
+      "message": "Is before",
+      "origin": [
+        "src/components/niko-table/config/data-table.ts"
+      ],
+      "placeholders": []
+    },
+    "Is between": {
+      "message": "Is between",
+      "origin": [
+        "src/components/niko-table/config/data-table.ts"
+      ],
+      "placeholders": []
+    },
+    "Is empty": {
+      "message": "Is empty",
+      "origin": [
+        "src/components/niko-table/config/data-table.ts"
+      ],
+      "placeholders": []
+    },
+    "Is greater than": {
+      "message": "Is greater than",
+      "origin": [
+        "src/components/niko-table/config/data-table.ts"
+      ],
+      "placeholders": []
+    },
+    "Is greater than or equal to": {
+      "message": "Is greater than or equal to",
+      "origin": [
+        "src/components/niko-table/config/data-table.ts"
+      ],
+      "placeholders": []
+    },
+    "Is less than": {
+      "message": "Is less than",
+      "origin": [
+        "src/components/niko-table/config/data-table.ts"
+      ],
+      "placeholders": []
+    },
+    "Is less than or equal to": {
+      "message": "Is less than or equal to",
+      "origin": [
+        "src/components/niko-table/config/data-table.ts"
+      ],
+      "placeholders": []
+    },
+    "Is not": {
+      "message": "Is not",
+      "origin": [
+        "src/components/niko-table/config/data-table.ts"
+      ],
+      "placeholders": []
+    },
+    "Is not empty": {
+      "message": "Is not empty",
+      "origin": [
+        "src/components/niko-table/config/data-table.ts"
+      ],
+      "placeholders": []
+    },
+    "Is on or after": {
+      "message": "Is on or after",
+      "origin": [
+        "src/components/niko-table/config/data-table.ts"
+      ],
+      "placeholders": []
+    },
+    "Is on or before": {
+      "message": "Is on or before",
+      "origin": [
+        "src/components/niko-table/config/data-table.ts"
+      ],
+      "placeholders": []
+    },
+    "Is relative to today": {
+      "message": "Is relative to today",
+      "origin": [
+        "src/components/niko-table/config/data-table.ts"
+      ],
+      "placeholders": []
+    },
+    "Items per page": {
+      "message": "Items per page",
+      "origin": [
+        "src/components/niko-table/filters/table-pagination.tsx"
       ],
       "placeholders": []
     },
@@ -209,6 +656,13 @@
       ],
       "placeholders": []
     },
+    "Low to high": {
+      "message": "Low to high",
+      "origin": [
+        "src/components/niko-table/config/data-table.ts"
+      ],
+      "placeholders": []
+    },
     "Main content": {
       "message": "Main content",
       "origin": [
@@ -220,6 +674,28 @@
       "message": "Manage Favorites",
       "origin": [
         "src/components/layout/NavUser.tsx"
+      ],
+      "placeholders": []
+    },
+    "Manage records": {
+      "message": "Manage records",
+      "origin": [
+        "src/components/ViewSkeleton.tsx",
+        "src/components/views/View.tsx"
+      ],
+      "placeholders": []
+    },
+    "Modify filters to refine your rows.": {
+      "message": "Modify filters to refine your rows.",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "Modify sorting to organize your rows.": {
+      "message": "Modify sorting to organize your rows.",
+      "origin": [
+        "src/components/niko-table/filters/table-sort-menu.tsx"
       ],
       "placeholders": []
     },
@@ -238,10 +714,47 @@
       ],
       "placeholders": []
     },
+    "Never": {
+      "message": "Never",
+      "origin": [
+        "src/components/settings/ApiKeysCard.tsx"
+      ],
+      "placeholders": []
+    },
     "New customer": {
       "message": "New customer",
       "origin": [
         "src/routes/_app.xcustomers.new.tsx"
+      ],
+      "placeholders": []
+    },
+    "New {label}": {
+      "message": "New {label}",
+      "origin": [
+        "src/components/views/View.tsx"
+      ],
+      "placeholders": [
+        "label"
+      ]
+    },
+    "Newest first": {
+      "message": "Newest first",
+      "origin": [
+        "src/components/niko-table/config/data-table.ts"
+      ],
+      "placeholders": []
+    },
+    "No": {
+      "message": "No",
+      "origin": [
+        "src/components/data-table-view/DataTableView.tsx"
+      ],
+      "placeholders": []
+    },
+    "No actions available": {
+      "message": "No actions available",
+      "origin": [
+        "src/components/data-table-view/DataTableView.tsx"
       ],
       "placeholders": []
     },
@@ -252,10 +765,77 @@
       ],
       "placeholders": []
     },
+    "No columns found.": {
+      "message": "No columns found.",
+      "origin": [
+        "src/components/niko-table/filters/table-view-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "No fields found.": {
+      "message": "No fields found.",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx",
+        "src/components/niko-table/filters/table-sort-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "No filters applied": {
+      "message": "No filters applied",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "No items": {
+      "message": "No items",
+      "origin": [
+        "src/components/niko-table/filters/table-pagination.tsx"
+      ],
+      "placeholders": []
+    },
+    "No options found.": {
+      "message": "No options found.",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "No records found": {
+      "message": "No records found",
+      "origin": [
+        "src/components/data-table-view/DataTableView.tsx",
+        "src/components/views/View.tsx"
+      ],
+      "placeholders": []
+    },
     "No results found.": {
       "message": "No results found.",
       "origin": [
         "src/components/layout/CommandPalette.tsx"
+      ],
+      "placeholders": []
+    },
+    "No sorting applied": {
+      "message": "No sorting applied",
+      "origin": [
+        "src/components/niko-table/filters/table-sort-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "No {entity} found": {
+      "message": "No {entity} found",
+      "origin": [
+        "src/components/views/View.tsx"
+      ],
+      "placeholders": [
+        "entity"
+      ]
+    },
+    "Notifications": {
+      "message": "Notifications",
+      "origin": [
+        "src/components/AppToaster.tsx"
       ],
       "placeholders": []
     },
@@ -266,10 +846,56 @@
       ],
       "placeholders": []
     },
+    "Oldest first": {
+      "message": "Oldest first",
+      "origin": [
+        "src/components/niko-table/config/data-table.ts"
+      ],
+      "placeholders": []
+    },
     "Oops! Something went wrong": {
       "message": "Oops! Something went wrong",
       "origin": [
         "src/components/ErrorPage.tsx"
+      ],
+      "placeholders": []
+    },
+    "Open filter menu (F)": {
+      "message": "Open filter menu (F)",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "Open menu": {
+      "message": "Open menu",
+      "origin": [
+        "src/components/data-table-view/DataTableView.tsx"
+      ],
+      "placeholders": []
+    },
+    "Page number": {
+      "message": "Page number",
+      "origin": [
+        "src/components/niko-table/filters/table-pagination.tsx"
+      ],
+      "placeholders": []
+    },
+    "Page {page} of {total}": {
+      "message": "Page {page} of {total}",
+      "origin": [
+        "src/components/niko-table/filters/table-pagination.tsx"
+      ],
+      "placeholders": [
+        "page",
+        "total"
+      ]
+    },
+    "Pick a date": {
+      "message": "Pick a date",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx",
+        "src/components/ui-ext/date-picker.tsx"
       ],
       "placeholders": []
     },
@@ -291,6 +917,44 @@
       "message": "Quick navigation",
       "origin": [
         "src/components/layout/ModuleSwitcher.tsx"
+      ],
+      "placeholders": []
+    },
+    "Record": {
+      "message": "Record",
+      "origin": [
+        "src/components/data-table-view/DataFormPage.tsx",
+        "src/components/data-table-view/DataTableView.tsx",
+        "src/components/views/View.tsx"
+      ],
+      "placeholders": []
+    },
+    "Records": {
+      "message": "Records",
+      "origin": [
+        "src/components/ViewSkeleton.tsx",
+        "src/components/views/View.tsx"
+      ],
+      "placeholders": []
+    },
+    "Remove filter": {
+      "message": "Remove filter",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "Reset filters": {
+      "message": "Reset filters",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "Reset sorting": {
+      "message": "Reset sorting",
+      "origin": [
+        "src/components/niko-table/filters/table-sort-menu.tsx"
       ],
       "placeholders": []
     },
@@ -317,6 +981,67 @@
       ],
       "placeholders": []
     },
+    "Search columns...": {
+      "message": "Search columns...",
+      "origin": [
+        "src/components/niko-table/filters/table-view-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "Search fields...": {
+      "message": "Search fields...",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx",
+        "src/components/niko-table/filters/table-sort-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "Search options...": {
+      "message": "Search options...",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "Search records...": {
+      "message": "Search records...",
+      "origin": [
+        "src/components/data-table-view/DataTableView.tsx"
+      ],
+      "placeholders": []
+    },
+    "Search table": {
+      "message": "Search table",
+      "origin": [
+        "src/components/niko-table/filters/table-search-filter.tsx"
+      ],
+      "placeholders": []
+    },
+    "Search {entity}...": {
+      "message": "Search {entity}...",
+      "origin": [
+        "src/components/data-table-view/DataTableView.tsx"
+      ],
+      "placeholders": [
+        "entity"
+      ]
+    },
+    "Search {field} options": {
+      "message": "Search {field} options",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": [
+        "field"
+      ]
+    },
+    "Search...": {
+      "message": "Search...",
+      "origin": [
+        "src/components/niko-table/filters/table-search-filter.tsx"
+      ],
+      "placeholders": []
+    },
     "Select a module to get started": {
       "message": "Select a module to get started",
       "origin": [
@@ -330,6 +1055,113 @@
         "src/components/layout/NavApps.tsx"
       ],
       "placeholders": []
+    },
+    "Select an option": {
+      "message": "Select an option",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "Select an option...": {
+      "message": "Select an option...",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "Select date": {
+      "message": "Select date",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx",
+        "src/components/ui-ext/date-time-picker.tsx"
+      ],
+      "placeholders": []
+    },
+    "Select date range": {
+      "message": "Select date range",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "Select field": {
+      "message": "Select field",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "Select field to filter": {
+      "message": "Select field to filter",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "Select join operator": {
+      "message": "Select join operator",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "Select options": {
+      "message": "Select options",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "Select options...": {
+      "message": "Select options...",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "Select page size": {
+      "message": "Select page size",
+      "origin": [
+        "src/components/niko-table/filters/table-pagination.tsx"
+      ],
+      "placeholders": []
+    },
+    "Select {field}": {
+      "message": "Select {field}",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": [
+        "field"
+      ]
+    },
+    "Select {field} date": {
+      "message": "Select {field} date",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": [
+        "field"
+      ]
+    },
+    "Select {field} date range": {
+      "message": "Select {field} date range",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": [
+        "field"
+      ]
+    },
+    "Select {field} range": {
+      "message": "Select {field} range",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": [
+        "field"
+      ]
     },
     "Settings": {
       "message": "Settings",
@@ -388,10 +1220,45 @@
       ],
       "placeholders": []
     },
+    "Sort": {
+      "message": "Sort",
+      "origin": [
+        "src/components/niko-table/filters/table-sort-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "Sort by": {
+      "message": "Sort by",
+      "origin": [
+        "src/components/niko-table/filters/table-sort-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "Sort column": {
+      "message": "Sort column",
+      "origin": [
+        "src/components/niko-table/filters/table-column-sort.tsx"
+      ],
+      "placeholders": []
+    },
+    "Sort priority (order in which columns are sorted)": {
+      "message": "Sort priority (order in which columns are sorted)",
+      "origin": [
+        "src/components/niko-table/filters/table-column-sort.tsx"
+      ],
+      "placeholders": []
+    },
     "Successfully Logged Out": {
       "message": "Successfully Logged Out",
       "origin": [
         "src/components/LogoutConfirmationPage.tsx"
+      ],
+      "placeholders": []
+    },
+    "Table pagination": {
+      "message": "Table pagination",
+      "origin": [
+        "src/components/niko-table/filters/table-pagination.tsx"
       ],
       "placeholders": []
     },
@@ -406,6 +1273,13 @@
       "message": "The application could not load its configuration.",
       "origin": [
         "src/main.tsx"
+      ],
+      "placeholders": []
+    },
+    "The order of fields determines sort priority": {
+      "message": "The order of fields determines sort priority",
+      "origin": [
+        "src/components/niko-table/filters/table-sort-menu.tsx"
       ],
       "placeholders": []
     },
@@ -432,6 +1306,59 @@
       ],
       "placeholders": []
     },
+    "This entity has no id column in its schema, so the form cannot be shown.": {
+      "message": "This entity has no id column in its schema, so the form cannot be shown.",
+      "origin": [
+        "src/components/data-table-view/DataFormPage.tsx"
+      ],
+      "placeholders": []
+    },
+    "This entity has no table name in its schema, so the form cannot be shown.": {
+      "message": "This entity has no table name in its schema, so the form cannot be shown.",
+      "origin": [
+        "src/components/data-table-view/DataFormPage.tsx"
+      ],
+      "placeholders": []
+    },
+    "Time": {
+      "message": "Time",
+      "origin": [
+        "src/components/ui-ext/date-time-picker.tsx"
+      ],
+      "placeholders": []
+    },
+    "Tip: hold the Shift key to sort by more than one column": {
+      "message": "Tip: hold the Shift key to sort by more than one column",
+      "origin": [
+        "src/components/niko-table/filters/table-column-sort.tsx"
+      ],
+      "placeholders": []
+    },
+    "Today, {day}": {
+      "message": "Today, {day}",
+      "origin": [
+        "src/components/ui-ext/localized-calendar.tsx"
+      ],
+      "placeholders": [
+        "day"
+      ]
+    },
+    "Today, {day}, selected": {
+      "message": "Today, {day}, selected",
+      "origin": [
+        "src/components/ui-ext/localized-calendar.tsx"
+      ],
+      "placeholders": [
+        "day"
+      ]
+    },
+    "Toggle columns": {
+      "message": "Toggle columns",
+      "origin": [
+        "src/components/niko-table/filters/table-view-menu.tsx"
+      ],
+      "placeholders": []
+    },
     "Toggle theme ({theme, select, dark {Dark} light {Light} other {System}})": {
       "message": "Toggle theme ({theme, select, dark {Dark} light {Light} other {System}})",
       "origin": [
@@ -441,11 +1368,32 @@
         "theme"
       ]
     },
+    "True": {
+      "message": "True",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "True first": {
+      "message": "True first",
+      "origin": [
+        "src/components/niko-table/config/data-table.ts"
+      ],
+      "placeholders": []
+    },
     "Try Again": {
       "message": "Try Again",
       "origin": [
         "src/components/AuthFailure.tsx",
         "src/components/ErrorPage.tsx"
+      ],
+      "placeholders": []
+    },
+    "Unknown": {
+      "message": "Unknown",
+      "origin": [
+        "src/components/data-table-view/DataTableView.tsx"
       ],
       "placeholders": []
     },
@@ -463,6 +1411,21 @@
       ],
       "placeholders": []
     },
+    "View": {
+      "message": "View",
+      "origin": [
+        "src/components/data-table-view/DataTableView.tsx"
+      ],
+      "placeholders": []
+    },
+    "View\u0004column visibility": {
+      "message": "View",
+      "context": "column visibility",
+      "origin": [
+        "src/components/niko-table/filters/table-view-menu.tsx"
+      ],
+      "placeholders": []
+    },
     "We encountered an unexpected error. Please try again.": {
       "message": "We encountered an unexpected error. Please try again.",
       "origin": [
@@ -474,6 +1437,20 @@
       "message": "We hope to see you again soon!",
       "origin": [
         "src/components/LogoutConfirmationPage.tsx"
+      ],
+      "placeholders": []
+    },
+    "Where": {
+      "message": "Where",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "Yes": {
+      "message": "Yes",
+      "origin": [
+        "src/components/data-table-view/DataTableView.tsx"
       ],
       "placeholders": []
     },
@@ -504,6 +1481,228 @@
         "src/routes/_app.index.tsx"
       ],
       "placeholders": []
+    },
+    "and": {
+      "message": "and",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "item": {
+      "message": "item",
+      "origin": [
+        "src/components/ConfirmDeleteDialog.tsx"
+      ],
+      "placeholders": []
+    },
+    "of {count, plural, one {# page} other {# pages}}": {
+      "message": "of {count, plural, one {# page} other {# pages}}",
+      "origin": [
+        "src/components/niko-table/filters/table-pagination.tsx"
+      ],
+      "placeholders": [
+        "count"
+      ]
+    },
+    "or": {
+      "message": "or",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": []
+    },
+    "this record": {
+      "message": "this record",
+      "origin": [
+        "src/components/data-table-view/DataTableView.tsx"
+      ],
+      "placeholders": []
+    },
+    "to": {
+      "message": "to",
+      "origin": [
+        "src/components/niko-table/filters/table-range-filter.tsx"
+      ],
+      "placeholders": []
+    },
+    "{count} selected": {
+      "message": "{count} selected",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": [
+        "count"
+      ]
+    },
+    "{day}, selected": {
+      "message": "{day}, selected",
+      "origin": [
+        "src/components/ui-ext/localized-calendar.tsx"
+      ],
+      "placeholders": [
+        "day"
+      ]
+    },
+    "{field} boolean filter": {
+      "message": "{field} boolean filter",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": [
+        "field"
+      ]
+    },
+    "{field} date filter": {
+      "message": "{field} date filter",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": [
+        "field"
+      ]
+    },
+    "{field} filter is empty": {
+      "message": "{field} filter is empty",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": [
+        "field"
+      ]
+    },
+    "{field} filter is not empty": {
+      "message": "{field} filter is not empty",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": [
+        "field"
+      ]
+    },
+    "{field} filter value": {
+      "message": "{field} filter value",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": [
+        "field"
+      ]
+    },
+    "{field} filter values": {
+      "message": "{field} filter values",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": [
+        "field"
+      ]
+    },
+    "{field} maximum value": {
+      "message": "{field} maximum value",
+      "origin": [
+        "src/components/niko-table/filters/table-range-filter.tsx"
+      ],
+      "placeholders": [
+        "field"
+      ]
+    },
+    "{field} minimum value": {
+      "message": "{field} minimum value",
+      "origin": [
+        "src/components/niko-table/filters/table-range-filter.tsx"
+      ],
+      "placeholders": [
+        "field"
+      ]
+    },
+    "{field} time": {
+      "message": "{field} time",
+      "origin": [
+        "src/components/ui-ext/date-time-picker.tsx"
+      ],
+      "placeholders": [
+        "field"
+      ]
+    },
+    "{from} - {to}": {
+      "message": "{from} - {to}",
+      "origin": [
+        "src/components/niko-table/filters/table-filter-menu.tsx"
+      ],
+      "placeholders": [
+        "from",
+        "to"
+      ]
+    },
+    "{label} created": {
+      "message": "{label} created",
+      "origin": [
+        "src/components/data-table-view/DataFormPage.tsx"
+      ],
+      "placeholders": [
+        "label"
+      ]
+    },
+    "{label} is still used by records in {table} and cannot be deleted.": {
+      "message": "{label} is still used by records in {table} and cannot be deleted.",
+      "origin": [
+        "src/lib/apiErrors.ts"
+      ],
+      "placeholders": [
+        "label",
+        "table"
+      ]
+    },
+    "{label} {key}": {
+      "message": "{label} {key}",
+      "origin": [
+        "src/components/views/View.tsx"
+      ],
+      "placeholders": [
+        "key",
+        "label"
+      ]
+    },
+    "{label} {name} created": {
+      "message": "{label} {name} created",
+      "origin": [
+        "src/components/data-table-view/DataFormPage.tsx"
+      ],
+      "placeholders": [
+        "label",
+        "name"
+      ]
+    },
+    "{label} {name} deleted": {
+      "message": "{label} {name} deleted",
+      "origin": [
+        "src/hooks/useConfirmDelete.ts"
+      ],
+      "placeholders": [
+        "label",
+        "name"
+      ]
+    },
+    "{name} deleted": {
+      "message": "{name} deleted",
+      "origin": [
+        "src/hooks/useConfirmDelete.ts"
+      ],
+      "placeholders": [
+        "name"
+      ]
+    },
+    "{start}-{end} of {total, plural, one {# item} other {# items}}": {
+      "message": "{start}-{end} of {total, plural, one {# item} other {# items}}",
+      "origin": [
+        "src/components/niko-table/filters/table-pagination.tsx"
+      ],
+      "placeholders": [
+        "end",
+        "start",
+        "total"
+      ]
     },
     "{table} {key} · View": {
       "message": "{table} {key} · View",

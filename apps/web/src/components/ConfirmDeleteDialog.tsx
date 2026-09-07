@@ -9,7 +9,9 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Loader2 } from 'lucide-react'
+import { Trans } from '@lingui/react'
 import { formatDeleteError } from '@/lib/apiErrors'
+import { useT } from '@/i18n'
 
 interface ConfirmDeleteDialogProps {
   isOpen: boolean
@@ -19,14 +21,15 @@ interface ConfirmDeleteDialogProps {
   error?: Error | null
   handleConfirm: () => void
   handleCancel: () => void
+  /** The model's own singular label for what is being deleted ("Customer"). */
   entityType?: string
 }
 
 /**
  * Reusable delete confirmation dialog component
- * 
+ *
  * Use with the useConfirmDelete hook for consistent delete UX
- * 
+ *
  * @example
  * const deleteConfirm = useConfirmDelete('customers', refetch)
  * return <ConfirmDeleteDialog {...deleteConfirm} entityType="Customer" />
@@ -39,27 +42,40 @@ export function ConfirmDeleteDialog({
   error,
   handleConfirm,
   handleCancel,
-  entityType = 'item',
+  entityType,
 }: ConfirmDeleteDialogProps) {
+  const t = useT()
+  const type = entityType || t('item')
+
   return (
     <AlertDialog open={isOpen} onOpenChange={setIsOpen}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete {entityType}</AlertDialogTitle>
+          <AlertDialogTitle>{t('Delete {type}', { type })}</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to delete{' '}
-            <strong>{displayName}</strong>?
-            This action cannot be undone.
+            {/*
+              One message, markup and all. The record's name is bold INSIDE the
+              sentence, and where that emphasis falls is a property of the
+              sentence — a translator moves `<bold>` with the words rather than
+              being handed three fragments to reassemble. The tag name is ours;
+              what it renders is decided here, so a translation can never inject
+              markup.
+            */}
+            <Trans
+              id="Are you sure you want to delete <bold>{name}</bold>? This action cannot be undone."
+              values={{ name: displayName }}
+              components={{ bold: <strong /> }}
+            />
           </AlertDialogDescription>
           {error && (
             <p role="alert" className="text-sm font-medium text-destructive pt-1">
-              {formatDeleteError(error, entityType)}
+              {formatDeleteError(error, t, type)}
             </p>
           )}
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isPending} onClick={handleCancel}>
-            Cancel
+            {t('Cancel')}
           </AlertDialogCancel>
           <Button
             onClick={handleConfirm}
@@ -70,10 +86,10 @@ export function ConfirmDeleteDialog({
             {isPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Deleting...
+                {t('Deleting...')}
               </>
             ) : (
-              'Delete'
+              t('Delete')
             )}
           </Button>
         </AlertDialogFooter>

@@ -7,7 +7,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { I18nProvider } from '@lingui/react'
 import { AuthProviderWrapper } from './contexts/AuthContext'
 import { ThemeProvider } from './components/ThemeProvider'
-import { Toaster } from './components/ui/sonner'
+import { AppToaster } from './components/AppToaster'
 import { TooltipProvider } from './components/ui/tooltip'
 import type { RouterContext } from './routes/__root'
 import { initConfig, getConfigError } from './lib/config'
@@ -160,7 +160,7 @@ activateLocale(resolveInitialLocale()).then(() => initConfig()).then(async () =>
               dialog is open, and a toast raised behind a dialog ("Saved") must
               still reach assistive technology. Base UI's own hiding keeps
               live regions too, so nothing is lost on that side either. */}
-          {createPortal(<Toaster position="top-right" />, document.body)}
+          {createPortal(<AppToaster />, document.body)}
         </QueryClientProvider>
       </ThemeProvider>
       </I18nProvider>

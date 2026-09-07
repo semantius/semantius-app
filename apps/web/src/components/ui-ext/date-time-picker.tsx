@@ -5,8 +5,10 @@ import { CalendarIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { inputSurfaceClassName } from "@/lib/utils-ext"
 import { Button } from "@/components/ui/button"
-import { Calendar } from "@/components/ui/calendar"
+import { LocalizedCalendar } from "@/components/ui-ext/localized-calendar"
 import { Input } from "@/components/ui/input"
+import { useT } from "@/i18n"
+import { useDateFnsLocale } from "@/i18n/dateFnsLocale"
 import {
   Popover,
   PopoverContent,
@@ -45,6 +47,8 @@ export function DateTimePicker({
   "aria-invalid": ariaInvalid,
   label,
 }: DateTimePickerProps) {
+  const t = useT()
+  const locale = useDateFnsLocale()
   const reactId = React.useId()
   const triggerId = id ?? `${reactId}-date`
 
@@ -129,10 +133,10 @@ export function DateTimePicker({
             }
           >
             <CalendarIcon className="mr-2 h-4 w-4" />
-            {date ? format(date, "PPP") : <span>Select date</span>}
+            {date ? format(date, "PPP", { locale }) : <span>{t("Select date")}</span>}
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
+            <LocalizedCalendar
               mode="single"
               selected={date}
               onSelect={handleDateSelect}
@@ -149,7 +153,7 @@ export function DateTimePicker({
           readOnly={readOnly}
           // The time half is a separate control with no label of its own; without
           // this it announces as an unnamed time field.
-          aria-label={label ? `${label} time` : "Time"}
+          aria-label={label ? t("{field} time", { field: label }) : t("Time")}
           aria-describedby={ariaDescribedBy}
           aria-invalid={ariaInvalid}
         />

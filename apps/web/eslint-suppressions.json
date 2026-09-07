@@ -9,11 +9,6 @@
       "count": 19
     }
   },
-  "src/components/ConfirmDeleteDialog.tsx": {
-    "lingui/no-unlocalized-strings": {
-      "count": 7
-    }
-  },
   "src/components/ProtectedRoute.tsx": {
     "lingui/no-unlocalized-strings": {
       "count": 2
@@ -26,7 +21,7 @@
   },
   "src/components/ViewSkeleton.tsx": {
     "lingui/no-unlocalized-strings": {
-      "count": 3
+      "count": 1
     }
   },
   "src/components/a11y/RouteAnnouncer.tsx": {
@@ -41,12 +36,12 @@
   },
   "src/components/data-table-view/DataFormPage.tsx": {
     "lingui/no-unlocalized-strings": {
-      "count": 10
+      "count": 3
     }
   },
   "src/components/data-table-view/DataTableView.tsx": {
     "lingui/no-unlocalized-strings": {
-      "count": 70
+      "count": 55
     },
     "react-hooks/exhaustive-deps": {
       "count": 1
@@ -355,11 +350,6 @@
       "count": 2
     }
   },
-  "src/components/niko-table/config/data-table.ts": {
-    "lingui/no-unlocalized-strings": {
-      "count": 53
-    }
-  },
   "src/components/niko-table/core/data-table-context.tsx": {
     "lingui/no-unlocalized-strings": {
       "count": 2
@@ -390,12 +380,12 @@
   },
   "src/components/niko-table/filters/table-column-actions.tsx": {
     "lingui/no-unlocalized-strings": {
-      "count": 2
+      "count": 1
     }
   },
   "src/components/niko-table/filters/table-column-sort.tsx": {
     "lingui/no-unlocalized-strings": {
-      "count": 9
+      "count": 4
     }
   },
   "src/components/niko-table/filters/table-column-title.tsx": {
@@ -405,32 +395,32 @@
   },
   "src/components/niko-table/filters/table-filter-menu.tsx": {
     "lingui/no-unlocalized-strings": {
-      "count": 67
+      "count": 27
     }
   },
   "src/components/niko-table/filters/table-pagination.tsx": {
     "lingui/no-unlocalized-strings": {
-      "count": 13
+      "count": 1
     }
   },
   "src/components/niko-table/filters/table-range-filter.tsx": {
     "lingui/no-unlocalized-strings": {
-      "count": 5
+      "count": 2
     }
   },
   "src/components/niko-table/filters/table-search-filter.tsx": {
     "lingui/no-unlocalized-strings": {
-      "count": 6
+      "count": 2
     }
   },
   "src/components/niko-table/filters/table-sort-menu.tsx": {
     "lingui/no-unlocalized-strings": {
-      "count": 20
+      "count": 10
     }
   },
   "src/components/niko-table/filters/table-view-menu.tsx": {
     "lingui/no-unlocalized-strings": {
-      "count": 5
+      "count": 1
     }
   },
   "src/components/niko-table/lib/constants.ts": {
@@ -480,12 +470,12 @@
   },
   "src/components/ui-ext/date-picker.tsx": {
     "lingui/no-unlocalized-strings": {
-      "count": 6
+      "count": 3
     }
   },
   "src/components/ui-ext/date-time-picker.tsx": {
     "lingui/no-unlocalized-strings": {
-      "count": 8
+      "count": 5
     }
   },
   "src/components/ui-ext/named-icon.tsx": {
@@ -606,7 +596,7 @@
   },
   "src/components/views/View.tsx": {
     "lingui/no-unlocalized-strings": {
-      "count": 46
+      "count": 28
     }
   },
   "src/components/views/admin/Modules0.tsx": {
@@ -639,11 +629,6 @@
       "count": 1
     }
   },
-  "src/hooks/useConfirmDelete.ts": {
-    "lingui/no-unlocalized-strings": {
-      "count": 1
-    }
-  },
   "src/hooks/useRpc.ts": {
     "lingui/no-unlocalized-strings": {
       "count": 3
@@ -662,11 +647,6 @@
   "src/lib/apiClient.ts": {
     "lingui/no-unlocalized-strings": {
       "count": 8
-    }
-  },
-  "src/lib/apiErrors.ts": {
-    "lingui/no-unlocalized-strings": {
-      "count": 6
     }
   },
   "src/lib/appLoader.ts": {

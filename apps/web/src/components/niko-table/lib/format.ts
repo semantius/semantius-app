@@ -1,11 +1,22 @@
+/**
+ * Format a date for display inside the grid's own chrome (the filter menu's
+ * chosen-date button).
+ *
+ * `locale` is the FORMATTING locale and has to be passed in: this module is
+ * outside React, and the formatting locale is a preference of its own that a
+ * component reads with `useFormattingLocale()`. It was hard-coded to `en-US`,
+ * so a German user picking a date saw "November 1, 2026" written back at them.
+ * Omitting it falls back to the runtime default rather than to English.
+ */
 export function formatDate(
   date: Date | string | number | undefined,
   opts: Intl.DateTimeFormatOptions = {},
+  locale?: string,
 ) {
   if (!date) return ""
 
   try {
-    return new Intl.DateTimeFormat("en-US", {
+    return new Intl.DateTimeFormat(locale, {
       month: opts.month ?? "long",
       day: opts.day ?? "numeric",
       year: opts.year ?? "numeric",

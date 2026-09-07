@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button'
 import { Plus, Users } from 'lucide-react'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { DataFormPage } from '@/components/data-table-view/DataFormPage'
+import { useT } from '@/i18n'
 
 type RecordType = Record<string, unknown>
 
@@ -61,6 +62,7 @@ function StandaloneFormView({
   parentRecordLabel?: string
   parentRecordPath?: string
 }) {
+  const t = useT()
   const navigate = useNavigate()
   const router = useRouter()
   // Live pathname of the current record page — the canonical URL we bookmark.
@@ -80,10 +82,10 @@ function StandaloneFormView({
     ? (labelData?.[0]?.[labelColumn] as string) || String(recordId)
     : undefined
 
-  const singularLabel = metadata.table?.singular_label || 'Record'
+  const singularLabel = metadata.table?.singular_label || t('Record')
   const pageTitle = recordId
     ? recordLabel || singularLabel
-    : `New ${singularLabel}`
+    : t('New {label}', { label: singularLabel })
 
   const handleBeforeSubmit = (submitter: Element | null) => {
     const childId = submitter instanceof HTMLElement ? submitter.dataset.childId : undefined
@@ -111,7 +113,7 @@ function StandaloneFormView({
       <div className="flex items-center gap-1">
         <EntityBreadcrumb
           moduleId={moduleId}
-          entityLabel={metadata.table?.plural_label || 'Records'}
+          entityLabel={metadata.table?.plural_label || t('Records')}
           entityPath={viewName}
           recordLabel={pageTitle}
           parentLabel={parentLabel}
@@ -155,6 +157,7 @@ function StandaloneFormView({
 }
 
 export function View({ moduleId: _moduleId, table_name: _table_name, recordId: _recordId, metadata, getRowMenuItems }: ViewProps & { getRowMenuItems?: (record: Record<string, unknown>) => RowMenuItem[] }) {
+  const t = useT()
   const navigate = useNavigate()
   const router = useRouter()
   const routerState = useRouterState()
@@ -382,12 +385,21 @@ export function View({ moduleId: _moduleId, table_name: _table_name, recordId: _
     ? `${view_name}/$id/view`
     : `${view_name}/$id/edit`
 
+  // The sheet and the dialog show the same heading, so it is computed once.
+  // "{label} {key}" is a message rather than a join because the key follows the
+  // label only in English — another language may want it first, or separated by
+  // something other than a space.
+  const overlaySingular = metadata.table?.singular_label || t('Record')
+  const overlayTitle = isCreateMode
+    ? t('New {label}', { label: overlaySingular })
+    : t('{label} {key}', { label: overlaySingular, key: recordId || '' })
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-1">
         <EntityBreadcrumb
           moduleId={module_name}
-          entityLabel={metadata.table?.plural_label || 'Records'}
+          entityLabel={metadata.table?.plural_label || t('Records')}
           entityPath={view_name}
           parentLabel={parentLabel}
           parentPath={parentPath}
@@ -396,8 +408,8 @@ export function View({ moduleId: _moduleId, table_name: _table_name, recordId: _
         />
         <BookmarkIcon
           url={pathname}
-          title={metadata.table?.plural_label || 'Records'}
-          label={metadata.table?.plural_label || 'Records'}
+          title={metadata.table?.plural_label || t('Records')}
+          label={metadata.table?.plural_label || t('Records')}
         />
       </div>
       {/* 1.4.10 Reflow. `flex-wrap` + `gap`: at a 320px-wide viewport (a laptop
@@ -414,16 +426,19 @@ export function View({ moduleId: _moduleId, table_name: _table_name, recordId: _
                 <span className="text-muted-foreground font-normal mx-2" aria-hidden="true">›</span>
               </>
             )}
-            {metadata.table?.plural_label || 'Records'}
+            {metadata.table?.plural_label || t('Records')}
           </h1>
           <p className="text-muted-foreground">
-            {metadata.table?.description || 'Manage records'}
+            {metadata.table?.description || t('Manage records')}
           </p>
         </div>
         {canEdit && (
           <Button onClick={() => navigateForEditMode('new')}>
             <Plus className="mr-2 h-4 w-4" />
-            Add {metadata.table?.singular_label || 'Record'}
+            {/* The model's label goes in as a placeholder, spelled exactly as
+                the model spells it — the sentence around it is what changes
+                per language, not the noun. */}
+            {t('Add {label}', { label: metadata.table?.singular_label || t('Record') })}
           </Button>
         )}
       </div>
@@ -445,7 +460,14 @@ export function View({ moduleId: _moduleId, table_name: _table_name, recordId: _
         rowHrefPreservesSearch={effectiveEditMode !== 'page'}
         editRoute={editRoute}
         canEdit={canEdit}
-        emptyMessage={`No ${metadata.table?.plural_label?.toLowerCase() || 'records'} found`}
+        // The plural label as given. It used to be lowercased, which is wrong
+        // in every language that capitalizes nouns and wrong for any label whose
+        // own capitalization is deliberate.
+        emptyMessage={
+          metadata.table?.plural_label
+            ? t('No {entity} found', { entity: metadata.table.plural_label })
+            : t('No records found')
+        }
         emptyIcon={<Users className="h-12 w-12 mb-2" />}
         excludeColumns={['created_at', 'updated_at', ...(pfColumn ? [pfColumn] : [])]}
         getRowMenuItems={getRowMenuItems}
@@ -465,11 +487,7 @@ export function View({ moduleId: _moduleId, table_name: _table_name, recordId: _
         >
           <SheetHeader>
             <div className="flex items-start justify-between gap-4">
-              <SheetTitle>
-                {isCreateMode
-                  ? `New ${metadata.table?.singular_label || 'Record'}`
-                  : `${metadata.table?.singular_label || 'Record'} ${recordId || ''}`}
-              </SheetTitle>
+              <SheetTitle>{overlayTitle}</SheetTitle>
               {childButtons}
             </div>
           </SheetHeader>
@@ -498,11 +516,7 @@ export function View({ moduleId: _moduleId, table_name: _table_name, recordId: _
         <DialogContent className="w-full max-w-[90vw] sm:max-w-[800px] max-h-[90vh] overflow-y-auto pb-0" initialFocus={false}>
           <DialogHeader>
             <div className="flex items-start justify-between gap-4">
-              <DialogTitle>
-                {isCreateMode
-                  ? `New ${metadata.table?.singular_label || 'Record'}`
-                  : `${metadata.table?.singular_label || 'Record'} ${recordId || ''}`}
-              </DialogTitle>
+              <DialogTitle>{overlayTitle}</DialogTitle>
               {childButtons}
             </div>
           </DialogHeader>

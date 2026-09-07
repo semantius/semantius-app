@@ -404,6 +404,16 @@ never loaded as a catalog — the repo layer's glob excludes it, and `glossary.j
 with it. `labels`, `server` and `rule` sections are tenant or deployment data and
 are rejected in a repo catalog.
 
+**Because the source string is the key, two meanings of one English word SHARE
+an entry** — and the collision is invisible in English, where both render the
+word that was already there. `View` was both the grid's column-visibility button
+(a noun, "Ansicht") and its row menu's open action (a verb, "Anzeigen"); one
+German entry had to be wrong. The fix is a `context` on the narrower use
+(`t({ message: 'View', context: 'column visibility' })`), which makes it a
+separate id and a separate catalog entry under `contexts`. Find these by reading
+`en-US.json` for an entry with **more than one origin file** — same word, two
+components, is where to look.
+
 **Components use `useT()` and list `t` in their deps; everything outside React
 uses `translate()`** — a route's `head()`, `main.tsx`, the three class components
 (`ErrorBoundary.tsx`, `form/InputJson.tsx`,
@@ -523,6 +533,37 @@ file produces no suppression entries at all.
 **`dist-e2e-*` are in `globalIgnores`.** Playwright builds two extra bundles
 there; without the ignore ESLint parses ~3400 minified files on every run for no
 rules at all.
+
+**A file that exceeds its recorded suppression count reports ALL of that rule's
+violations, not the excess.** Two new `'date'` literals in `ApiKeysCard.tsx`
+(40 recorded) turned the whole file into 42 errors, which reads as "the
+migration broke this file" and is really "two over the line". `--prune-suppressions`
+only LOWERS a count, so the fix is to get back under it — never to re-baseline.
+Budget a literal before adding one to a file that is still in the baseline.
+
+**Every calendar goes through `ui-ext/localized-calendar.tsx`, never
+`ui/calendar.tsx` directly.** react-day-picker renders month and weekday names
+from a date-fns LOCALE OBJECT (not a tag) and it cannot fetch one, so a bare
+`<Calendar>` is English whatever the user picked; and its accessible names ("Go
+to the Next Month", "Choose the Year", the day cell's whole date) are English
+constants inside the library, replaceable only through its `labels` prop. The
+wrapper supplies both and is what the two `ui-ext` pickers and the grid's filter
+calendars use.
+
+**`src/i18n/dateFnsLocale.ts` is an EXPLICIT registry of lazy imports, and it
+cannot be a computed specifier.** Vite resolves a dynamic `import()` at build
+time and follows a variable only inside a relative path, never inside a bare
+package id — `` import(`date-fns/locale/${code}`) `` builds and then 404s at
+runtime. Resolution is the full tag then its language subtag (`de-CH` → `de`); a
+tag outside the registry answers `undefined`, which date-fns and react-day-picker
+both read as "use the built-in default". Where a formatting locale TAG is enough,
+prefer `Intl` over date-fns: it needs no chunk and is right on the first render.
+
+**A `lib/` function that produces a sentence takes `t` as a PARAMETER.**
+`formatDeleteError(error, t, label)` is the shape: importing `translate` there
+would render the current catalog but could not re-render the component holding
+the string, and the ESLint ban on `translate` under `components/**` is only
+enforced at the import site. A component passes its own `useT()` down.
 
 ### Routing Conventions
 

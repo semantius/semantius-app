@@ -1,41 +1,62 @@
 /**
- * Maps API error messages to user-friendly strings.
- * Centralised here so all modules can use consistent error formatting.
+ * Turns an API error into something a person can act on.
+ *
+ * It used to build its sentence out of English morphology: `singularize()`
+ * turned "regions" into "region" and "companies" into "company", `capitalize()`
+ * put a capital on the front, and the two halves were concatenated into
+ * "Region is still used by a Customer. Cannot delete." That is a sentence no
+ * other language can be given — German capitalizes every noun and forms plurals
+ * a dozen ways, and the word order of the whole clause differs. Both helpers are
+ * gone: the labels are inserted into ONE ICU message exactly as the model and
+ * the database spell them.
+ *
+ * The `t` function is a parameter rather than an import, because this module is
+ * called from a component's render and the translation has to follow a language
+ * change. `translate()` would read the current catalog too, but a component that
+ * cannot re-render (three of the grid's are `React.memo`) would keep the old
+ * language on screen — so the rule is that a component passes its own `t` down,
+ * and ESLint bans the import under `components/**`.
  */
 
-function singularize(word: string): string {
-  if (word.endsWith('ies')) return word.slice(0, -3) + 'y'
-  if (word.endsWith('s') && !word.endsWith('ss')) return word.slice(0, -1)
-  return word
-}
-
-function capitalize(word: string): string {
-  return word.charAt(0).toUpperCase() + word.slice(1)
-}
+import type { MessageValues, TranslateFn } from '@/i18n'
 
 /**
- * Format a delete operation error into a user-friendly message.
- * Recognises PostgREST foreign-key constraint violations and produces a readable
- * explanation; falls back to the raw message for other errors.
+ * Format a delete-operation error for the user.
  *
- * @param error - The Error object thrown by the mutation
- * @param singularLabel - Optional human-readable label for the record being deleted
- *                        (e.g. "Region"). Used as a fallback when the table name
- *                        cannot be resolved from the error message.
+ * Recognizes PostgREST's foreign-key constraint violation and explains it; any
+ * other message is passed through untouched. Untouched is deliberate: a server
+ * message is authored outside this repo and cannot be a key in the app's own
+ * catalog. P4 routes those through `translateDynamic`, which looks them up
+ * verbatim in the tenant's own translations and records the misses.
+ *
+ * @param error - the Error thrown by the mutation
+ * @param t - the caller's translate function (`useT()`)
+ * @param singularLabel - the model's own label for the record being deleted
+ *   ("Region"), used as given. Falls back to the table name in the error.
  */
-export function formatDeleteError(error: Error, singularLabel?: string): string {
-  const msg = error.message || ''
+export function formatDeleteError(
+  error: Error,
+  t: TranslateFn,
+  singularLabel?: string,
+): string {
+  const message = error.message || ''
 
   // PostgREST FK violation pattern:
   // "update or delete on table "regions" violates foreign key constraint "customers_region_id_fkey" on table "customers""
-  const fkMatch = msg.match(
+  const fkMatch = message.match(
     /on table "(\w+)" violates foreign key constraint "[^"]+" on table "(\w+)"/,
   )
   if (fkMatch) {
-    const sourceLabel = singularLabel || capitalize(singularize(fkMatch[1]))
-    const referencedLabel = capitalize(singularize(fkMatch[2]))
-    return `${sourceLabel} is still used by a ${referencedLabel}. Cannot delete.`
+    const values: MessageValues = {
+      label: singularLabel || fkMatch[1],
+      // The referencing table's name as the database spells it. There is no
+      // model label for it here — the error names a table, not an entity — and
+      // inventing one by un-pluralizing the identifier is exactly what this
+      // function stopped doing.
+      table: fkMatch[2],
+    }
+    return t('{label} is still used by records in {table} and cannot be deleted.', values)
   }
 
-  return msg || 'An unexpected error occurred. Please try again.'
+  return message || t('An unexpected error occurred. Please try again.')
 }

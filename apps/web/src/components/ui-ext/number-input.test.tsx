@@ -3,12 +3,14 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import { NumberInput } from './number-input'
+import { formattingLocale } from '@/i18n'
 import { getNumberSeparators } from '@/lib/number-format'
 
-/** Normalize a formatted display string back to a plain "1234.56" using the runtime locale's
- *  separators, so assertions don't depend on which locale the test host runs under. */
+/** Normalize a formatted display string back to a plain "1234.56" using the separators of the
+ *  FORMATTING LOCALE — the same source the control now reads, so an assertion does not depend
+ *  on the host's own locale matching the activated one. */
 function normalize(display: string): string {
-  const { group, decimal } = getNumberSeparators()
+  const { group, decimal } = getNumberSeparators(formattingLocale())
   const ungrouped = group ? display.split(group).join('') : display
   return decimal === '.' ? ungrouped : ungrouped.replace(decimal, '.')
 }

@@ -64,6 +64,15 @@ catalog test reports a translation that reaches for a synonym.
 
 Style, beyond the glossary:
 
+- **A plural branch carries the grammatical case the sentence around it needs.**
+  German inflects, so a plural form is not one word for every position: `von
+  {total, plural, other {# Einträge}}` is wrong because `von` takes the dative
+  and the dative plural is `Einträgen`. Read the whole rendered sentence, not the
+  branch on its own, and check each category the language has.
+- **One English word gets one German word across the product.** `item` and
+  `items` must not become `Element` in one message and `Eintrag` in the next; a
+  reader meets both on the same screen. `glossary.json` only catches terms whose
+  German stem survives inflection as a substring, so the rest is on you.
 - Address the user with the formal **Sie**, consistently.
 - Sentence case for headings, as in the English source; do not add title case.
 - German quotation marks are `„…“`, not `"…"`.
