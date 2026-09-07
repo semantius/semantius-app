@@ -793,8 +793,12 @@ re-recorded, which is one more reason the `components/**` ban exists.
 **The marks are CSS Custom Highlights, and the DOM is not mutated for them.**
 Ranges over text nodes go into `CSS.highlights` under `semantius-i18n-missing`;
 attribute hosts (and the fallback where the API is missing) get
-`data-i18n-missing`, styled with a box-shadow rather than an outline so a focus
-ring is never overridden. The scan walks `document.body`, because every Base UI
+`data-i18n-missing`, styled as an OUTLINE and nothing else: the focus ring in
+this design system is a box-shadow (`ring-*`), so an outline composes with it,
+while the box-shadow this first shipped with replaced the ring on every marked
+control — and the `border-radius` beside it squared every marked button,
+because the file is unlayered and an unlayered declaration beats any Tailwind
+utility (which is also what lets the mark show through `outline-none`). The scan walks `document.body`, because every Base UI
 popup is portaled beside `#root`, and prunes subtrees marked `data-i18n-ui` —
 translate mode's own dialog, panel and button. Anything that adds a scanned
 attribute (`aria-label`, `aria-description`, `placeholder`, `title`, `alt`) is

@@ -16,8 +16,11 @@ import {
   setMarkMissing,
   setTranslateMode,
   supportsHighlightApi,
+  TABLE_ATTR,
+  tableLabel,
   translateModeFlags,
   translatedKeys,
+  useLocaleLabels,
   useT,
 } from '@/i18n'
 
@@ -39,13 +42,18 @@ const GERMAN = { language: 'de-DE', locale: 'de-DE' }
 const UNTRANSLATED = 'A sentence no catalog has ever seen'
 const UNTRANSLATED_LABEL = 'An unmistakably untranslated label'
 
+/** A model label rendered the way the sidebar renders one. Not a real table. */
+const LABEL_TABLE = 'vitest_probe_table'
+
 function Probe() {
   const t = useT()
+  const labels = useLocaleLabels()
   return (
     <div>
       <button type="button">{t('Log out')}</button>
       <p>{t(UNTRANSLATED)}</p>
       <input aria-label={t(UNTRANSLATED_LABEL)} />
+      <h2>{tableLabel(labels, LABEL_TABLE, TABLE_ATTR.plural, 'Probe Rows')}</h2>
     </div>
   )
 }
@@ -87,9 +95,9 @@ describe('translate mode', () => {
     await activateLocale(GERMAN)
     renderInApp(<Page />)
 
-    // The mark is the untranslated sentence and nothing else: "Log out" has its
-    // German and is left alone.
-    await waitFor(() => expect(highlightedTexts()).toEqual([UNTRANSLATED]))
+    // The marks are the untranslated sentence and the model label, nothing
+    // else: "Log out" has its German and is left alone.
+    await waitFor(() => expect(highlightedTexts()).toEqual([UNTRANSLATED, 'Probe Rows']))
     expect(screen.getByRole('button', { name: 'Abmelden' })).toBeInTheDocument()
 
     // An attribute host has no text node to highlight and gets the attribute
@@ -121,7 +129,7 @@ describe('translate mode', () => {
 
     // The chunk is mounted once the floating button is there.
     await screen.findByRole('button', { name: /Übersetzungen/ })
-    await waitFor(() => expect(highlightedTexts()).toEqual([UNTRANSLATED]))
+    await waitFor(() => expect(highlightedTexts()).toEqual([UNTRANSLATED, 'Probe Rows']))
 
     await ui.keyboard('{Alt>}')
     await ui.click(screen.getByText(UNTRANSLATED))
@@ -136,7 +144,7 @@ describe('translate mode', () => {
     // On screen at once, through Lingui's merging load…
     await waitFor(() => expect(screen.getByText('Ein Satz, den kein Katalog kennt')).toBeInTheDocument())
     // …and the mark is gone, because the id is translated now.
-    await waitFor(() => expect(highlightedTexts()).toEqual([]))
+    await waitFor(() => expect(highlightedTexts()).toEqual(['Probe Rows']))
     expect(translatedKeys('de-DE').has(UNTRANSLATED)).toBe(true)
 
     // The writer: this tenant has no table, so the save is a browser draft.
@@ -147,6 +155,70 @@ describe('translate mode', () => {
     // And the export carries it — the way a draft leaves a browser.
     const exported = await buildExportFile('de-DE', messageIndex(), [])
     expect(exported.messages?.[UNTRANSLATED]).toBe('Ein Satz, den kein Katalog kennt')
+
+    // Alt+click the translated text: the editor offers to remove the draft —
+    // the one thing a draft can honestly clear — and the source shows again.
+    await ui.keyboard('{Alt>}')
+    await ui.click(screen.getByText('Ein Satz, den kein Katalog kennt'))
+    await ui.keyboard('{/Alt}')
+    const again = await screen.findByRole('dialog', { name: 'Übersetzen' })
+    expect(within(again).getByRole('textbox', { name: 'Übersetzung' })).toHaveValue('Ein Satz, den kein Katalog kennt')
+    await ui.click(within(again).getByRole('button', { name: 'Entwurf entfernen' }))
+
+    await waitFor(() => expect(screen.getByText(UNTRANSLATED)).toBeInTheDocument())
+    expect(readDrafts('de-DE')).toEqual([])
+    await waitFor(() => expect(highlightedTexts()).toEqual([UNTRANSLATED, 'Probe Rows']))
+  })
+
+  it('resolves an attribute host and a model label on Alt+click, with the model text as the source', async () => {
+    setTranslateMode(true)
+    await activateLocale(GERMAN)
+    const ui = userEvent.setup()
+    renderInApp(<Page />)
+    await screen.findByRole('button', { name: /Übersetzungen/ })
+    await waitFor(() => expect(highlightedTexts()).toEqual([UNTRANSLATED, 'Probe Rows']))
+
+    // An input has no text node: the click resolves through its aria-label.
+    await ui.keyboard('{Alt>}')
+    await ui.click(screen.getByRole('textbox', { name: UNTRANSLATED_LABEL }))
+    await ui.keyboard('{/Alt}')
+    const forLabel = await screen.findByRole('dialog', { name: 'Übersetzen' })
+    expect(within(forLabel).getByText(UNTRANSLATED_LABEL)).toBeInTheDocument()
+    await ui.click(within(forLabel).getByRole('button', { name: 'Abbrechen' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Übersetzen' })).not.toBeInTheDocument())
+
+    // A model label: the source is what the model says, and the key names it.
+    await ui.keyboard('{Alt>}')
+    await ui.click(screen.getByRole('heading', { name: 'Probe Rows' }))
+    await ui.keyboard('{/Alt}')
+    const forTable = await screen.findByRole('dialog', { name: 'Übersetzen' })
+    expect(within(forTable).getByText('Probe Rows')).toBeInTheDocument()
+    expect(within(forTable).getByText(`Tabelle: ${LABEL_TABLE}.plural_label`)).toBeInTheDocument()
+    // No draft yet, so there is nothing to remove.
+    expect(within(forTable).queryByRole('button', { name: 'Entwurf entfernen' })).not.toBeInTheDocument()
+  })
+
+  it('lists the model labels on the page, and the whole model from the real tenant', async () => {
+    setTranslateMode(true)
+    await activateLocale(GERMAN)
+    const ui = userEvent.setup()
+    renderInApp(<Page />)
+
+    await ui.click(await screen.findByRole('button', { name: /Übersetzungen/ }))
+    const panel = await screen.findByRole('dialog', { name: 'Übersetzungen' })
+    await ui.click(within(panel).getByRole('tab', { name: 'Modellbezeichnungen' }))
+
+    // This page: the probe's table label, missing, resolved through the
+    // reverse index rather than through any model read.
+    const onPage = await within(panel).findByRole('button', { name: /Probe Rows/ })
+    expect(within(onPage).getByText('Fehlt')).toBeInTheDocument()
+    expect(within(onPage).getByText(`${LABEL_TABLE}.plural_label`)).toBeInTheDocument()
+
+    // The whole model: read from the tenant's own tables/fields/modules. The
+    // real model has no German, so "missing only" lists a real table label.
+    await ui.click(within(panel).getByRole('button', { name: 'Gesamtes Modell' }))
+    await within(panel).findByRole('button', { name: /customers\.plural_label/ })
+    expect(within(panel).queryByRole('button', { name: /Probe Rows/ })).not.toBeInTheDocument()
   })
 
   it('lists what is on the page in the panel and opens the editor from it', async () => {
@@ -193,10 +265,10 @@ describe('translate mode', () => {
     await waitFor(() => expect(screen.getByText(UNTRANSLATED)).toBeInTheDocument())
   })
 
-  it('does not exist for a user who may not translate, and nothing loads', async () => {
-    // The identity holds `admin`, so this cannot be asserted against the real
-    // permissions; what CAN be asserted is that with both switches off the host
-    // renders nothing at all — the chunk is never imported.
+  it('renders nothing while both switches are off', async () => {
+    // The permission gate itself cannot be asserted here: the run's identity
+    // holds `admin`, and there is no second identity without it. What CAN be
+    // asserted is that with both switches off the host renders nothing at all.
     renderInApp(<Page />)
     await waitFor(() => expect(screen.getByText(UNTRANSLATED)).toBeInTheDocument())
     expect(screen.queryByRole('button', { name: /Translations/ })).not.toBeInTheDocument()

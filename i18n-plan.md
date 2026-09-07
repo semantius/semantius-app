@@ -28,7 +28,7 @@ Branch `feat/i18n`, one commit per phase, no PR. **All five phases are done and 
 | P2 Grid, dialogs, formatting | done | `cadaeb7` |
 | P3 Forms, validation, remaining surfaces | done | `fb26cb7` |
 | P4 Runtime languages | done | `dd2662e`, `310730b` |
-| P5 Translate mode | done | see `git log -1 -- apps/web/src/i18n/translateMode` |
+| P5 Translate mode | done | `3b8fb33`, plus the review fix-up commit after it |
 
 ### What P5 built, and where it deviates from the section "Translate mode" below
 
@@ -49,7 +49,8 @@ Branch `feat/i18n`, one commit per phase, no PR. **All five phases are done and 
   makes `#root` inert for ANY open dialog outside it, so a non-modal panel would block the
   page just the same while announcing itself as something else.
 - **Marks are CSS Custom Highlights; attribute hosts (and the no-API fallback) carry
-  `data-i18n-missing`**, styled with a box-shadow so a focus outline is never overridden.
+  `data-i18n-missing`**, styled as an outline only — the focus ring here is a box-shadow, so the
+  two compose (a review caught the first version's box-shadow replacing the ring).
   The scan walks `document.body` (so a menu or a Sheet, portaled beside `#root`, is covered)
   and skips subtrees marked `data-i18n-ui`, which is translate mode's own editor, panel and
   button. The scan is one throttled pass per settled burst of mutations and per catalog
@@ -79,7 +80,7 @@ Branch `feat/i18n`, one commit per phase, no PR. **All five phases are done and 
   `@base-ui/react/tabs`): Vite discovers them on first load otherwise and RELOADS the page,
   which in the Vitest browser project leaves two copies of React in the graph.
 
-Numbers after P5: **455 messages**, `de-DE` 455/455, 1 obsolete (unchanged). The suppression
+Numbers after P5: **458 messages**, `de-DE` 458/458, 2 obsolete (the panel sentence was reworded once during review). The suppression
 baseline did not move. `substitutions.test.ts` unchanged at 6.
 
 Each committed phase passed, independently re-run by the orchestrator: `i18n:extract` twice

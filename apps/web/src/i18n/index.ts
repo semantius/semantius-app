@@ -568,7 +568,10 @@ export async function activateLocale(pref: LocalePreference, options: ActivateOp
   clearReverseIndex()
   setCatalogState(language, messages, labels, dynamic)
   currentFormattingLocale = pref.locale || language
-  i18n.loadAndActivate({ locale: language, messages })
+  // A COPY for Lingui: its merging `load` (a translate-mode save) assigns into
+  // the object it was given, and the catalog's own map must not change under
+  // `currentMessages()` before `addMessageEntry` says so.
+  i18n.loadAndActivate({ locale: language, messages: { ...messages } })
 
   if (typeof document !== 'undefined') {
     document.documentElement.lang = language

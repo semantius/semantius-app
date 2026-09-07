@@ -53,7 +53,7 @@ import {
 import { localRequests } from '@/i18n/missing'
 import { EntryList } from './EntryList'
 import { LabelsTab } from './LabelsTab'
-import { useTranslationWriter } from './useTranslationWriter'
+import { useWriterTarget } from './useTranslationWriter'
 
 interface QueueRow {
   id: number
@@ -85,7 +85,7 @@ export function Panel({ open, onOpenChange, language, presentIds, onEdit }: Pane
   const t = useT()
   const version = useSyncExternalStore(subscribeToCatalog, catalogSnapshot, catalogSnapshot)
   const isSource = language === SOURCE_LANGUAGE
-  const { target } = useTranslationWriter(language)
+  const target = useWriterTarget()
   const [tab, setTab] = useState<PanelTab>(PANEL_TAB.catalog)
   const [resetOpen, setResetOpen] = useState(false)
 
@@ -122,6 +122,11 @@ export function Panel({ open, onOpenChange, language, presentIds, onEdit }: Pane
 
   const all = messageEntries()
   const missingCount = isSource ? 0 : all.filter((entry) => !translated.has(entry.id)).length
+  // The labels on this page without a translation — the other half of the
+  // count the Language submenu shows, said separately so the two agree.
+  const missingLabels = isSource
+    ? 0
+    : [...presentIds].filter((id) => splitScopedId(id) !== null && !translated.has(id)).length
 
   const download = async () => {
     downloadLocaleFile(await buildExportFile(language, messageIndex(), inventory ?? []))
@@ -143,11 +148,15 @@ export function Panel({ open, onOpenChange, language, presentIds, onEdit }: Pane
           <SheetDescription>
             {isSource
               ? t('English is the source language. An entry saved here overrides the wording for this tenant.')
-              : t('{language}: {missing, plural, one {# string} other {# strings}} of {total} still in English', {
-                  language: languageDisplayName(language),
-                  missing: missingCount,
-                  total: all.length,
-                })}
+              : t(
+                  '{language}: {missing, plural, one {# string} other {# strings}} of {total} still in English, and {labels, plural, one {# label} other {# labels}} on this page.',
+                  {
+                    language: languageDisplayName(language),
+                    missing: missingCount,
+                    total: all.length,
+                    labels: missingLabels,
+                  },
+                )}
           </SheetDescription>
         </SheetHeader>
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">

@@ -1981,6 +1981,20 @@
       ],
       "placeholders": []
     },
+    "Reload the page and switch it on again.": {
+      "message": "Reload the page and switch it on again.",
+      "origin": [
+        "src/i18n/TranslateModeBoundary.tsx"
+      ],
+      "placeholders": []
+    },
+    "Remove draft": {
+      "message": "Remove draft",
+      "origin": [
+        "src/i18n/translateMode/EditorDialog.tsx"
+      ],
+      "placeholders": []
+    },
     "Remove filter": {
       "message": "Remove filter",
       "origin": [
@@ -2919,6 +2933,13 @@
       ],
       "placeholders": []
     },
+    "Translate mode could not be loaded.": {
+      "message": "Translate mode could not be loaded.",
+      "origin": [
+        "src/i18n/TranslateModeBoundary.tsx"
+      ],
+      "placeholders": []
+    },
     "Translation": {
       "message": "Translation",
       "origin": [
@@ -3401,12 +3422,13 @@
         "name"
       ]
     },
-    "{language}: {missing, plural, one {# string} other {# strings}} of {total} still in English": {
-      "message": "{language}: {missing, plural, one {# string} other {# strings}} of {total} still in English",
+    "{language}: {missing, plural, one {# string} other {# strings}} of {total} still in English, and {labels, plural, one {# label} other {# labels}} on this page.": {
+      "message": "{language}: {missing, plural, one {# string} other {# strings}} of {total} still in English, and {labels, plural, one {# label} other {# labels}} on this page.",
       "origin": [
         "src/i18n/translateMode/Panel.tsx"
       ],
       "placeholders": [
+        "labels",
         "language",
         "missing",
         "total"

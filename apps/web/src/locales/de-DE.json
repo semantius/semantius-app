@@ -265,6 +265,8 @@
     "Record Key:": "Datensatzschlüssel:",
     "Record deleted": "Datensatz gelöscht",
     "Records": "Datensätze",
+    "Reload the page and switch it on again.": "Laden Sie die Seite neu und schalten Sie ihn erneut ein.",
+    "Remove draft": "Entwurf entfernen",
     "Remove filter": "Filter entfernen",
     "Remove from favorites": "Aus Favoriten entfernen",
     "Remove {label} from favorites": "{label} aus Favoriten entfernen",
@@ -385,6 +387,7 @@
     "Total Orders": "Aufträge gesamt",
     "Translate": "Übersetzen",
     "Translate mode": "Übersetzungsmodus",
+    "Translate mode could not be loaded.": "Der Übersetzungsmodus konnte nicht geladen werden.",
     "Translation": "Übersetzung",
     "Translations": "Übersetzungen",
     "True": "Ja",
@@ -444,7 +447,7 @@
     "{label} {key}": "{label} {key}",
     "{label} {name} created": "{label} {name} angelegt",
     "{label} {name} deleted": "{label} {name} gelöscht",
-    "{language}: {missing, plural, one {# string} other {# strings}} of {total} still in English": "{language}: {missing, plural, one {# Text} other {# Texte}} von {total} noch auf Englisch",
+    "{language}: {missing, plural, one {# string} other {# strings}} of {total} still in English, and {labels, plural, one {# label} other {# labels}} on this page.": "{language}: {missing, plural, one {# Text} other {# Texte}} von {total} noch auf Englisch, dazu {labels, plural, one {# Bezeichnung} other {# Bezeichnungen}} auf dieser Seite.",
     "{name} deleted": "{name} gelöscht",
     "{scope}: {key}": "{scope}: {key}",
     "{start}-{end} of {total, plural, one {# item} other {# items}}": "{start}-{end} von {total, plural, one {# Eintrag} other {# Einträgen}}",
@@ -466,7 +469,8 @@
   },
   "obsolete": {
     "messages": {
-      "this record": "diesen Datensatz"
+      "this record": "diesen Datensatz",
+      "{language}: {missing, plural, one {# string} other {# strings}} of {total} still in English": "{language}: {missing, plural, one {# Text} other {# Texte}} von {total} noch auf Englisch"
     }
   }
 }

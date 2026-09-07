@@ -498,6 +498,13 @@ every index message and every model label still untranslated — a complete work
 list, for an agent (`import.mjs`) or for an operator's deployment file. A draft
 never reaches the repo catalog or another user on its own.
 
+Two things to know while translating: the marks and the click resolve text AS
+RENDERED, so a data value that happens to equal a rendered string (a cell
+reading `open` next to an enum labeled `open`) is marked too — read the key in
+the editor before saving; and Alt is what the operating system may also use
+(Firefox on Windows shows its menu bar on Alt release, some Linux window
+managers grab Alt+drag), which is harmless but worth knowing.
+
 ### Enforcement
 
 `lingui/no-unlocalized-strings` is an error for `apps/web/src`, with three

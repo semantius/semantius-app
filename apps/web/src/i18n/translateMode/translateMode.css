@@ -4,9 +4,18 @@
  *
  * `::highlight()` accepts only color, background-color, text-decoration and
  * text-shadow — no outline, no border — which is exactly why it cannot disturb
- * layout. The attribute rule is the fallback for browsers without the API and
- * the only option for an attribute host; it is a box-shadow rather than an
- * outline so it never fights the focus ring, which is an outline.
+ * layout.
+ *
+ * The attribute rule is the fallback for browsers without the API and the
+ * only option for an attribute host (an input's placeholder, a button's
+ * aria-label). It is an OUTLINE, and only an outline, on purpose: in this
+ * design system the focus ring is a box-shadow (`ring-*` in ui/button.tsx and
+ * ui/input.tsx), so an outline composes with it, while a box-shadow here would
+ * REPLACE the ring on every marked control. It sets nothing else — an earlier
+ * `border-radius` squared off every marked button, because this file is
+ * unlayered and an unlayered declaration beats any Tailwind utility. That
+ * same precedence is what lets the mark show on a control that carries
+ * `outline-none`.
  */
 ::highlight(semantius-i18n-missing) {
   background-color: rgb(253 224 71 / 0.55);
@@ -19,10 +28,10 @@
 }
 
 [data-i18n-missing] {
-  box-shadow: 0 0 0 2px rgb(161 98 7);
-  border-radius: 2px;
+  outline: 2px dashed rgb(161 98 7);
+  outline-offset: 2px;
 }
 
 .dark [data-i18n-missing] {
-  box-shadow: 0 0 0 2px rgb(253 224 71);
+  outline-color: rgb(253 224 71);
 }
