@@ -88,9 +88,11 @@ Under `i18n-metadata-messages-plan.md` a message is `{ locale, key, translation 
 and nothing more, because metadata messages become messages and `scope` collapses.
 Two current columns then need a decision:
 
-- **`context`** — disambiguates two identical English strings with different
-  meanings ("View" the noun, "View" the verb). Only code strings need it.
-  Either keep it as a column, or fold it into the key.
+- **`context`** — **deleted.** It was a free-text prefix that existed only because
+  a code string had no other way to be disambiguated. The key is now always an
+  array of segments, and a disambiguating segment does the same job better
+  (`i18n-metadata-messages-plan.md`, "The three call forms"). No column, no
+  `contexts` file section, no U+0004.
 - **`scope`** — collapses. Only backend-raised text (`server`) is not a message
   with a key, and whether that survives at all is open (see
   `UNAUTHORIZED-DECISIONS.md` item 4).

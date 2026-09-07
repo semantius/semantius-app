@@ -106,7 +106,43 @@ recommended: what to show when the model says nothing is a rendering decision an
 it differs per surface — a column header falls back to the field name, a hint
 falls back to nothing.
 
-## `context` disappears for metadata
+## The three call forms, and `context` is deleted
+
+The key is **always an array of segments**. The only question is whether the
+English is appended to it. That gives three forms and no other concepts:
+
+```ts
+// 1. message only — the message IS the key
+t('Save')                                             // key: ['Save']
+
+// 2. id + message — the message is PART of the key, the id disambiguates
+t({ id: ['columnVisibility'], message: 'View' })      // key: ['columnVisibility', 'View']
+
+// 3. id + defaultMessage — the id ALONE is the key, the English is only a fallback
+t({ id: [mod, entity, 'city', 'label'],               // key: ['nwind','customers','city','label']
+    defaultMessage: property.title })
+```
+
+Form 1 is every code string today, unchanged. Form 2 replaces `context`. Form 3
+is the metadata case.
+
+**Which field is present is the discriminator**, and it is explicit: `message`
+means "this text is part of my identity, reword it and I am a new message";
+`defaultMessage` means "my identity is the id, this is just what to show when
+nothing is translated". Nothing else has to be inferred.
+
+**`context` is removed entirely** — the option, the U+0004 separator, the
+`contexts` section in every catalog file, and the `context` column on the
+table. It was a free-text prefix that only existed because a code string had no
+other way to be disambiguated; form 2 does the same job with a structured
+segment, which sorts, groups and reads. There are 8 uses today (one
+`column visibility`, seven `translation scope`), so the conversion is small.
+
+Naming: `defaultMessage` rather than `default_message` to match the codebase's
+camelCase, and it is the name react-intl already uses for exactly this. `default`
+alone is legal as a property but reads as a keyword at every call site.
+
+## What `context` was, for the record
 
 `context` is a weak id prefix — a way to manufacture a second key when the only
 key you have is the English text. `View` the noun and `View` the verb share an
@@ -116,7 +152,8 @@ runtime id becomes `View` + U+0004 + the context. Today that produces
 `contexts["column visibility"]["View"] = "Ansicht"` (the column-visibility noun).
 
 A metadata message has a real key, so it never needs one: two identical labels
-in different entities are already distinct keys.
+in different entities are already distinct keys. And form 2 above covers the code
+-string case better, so `context` has no remaining use.
 
 Two facts about the mechanism, since it looks invented and is not. `context` is
 Lingui's and gettext's before it — `msgctxt`, what `pgettext` exists for. The
@@ -125,11 +162,10 @@ U+0004 SEPARATOR is ours by choice: Lingui's own `generateMessageId` HASHES
 scheme rests on, that the source text is a readable key. Lingui never sees the
 difference; it is handed a string id and looks it up.
 
-**Consequence for the wire format:** `context` exists only for code strings. If it
-folds into the code-string key rather than staying a separate column, then a
-message is `{ locale, key, translation }` for both kinds and U+0004 becomes an
-internal detail of how a code-string key is spelled — invisible to the endpoint
-and to the database. See `i18n-endpoint-spec.md`.
+**Consequence for the wire format:** with `context` gone and the key always an
+array of segments, a message is `{ locale, key, translation }` for both kinds.
+No `context` column, no `scope` column, no U+0004 anywhere. See
+`i18n-endpoint-spec.md`.
 
 ## When the English changes
 
