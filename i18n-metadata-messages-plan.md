@@ -266,6 +266,24 @@ business data. Translations are the i18n layer's own store and may sit on a
 different host entirely, so they are the exception — following the rule literally
 is what produced the awkwardness.
 
+**The target is PUSHED in, not pulled.** `translateApiUrl()` today reads
+`runtimeEnv()` itself on every call, which is the opposite of how the rest of the
+layer is configured: `setDeploymentLocales()` is called from `applyUiCustomizer`,
+`setTenantLocaleFiles()` from the prefetch. The store does that deliberately —
+it must not call `getConfig()` at boot, which throws at that moment.
+
+So the endpoint is supplied once, the same way, carrying the mode with it since a
+target has both:
+
+```ts
+setTranslateTarget({ url, mode })   // once, alongside the other configuration
+```
+
+Nothing below reads the environment and nothing pulls. This is configuration
+given to the layer at the top, not a prop threaded down through components —
+`useSyncExternalStore` on module state is precisely what this layer uses instead
+of React context, so that `useT()` works with no provider at all.
+
 ## Customer-created entities
 
 A customer who adds an entity in their own deployment goes through the **same**

@@ -82,6 +82,11 @@ The **i18n layer**, not the generic table hooks. It already owns the target
 Today `useTable` and `useCreateRecord` carry a `baseUrl` argument added for this;
 that reverts.
 
+The target is **pushed into the layer once** — `setTranslateTarget({ url, mode })`
+alongside the other configuration — rather than read from the environment on
+every call, which is what `translateApiUrl()` does today and what the rest of the
+layer deliberately avoids.
+
 ## Fields
 
 Under `i18n-metadata-messages-plan.md` a message is `{ locale, key, translation }`
