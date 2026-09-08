@@ -33,8 +33,9 @@ import {
  * would take. The one thing it cannot cover, a web server actually serving
  * `/locales/fr-FR.json`, is covered by the deployed preview.
  *
- * `initConfig()` here runs with NO translate mode, so the target is `off` and
- * the file is the one source — which is exactly a deployment's shape.
+ * `initConfig()` here runs with the translate mode `off`, said explicitly —
+ * unset would be `dev` under the dev server the suite runs in — so the file
+ * is the one source, which is exactly a deployment's shape.
  */
 
 const FIXTURE_LANGUAGE = 'fr-FR'
@@ -88,6 +89,7 @@ afterEach(async () => {
 describe('a language an operator registered', () => {
   it('becomes switchable, named by the file it declares', async () => {
     setRuntimeEnv({
+      VITE_TRANSLATE_MODE: 'off',
       VITE_UI_CUSTOMIZER: customizer({
         available: [{ code: FIXTURE_LANGUAGE, url: serveJson(fixture) }],
       }),
@@ -107,6 +109,7 @@ describe('a language an operator registered', () => {
 
   it('translates code strings, a disambiguated one, model text and a server error from the one flat file', async () => {
     setRuntimeEnv({
+      VITE_TRANSLATE_MODE: 'off',
       VITE_UI_CUSTOMIZER: customizer({
         available: [{ code: FIXTURE_LANGUAGE, url: serveJson(fixture) }],
       }),
@@ -137,6 +140,7 @@ describe('a language an operator registered', () => {
 
   it('leaves a message the file does not cover in English', async () => {
     setRuntimeEnv({
+      VITE_TRANSLATE_MODE: 'off',
       VITE_UI_CUSTOMIZER: customizer({
         available: [{ code: FIXTURE_LANGUAGE, url: serveJson(fixture) }],
       }),
@@ -153,6 +157,7 @@ describe('a language an operator registered', () => {
 
   it('sets the boot default without overriding a choice', async () => {
     setRuntimeEnv({
+      VITE_TRANSLATE_MODE: 'off',
       VITE_UI_CUSTOMIZER: customizer({
         default: FIXTURE_LANGUAGE,
         available: [{ code: FIXTURE_LANGUAGE, url: serveJson(fixture) }],
@@ -178,6 +183,7 @@ describe('a registration that does not resolve', () => {
     const html = URL.createObjectURL(new Blob(['<!doctype html><title>app</title>'], { type: 'text/html' }))
     objectUrls.push(html)
     setRuntimeEnv({
+      VITE_TRANSLATE_MODE: 'off',
       VITE_UI_CUSTOMIZER: customizer({ available: [{ code: FIXTURE_LANGUAGE, url: html }] }),
     })
     await initConfig()

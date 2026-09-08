@@ -62,9 +62,10 @@ import { clearSession, seedSession } from './session'
  *     and the provider reads them when it mounts.
  *
  * The translate target is the dev server this project runs against
- * (`VITE_TRANSLATE_MODE=dev`, the same value `apps/web/.env.development` gives
- * `pnpm dev`): `initConfig()` pushes the target from the environment, and the
- * suite's environment is the one that writes the language files. A test that
+ * (`VITE_TRANSLATE_MODE=dev`, spelled out although an unset mode resolves to
+ * it under Vite's dev server too): `initConfig()` pushes the target from the
+ * environment, and the suite's environment is the one that writes the
+ * language files. A test that
  * wants another mode passes it in `env`.
  */
 export async function bootApp(env: Record<string, string> = {}): Promise<void> {

@@ -130,7 +130,7 @@ The callback url is /oauth2_callback like http://localhost:5173/oauth2_callback
 | `VITE_CONTROL_PLANE_URL` | Semantius control plane (default on) — set to an explicit empty value for self-hosted |
 | `VITE_CONTROL_PLANE_ORG` | Org slug when using the control plane                    |
 | `VITE_CUBE_API_URL`    | Cube.js analytics API URL (defaults from the tenant)       |
-| `VITE_TRANSLATE_MODE` | The translate target's mode: `dev` / `stage` / `prod` / `off` (default). `apps/web/.env.development` sets `dev` for `pnpm dev` |
+| `VITE_TRANSLATE_MODE` | The translate target's mode: `dev` / `stage` / `prod` / `off`. Unset: `dev` under `pnpm dev`, `off` in every build |
 | `VITE_TRANSLATE_API_URL` | The translate target's base, answering `GET/POST {base}/translations`. Unset: the app's own origin in `dev`, the app's own API in `prod`. Required for `stage` |
 
 **→ [BACKEND.md](BACKEND.md)** is the reference for what these point at: the two
@@ -394,15 +394,15 @@ GET  {base}/translations?locale=de-DE   -> { "<key>": "<translation>", … }
 POST {base}/translations                { locale, key, translation }
 ```
 
-The target carries a **mode**, `VITE_TRANSLATE_MODE` — explicit configuration,
-never derived from the build:
+The target carries a **mode**, `VITE_TRANSLATE_MODE`. Unset, it is `dev` under
+the dev server and `off` in every build:
 
 | Mode | A write goes to | Discovers |
 | --- | --- | --- |
-| `dev` | this checkout's `public/locales/<code>.json`, through the Vite dev server (`apps/web/.env.development` sets it for `pnpm dev`) | yes |
+| `dev` | this checkout's `public/locales/<code>.json`, through the Vite dev server (the default under `pnpm dev`) | yes |
 | `stage` | a host holding a copy of the language files (`VITE_TRANSLATE_API_URL`) | yes |
 | `prod` | the per-language record on the app's own API — customizations, or where stage is not possible | no |
-| `off` | nothing — the default | no |
+| `off` | nothing — the default in a build | no |
 
 `VITE_TRANSLATE_API_URL` is the base; unset, it is the app's own origin in `dev`
 and the app's own API in `prod`. In `prod` discovery is the on-screen marking:
@@ -459,25 +459,26 @@ Every error reaches a screen in one shape, and `renderError` in
 
 ### Translate mode
 
-In `dev` and `stage` anyone finds two switches at the foot of the **Language**
-submenu in the account menu; in `prod` anyone holding `translations.edit` (or
-`admin`, until the migration that creates the permission has landed), once the
-record store answers:
+In `dev` and `stage` anyone finds the **Translate mode** switch at the foot of
+the **Language** submenu in the account menu; in `prod` anyone holding
+`translations.edit` (or `admin`, until the migration that creates the
+permission has landed), once the record store answers. With the switch off
+nothing is recorded, scanned or marked. With it on:
 
-- **Mark missing translations** highlights every piece of text on the page that
-  the active language has no translation for — code strings, model text, the
-  value of an `aria-label` or a `placeholder`. The marks are CSS Custom
-  Highlights, so the DOM, the accessible names and the layout are untouched.
-  Nothing is marked in `en-US`: the source language is never missing anything.
-- **Translate mode** adds in-context editing and a panel. **Alt+click** or
-  **right-click** any text the app produced to edit its translation where it
-  stands (a plain click still does what it always did, which is how a menu is
-  opened to reach the entries inside it). The editor shows the source and the
-  key, checks the ICU placeholders live and refuses a translation that does not
-  compile. The floating **Translations** button opens the panel: the whole
-  index — code strings and model text in one list, told apart by their keys —
-  with search and the filters *all* / *missing* / *on this page*. While the
-  mode is on, the Language submenu shows how much the language still lacks.
+- Every piece of text on the page that the active language has no translation
+  for is **marked** — code strings, model text, the value of an `aria-label` or
+  a `placeholder`. The marks are CSS Custom Highlights, so the DOM, the
+  accessible names and the layout are untouched. Nothing is marked in `en-US`:
+  the source language is never missing anything.
+- **Alt+click** or **right-click** any text the app produced to edit its
+  translation where it stands (a plain click still does what it always did,
+  which is how a menu is opened to reach the entries inside it). The editor
+  shows the source and the key, checks the ICU placeholders live and refuses a
+  translation that does not compile.
+- The floating **Translations** button opens the panel: the whole index — code
+  strings and model text in one list, told apart by their keys — with search
+  and the filters *all* / *missing* / *on this page*. While the mode is on, the
+  Language submenu shows how much the language still lacks.
 
 **There is one writer and no fallback.** Every target speaks the contract above,
 and only the base and the mode differ. Translate mode is **not offered at all**

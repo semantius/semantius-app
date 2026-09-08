@@ -7,7 +7,6 @@ import {
   SOURCE_LANGUAGE,
   activateLocale,
   clearSessionPreference,
-  setMarkMissing,
   setRecordingRenders,
   setTranslateMode,
   setTranslateTarget,
@@ -73,9 +72,8 @@ afterEach(async () => {
   localStorage.removeItem(LANGUAGE_CACHE_KEY)
   localStorage.removeItem(LOCALE_CACHE_KEY)
   clearSessionPreference()
-  // Translate mode's switches persist in localStorage too, and a leaked one
+  // Translate mode's switch persists in localStorage too, and a leaked one
   // would mount the translate-mode chunk under every later AppLayout render.
-  setMarkMissing(false)
   setTranslateMode(false)
   setRecordingRenders(false)
   // A test that ran `initConfig()` with its own environment may have moved the

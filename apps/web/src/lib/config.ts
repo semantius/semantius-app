@@ -15,6 +15,7 @@ import {
   EMPTY_LOCALE_CONFIG,
   TRANSLATE_MODE_VAR,
   TRANSLATE_URL_VAR,
+  defaultTranslateMode,
   resolveLocales,
   resolveTranslateTarget,
   setDeploymentLocales,
@@ -364,11 +365,14 @@ function applyUiCustomizer(cfg: AppConfig): void {
   setDeploymentLocales(locales.locales)
 
   // The translate target, pushed in the same way (src/i18n/translateTarget.ts).
-  // The mode is explicit configuration, never derived from `import.meta.env.DEV`.
+  // Unset, the mode follows the server: `dev` under Vite's dev server, `off`
+  // in every build — `pnpm dev` translates and discovers with nothing
+  // configured, and a deployment is silent until an operator says otherwise.
   const target = resolveTranslateTarget(
     runtimeEnv(TRANSLATE_MODE_VAR, import.meta.env.VITE_TRANSLATE_MODE),
     runtimeEnv(TRANSLATE_URL_VAR, import.meta.env.VITE_TRANSLATE_API_URL),
     typeof window === 'undefined' ? undefined : window.location.origin,
+    defaultTranslateMode(import.meta.env.DEV),
   )
   if ('error' in target) {
     recordConfigError(target.error)

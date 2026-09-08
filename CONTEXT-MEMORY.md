@@ -499,11 +499,14 @@ cannot tell those from a deleted code string; their translation lands in
 `obsolete` and the key is rediscovered on the next render. `i18n:status` reads
 the index and reports both kinds, code and model counted separately.
 
-**The translate target carries a MODE, and it is explicit configuration.**
-`VITE_TRANSLATE_MODE` is `dev` / `stage` / `prod` / `off` (default), never derived
-from `import.meta.env.DEV`; `apps/web/.env.development` sets `dev` for `vite dev`
-(un-ignored in `.gitignore`; it holds nothing else and a shell variable wins over
-it) and the test harness passes `dev` to `initConfig()`. `lib/config.ts` resolves
+**The translate target carries a MODE, and its default follows the server.**
+`VITE_TRANSLATE_MODE` is `dev` / `stage` / `prod` / `off`; unset, it is `dev`
+under Vite's dev server (`import.meta.env.DEV` — every `pnpm dev*` script,
+whatever `--mode` it passes) and `off` in every build, so `pnpm dev` translates
+and discovers with nothing configured and a deployment is silent until an
+operator says otherwise (the owner's rule; an `.env.development` file that set
+`dev` for one Vite mode only is gone). The test harness passes `dev` to
+`initConfig()` explicitly. `lib/config.ts` resolves
 mode and url through `resolveTranslateTarget()` (the diagnostics live in
 `src/i18n/translateTarget.ts` so `config.ts` gains no lint suppressions) and
 PUSHES `setTranslateTarget({ url, mode })`, the way every other configuration
@@ -886,6 +889,15 @@ index keys without a translation plus what is on the page that the index has
 not caught up with. One list, one tab: code strings and model text are told apart
 by nothing but the key the list shows beside a source that differs from it.
 
+**Translate mode is ONE switch, and off means off.** The marks, the recording
+behind them and the scan exist only while the mode is on: `TranslateModeHost`
+mounts nothing otherwise, and `translate()` pays one boolean check. A separate
+"mark missing translations" switch once painted marks with the mode off, and the
+owner's rule is that none of the mode's overhead runs while it is off — do not
+bring a second switch back. Whether the one switch is offered at all is
+`canTranslate`: never under `off`, and in `prod` only once the record store has
+answered.
+
 **The marks are CSS Custom Highlights, and the DOM is not mutated for them.**
 Ranges over text nodes go into `CSS.highlights` under `semantius-i18n-missing`;
 attribute hosts (and the fallback where the API is missing) get
@@ -934,7 +946,7 @@ result at once: `addMessageEntry` into the catalog's own map, then Lingui's
 table REPLACED with that map. `reactivateLocale()` is wrong there: it re-folds
 the sources, which still hold the old value, so the cleared string comes straight
 back. Translate mode is NOT OFFERED where no target answers (`canTranslate`):
-the tenant record store exists nowhere yet, so `prod` shows no switches, and an
+the tenant record store exists nowhere yet, so `prod` shows no switch, and an
 edit made in production could never correct the repo anyway — `export.mjs` fills
 only EMPTY entries, so a wrong shipped translation stays wrong until a `dev`
 change goes through a PR.

@@ -9,7 +9,6 @@ import {
   activateLocale,
   highlightedTexts,
   resetSourceIndex,
-  setMarkMissing,
   setTranslateMode,
   supportsHighlightApi,
   translate,
@@ -127,7 +126,7 @@ describe('translate mode', () => {
   })
 
   it('marks the untranslated text and leaves every accessible name alone', async () => {
-    setMarkMissing(true)
+    setTranslateMode(true)
     await activateLocale(GERMAN)
     renderInApp(<Page />)
 
@@ -147,7 +146,7 @@ describe('translate mode', () => {
   })
 
   it('marks nothing in the source language, where nothing is missing', async () => {
-    setMarkMissing(true)
+    setTranslateMode(true)
     renderInApp(<Page />)
 
     // Give the scan every chance to run: the host has to fetch the permissions
@@ -374,10 +373,10 @@ describe('translate mode', () => {
     expect(await within(panel).findByRole('button', { name: new RegExp(UNTRANSLATED) })).toBeInTheDocument()
   })
 
-  it('renders nothing while both switches are off', async () => {
+  it('renders nothing while the switch is off', async () => {
     // The permission gate itself cannot be asserted here: the run's identity
     // holds `admin`, and there is no second identity without it. What CAN be
-    // asserted is that with both switches off the host renders nothing at all.
+    // asserted is that with the switch off the host renders nothing at all.
     renderInApp(<Page />)
     await waitFor(() => expect(screen.getByText(UNTRANSLATED)).toBeInTheDocument())
     expect(screen.queryByRole('button', { name: /Translations/ })).not.toBeInTheDocument()

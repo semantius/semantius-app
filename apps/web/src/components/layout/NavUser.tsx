@@ -24,7 +24,6 @@ import {
   useLanguage,
   useT,
   canTranslate,
-  setMarkMissing,
   setTranslateMode,
   useTranslateModeFlags,
 } from '@/i18n'
@@ -215,13 +214,15 @@ export function NavUser({
 
   // ── Translate mode ────────────────────────────────────────────────────────
   //
-  // Two switches at the foot of the Language submenu, for anyone who may
-  // translate (see canTranslate). While translate mode is on, the submenu's
-  // own label carries the count of what the active language still lacks.
+  // One switch at the foot of the Language submenu, for anyone who may
+  // translate (see canTranslate). The marks are part of the mode, not a
+  // switch of their own: with the mode off nothing on the page is marked.
+  // While it is on, the submenu's own label carries the count of what the
+  // active language still lacks.
   const translateFlags = useTranslateModeFlags()
   const mayTranslate = canTranslate(userPermissions)
   const languageLabel =
-    translateFlags.editing && translateFlags.missingCount > 0
+    translateFlags.enabled && translateFlags.missingCount > 0
       ? t('Language ({count} missing)', { count: translateFlags.missingCount })
       : t('Language')
 
@@ -360,13 +361,7 @@ export function NavUser({
                   <>
                     <DropdownMenuSeparator />
                     <DropdownMenuCheckboxItem
-                      checked={translateFlags.marking}
-                      onCheckedChange={(checked) => setMarkMissing(checked)}
-                    >
-                      {t('Mark missing translations')}
-                    </DropdownMenuCheckboxItem>
-                    <DropdownMenuCheckboxItem
-                      checked={translateFlags.editing}
+                      checked={translateFlags.enabled}
                       onCheckedChange={(checked) => setTranslateMode(checked)}
                     >
                       {t('Translate mode')}

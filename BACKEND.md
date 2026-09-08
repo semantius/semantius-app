@@ -112,16 +112,17 @@ so both are read with `in`, never a truthiness check.
 
 Translate mode and discovery read and write through the SAME two calls at
 every target, and only the base url and the mode differ —
-`VITE_TRANSLATE_API_URL` and `VITE_TRANSLATE_MODE`, their own axis and not
-derived from the app's environment. The full contract, errors included, is
+`VITE_TRANSLATE_API_URL` and `VITE_TRANSLATE_MODE`, their own axis (unset, the
+mode is `dev` under the dev server and `off` in every build). The full
+contract, errors included, is
 [`i18n-endpoint-spec.md`](i18n-endpoint-spec.md).
 
 | Mode | Base | A write goes to | Discovers |
 | --- | --- | --- | --- |
-| `dev` | the Vite dev server (`apps/web/.env.development`) | `apps/web/public/locales/<code>.json` | yes |
+| `dev` | the Vite dev server (the default under `pnpm dev`) | `apps/web/public/locales/<code>.json` | yes |
 | `stage` | a host holding a copy of the language files | that copy | yes |
 | `prod` | unset, so this app's own API | the per-language record | no |
-| `off` | — | nothing (the default) | no |
+| `off` | — | nothing (the default in a build) | no |
 
 ```
 GET  {base}/translations?locale=de-DE   -> { "<key>": "<translation>", … }

@@ -14,12 +14,14 @@
  *   prod    the app's own API keeps a record per language; never discovers
  *   off     nothing — the default
  *
- * The mode is explicit configuration (`VITE_TRANSLATE_MODE`) and is never
- * derived from `import.meta.env.DEV`: a local app can point at a stage target
- * and a deployed one can point anywhere. It is PUSHED in once, by
- * `lib/config.ts`, the way every other piece of configuration reaches this
- * directory — nothing here reads the environment, because the first boot pass
- * runs before `initConfig()`, which throws at that moment.
+ * The mode is configuration (`VITE_TRANSLATE_MODE`); unset, it is `dev` under
+ * Vite's dev server and `off` in every build (`defaultTranslateMode`), so a
+ * local app translates with nothing configured and can still be pointed at a
+ * stage target, while a deployment does nothing until an operator says so. It
+ * is PUSHED in once, by `lib/config.ts`, the way every other piece of
+ * configuration reaches this directory — nothing here reads the environment,
+ * because the first boot pass runs before `initConfig()`, which throws at that
+ * moment.
  *
  * A base of `''` means "the app's own API, relatively": `/translations` is a
  * relative url, which the fetch interceptor in `lib/apiClient.ts` rewrites onto
@@ -80,6 +82,16 @@ export function parseTranslateMode(raw: string | undefined): TranslateMode | und
 }
 
 /**
+ * The mode when none is configured: `dev` under Vite's dev server — every
+ * `pnpm dev*` script, whatever `--mode` it passes — and `off` in every build.
+ * `pnpm dev` translates and discovers with nothing set; a deployment does
+ * nothing until an operator says otherwise.
+ */
+export function defaultTranslateMode(devServer: boolean): TranslateMode {
+  return devServer ? 'dev' : 'off'
+}
+
+/**
  * The target, from the two raw variables — or the operator diagnostic that
  * blocks boot when they do not add up. Pure, so `lib/config.ts` does the env
  * reading and calls in; the strings here are machine reports quoting the
@@ -88,13 +100,15 @@ export function parseTranslateMode(raw: string | undefined): TranslateMode | und
  * `dev` with no url means the app's own origin, where the dev server answers;
  * `prod` with no url means the app's own API (a relative base, see the
  * header); `stage` has no sensible default and must say where the stage host is.
+ * An unset or blank mode is `fallback` — `defaultTranslateMode()` in the app.
  */
 export function resolveTranslateTarget(
   rawMode: string | undefined,
   rawUrl: string | undefined,
   origin: string | undefined,
+  fallback: TranslateMode = 'off',
 ): { target: TranslateTarget } | { error: string } {
-  const mode = parseTranslateMode(rawMode)
+  const mode = (rawMode ?? '').trim() ? parseTranslateMode(rawMode) : fallback
   if (!mode) {
     return { error: `Invalid ${TRANSLATE_MODE_VAR}: "${rawMode}". Valid values are: ${TRANSLATE_MODES.join(', ')}.` }
   }

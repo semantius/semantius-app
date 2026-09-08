@@ -43,17 +43,11 @@ const SCAN_DELAY_MS = 150
  */
 let hintShown = false
 
-export interface TranslateModeProps {
-  /** Mark untranslated text. */
-  marking: boolean
-  /** The full mode: marks, in-context editing, the panel. */
-  editing: boolean
-}
-
 /**
- * Translate mode, mounted by `components/TranslateModeHost.tsx` while either
+ * Translate mode, mounted by `components/TranslateModeHost.tsx` while the
  * switch is on — and loaded lazily by it, so this chunk (the editor, the panel
- * and the highlighter) never reaches a browser that is not translating.
+ * and the highlighter) never reaches a browser that is not translating. With
+ * the switch off none of this exists: nothing is recorded, scanned or marked.
  *
  * Three pieces, all driven by the render-time reverse index
  * (`src/i18n/reverseIndex.ts`):
@@ -70,7 +64,7 @@ export interface TranslateModeProps {
  * In the source language nothing is marked (nothing is missing there) and the
  * editor offers an override where the target keeps one.
  */
-export default function TranslateMode({ marking, editing }: TranslateModeProps) {
+export default function TranslateMode() {
   const t = useT()
   const language = useLanguage()
   const isSource = language === SOURCE_LANGUAGE
@@ -102,16 +96,17 @@ export default function TranslateMode({ marking, editing }: TranslateModeProps) 
   // happened: a plain click still opens the menu or follows the link the text
   // is on, and nothing on screen reveals the editor.
   useEffect(() => {
-    if (!editing || hintShown) return
+    if (hintShown) return
     hintShown = true
     consumeJustEnabled()
     toast.info(t('Translate mode is on'), { description: t(EDIT_HINT), duration: 10000 })
-  }, [editing, t])
+  }, [t])
 
   // Scan on every settled burst of mutations, and whenever the catalog changes
   // (a save, a language switch) — the second covers a mark that a save resolved
-  // without the text itself changing.
-  const mark = (marking || editing) && !isSource
+  // without the text itself changing. In the source language nothing is
+  // painted (nothing is missing there); the scan still runs, for `present`.
+  const mark = !isSource
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined
     const run = () => {
@@ -170,7 +165,6 @@ export default function TranslateMode({ marking, editing }: TranslateModeProps) 
   //                a plain click has to keep opening the menu or following the
   //                link the text sits on.
   useEffect(() => {
-    if (!editing) return
     const open = (event: MouseEvent) => {
       const hit = resolveClickTarget(event)
       if (!hit) return
@@ -192,40 +186,36 @@ export default function TranslateMode({ marking, editing }: TranslateModeProps) 
       document.removeEventListener('click', onClick, true)
       document.removeEventListener('contextmenu', open, true)
     }
-  }, [editing])
+  }, [])
 
   return (
     <>
-      {editing && (
-        <Button
-          type="button"
-          size="sm"
-          data-i18n-ui=""
-          title={t(EDIT_HINT)}
-          className="fixed right-4 bottom-4 z-40 shadow-lg"
-          onClick={() => setPanelOpen(true)}
-        >
-          <Languages />
-          {t('Translations')}
-          {missingCount > 0 && (
-            <span className="rounded-full bg-background/20 px-1.5 text-xs" aria-hidden="true">
-              {missingCount}
-            </span>
-          )}
-          <span className="sr-only">
-            {t('{count, plural, one {# missing translation} other {# missing translations}}', { count: missingCount })}
+      <Button
+        type="button"
+        size="sm"
+        data-i18n-ui=""
+        title={t(EDIT_HINT)}
+        className="fixed right-4 bottom-4 z-40 shadow-lg"
+        onClick={() => setPanelOpen(true)}
+      >
+        <Languages />
+        {t('Translations')}
+        {missingCount > 0 && (
+          <span className="rounded-full bg-background/20 px-1.5 text-xs" aria-hidden="true">
+            {missingCount}
           </span>
-        </Button>
-      )}
-      {editing && (
-        <Panel
-          open={panelOpen}
-          onOpenChange={setPanelOpen}
-          language={language}
-          presentIds={present}
-          onEdit={(entry) => setRequest({ entries: [entry] })}
-        />
-      )}
+        )}
+        <span className="sr-only">
+          {t('{count, plural, one {# missing translation} other {# missing translations}}', { count: missingCount })}
+        </span>
+      </Button>
+      <Panel
+        open={panelOpen}
+        onOpenChange={setPanelOpen}
+        language={language}
+        presentIds={present}
+        onEdit={(entry) => setRequest({ entries: [entry] })}
+      />
       <EditorDialog request={request} language={language} onClose={() => setRequest(null)} />
     </>
   )

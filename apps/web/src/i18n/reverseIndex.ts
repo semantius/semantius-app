@@ -15,7 +15,7 @@
  * untranslated "View" the noun and "View" the verb), which is why the value is
  * a SET and the editor offers a choice.
  *
- * Off unless translate mode or marking is on. Every `t()` call in the app pays
+ * Off unless translate mode is on. Every `t()` call in the app pays
  * one boolean check for it; the map itself only exists while somebody is
  * translating, and it is cleared whenever a locale is activated, because the
  * text it holds belongs to the language that was active when it was rendered.

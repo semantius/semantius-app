@@ -176,7 +176,7 @@ export function scanAndMark({ root, mark, isMissing }: ScanOptions): ScanResult 
   return { present, marked: ranges.length + hosts.size }
 }
 
-/** Remove every mark. Called when marking or translate mode is switched off. */
+/** Remove every mark. Called when translate mode is switched off. */
 export function clearMarks(): void {
   for (const host of Array.from(document.querySelectorAll(`[${MISSING_ATTRIBUTE}]`))) {
     host.removeAttribute(MISSING_ATTRIBUTE)

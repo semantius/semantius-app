@@ -111,6 +111,7 @@ export {
   TRANSLATE_MODES,
   TRANSLATE_MODE_VAR,
   TRANSLATE_URL_VAR,
+  defaultTranslateMode,
   parseTranslateMode,
   resolveTranslateTarget,
   setTranslateTarget,
@@ -136,12 +137,10 @@ export {
 } from './reverseIndex'
 export type { EmbeddedSegment } from './reverseIndex'
 export {
-  MARK_MISSING_KEY,
   TRANSLATE_MODE_KEY,
   CATALOG_FILTER,
   canTranslate,
   consumeJustEnabled,
-  setMarkMissing,
   setMissingCount,
   setTranslateMode,
   translateModeFlags,

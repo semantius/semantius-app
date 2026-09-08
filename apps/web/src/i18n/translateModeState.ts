@@ -1,21 +1,22 @@
 /**
- * The two translate-mode switches, and who may flip them.
+ * The translate-mode switch, and who may flip it.
  *
  * Kept OUT of the lazy `./translateMode/` chunk on purpose: the account menu
- * has to render the checkboxes and the missing count before that chunk exists,
+ * has to render the checkbox and the missing count before that chunk exists,
  * and `TranslateModeHost` has to know whether to load it at all. Everything
  * here is a storage key, a permission name or a number — machinery, which is
  * why it lives at the top level of `src/i18n` with the other exempt modules.
  *
- * Both switches persist per browser: a translator who reloads mid-session
- * should not have to find the menu again.
+ * ONE switch. Translate mode is the marks, the in-context editor and the panel
+ * together; with it off nothing is recorded, nothing is scanned and nothing on
+ * the page is marked. It persists per browser: a translator who reloads
+ * mid-session should not have to find the menu again.
  */
 
 import { useSyncExternalStore } from 'react'
 import { FALLBACK_TRANSLATE_PERMISSION, TRANSLATE_PERMISSION } from './tenant'
 import { targetAvailable, translateTarget } from './translateTarget'
 
-export const MARK_MISSING_KEY = 'semantius-i18n-mark'
 export const TRANSLATE_MODE_KEY = 'semantius-i18n-translate'
 
 /** The panel's filters — identifiers, named here so the UI files carry no bare literals. */
@@ -27,10 +28,8 @@ export const CATALOG_FILTER = {
 export type CatalogFilter = (typeof CATALOG_FILTER)[keyof typeof CATALOG_FILTER]
 
 export interface TranslateModeFlags {
-  /** Highlight untranslated text on the page. */
-  marking: boolean
-  /** The full mode: marking, Alt+click editing and the panel. */
-  editing: boolean
+  /** Translate mode is on: the marks, Alt+click editing and the panel. */
+  enabled: boolean
   /** What the active language still lacks — the index plus what is on screen. */
   missingCount: number
 }
@@ -54,8 +53,7 @@ function writeFlag(key: string, on: boolean): void {
 }
 
 let flags: TranslateModeFlags = {
-  marking: readFlag(MARK_MISSING_KEY),
-  editing: readFlag(TRANSLATE_MODE_KEY),
+  enabled: readFlag(TRANSLATE_MODE_KEY),
   missingCount: 0,
 }
 
@@ -71,23 +69,18 @@ function subscribe(listener: () => void): () => void {
   return () => listeners.delete(listener)
 }
 
-/** The current switches, outside React. */
+/** The current switch, outside React. */
 export function translateModeFlags(): TranslateModeFlags {
   return flags
 }
 
-/** The current switches, re-rendering when they change. */
+/** The current switch, re-rendering when it changes. */
 export function useTranslateModeFlags(): TranslateModeFlags {
   return useSyncExternalStore(
     subscribe,
     () => flags,
     () => flags,
   )
-}
-
-export function setMarkMissing(on: boolean): void {
-  writeFlag(MARK_MISSING_KEY, on)
-  update({ marking: on })
 }
 
 /**
@@ -104,7 +97,7 @@ let justEnabled = false
 export function setTranslateMode(on: boolean): void {
   writeFlag(TRANSLATE_MODE_KEY, on)
   justEnabled = on
-  update({ editing: on })
+  update({ enabled: on })
 }
 
 /** True once, for the mount that follows a switch being turned on. */
@@ -126,7 +119,7 @@ export function setMissingCount(count: number): void {
  * translation has somewhere real to go: a `dev` or `stage` target, which needs
  * no permission — it writes the file of whoever runs it — or a `prod` target
  * whose record store answered, for a user who may write to it. A deployment
- * with neither does not show the switches — an editor that cannot save is
+ * with neither does not show the switch — an editor that cannot save is
  * worse than no editor.
  *
  * `translations.edit` is the permission the platform migration creates; until a

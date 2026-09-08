@@ -36,9 +36,6 @@ dist-ssr
 .env.*
 !.env.sample
 !.env.example
-# apps/web/.env.development holds only VITE_TRANSLATE_MODE=dev — the dev server
-# is the translate target under `vite dev`. Nothing secret goes in it.
-!.env.development
 
 # Docker runtime config holds real values — commit only the .env.example file.
 # Bare-name .env needs its own rule: the .env.* pattern above does not match it.
