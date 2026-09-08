@@ -325,7 +325,7 @@ suite: the browser project runs against the dev server, so `pnpm check` is what
 fills `en-US.json`, and its diff is the discovery. A code string no test renders
 is a test gap, not an i18n gap.
 
-The source scan, `pnpm --filter @semantius/frontend i18n:extract`, is an
+The source scan, `pnpm i18n:extract`, is an
 **optional tool you run, never a gate**. Its job is pruning: a code string that
 was reworded or deleted leaves a key nothing at runtime can observe as gone, and
 the scan moves its translations to `obsolete` (`--prune` empties it). It never
@@ -340,7 +340,7 @@ any code string discovery has never seen.
 3. Fill in the German in `apps/web/public/locales/de-DE.json`. **In the same PR** —
    the source string IS the key, so rewording one orphans its translation and
    the new wording is missing until translated.
-4. `pnpm --filter @semantius/frontend i18n:status` prints `0 missing` before the
+4. `pnpm i18n:status` prints `0 missing` before the
    PR merges.
 
 `apps/web/scripts/i18n/TRANSLATION-GUIDE.md` is the brief for whoever does step 3,
@@ -444,7 +444,7 @@ Every error reaches a screen in one shape, and `renderError` in
 
 ### Finding what is missing
 
-- `pnpm --filter @semantius/frontend i18n:status -- --verbose` — per language:
+- `pnpm i18n:status -- --verbose` — per language:
   total, translated, missing (code and model counted separately), obsolete.
 - `git diff apps/web/public/locales` after `pnpm check` — every newly rendered
   key appears in the index and as an empty entry in `de-DE.json`.

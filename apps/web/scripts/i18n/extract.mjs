@@ -2,7 +2,7 @@
 /**
  * Scan `src/` for code messages and reconcile the language files.
  *
- *   pnpm --filter @semantius/frontend i18n:extract [--prune]
+ *   pnpm i18n:extract [--prune]
  *
  * AN OPTIONAL TOOL YOU RUN, NEVER A GATE. Not in `pnpm build`, not in
  * `pnpm check`, not in a hook. Runtime discovery is how `en-US.json` is

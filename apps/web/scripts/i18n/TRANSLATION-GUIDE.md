@@ -71,17 +71,17 @@ attribute vocabulary is the model's own column names.
 
 ```bash
 # 1. what is open, both kinds
-pnpm --filter @semantius/frontend i18n:status -- --verbose
+pnpm i18n:status -- --verbose
 
 # 2. everything still needed, as one file
-pnpm --filter @semantius/frontend i18n:translate -- --locale de-DE
+pnpm i18n:translate -- --locale de-DE
 #   -> apps/web/.i18n/work-de-DE.json  (git-ignored; schema: /locales/work.schema.json)
 
 # 3. fill in every `translation`, keeping `placeholders` exactly, then
-pnpm --filter @semantius/frontend i18n:import -- --locale de-DE
+pnpm i18n:import -- --locale de-DE
 
 # 4. confirm
-pnpm --filter @semantius/frontend i18n:status     # 0 missing
+pnpm i18n:status     # 0 missing
 pnpm check
 ```
 

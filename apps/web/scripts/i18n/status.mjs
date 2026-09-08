@@ -2,7 +2,7 @@
 /**
  * What is translated, and what is not.
  *
- *   pnpm --filter @semantius/frontend i18n:status [--locale de-DE] [--verbose]
+ *   pnpm i18n:status [--locale de-DE] [--verbose]
  *
  * Reads the index (`public/locales/en-US.json`) and each language file and
  * prints, per language: how many keys exist, how many are translated, which

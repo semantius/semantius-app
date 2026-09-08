@@ -2,9 +2,9 @@
 /**
  * Everything one language still needs, in one file for a translator to fill in.
  *
- *   pnpm --filter @semantius/frontend i18n:translate -- --locale de-DE
+ *   pnpm i18n:translate -- --locale de-DE
  *   # …an agent fills in the `translation` fields…
- *   pnpm --filter @semantius/frontend i18n:import -- --locale de-DE
+ *   pnpm i18n:import -- --locale de-DE
  *
  * The work is the index minus what the language already has: every key in
  * `public/locales/en-US.json` — a code string and a model label alike, put

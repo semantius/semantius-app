@@ -2,8 +2,8 @@
 /**
  * Write a filled-in work file back: into the language file, and to a target.
  *
- *   pnpm --filter @semantius/frontend i18n:import -- --locale de-DE
- *   pnpm --filter @semantius/frontend i18n:import -- --locale fr-FR \
+ *   pnpm i18n:import -- --locale de-DE
+ *   pnpm i18n:import -- --locale fr-FR \
  *     --file some/fr-FR.json                       # a language FILE, not a work file
  *   dotenvx run --quiet -- node apps/web/scripts/i18n/import.mjs --locale de-DE \
  *     --target https://stage.example.com          # ...and one message at a time to a target
