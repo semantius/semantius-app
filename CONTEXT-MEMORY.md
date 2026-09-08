@@ -464,8 +464,24 @@ catalog (`store.ts` skips it): a recorded source would render in place of a
 model label that has since been reworded. `__SHIPPED_LOCALES__` — the language
 files present at build time, read off the folder by `vite.config.ts` and
 declared in `src/env.d.ts` — is what `availableLanguages()` lists; the files stay
-static assets, fetched one at a time. `glossary.json` and `TRANSLATION-GUIDE.md`
-live in `scripts/i18n/`.
+static assets, fetched one at a time. `TRANSLATION-GUIDE.md` lives in
+`scripts/i18n/`.
+
+**There is no glossary file, and a flat term map is not the way back to one.**
+`scripts/i18n/glossary.json` held eight English-to-German pairs and a catalog
+test warned when a translation of a message CONTAINING one of them did not
+contain its counterpart. It came out of `i18n-plan.md`, not from the owner, and
+it is removed. The defect is structural, so do not rebuild it: a map with no key
+scope carries no sense, so it cannot express that `Order` is `Bestellung` as an
+nwind entity and `Reihenfolge` in `order_column` — it can only hold words that
+have one meaning, which are the words that were never going to drift, while
+matching `Home` inside `Home Phone` and reporting a correct `Privattelefon` as
+drift. It also duplicated the catalog: a code string is keyed by its own English
+text, so a term that is itself a message already has its pair in the language
+file. The reviewed language file IS the terminology record, since every decision
+in it is attached to a key; the eight words survive as a plain table in
+`TRANSLATION-GUIDE.md` for a human, who applies sense where a substring match
+cannot.
 
 **Discovery is how the index is maintained, and the test suite is what runs it.**
 `translate()` and `translateVerbatim()` report every render (key + source) to the

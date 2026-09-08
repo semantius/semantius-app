@@ -11,7 +11,6 @@ For whoever — person or agent — fills in a language file under
 | `de-DE.json` | A language. `messages` (key to translation) and `obsolete`, nothing else. |
 | `schema.json` | The shape of a language file, served by the build so an editor's `$schema` validates as you type. |
 | `work.schema.json` | The shape of the work file `i18n:translate` writes. |
-| `scripts/i18n/glossary.json` | Fixed product terms per language, checked by `src/test/i18nCatalogs.test.ts`. |
 
 **One flat map per language.** A code string and a piece of model text are both
 messages; they are told apart by nothing but their keys.
@@ -109,8 +108,12 @@ PR like any other change. On a stage host it lands in that host's copy;
 ## Fixed terms (de-DE)
 
 These are the words the product uses for its own concepts. Use them
-consistently; `glossary.json` is the machine-readable copy of this table, and the
-catalog test reports a translation that reaches for a synonym.
+consistently. Nothing checks it for you, and a term list is not what would: a
+flat English-to-German map carries no sense, so it cannot say that `Order` is
+`Bestellung` as an nwind entity and `Reihenfolge` in `order_column`, and it
+matches `Home` inside `Home Phone`. The reviewed `de-DE.json` is the terminology
+record — every decision in it is attached to a key, which is what a word on its
+own can never be.
 
 | English | German |
 | --- | --- |
@@ -123,7 +126,7 @@ catalog test reports a translation that reaches for a synonym.
 | Settings | Einstellungen |
 | Sign in | Anmelden |
 
-Style, beyond the glossary:
+Style, beyond those terms:
 
 - **A plural branch carries the grammatical case the sentence around it needs.**
   German inflects, so a plural form is not one word for every position: `von
@@ -132,8 +135,8 @@ Style, beyond the glossary:
   branch on its own, and check each category the language has.
 - **One English word gets one German word across the product.** `item` and
   `items` must not become `Element` in one message and `Eintrag` in the next; a
-  reader meets both on the same screen. `glossary.json` only catches terms whose
-  German stem survives inflection as a substring, so the rest is on you.
+  reader meets both on the same screen. Nothing catches this for you — read what
+  the language already says for a neighboring key before coining a second word.
 - **A model label is inserted into a sentence as given.** `Add {label}` renders
   the entity's singular label untouched, so translate the label under its own
   key (`module.nwind.orders.entity.singular_label`) and the sentence under its

@@ -1,5 +1,4 @@
 import { readdirSync } from 'node:fs'
-import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { compileMessageOrThrow } from '@lingui/message-utils/compileMessage'
 import {
@@ -27,7 +26,7 @@ import { availableLanguages } from '@/i18n/store'
  * that does not compile, a `module.*` key in `obsolete`, and a file that
  * breaks its shape.
  *
- * What only REPORTS: missing translations, glossary drift, and code strings
+ * What only REPORTS: missing translations and code strings
  * the optional scan finds that no test has rendered into the index. A missing
  * translation renders in English — a degraded screen, not a broken build — and
  * failing on one would mean an English-only PR could not land, which is
@@ -136,32 +135,6 @@ describe.each(languages.map((language) => [language.code, language] as const))('
 
     expect(missingKeys.filter((key) => runtimeKeys.has(key)), `${code}: a gap the runtime treats as translated`).toEqual([])
     expect(translatedKeys.filter((key) => !runtimeKeys.has(key)), `${code}: a translation the runtime does not load`).toEqual([])
-  })
-
-  it('uses the product\'s fixed terms, or says why not', () => {
-    const glossary: Record<string, string> =
-      readJson(join(LOCALES_DIR, '..', '..', 'scripts', 'i18n', 'glossary.json'))[code] ?? {}
-    const drift: string[] = []
-    for (const [key, source] of entries) {
-      const translation = onDisk.messages?.[key]
-      if (!translation) continue
-      // ICU placeholders are removed first: `{language}` is not a sighting of
-      // the word "language", and treating it as one made every parameterized
-      // message drift.
-      const text = source.replace(/\{[^}]*\}/g, ' ').toLowerCase()
-      for (const [term, required] of Object.entries(glossary)) {
-        if (!text.includes(term.toLowerCase())) continue
-        if (!translation.toLowerCase().includes(required.toLowerCase())) {
-          drift.push(`${key}: "${term}" should be "${required}", got ${JSON.stringify(translation)}`)
-        }
-      }
-    }
-    if (drift.length > 0) {
-      console.warn(`[i18n] ${code} glossary drift:\n  ${drift.join('\n  ')}`)
-    }
-    // A wording is a judgment call and the glossary is a guide, so this reports.
-    // It is still asserted so an empty glossary or a broken matcher is visible.
-    expect(Object.keys(glossary).length, `glossary.json has no terms for ${code}`).toBeGreaterThan(0)
   })
 })
 
