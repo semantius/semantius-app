@@ -3,6 +3,7 @@ import { AlertCircle, Home } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { useT } from '@/i18n'
 import { renderError } from '@/lib/apiErrors'
+import { ErrorDetails } from '@/components/ErrorDetails'
 import {
   Card,
   CardContent,
@@ -38,6 +39,10 @@ export function ErrorPage({ error, reset }: ErrorPageProps) {
             <div className="rounded-md bg-muted p-4">
               <p className="text-sm font-medium mb-2">{t('Error Details:')}</p>
               <p className="text-xs text-muted-foreground">{renderError(error, t).message}</p>
+              {/* The stack and whatever rode on `cause`, behind a toggle: a
+                  caught error is never shown without a way to see what
+                  actually happened. */}
+              <ErrorDetails error={error} text={renderError(error, t).details} className="mt-2" />
             </div>
           </CardContent>
         )}

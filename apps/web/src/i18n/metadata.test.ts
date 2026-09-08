@@ -144,6 +144,16 @@ describe('enumLabel', () => {
 })
 
 describe('metadataText', () => {
+  it('renders model text that is not valid ICU as written, instead of taking the screen down', () => {
+    // The real description of `entities.catalog_entity_aliases`: braces that
+    // are a JSON example, not an argument. It compiles, and then Lingui throws
+    // at render for the format type `source_domain`.
+    const description = 'JSON array of {alias_code, source_domain, source_module, decided}. Append-only.'
+    expect(metadataText(['module', 'admin', 'entities', 'field', 'catalog_entity_aliases', 'description'], description)).toBe(
+      description,
+    )
+  })
+
   it('answers the translation, else the fallback the model supplied, else nothing', () => {
     expect(metadataText(['module', 'crm', 'name'], 'CRM')).toBe('Kundenpflege')
     expect(metadataText(['module', 'crm', 'description'], 'Contacts')).toBe('Contacts')

@@ -4,6 +4,7 @@ import React from "react"
 import { AlertCircle } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import { ErrorDetails } from "@/components/ErrorDetails"
 import { translate } from "@/i18n"
 
 export interface DataTableErrorBoundaryProps {
@@ -129,6 +130,8 @@ export class DataTableErrorBoundary extends React.Component<
               {this.state.error?.message ||
                 translate("Something went wrong while displaying the table.")}
             </p>
+            {/* The stack behind a toggle — every caught error has it. */}
+            <ErrorDetails error={this.state.error} />
             {showResetButton && (
               <Button
                 variant="outline"

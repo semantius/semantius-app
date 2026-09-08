@@ -38,13 +38,44 @@ export type TranslateFn = (message: string | MessageDescriptor, values?: Message
 // caches, so this one does — a message is parsed once per session.
 //
 // The catch it also exists for: catalog content is not all ours. An operator's
-// file or a record typed into the database can hold a malformed pattern, and
-// Lingui's own `compileMessage` answers that with a `console.error` on EVERY
-// render. Here it is one warning per session and the source text is rendered
-// instead, so no catalog content can break a screen.
+// file, a record typed into the database, and — since model text is a message —
+// the MODEL's own English can hold a pattern that is not ICU. Lingui's own
+// `compileMessage` answers a malformed one with a `console.error` on EVERY
+// render, and a pattern that compiles but cannot be formatted THROWS at render:
+// a field description reading "JSON array of {alias_code, source_domain, …}"
+// compiles to an argument named `alias_code` with the format type
+// `source_domain`, for which there is no formatter, and the whole route went to
+// the error page over one description. Here both cases are one warning per
+// session and the source text rendered instead, so no catalog or model content
+// can break a screen.
 
 const compiledCache = new Map<string, CompiledMessage>()
 let warnedAboutCompileFailure = false
+
+/** The argument types Lingui can format. Anything else throws at render. */
+const FORMAT_TYPES = new Set(['plural', 'select', 'selectordinal', 'number', 'date', 'time'])
+
+/** Whether every argument in a compiled message names a type Lingui can format. */
+function formattable(tokens: readonly unknown[]): boolean {
+  for (const token of tokens) {
+    if (typeof token === 'string' || !Array.isArray(token)) continue
+    const [, type, format] = token as [string, string?, unknown?]
+    if (type !== undefined && !FORMAT_TYPES.has(type)) return false
+    if (format && typeof format === 'object' && !Array.isArray(format)) {
+      for (const [key, branch] of Object.entries(format as Record<string, unknown>)) {
+        if (key === 'offset' || !Array.isArray(branch)) continue
+        if (!formattable(branch)) return false
+      }
+    }
+  }
+  return true
+}
+
+function warnOnce(message: string, error: unknown): void {
+  if (warnedAboutCompileFailure) return
+  warnedAboutCompileFailure = true
+  console.warn('[i18n] a message could not be compiled; showing it verbatim', { message, error })
+}
 
 i18n.setMessagesCompiler((message: string): CompiledMessage => {
   const hit = compiledCache.get(message)
@@ -52,11 +83,12 @@ i18n.setMessagesCompiler((message: string): CompiledMessage => {
   let compiled: CompiledMessage
   try {
     compiled = compileMessageOrThrow(message)
-  } catch (err) {
-    if (!warnedAboutCompileFailure) {
-      warnedAboutCompileFailure = true
-      console.warn('[i18n] a message could not be compiled; showing it verbatim', { message, error: err })
+    if (!formattable(Array.isArray(compiled) ? compiled : [compiled])) {
+      warnOnce(message, 'an argument names a format type Lingui cannot render')
+      compiled = [message]
     }
+  } catch (err) {
+    warnOnce(message, err)
     // A single literal token: the message renders as written, uninterpolated.
     compiled = [message]
   }
@@ -95,7 +127,16 @@ export const translate: TranslateFn = (message, values) => {
   const id = messageId(message)
   // The source is the fallback when the catalog has no entry — for a keyed
   // message the id is not readable text on its own.
-  const rendered = i18n._(id, values, { message: source })
+  let rendered: string
+  try {
+    rendered = i18n._(id, values, { message: source })
+  } catch (err) {
+    // The compiler above keeps out what it can foresee; this keeps the rest
+    // out. A message that cannot be rendered is shown as its source, not as a
+    // crashed screen.
+    warnOnce(source, err)
+    rendered = source
+  }
   // Translate mode's reverse index — one boolean check per call while it is
   // off, a map write while somebody is translating. The VALUES go with it: a
   // sentence built from a model label ("Add {label}") renders as one text node,

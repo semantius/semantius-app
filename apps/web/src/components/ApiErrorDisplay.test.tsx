@@ -74,9 +74,17 @@ describe('ApiErrorDisplay', () => {
     expect(pre.textContent).toContain('"status": 400')
   })
 
-  it('hides details button when error has no additional properties', () => {
+  it('offers the stack of a thrown error behind Details, even with nothing else to show', async () => {
+    const user = userEvent.setup()
     const error = new Error('Simple error')
     render(<ApiErrorDisplay error={error} />)
+
+    await user.click(screen.getByRole('button', { name: /details/i }))
+    expect(document.querySelector('pre')!.textContent).toContain('Error: Simple error')
+  })
+
+  it('hides the details button for a plain object with nothing beyond its message', () => {
+    render(<ApiErrorDisplay error={{ message: 'Simple error' }} />)
 
     expect(screen.queryByRole('button', { name: /details/i })).not.toBeInTheDocument()
   })

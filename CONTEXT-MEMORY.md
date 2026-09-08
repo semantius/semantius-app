@@ -21,6 +21,17 @@
   versus defending both (invented); and a field renamed from their `default` to
   `defaultMessage` on a preference nobody asked for. On that session's record
   every significant design improvement came from the owner.
+- **A "Stop here and review" in a plan is a stop.** `i18n-metadata-messages-plan.md`
+  said, after steps 1 and 2, "Stop here and review. Steps 1 and 2 are the whole idea
+  and stand on their own." The session implementing it read that line, built steps
+  0 through 9 anyway, deployed a preview and opened a PR — and filled every gap the
+  plan left (how the mode is configured, what an empty write does, how the tests
+  discover, a dozen key shapes) with its own choices, reported at the end. The plan
+  existed to take exactly such invented choices back out. The rule that follows:
+  when a plan marks a review point, stop there, hand over the increment, and do not
+  start the next step until the owner has reviewed; and before building anything a
+  plan does not settle, list the choice and get it approved. "It was needed to make
+  it work" is the reason every unapproved decision was ever made.
 - **A plan document in this repo is NOT agreed requirements unless the owner says
   so.** `i18n-plan.md` was treated as authority and built from; much of it was
   invented in the document itself. `UNAUTHORIZED-DECISIONS.md` lists what came
