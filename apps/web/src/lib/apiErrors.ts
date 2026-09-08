@@ -1,24 +1,43 @@
 /**
- * Turns an API error into something a person can act on.
+ * One renderer for every error the app can show.
  *
- * It used to build its sentence out of English morphology: `singularize()`
- * turned "regions" into "region" and "companies" into "company", `capitalize()`
- * put a capital on the front, and the two halves were concatenated into
- * "Region is still used by a Customer. Cannot delete." That is a sentence no
- * other language can be given — German capitalizes every noun and forms plurals
- * a dozen ways, and the word order of the whole clause differs. Both helpers are
- * gone: the labels are inserted into ONE ICU message exactly as the model and
- * the database spell them.
+ * Three origins reach a screen, and this is the one place that tells them
+ * apart:
  *
- * The `t` function is a parameter rather than an import, because this module is
- * called from a component's render and the translation has to follow a language
- * change. `translate()` would read the current catalog too, but a component that
- * cannot re-render (three of the grid's are `React.memo`) would keep the old
- * language on screen — so the rule is that a component passes its own `t` down,
- * and ESLint bans the import under `components/**`.
+ *   an app error       thrown by `appError()` — an ICU template plus values,
+ *                      keyed by its own English, rendered through the caller's `t`
+ *   a platform error   a PostgREST body whose `hint` carried the envelope — a
+ *                      `${…}` template converted to ICU, keyed by its code,
+ *                      the English in the response as the fallback
+ *   a plain error      PostgreSQL's or PostgREST's own sentence — verbatim,
+ *                      never ICU-compiled, keyed by its SQLSTATE plus the
+ *                      constraint name where one can be parsed, and by the
+ *                      sentence itself where there is no code at all
+ *
+ * The parsing is `src/i18n/errors.ts`; this module only decides which lookup
+ * each origin takes and puts the pieces together. It used to build its sentence
+ * out of English morphology — `singularize()`, `capitalize()`, two halves
+ * concatenated — which no other language can be given; the labels are inserted
+ * into ONE ICU message exactly as the model and the database spell them.
+ *
+ * `t` is a parameter rather than an import, because this is called from a
+ * component's render and the translation has to follow a language change.
+ * `translate()` would read the current catalog too, but a component that cannot
+ * re-render (three of the grid's are `React.memo`) would keep the old language
+ * on screen — so the rule is that a component passes its own `t` down, and
+ * ESLint bans the import under `components/**`.
  */
 
-import { translateDynamic, type MessageValues, type TranslateFn } from '@/i18n'
+import {
+  fillPlaceholders,
+  foreignKeyTables,
+  parseServerError,
+  translateVerbatim,
+  currentMessages,
+  type MessageValues,
+  type TranslateFn,
+} from '@/i18n'
+import { isAppError } from './appError'
 
 /**
  * The PostgREST error code an error carries, or undefined.
@@ -28,71 +47,93 @@ import { translateDynamic, type MessageValues, type TranslateFn } from '@/i18n'
  * where a `code` lives when there is one.
  */
 export function codeOf(error: unknown): string | undefined {
-  if (!(error instanceof Error)) return undefined
-  const cause = error.cause
-  if (!cause || typeof cause !== 'object') return undefined
-  const code = (cause as Record<string, unknown>).code
+  const cause = causeOf(error)
+  const code = cause?.code
   return typeof code === 'string' ? code : undefined
 }
 
-/**
- * The user-facing text for a message the SERVER produced.
- *
- * Looked up verbatim in the tenant's own `server` translations and returned
- * unchanged when there is none — a server message is authored outside this repo
- * and can never be a key in the app's catalog. Every miss whose error carried a
- * PostgREST `code` becomes a row in the translation queue, which is how a
- * model-authored rule message ("Order must have at least one line") becomes
- * translatable at all.
- *
- * The `code` filter is what keeps the app's OWN thrown sentences out of the
- * queue: those are already catalog messages, and a body that carries a `code`
- * always carries the server's own `message` with it.
- */
-export function serverMessage(error: unknown, origin?: string): string {
-  const message = error instanceof Error ? error.message : String(error ?? '')
-  return translateDynamic(message, { scope: 'server', code: codeOf(error), origin })
+function causeOf(error: unknown): Record<string, unknown> | undefined {
+  if (!(error instanceof Error)) return undefined
+  const cause = error.cause
+  return cause && typeof cause === 'object' && !Array.isArray(cause) ? (cause as Record<string, unknown>) : undefined
+}
+
+export interface RenderedError {
+  message: string
+  /** How to fix it, when the error said. */
+  hint?: string
+  /** Plain text for a Details panel. Never translated. */
+  details?: string
+}
+
+export interface RenderErrorOptions {
+  /**
+   * The model's own singular label for the record a failed delete was about
+   * ("Region"), used as given in the foreign-key sentence. Falls back to the
+   * table name in the error.
+   */
+  label?: string
 }
 
 /**
- * Format a delete-operation error for the user.
+ * The user-facing text for any error.
  *
- * Recognizes PostgREST's foreign-key constraint violation and explains it; any
- * other message goes through `serverMessage` — looked up verbatim in the
- * tenant's own `server` translations, because a server message is authored
- * outside this repo and cannot be a key in the app's catalog.
- *
- * @param error - the Error thrown by the mutation
+ * @param error - whatever was thrown or returned
  * @param t - the caller's translate function (`useT()`)
- * @param singularLabel - the model's own label for the record being deleted
- *   ("Region"), used as given. Falls back to the table name in the error.
  */
-export function formatDeleteError(
-  error: Error,
-  t: TranslateFn,
-  singularLabel?: string,
-): string {
-  const message = error.message || ''
+export function renderError(error: unknown, t: TranslateFn, options: RenderErrorOptions = {}): RenderedError {
+  if (isAppError(error)) {
+    const { message, hint, values, details } = error.envelope
+    return {
+      message: t(message, fillPlaceholders(message, values ?? {})),
+      hint: hint ? t(hint, fillPlaceholders(hint, values ?? {})) : undefined,
+      details,
+    }
+  }
 
-  // PostgREST FK violation pattern:
-  // "update or delete on table "regions" violates foreign key constraint "customers_region_id_fkey" on table "customers""
-  const fkMatch = message.match(
-    /on table "(\w+)" violates foreign key constraint "[^"]+" on table "(\w+)"/,
-  )
-  if (fkMatch) {
-    const values: MessageValues = {
-      label: singularLabel || fkMatch[1],
+  const cause = causeOf(error)
+  // `details` is shown whatever else the cause carries — a body with a trace
+  // and no message is still a body with a trace.
+  const detailText = cause?.detail ?? cause?.details
+  const details = typeof detailText === 'string' && detailText ? detailText : undefined
+  const body = cause && typeof cause.message === 'string' ? cause : undefined
+  const parsed = body ? parseServerError(body) : null
+  if (parsed) {
+    if (parsed.structured) {
+      // The English templates in the response are the fallbacks when no
+      // translation exists — the same relationship a keyed message has between
+      // its id and its `defaultMessage`, which is what makes an untranslated
+      // error render at all.
+      const values = fillPlaceholders(parsed.message, parsed.values)
+      const message = parsed.keyedByMessage
+        ? t(parsed.message, values)
+        : t({ id: parsed.keySegments, defaultMessage: parsed.message }, values)
+      const hint = parsed.hint
+        ? parsed.keyedByMessage
+          ? t(parsed.hint, fillPlaceholders(parsed.hint, parsed.values))
+          : t({ id: [...parsed.keySegments, 'hint'], defaultMessage: parsed.hint }, fillPlaceholders(parsed.hint, parsed.values))
+        : undefined
+      return { message, hint, details }
+    }
+    // A plain sentence, looked up verbatim under its key. A tenant's own
+    // translation of that key wins over the app's foreign-key sentence below.
+    if (currentMessages()[parsed.key]) {
+      return { message: translateVerbatim(parsed.key, parsed.message), hint: parsed.hint, details }
+    }
+    const foreignKey = parsed.code === '23503' ? foreignKeyTables(parsed.message) : undefined
+    if (foreignKey) {
       // The referencing table's name as the database spells it. There is no
       // model label for it here — the error names a table, not an entity — and
       // inventing one by un-pluralizing the identifier is exactly what this
-      // function stopped doing.
-      table: fkMatch[2],
+      // module stopped doing.
+      const values: MessageValues = { label: options.label || foreignKey.table, table: foreignKey.referencing }
+      return { message: t('{label} is still used by records in {table} and cannot be deleted.', values), details }
     }
-    return t('{label} is still used by records in {table} and cannot be deleted.', values)
+    return { message: translateVerbatim(parsed.key, parsed.message), hint: parsed.hint, details }
   }
 
-  // Not ours: a PostgREST constraint message, a model rule's own wording, an
-  // RPC's `raise`. Looked up verbatim in the tenant's `server` translations,
-  // and recorded as work when there is no entry.
-  return serverMessage(error) || t('An unexpected error occurred. Please try again.')
+  // No body at all: a network failure, a thrown string, an error the app made
+  // without an envelope. Its message is shown as it is.
+  const message = error instanceof Error ? error.message : typeof error === 'string' ? error : ''
+  return { message: message || t('An unexpected error occurred. Please try again.'), details }
 }

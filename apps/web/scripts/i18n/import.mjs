@@ -1,29 +1,23 @@
 #!/usr/bin/env node
 /**
- * Write a filled-in work file back: rows on the tenant, code strings in the repo.
+ * Write a filled-in work file back: into the language file, and to a target.
  *
- *   dotenvx run --quiet -- node apps/web/scripts/i18n/import.mjs --locale de-DE
- *   dotenvx run --quiet -- node apps/web/scripts/i18n/import.mjs --locale fr-FR \
- *     --file apps/web/public/locales/fr-FR.json      # a locale FILE, not a work file
+ *   pnpm --filter @semantius/frontend i18n:import -- --locale de-DE
+ *   pnpm --filter @semantius/frontend i18n:import -- --locale fr-FR \
+ *     --file some/fr-FR.json                       # a language FILE, not a work file
+ *   dotenvx run --quiet -- node apps/web/scripts/i18n/import.mjs --locale de-DE \
+ *     --target https://stage.example.com          # ...and one message at a time to a target
  *
  * IT REFUSES THE WHOLE FILE ON ANY FAILURE, and that is the point. A translation
  * that drops an ICU placeholder loses data on screen; one that invents a
  * placeholder renders literal braces; one that does not compile makes Lingui
  * warn on every render and fall back to English. None of those are visible in a
- * diff of a thousand-entry JSON, and all of them are cheap to catch here.
- * `server` and `rule` text is exempt from the compile check, because it is
- * looked up VERBATIM and never ICU-compiled — a backend message may legitimately
- * contain braces.
+ * diff of a thousand-entry JSON, and all of them are cheap to catch here. A
+ * plain server sentence — keyed by its SQLSTATE — is exempt from the compile
+ * check, because it is looked up VERBATIM and may legitimately contain braces.
  *
- * WHERE EACH SCOPE GOES:
- *
- *   message   BOTH — the repo catalog (so the next build ships it) and a tenant
- *             row (so the tenant is translated before that build is deployed).
- *             For a language with no repo catalog, rows only.
- *   labels    rows only. Model labels are tenant data; a repo catalog that
- *             carried them would ship one tenant's model to every deployment.
- *   server /  rows only, same reason.
- *   rule
+ * A non-empty value already in the language file is never overwritten: it was
+ * reviewed in a PR, and a work file is not a review.
  */
 
 import { existsSync, writeFileSync } from 'node:fs'
@@ -31,14 +25,12 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import Ajv from 'ajv'
 import { compileMessageOrThrow } from '@lingui/message-utils/compileMessage'
-import { CONTEXT_SEPARATOR, LOCALES_DIR, placeholdersOf, readJson, serialize } from './extract.mjs'
-import { localeFileToRows } from './localeFile.mjs'
-import { argValue, connectTenant, TABLE_ABSENT_MESSAGE, upsertTranslations } from './tenant.mjs'
-import { readRepoCatalog, workFilePath } from './translate.mjs'
+import { LOCALES_DIR, placeholdersOf, readJson, serialize } from './extract.mjs'
+import { argValue, connectTarget, writeMessage } from './tenant.mjs'
+import { readLanguageFile, workFilePath } from './translate.mjs'
 
-const LABEL_SCOPES = ['table', 'column', 'enum', 'module']
-/** Looked up verbatim, never compiled — see the header. */
-const VERBATIM_SCOPES = ['server', 'rule']
+/** A SQLSTATE key outside the platform's own classes names a verbatim sentence. */
+const VERBATIM_KEY = /^(?!9[09])[0-9A-Z]{5}(\.|$)/
 
 /**
  * The work file's shape, from the schema that ships in the build.
@@ -49,7 +41,7 @@ const VERBATIM_SCOPES = ['server', 'rule']
  * does not accept. `strict: false` for the same reason as the locale-file
  * schema — it is written for editors, not for Ajv's linter.
  */
-const workSchemaPath = join(LOCALES_DIR, '..', '..', 'public', 'locales', 'work.schema.json')
+const workSchemaPath = join(LOCALES_DIR, 'work.schema.json')
 const validateShape = new Ajv({ allErrors: true, strict: false }).compile(readJson(workSchemaPath))
 
 /**
@@ -60,106 +52,60 @@ export function validateWork(work) {
   const problems = []
   if (!work || typeof work !== 'object') return ['not a JSON object']
   if (!validateShape(work)) {
-    // The shape first: an unknown key or a misspelled scope would otherwise be
-    // ignored in silence, and a whole section of translations would go nowhere.
+    // The shape first: an unknown key would otherwise be ignored in silence,
+    // and a whole section of translations would go nowhere.
     for (const error of validateShape.errors ?? []) {
       problems.push(`${error.instancePath || '(root)'} ${error.message}`)
     }
   }
   if (!work.locale) problems.push('missing "locale"')
-  if (!work.entries || typeof work.entries !== 'object') return [...problems, 'missing "entries"']
+  if (!Array.isArray(work.entries)) return [...problems, 'missing "entries"']
 
-  for (const [scope, entries] of Object.entries(work.entries)) {
-    if (!Array.isArray(entries)) {
-      problems.push(`entries.${scope} is not an array`)
-      continue
+  work.entries.forEach((entry, i) => {
+    const at = `entries[${i}]`
+    if (typeof entry?.key !== 'string' || entry.key === '') problems.push(`${at}: missing "key"`)
+    if (typeof entry?.translation !== 'string') problems.push(`${at}: "translation" must be a string`)
+    const translation = entry?.translation
+    if (!translation) return
+    if (VERBATIM_KEY.test(entry.key)) return
+
+    try {
+      compileMessageOrThrow(translation)
+    } catch (err) {
+      problems.push(`${at} (${entry.key}): does not compile as ICU — ${err.message}`)
+      return
     }
-    entries.forEach((entry, i) => {
-      const at = `entries.${scope}[${i}]`
-      if (typeof entry?.key !== 'string' || entry.key === '') problems.push(`${at}: missing "key"`)
-      if (typeof entry?.translation !== 'string') problems.push(`${at}: "translation" must be a string`)
-      const translation = entry?.translation
-      if (!translation) return
-
-      if (!VERBATIM_SCOPES.includes(scope)) {
-        try {
-          compileMessageOrThrow(translation)
-        } catch (err) {
-          problems.push(`${at} (${entry.key}): does not compile as ICU — ${err.message}`)
-          return
-        }
-      }
-      if (scope === 'message') {
-        const wanted = [...(entry.placeholders ?? [])].sort()
-        const got = placeholdersOf(translation).sort()
-        if (wanted.join('|') !== got.join('|')) {
-          problems.push(
-            `${at} (${entry.key}): placeholders are [${got}] but the source has [${wanted}]`,
-          )
-        }
-      }
-    })
-  }
+    const wanted = [...(entry.placeholders ?? [])].sort()
+    const got = placeholdersOf(translation).sort()
+    if (wanted.join('|') !== got.join('|')) {
+      problems.push(`${at} (${entry.key}): placeholders are [${got}] but the source has [${wanted}]`)
+    }
+  })
   return problems
 }
 
-/** The filled entries as `ui_translations` rows. */
-export function workToRows(work) {
-  const rows = []
-  for (const [scope, entries] of Object.entries(work.entries ?? {})) {
-    for (const entry of entries) {
-      if (!entry.translation) continue
-      rows.push({
-        locale: work.locale,
-        scope,
-        key: entry.key,
-        context: entry.context ?? '',
-        translation: entry.translation,
-      })
-    }
-  }
-  return rows
-}
-
 /**
- * Merge the `message` entries into the repo catalog, IN PLACE of empty values.
- *
- * A non-empty existing value is never overwritten: the shipped translation was
- * reviewed in a PR, and a work file is not a review. Returns how many landed.
+ * Merge the filled entries into the language file, IN PLACE of empty values.
+ * Returns how many landed.
  */
-export function mergeIntoCatalog(catalog, work) {
+export function mergeIntoFile(file, work) {
   let written = 0
-  for (const entry of work.entries?.message ?? []) {
+  const messages = (file.messages ??= {})
+  for (const entry of work.entries ?? []) {
     if (!entry.translation) continue
-    if (entry.context) {
-      const section = (catalog.contexts ??= {})
-      const bucket = (section[entry.context] ??= {})
-      if (!bucket[entry.key]) {
-        bucket[entry.key] = entry.translation
-        written++
-      }
-    } else {
-      const section = (catalog.messages ??= {})
-      if (!section[entry.key]) {
-        section[entry.key] = entry.translation
-        written++
-      }
-    }
+    if (messages[entry.key]) continue
+    messages[entry.key] = entry.translation
+    written++
   }
   return written
 }
 
-/** Turn a plain LOCALE file into work-file shape, so one path validates both. */
-function workFromLocaleFile(file) {
-  const entries = {}
-  for (const row of localeFileToRows(file)) {
-    if (!row.translation) continue
-    ;(entries[row.scope] ??= []).push({
-      key: row.key,
-      ...(row.context ? { context: row.context } : {}),
-      source: row.key,
-      translation: row.translation,
-    })
+/** Turn a plain LANGUAGE file into work-file shape, so one path validates both. */
+function workFromLanguageFile(file) {
+  const entries = []
+  for (const [key, translation] of Object.entries(file.messages ?? {})) {
+    if (!translation) continue
+    entries.push({ key, source: key, translation })
   }
   return { locale: file.locale, entries }
 }
@@ -173,15 +119,15 @@ async function main(argv) {
   const explicit = argValue(argv, '--file')
   const path = explicit ?? workFilePath(locale)
   if (!existsSync(path)) {
-    console.error(`import: ${path} does not exist. Run translate.mjs --locale ${locale} first.`)
+    console.error(`import: ${path} does not exist. Run i18n:translate -- --locale ${locale} first.`)
     process.exit(1)
   }
 
   const raw = readJson(path)
-  // A locale file and a work file are told apart by shape, not by a flag: an
+  // A language file and a work file are told apart by shape, not by a flag: an
   // operator hands us the file they already maintain, an agent hands us the one
   // translate.mjs produced.
-  const work = raw.entries ? raw : workFromLocaleFile({ ...raw, locale: raw.locale ?? locale })
+  const work = Array.isArray(raw.entries) ? raw : workFromLanguageFile({ ...raw, locale: raw.locale ?? locale })
   if (work.locale && work.locale !== locale) {
     console.error(`import: ${path} is for ${work.locale}, not ${locale}.`)
     process.exit(1)
@@ -195,51 +141,31 @@ async function main(argv) {
     process.exit(1)
   }
 
-  const rows = workToRows(work)
-  if (rows.length === 0) {
+  const filled = work.entries.filter((entry) => entry.translation)
+  if (filled.length === 0) {
     console.log(`import: nothing filled in yet in ${path}.`)
     return
   }
 
-  const conn = await connectTenant(argv)
-  const { written, absent } = await upsertTranslations(conn, rows)
-  if (absent) {
-    console.log(TABLE_ABSENT_MESSAGE)
-    console.log('import: no rows written; the repo catalog below is still updated.')
+  const file = readLanguageFile(locale)
+  const merged = mergeIntoFile(file, work)
+  const filePath = join(LOCALES_DIR, `${locale}.json`)
+  if (merged > 0) {
+    writeFileSync(filePath, serialize(file), 'utf8')
+    console.log(`import: filled ${merged} empty entr(ies) in public/locales/${locale}.json — review them in a PR.`)
   } else {
-    const byScope = {}
-    for (const row of rows) byScope[row.scope] = (byScope[row.scope] ?? 0) + 1
-    console.log(
-      `import: wrote ${written} row(s) to the tenant (` +
-        Object.entries(byScope)
-          .map(([scope, count]) => `${count} ${scope}`)
-          .join(', ') +
-        ')',
-    )
+    console.log(`import: public/locales/${locale}.json already answers every entry in the file.`)
   }
 
-  // The repo half. Only `message`: labels and runtime text are tenant data.
-  const catalogPath = join(LOCALES_DIR, `${locale}.json`)
-  if (existsSync(catalogPath)) {
-    const catalog = readRepoCatalog(locale)
-    const merged = mergeIntoCatalog(catalog, work)
-    if (merged > 0) {
-      writeFileSync(catalogPath, serialize(catalog), 'utf8')
-      console.log(`import: filled ${merged} empty entr(ies) in src/locales/${locale}.json — review them in a PR.`)
-    } else {
-      console.log(`import: src/locales/${locale}.json already answers every message in the file.`)
+  if (argValue(argv, '--target') !== undefined) {
+    const conn = await connectTarget(argv)
+    let written = 0
+    for (const entry of filled) {
+      await writeMessage(conn, { locale, key: entry.key, translation: entry.translation })
+      written++
     }
-  } else if ((work.entries?.message ?? []).some((entry) => entry.translation)) {
-    console.log(
-      `import: ${locale} has no repo catalog, so its code strings live in the tenant only. ` +
-        `Add src/locales/${locale}.json to ship them with the build.`,
-    )
+    console.log(`import: wrote ${written} message(s) to ${conn.baseUrl}`)
   }
-
-  // A row someone requested is answered the moment its translation lands, and
-  // the upsert above did that in place — `merge-duplicates` overwrites the empty
-  // translation on the very same (locale, scope, key, context).
-  console.log('import: done. Reload the app to see it; the tenant layer refetches on focus.')
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -248,5 +174,3 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     process.exitCode = 1
   })
 }
-
-export { CONTEXT_SEPARATOR, LABEL_SCOPES }

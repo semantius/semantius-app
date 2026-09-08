@@ -8,7 +8,8 @@ import { NotFoundPage } from '@/components/NotFoundPage'
 import { ViewSkeleton } from '@/components/ViewSkeleton'
 import type { QueryClient } from '@tanstack/react-query'
 import type { EntityMetadata } from '@/types/metadata'
-import { TABLE_ATTR, currentLabels, tableLabel, translate, useLocalizedMetadata, useT } from '@/i18n'
+import { translate, useLocalizedMetadata, useT } from '@/i18n'
+import { appError } from '@/lib/appError'
 
 // Discover all view components - lazy load for code splitting
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -51,16 +52,18 @@ export const Route = createFileRoute('/_app/$moduleId/$table_name')({
   // breaks Route.useLoaderData() in the component too.
   head: ({ loaderData, params }) => {
     const data = loaderData as { metadata?: EntityMetadata } | undefined
-    // `currentLabels()` rather than a hook: head() is not a component. It reads
-    // module state synchronously and re-runs on router.invalidate(), which is
+    // `translate()` rather than a hook: head() is not a component. It reads the
+    // active catalog synchronously and re-runs on router.invalidate(), which is
     // exactly what the language switcher calls — so the tab title follows the
     // language without a refetch (the loader is served from the QueryClient).
-    const fallback = data?.metadata?.table?.plural_label || params.table_name
-    return {
-      meta: [
-        { title: pageTitle(tableLabel(currentLabels(), params.table_name, TABLE_ATTR.plural, fallback)) },
-      ],
-    }
+    // The label is a message keyed by its model path, with the model's own
+    // English as the fallback; the slug comes from the schema, never the route.
+    const table = data?.metadata?.table
+    const fallback = table?.plural_label || params.table_name
+    const title = table?.module_slug
+      ? translate({ id: ['module', table.module_slug, params.table_name, 'entity', 'plural_label'], defaultMessage: fallback })
+      : fallback
+    return { meta: [{ title: pageTitle(title) }] }
   },
   component: RouteComponent,
   // Show the content-area skeleton while the blocking loader runs, instead of
@@ -148,8 +151,9 @@ async function fetchEntityMetadata(
   queryClient: QueryClient | undefined,
 ): Promise<EntityMetadata | null> {
   if (!token) {
-    // `translate`: a route loader runs outside React.
-    throw new Error(translate('Authentication token is required'))
+    // A template, rendered where it is displayed: a route loader runs outside
+    // React and must not freeze the language it happened to run in.
+    throw appError({ message: 'Authentication token is required' })
   }
 
   const { callRpc } = await import('@/lib/apiClient')

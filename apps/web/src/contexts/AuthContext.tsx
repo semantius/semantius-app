@@ -4,7 +4,8 @@ import type { IAuthContext } from 'react-oauth2-code-pkce'
 import { ConfigErrorPage } from '@/components/ConfigErrorPage'
 import { getApiConfig, createApiHeaders, setInterceptorToken } from '@/lib/apiClient'
 import { getConfig } from '@/lib/config'
-import { translate } from '@/i18n'
+import { appError } from '@/lib/appError'
+import type { TranslateFn } from '@/i18n'
 import type { AnyRouter } from '@tanstack/react-router'
 import type { RouterContext } from '@/routes/__root'
 
@@ -74,21 +75,45 @@ export function getModuleDisplay(
   return { displayName: shownName, displayTitle: shownDesc }
 }
 
+/**
+ * A module's two labels, translated — the `override` `getModuleDisplay` takes.
+ *
+ * Model text is a message keyed by its model path (src/i18n/catalog.ts), with
+ * the module's own English as the fallback; passing the rendered pair in lets
+ * the three naming rules above keep deciding the SHAPE from the untranslated
+ * values. Takes `t` so the caller's component re-renders on a language switch.
+ */
+export function moduleLabels(
+  t: TranslateFn,
+  module: Pick<Module, 'module_slug' | 'module_name' | 'description'>,
+): { name?: string; description?: string } {
+  return {
+    name: module.module_name
+      ? t({ id: ['module', module.module_slug, 'name'], defaultMessage: module.module_name })
+      : undefined,
+    description: module.description
+      ? t({ id: ['module', module.module_slug, 'description'], defaultMessage: module.description })
+      : undefined,
+  }
+}
+
 export interface RpcUserInfo {
   modules?: Module[]
   [key: string]: unknown
 }
 
 /**
- * Build an Error from a failed fetch Response, capturing the HTTP status, URL and
- * response body (parsed as JSON when possible) onto `error.cause`.
+ * The transport facts of a failed fetch Response — the HTTP status, URL and
+ * response body (parsed as JSON when possible) — for `error.cause`.
  *
  * ApiErrorDisplay renders `error.cause` in its expandable "Details" panel, so this
  * is what surfaces the actual server payload — e.g. PostgREST's
  * `{"message":"jwk not found"}` — instead of an empty `statusText` (HTTP/2 drops
  * the reason phrase, so `response.statusText` is blank and useless on its own).
+ * The message itself is an `appError` template at the call site: the status
+ * is a VALUE, never English concatenated onto a translated sentence.
  */
-async function responseError(label: string, response: Response): Promise<Error> {
+async function responseCause(response: Response): Promise<Record<string, unknown>> {
   const raw = await response.text().catch(() => '')
   let body: unknown = raw
   try {
@@ -96,10 +121,7 @@ async function responseError(label: string, response: Response): Promise<Error> 
   } catch {
     // Non-JSON body — keep the raw text as-is.
   }
-  const statusText = response.statusText ? ` ${response.statusText}` : ''
-  return new Error(`${label}: ${response.status}${statusText}`, {
-    cause: { status: response.status, url: response.url, response: body },
-  })
+  return { status: response.status, url: response.url, response: body }
 }
 
 // One-shot guard for the token self-heal below. sessionStorage (not local):
@@ -314,11 +336,14 @@ function RouterContextUpdater({
           })
             .then(async (response) => {
               if (!response.ok) {
-                // `translate`, not a `useT()` in the effect's deps: listing `t`
-                // there would re-run the whole userinfo fetch on a language
-                // switch. The message is captured when the request fails, which
-                // is the same "already in state" trade every toast makes.
-                throw await responseError(translate('Failed to fetch user info'), response)
+                // A template plus values, not a rendered sentence: the error
+                // is rendered where it is DISPLAYED, through that component's
+                // `t`, so nothing here needs a `t` in the effect's deps and the
+                // message is not frozen in the language the request failed in.
+                throw appError(
+                  { message: 'Failed to fetch user info ({status})', values: { status: response.status } },
+                  await responseCause(response),
+                )
               }
               const data = await response.json()
               setUserInfo(data)
@@ -327,7 +352,7 @@ function RouterContextUpdater({
             .catch((error) => {
               console.error('Error fetching OAuth user info:', error)
               authErrors.push(error)
-              setUserInfoError(error instanceof Error ? error : new Error(translate('Unknown error')))
+              setUserInfoError(error instanceof Error ? error : appError({ message: 'Unknown error' }))
               setUserInfo(null)
               return false
             })
@@ -352,7 +377,10 @@ function RouterContextUpdater({
           })
             .then(async (response) => {
               if (!response.ok) {
-                throw await responseError(translate('Failed to fetch RPC user info'), response)
+                throw appError(
+                  { message: 'Failed to fetch RPC user info ({status})', values: { status: response.status } },
+                  await responseCause(response),
+                )
               }
               const data = await response.json()
               setRpcUserInfo(data)
@@ -361,7 +389,7 @@ function RouterContextUpdater({
             .catch((error) => {
               console.error('Error fetching RPC user info:', error)
               authErrors.push(error)
-              setRpcUserInfoError(error instanceof Error ? error : new Error(translate('Unknown error')))
+              setRpcUserInfoError(error instanceof Error ? error : appError({ message: 'Unknown error' }))
               setRpcUserInfo(null)
               return false
             })

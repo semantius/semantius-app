@@ -75,10 +75,9 @@ rather than reaching through the dynamic route:
 
 | Table | Used for |
 | --- | --- |
-| `tables`, `fields`, `modules` | the semantic model — the sidebar, the label inventory, the schema |
+| `tables`, `fields`, `modules` | the semantic model — the sidebar, the schema |
 | `users` | the account and admin screens |
 | `user_bookmarks` | the favorites star, row-scoped and matched by `url` |
-| `ui_translations` | tenant translations and the missing-translation queue |
 
 **`tables` is a read view over `entities`**, and the two are not interchangeable:
 the columns are identical except that `entities` also carries `order_column`, so
@@ -87,9 +86,10 @@ the drag-and-drop ordering column is invisible through `tables` (`get_schema`'s
 schema-cache refresh below keys on `entities` and `fields` rather than on the
 name the app reads from.
 
-`ui_translations` is created by a platform migration that has **not** been applied
-to the `tests` tenant: it answers `PGRST205`, and the app disables that layer on
-that body alone. See [Tenant translations](README.md#tenant-translations-ui_translations).
+Translations are NOT a table the app reads: they are the `/translations`
+endpoint below, which the `tests` tenant does not answer yet (`PGRST205`), and
+the app disables that layer on that body alone. See
+[The translate target](README.md#the-translate-target).
 
 ### RPC
 
@@ -110,29 +110,31 @@ so both are read with `in`, never a truthiness check.
 
 ### The translate endpoint
 
-Translate mode reads and writes through the SAME three calls at every target,
-and only the base url differs — `VITE_TRANSLATE_API_URL`, which is its own axis
-and not derived from the app's environment:
+Translate mode and discovery read and write through the SAME two calls at
+every target, and only the base url and the mode differ —
+`VITE_TRANSLATE_API_URL` and `VITE_TRANSLATE_MODE`, their own axis and not
+derived from the app's environment. The full contract, errors included, is
+[`i18n-endpoint-spec.md`](i18n-endpoint-spec.md).
 
-| Target | Base | A save becomes |
-| --- | --- | --- |
-| dev | the Vite dev server, the default under `pnpm dev` | a change in `apps/web/src/locales/<code>.json` (code strings) or `apps/web/public/locales/<code>.json` (labels, server, rule) |
-| stage | any host answering the same calls | whatever that host does |
-| prod | unset, so this app's own API | a row in `ui_translations` |
+| Mode | Base | A write goes to | Discovers |
+| --- | --- | --- | --- |
+| `dev` | the Vite dev server (`apps/web/.env.development`) | `apps/web/public/locales/<code>.json` | yes |
+| `stage` | a host holding a copy of the language files | that copy | yes |
+| `prod` | unset, so this app's own API | the per-language record | no |
+| `off` | — | nothing (the default) | no |
 
 ```
-GET  {base}/ui_translations?select=…&translation=neq.&order=id.asc   the layer
-POST {base}/ui_translations?on_conflict=locale,scope,key,context     a save
-     Prefer: resolution=merge-duplicates,return=representation
-POST {base}/ui_translations?on_conflict=locale,scope,key,context     the queue
-     Prefer: resolution=ignore-duplicates,return=minimal
+GET  {base}/translations?locale=de-DE   -> { "<key>": "<translation>", … }
+POST {base}/translations                { locale, key, translation }
 ```
 
-Nothing new has to exist in Postgres beyond the table and its policies. The dev
-server implements the same shape over files (`apps/web/vite-plugins/`), including
-`ignore-duplicates` as an empty entry — which is what an untranslated key in a
-catalog file already is. Where no target answers, translate mode is not offered:
-there is no browser draft and no file download.
+The client sends ONE message; the server merges it into the single
+per-language record, and an empty `translation` clears the message. What the
+backend has to provide for `prod` is exactly that pair on the tenant's API —
+a JSON record per locale — and it does not exist yet. The dev server
+implements the same pair over files (`apps/web/vite-plugins/`). Where no target
+answers, translate mode is not offered: there is no browser draft and no file
+download.
 
 ### Not PostgREST
 

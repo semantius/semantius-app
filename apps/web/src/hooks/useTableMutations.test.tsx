@@ -139,7 +139,7 @@ describe('useTableMutations', () => {
       // `modules.module_slug` is a real unique constraint on the tenant, so
       // the second insert genuinely conflicts and PostgREST genuinely merges —
       // the row keeps its id and takes the new description. This is the
-      // option translate mode's writer uses on `ui_translations`.
+      // option a generic upsert needs; proven here against a real constraint.
       const row = await createModule()
       const { result } = renderHook(() => useCreateRecord(TABLE, { onConflict: ['module_slug'] }), {
         wrapper: appWrapper,
@@ -198,7 +198,11 @@ describe('useTableMutations', () => {
       result.current.mutate({ description: 'no id here' })
 
       await waitFor(() => expect(result.current.isError).toBe(true))
-      expect(result.current.error?.message).toBe('id is required for update')
+      // The TEMPLATE, uninterpolated: the values sit on `cause` and the
+      // sentence is rendered where it is displayed (lib/apiErrors.ts), so a
+      // language switch reaches an error already on screen.
+      expect(result.current.error?.message).toBe('{field} is required for update')
+      expect(result.current.error?.cause).toMatchObject({ values: { field: 'id' } })
     })
 
     it('reports an id that matches no row as an error, not as "saved"', async () => {

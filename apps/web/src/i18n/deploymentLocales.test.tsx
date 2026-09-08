@@ -7,15 +7,14 @@ import {
   SOURCE_LANGUAGE,
   activateLocale,
   availableLocales,
-  currentDynamic,
-  currentLabels,
+  currentMessages,
   enumLabel,
   languageDisplayName,
   localizeMetadata,
   resolveInitialLocale,
   setDeploymentLocales,
   translate,
-  translateDynamic,
+  translateVerbatim,
 } from '@/i18n'
 
 /**
@@ -33,6 +32,9 @@ import {
  * browser fetches it through the same code and the same headers a static file
  * would take. The one thing it cannot cover, a web server actually serving
  * `/locales/fr-FR.json`, is covered by the deployed preview.
+ *
+ * `initConfig()` here runs with NO translate mode, so the target is `off` and
+ * the file is the one source — which is exactly a deployment's shape.
  */
 
 const FIXTURE_LANGUAGE = 'fr-FR'
@@ -55,6 +57,7 @@ function customersMetadata(): EntityMetadata {
   return {
     table: {
       table_name: 'customers',
+      module_slug: 'nwind',
       singular: 'customer',
       plural: 'customers',
       singular_label: 'Customer',
@@ -102,7 +105,7 @@ describe('a language an operator registered', () => {
     expect(languageDisplayName(FIXTURE_LANGUAGE)).toBe('Français')
   })
 
-  it('translates code strings, contexts, model labels and server text from the one file', async () => {
+  it('translates code strings, a disambiguated one, model text and a server error from the one flat file', async () => {
     setRuntimeEnv({
       VITE_UI_CUSTOMIZER: customizer({
         available: [{ code: FIXTURE_LANGUAGE, url: serveJson(fixture) }],
@@ -111,22 +114,25 @@ describe('a language an operator registered', () => {
     await initConfig()
     await activateLocale({ language: FIXTURE_LANGUAGE, locale: FIXTURE_LANGUAGE })
 
-    // messages
+    // a code string
     expect(translate('Language')).toBe('Langue')
-    // contexts — the same word with two meanings is two entries
-    expect(translate({ message: 'View', context: 'column visibility' })).toBe('Affichage')
-    // labels: a table label, a column title and an enum value
-    const localized = localizeMetadata(customersMetadata(), currentLabels())
+    // the same word with two meanings is two keys
+    expect(translate({ id: ['columnVisibility'], message: 'View' })).toBe('Affichage')
+    // model text: an entity label, a field title and an enum value, through
+    // the same walk the table route applies
+    const localized = localizeMetadata(customersMetadata())
     expect(localized.table?.plural_label).toBe('Clients')
     expect(localized.properties?.status.title).toBe('État')
     expect(enumLabel(localized.properties?.status, 'active')).toBe('Actif')
     // ...and the stored value is untouched, because it is what the database holds
     expect(enumLabel(localized.properties?.status, 'inactive')).toBe('inactive')
-    // server text, looked up verbatim and never ICU-compiled
-    expect(currentDynamic()['server:Order must have at least one line']).toBeTruthy()
-    expect(translateDynamic('Order must have at least one line')).toBe(
-      'Une commande doit avoir au moins une ligne',
-    )
+    // a module's name, keyed by its slug
+    expect(translate({ id: ['module', 'nwind', 'name'], defaultMessage: 'Northwind' })).toBe('Vents du Nord')
+    // a plain server sentence, looked up verbatim under its SQLSTATE key
+    expect(currentMessages()['23505.customers_email_key']).toBeTruthy()
+    expect(
+      translateVerbatim('23505.customers_email_key', 'duplicate key value violates unique constraint "customers_email_key"'),
+    ).toBe('Cette adresse e-mail est déjà utilisée.')
   })
 
   it('leaves a message the file does not cover in English', async () => {
@@ -139,7 +145,10 @@ describe('a language an operator registered', () => {
     await activateLocale({ language: FIXTURE_LANGUAGE, locale: FIXTURE_LANGUAGE })
 
     expect(translate('Error loading data')).toBe('Error loading data')
-    expect(translateDynamic('Some message nobody translated')).toBe('Some message nobody translated')
+    expect(translateVerbatim('42703', 'column orders.nope does not exist')).toBe('column orders.nope does not exist')
+    expect(translate({ id: ['module', 'nwind', 'orders', 'entity', 'plural_label'], defaultMessage: 'Orders' })).toBe(
+      'Orders',
+    )
   })
 
   it('sets the boot default without overriding a choice', async () => {
@@ -178,7 +187,7 @@ describe('a registration that does not resolve', () => {
     // Activated, English, and above all NOT hung: the boot overlay is only taken
     // down by code that keeps running.
     expect(translate('Language')).toBe('Language')
-    expect(currentLabels()).toEqual({})
+    expect(currentMessages()).toEqual({})
   })
 
   it('blocks boot with a message naming the key when the registration is malformed', async () => {
@@ -191,5 +200,15 @@ describe('a registration that does not resolve', () => {
     // from the menu with nothing anywhere saying why.
     expect(getConfigError()).toContain('locales.available')
     expect(getConfigError()).toContain('"code"')
+  })
+
+  it('blocks boot on a translate mode it does not know, and on stage with no host', async () => {
+    setRuntimeEnv({ VITE_TRANSLATE_MODE: 'sideways' })
+    await initConfig()
+    expect(getConfigError()).toContain('VITE_TRANSLATE_MODE')
+
+    setRuntimeEnv({ VITE_TRANSLATE_MODE: 'stage' })
+    await initConfig()
+    expect(getConfigError()).toContain('VITE_TRANSLATE_API_URL')
   })
 })

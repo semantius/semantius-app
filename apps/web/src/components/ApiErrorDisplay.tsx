@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import { AlertCircle, ChevronDown, ChevronUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useT } from '@/i18n'
-import { serverMessage } from '@/lib/apiErrors'
+import { ERROR_TEXT_FIELDS, useT } from '@/i18n'
+import { renderError } from '@/lib/apiErrors'
 
 interface ApiErrorDisplayProps {
   error: Error | { message: string; [key: string]: unknown }
   title?: string
 }
+
+/** The fields the panel shows as text, not as part of the JSON dump. */
+const SHOWN_AS_TEXT = new Set(ERROR_TEXT_FIELDS)
 
 export function ApiErrorDisplay({ error, title }: ApiErrorDisplayProps) {
   const t = useT()
@@ -16,40 +19,40 @@ export function ApiErrorDisplay({ error, title }: ApiErrorDisplayProps) {
   // evaluated before the body runs, so it cannot call a hook.
   const heading = title ?? t('Error loading data')
 
-  // The message is the SERVER's, not ours: it reaches here from PostgREST, an
-  // RPC or a model validation rule. `serverMessage` looks it up verbatim in the
-  // tenant's own `server` translations and records a miss when the error carried
-  // a PostgREST code — which is the whole runtime half of the translation queue.
-  const errorMessage = typeof error === 'object' && 'message' in error
-    ? serverMessage(error instanceof Error ? error : new Error(String(error.message), { cause: error }))
-    : t('An unknown error occurred')
+  // One renderer for every origin — an app template, a platform error with
+  // its envelope, a plain server sentence — through this component's own `t`,
+  // so the sentence follows a language switch (see lib/apiErrors.ts).
+  const rendered =
+    typeof error === 'object' && 'message' in error
+      ? renderError(error instanceof Error ? error : new Error(String(error.message), { cause: error }), t)
+      : { message: t('An unknown error occurred') }
 
-  // Try to parse additional details from error
+  // Everything else the error carried, for the Details panel. `details` is
+  // rendered AS TEXT there — a multi-line trace inside `JSON.stringify` arrives
+  // on one line with literal `\n` — and is never a key anywhere.
   let errorDetails: Record<string, unknown> = {}
-  
+
   if (error instanceof Error && error.cause) {
     // Validate that cause is an object before using it
     if (typeof error.cause === 'object' && error.cause !== null && !Array.isArray(error.cause)) {
       const causeObj = error.cause as Record<string, unknown>
-      // Extract all properties except message (since it's already shown above)
       errorDetails = Object.entries(causeObj).reduce((acc, [key, value]) => {
-        if (key !== 'message' && value !== undefined) {
+        if (!SHOWN_AS_TEXT.has(key) && value !== undefined) {
           acc[key] = value
         }
         return acc
       }, {} as Record<string, unknown>)
     }
   } else if (typeof error === 'object' && error !== null) {
-    // Extract all properties except message
     errorDetails = Object.entries(error).reduce((acc, [key, value]) => {
-      if (key !== 'message' && value !== undefined) {
+      if (!SHOWN_AS_TEXT.has(key) && value !== undefined) {
         acc[key] = value
       }
       return acc
     }, {} as Record<string, unknown>)
   }
 
-  const hasDetails = Object.keys(errorDetails).length > 0
+  const hasDetails = Object.keys(errorDetails).length > 0 || Boolean(rendered.details)
 
   return (
     <div className="rounded-md border border-destructive/50 bg-destructive/10">
@@ -61,8 +64,9 @@ export function ApiErrorDisplay({ error, title }: ApiErrorDisplayProps) {
               bg-destructive/10 tint is below 4.5:1 (1.4.3), caught by a route
               audit on a view that happened to render this card. The same goes
               for the Details button below. tokenContrast.test.ts pins the pair. */}
-          <p className="text-sm text-foreground mt-1 break-words">{errorMessage}</p>
-          
+          <p className="text-sm text-foreground mt-1 break-words">{rendered.message}</p>
+          {rendered.hint && <p className="text-sm text-foreground mt-1 break-words">{rendered.hint}</p>}
+
           {hasDetails && (
             <div className="mt-3">
               <Button
@@ -87,7 +91,9 @@ export function ApiErrorDisplay({ error, title }: ApiErrorDisplayProps) {
               {isExpanded && (
                 <div className="mt-2 rounded-md bg-muted/50 p-3 border border-border">
                   <pre className="text-xs overflow-x-auto whitespace-pre-wrap break-words">
-                    {JSON.stringify(errorDetails, null, 2)}
+                    {rendered.details}
+                    {rendered.details && Object.keys(errorDetails).length > 0 ? '\n\n' : ''}
+                    {Object.keys(errorDetails).length > 0 ? JSON.stringify(errorDetails, null, 2) : ''}
                   </pre>
                 </div>
               )}

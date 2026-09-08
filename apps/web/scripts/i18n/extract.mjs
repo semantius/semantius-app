@@ -1,38 +1,52 @@
 #!/usr/bin/env node
 /**
- * Extract every translatable string in `src/` and reconcile the catalogs.
+ * Scan `src/` for code messages and reconcile the language files.
  *
  *   pnpm --filter @semantius/frontend i18n:extract [--prune]
  *
- * WHAT IT PRODUCES
- *   src/locales/en-US.json   the generated INDEX — `{ locale, index }`, one
- *                            entry per runtime id with its source text,
- *                            context, origin files, ICU placeholders and
- *                            translator comment. Committed like
- *                            `routeTree.gen.ts`; never hand-edited, and never
- *                            loaded as a catalog (the repo layer excludes it).
- *   src/locales/<code>.json  each hand-maintained catalog, reconciled: new keys
- *                            appear with `""`, keys whose source string no
- *                            longer exists move to `obsolete`, and an existing
- *                            translation is never touched. `--prune` empties
- *                            `obsolete`.
+ * AN OPTIONAL TOOL YOU RUN, NEVER A GATE. Not in `pnpm build`, not in
+ * `pnpm check`, not in a hook. Runtime discovery is how `en-US.json` is
+ * maintained: the app renders a string, fails to translate it, and records it
+ * through the translate target (src/i18n/missing.ts) — a code message and a
+ * metadata message the same way. This scan's job is the one thing discovery
+ * cannot do: PRUNING. A code string that was reworded or deleted leaves a key
+ * that nothing at runtime can observe as gone; the scan is what moves its
+ * translations to `obsolete`. If a run also turns up a code string discovery
+ * has never seen, that is a test gap it happened to find — worth knowing, not
+ * a failure.
  *
- * WHY A COMPILER AND NOT A REGEX. The rule that makes the whole scheme work is
- * that the source string IS the key, so a key the extractor cannot see is a
- * string that can never be translated and will never appear in any report. This
- * therefore FAILS — loudly, with file and line — on a first argument it cannot
- * read as a literal: a template with expressions, a conditional, a
+ * WHAT IT PRODUCES
+ *   public/locales/en-US.json   the index — `{ locale, name, messages }` with
+ *                               the SOURCE text as the value of every key. The
+ *                               code half is set from the scan; the `module.*`
+ *                               half is runtime's and is never touched.
+ *   public/locales/<code>.json  each language, reconciled: a new code key
+ *                               appears with `""`, a code key whose source no
+ *                               longer exists moves to `obsolete`, and an
+ *                               existing translation is never touched.
+ *                               `--prune` empties `obsolete`.
+ *
+ * `i18n:extract` MUST NEVER TOUCH `module.*`. Runtime owns that half of the
+ * file and the scanner cannot see it, so the reserved-root rule is what makes
+ * an optional tool safe to run against a file it does not own — without it,
+ * one run would wipe everything discovery found.
+ *
+ * WHY A COMPILER AND NOT A REGEX. For a code string the source IS the key, so
+ * a key the scan cannot read is a string it cannot prune and cannot report.
+ * This therefore FAILS — loudly, with file and line — on a first argument it
+ * cannot read as a literal: a template with expressions, a conditional, a
  * concatenation. An identifier or a member expression PASSES, because
- * `t(entry.title)` renders a `msg()` descriptor that was extracted at its own
- * declaration site, or an operator's plain string that belongs in a deployment
- * file rather than in this index.
+ * `t(entry.title)` renders a `msg()` descriptor that was scanned at its own
+ * declaration site, or an operator's plain string that discovery records. A
+ * keyed message (`defaultMessage`) is SKIPPED: its key is a model path and its
+ * source lives in the model, so discovery is its only inventory.
  *
  * `typescript` is already a devDependency here and parses TSX without
  * configuration; `@babel/parser` is not resolvable from `apps/web`.
  *
  * Output is deterministic: keys sorted by code unit (NOT `localeCompare`, which
- * would make the file depend on the machine's locale), origins sorted and
- * de-duplicated, two-space JSON with a trailing newline.
+ * would make the file depend on the machine's locale), two-space JSON with a
+ * trailing newline.
  */
 
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
@@ -41,24 +55,46 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import ts from 'typescript'
 import { compileMessageOrThrow } from '@lingui/message-utils/compileMessage'
 
-/** Mirrors `CONTEXT_SEPARATOR` in `src/i18n/catalog.ts` — the gettext U+0004. */
-export const CONTEXT_SEPARATOR = '\u0004'
-
-/** The source language: its catalog is the English in the code, so it is the index. */
+/** The source language: its file is the index, the SOURCE text of every key. */
 export const SOURCE_LANGUAGE = 'en-US'
 
-/** Files in `src/locales/` that are not catalogs. Keep in step with the repo layer's glob. */
-export const NON_CATALOG_FILES = new Set(['en-US.json', 'glossary.json'])
+/** The reserved first segment of every metadata key. Mirrors `src/i18n/catalog.ts`. */
+export const MODULE_ROOT = 'module'
 
-/** The functions whose first argument is a message. */
-const MESSAGE_CALLEES = new Set(['t', 'translate', 'msg'])
+/** A language file is named by its BCP-47 tag; `schema.json` and friends are not one. */
+export const LANGUAGE_FILE = /^([a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*)\.json$/
+
+/**
+ * The functions whose argument carries a message. `appError` packages a
+ * user-facing error as a template plus values (src/lib/appError.ts); its
+ * `message` and `hint` are messages like any `t()` argument.
+ */
+const MESSAGE_CALLEES = new Set(['t', 'translate', 'msg', 'appError'])
 
 /** Directories under `src/` whose contents are tests, not product code. */
 const TEST_DIRS = new Set(['test', 'tests', '__tests__', '__mocks__'])
 
 const APP_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 export const SRC_DIR = join(APP_ROOT, 'src')
-export const LOCALES_DIR = join(SRC_DIR, 'locales')
+export const LOCALES_DIR = join(APP_ROOT, 'public', 'locales')
+
+// ── Keys ────────────────────────────────────────────────────────────────────
+//
+// Mirrors `messageId()` in src/i18n/catalog.ts: a segment's dots are escaped,
+// segments are joined by a dot, and a form-2 message is appended as it is.
+
+function escapeSegment(segment) {
+  return segment.replace(/\\/g, '\\\\').replace(/\./g, '\\.')
+}
+
+export function joinSegments(segments) {
+  return segments.map(escapeSegment).join('.')
+}
+
+/** Whether a stored key belongs to the model — the `module.` root. */
+export function isMetadataKey(key) {
+  return key === MODULE_ROOT || key.startsWith(`${MODULE_ROOT}.`)
+}
 
 // ── Source scan ─────────────────────────────────────────────────────────────
 
@@ -81,7 +117,7 @@ export function sourceFiles(dir = SRC_DIR) {
   return out
 }
 
-/** A repo-relative, POSIX-separated path — the form the index records as an origin. */
+/** A repo-relative, POSIX-separated path — for a complaint that names its file. */
 function originOf(file) {
   return relative(APP_ROOT, file).split('\\').join('/')
 }
@@ -93,18 +129,24 @@ function positionOf(sourceFile, node) {
   return `${line + 1}:${character + 1}`
 }
 
+function isStringLiteral(node) {
+  return ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)
+}
+
 /**
- * Read the message out of a call's first argument.
+ * Read the messages out of a call's first argument.
  *
- * Returns a descriptor, or `null` when the argument is a reference this cannot
- * and should not read (an identifier or a member expression). Pushes a
- * human-readable complaint onto `problems` for every other unreadable form.
+ * Returns a list of `{ key, source, comment? }` — one for the message, one
+ * more for an `appError` hint — or `null` for a reference this cannot and
+ * should not read (an identifier or a member expression) and for a keyed
+ * message. Pushes a human-readable complaint onto `problems` for every other
+ * unreadable form.
  *
  * The list of accepted forms is a WHITELIST, not a set of special cases with a
  * permissive fallthrough. A fallthrough that let anything it did not recognize
  * through would make the whole scheme unsound: `t(getTitle())` and
- * `t(cond && 'Yes')` would vanish from the index in silence, which is precisely
- * the failure this script exists to prevent.
+ * `t(cond && 'Yes')` would vanish in silence, which is precisely the failure
+ * this script exists to prevent.
  */
 function readMessageArgument(arg, sourceFile, origin, problems, what) {
   if (!arg) return null
@@ -121,31 +163,12 @@ function readMessageArgument(arg, sourceFile, origin, problems, what) {
     arg = arg.expression
   }
 
-  if (ts.isStringLiteral(arg) || ts.isNoSubstitutionTemplateLiteral(arg)) {
-    return { message: arg.text }
+  if (isStringLiteral(arg)) {
+    return [{ key: arg.text, source: arg.text }]
   }
 
   if (ts.isObjectLiteralExpression(arg)) {
-    const descriptor = {}
-    for (const property of arg.properties) {
-      if (!ts.isPropertyAssignment(property) || !ts.isIdentifier(property.name)) continue
-      const key = property.name.text
-      if (key !== 'message' && key !== 'context' && key !== 'comment') continue
-      const value = property.initializer
-      if (ts.isStringLiteral(value) || ts.isNoSubstitutionTemplateLiteral(value)) {
-        descriptor[key] = value.text
-      } else {
-        problems.push(
-          `${origin}:${positionOf(sourceFile, value)} — ${what} descriptor "${key}" must be a plain string literal.`,
-        )
-        return null
-      }
-    }
-    if (!descriptor.message) {
-      problems.push(`${origin}:${positionOf(sourceFile, arg)} — ${what} descriptor has no literal "message".`)
-      return null
-    }
-    return descriptor
+    return readDescriptor(arg, sourceFile, origin, problems, what)
   }
 
   if (ts.isTemplateExpression(arg)) {
@@ -173,9 +196,9 @@ function readMessageArgument(arg, sourceFile, origin, problems, what) {
   }
 
   // An identifier or a member expression: `t(entry.title)`, `t(config.label)`,
-  // `t(entries[i].title)`. Its `msg()` site is extracted where it is declared,
-  // and an operator's plain string belongs in a deployment file, not in this
-  // index. These are the ONLY references that pass.
+  // `t(entries[i].title)`. Its `msg()` site is scanned where it is declared,
+  // and an operator's plain string is recorded by discovery. These are the
+  // ONLY references that pass.
   if (ts.isIdentifier(arg) || ts.isPropertyAccessExpression(arg) || ts.isElementAccessExpression(arg)) {
     return null
   }
@@ -187,13 +210,79 @@ function readMessageArgument(arg, sourceFile, origin, problems, what) {
   return null
 }
 
+/**
+ * The three descriptor fields the scan reads: `message` with an optional `id`
+ * (form 2: the id is a static prefix, so it has to be an array of literals),
+ * `hint` (an `appError`'s second message), and `comment`. A `defaultMessage`
+ * descriptor is a keyed message — skipped, not refused: its inventory is
+ * discovery's. Unknown keys (`values`, `details`) are ignored.
+ */
+function readDescriptor(arg, sourceFile, origin, problems, what) {
+  let message
+  let hint
+  let comment
+  let id
+  let keyed = false
+  for (const property of arg.properties) {
+    if (!ts.isPropertyAssignment(property) || !ts.isIdentifier(property.name)) continue
+    const name = property.name.text
+    const value = property.initializer
+    if (name === 'defaultMessage') {
+      keyed = true
+      continue
+    }
+    if (name === 'message' || name === 'hint' || name === 'comment') {
+      if (!isStringLiteral(value)) {
+        problems.push(
+          `${origin}:${positionOf(sourceFile, value)} — ${what} descriptor "${name}" must be a plain string literal.`,
+        )
+        return null
+      }
+      if (name === 'message') message = value.text
+      else if (name === 'hint') hint = value.text
+      else comment = value.text
+      continue
+    }
+    if (name === 'id') {
+      if (!ts.isArrayLiteralExpression(value) || !value.elements.every(isStringLiteral)) {
+        // A computed id belongs to a keyed message, whose `defaultMessage`
+        // marks it as discovery's. A form-2 id has to be static.
+        if (!arg.properties.some((p) => ts.isPropertyAssignment(p) && ts.isIdentifier(p.name) && p.name.text === 'defaultMessage')) {
+          problems.push(
+            `${origin}:${positionOf(sourceFile, value)} — ${what} descriptor "id" must be an array of string literals.`,
+          )
+          return null
+        }
+        continue
+      }
+      id = value.elements.map((element) => element.text)
+    }
+  }
+  if (keyed) return null
+  if (!message) {
+    problems.push(`${origin}:${positionOf(sourceFile, arg)} — ${what} descriptor has no literal "message".`)
+    return null
+  }
+  if (id && id[0] === MODULE_ROOT) {
+    problems.push(
+      `${origin}:${positionOf(sourceFile, arg)} — ${what} descriptor "id" starts with the reserved segment "${MODULE_ROOT}".`,
+    )
+    return null
+  }
+  const key = id && id.length > 0 ? `${joinSegments(id)}.${message}` : message
+  const out = [{ key, source: message, ...(comment ? { comment } : {}) }]
+  if (hint) out.push({ key: hint, source: hint })
+  return out
+}
+
 /** The `id` (and `comment`) of a `<Trans>` element, or null. */
 function readTransAttributes(attributes, sourceFile, origin, problems) {
-  const descriptor = {}
+  let message
+  let comment
   for (const attribute of attributes.properties) {
     if (!ts.isJsxAttribute(attribute) || !ts.isIdentifier(attribute.name)) continue
-    const key = attribute.name.text
-    if (key !== 'id' && key !== 'comment') continue
+    const name = attribute.name.text
+    if (name !== 'id' && name !== 'comment') continue
     const initializer = attribute.initializer
     if (!initializer) continue
     let expression = initializer
@@ -201,30 +290,30 @@ function readTransAttributes(attributes, sourceFile, origin, problems) {
       if (!initializer.expression) continue
       expression = initializer.expression
     }
-    const read = readMessageArgument(expression, sourceFile, origin, problems, `<Trans ${key}>`)
-    if (read) descriptor[key === 'id' ? 'message' : 'comment'] = read.message
+    const read = readMessageArgument(expression, sourceFile, origin, problems, `<Trans ${name}>`)
+    if (!read) continue
+    if (name === 'id') message = read[0].source
+    else comment = read[0].source
   }
-  return descriptor.message ? descriptor : null
+  return message ? [{ key: message, source: message, ...(comment ? { comment } : {}) }] : null
 }
 
 /**
- * Every message in `files`, keyed by runtime id, with its origins merged.
+ * Every code message in `files`, keyed by stored key.
  * Throws an ExtractionError naming every unreadable call site.
  */
 export function collectMessages(files = sourceFiles()) {
-  /** @type {Map<string, { message: string, context?: string, comment?: string, origin: Set<string> }>} */
+  /** @type {Map<string, { source: string, comment?: string }>} */
   const found = new Map()
   const problems = []
 
-  const record = (descriptor, origin) => {
-    const id = descriptor.context ? `${descriptor.message}${CONTEXT_SEPARATOR}${descriptor.context}` : descriptor.message
-    const existing = found.get(id)
+  const record = (entry) => {
+    const existing = found.get(entry.key)
     if (existing) {
-      existing.origin.add(origin)
-      if (!existing.comment && descriptor.comment) existing.comment = descriptor.comment
+      if (!existing.comment && entry.comment) existing.comment = entry.comment
       return
     }
-    found.set(id, { ...descriptor, origin: new Set([origin]) })
+    found.set(entry.key, { source: entry.source, ...(entry.comment ? { comment: entry.comment } : {}) })
   }
 
   for (const file of files) {
@@ -239,18 +328,12 @@ export function collectMessages(files = sourceFiles()) {
 
     const visit = (node) => {
       if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && MESSAGE_CALLEES.has(node.expression.text)) {
-        const descriptor = readMessageArgument(
-          node.arguments[0],
-          sourceFile,
-          origin,
-          problems,
-          `${node.expression.text}()`,
-        )
-        if (descriptor) record(descriptor, origin)
+        const entries = readMessageArgument(node.arguments[0], sourceFile, origin, problems, `${node.expression.text}()`)
+        for (const entry of entries ?? []) record(entry)
       } else if (ts.isJsxSelfClosingElement(node) || ts.isJsxOpeningElement(node)) {
         if (ts.isIdentifier(node.tagName) && node.tagName.text === 'Trans') {
-          const descriptor = readTransAttributes(node.attributes, sourceFile, origin, problems)
-          if (descriptor) record(descriptor, origin)
+          const entries = readTransAttributes(node.attributes, sourceFile, origin, problems)
+          for (const entry of entries ?? []) record(entry)
         }
       }
       ts.forEachChild(node, visit)
@@ -268,7 +351,7 @@ export function collectMessages(files = sourceFiles()) {
 
 // ── ICU placeholders ────────────────────────────────────────────────────────
 
-/** Every argument name an ICU message interpolates, sorted. */
+/** Every argument name an ICU message interpolates, sorted. Throws on a message that does not compile. */
 export function placeholdersOf(message) {
   const names = new Set()
   const walk = (tokens) => {
@@ -289,7 +372,7 @@ export function placeholdersOf(message) {
   return [...names].sort()
 }
 
-// ── The generated index ─────────────────────────────────────────────────────
+// ── The files ───────────────────────────────────────────────────────────────
 
 /** Sort by UTF-16 code unit — never `localeCompare`, which depends on the machine. */
 function byCodeUnit(a, b) {
@@ -302,94 +385,78 @@ function sortedObject(entries) {
   return out
 }
 
-/** `{ locale, index }` — the shape `src/locales/en-US.json` is written in. */
-export function buildIndex(found = collectMessages()) {
-  const index = {}
-  for (const [id, entry] of found) {
-    const record = { message: entry.message }
-    if (entry.context) record.context = entry.context
-    record.origin = [...entry.origin].sort(byCodeUnit)
-    record.placeholders = placeholdersOf(entry.message)
-    if (entry.comment) record.comment = entry.comment
-    index[id] = record
-  }
-  return { locale: SOURCE_LANGUAGE, index: sortedObject(index) }
+/** The language files in `dir`, by code, the index excluded. */
+export function languageFiles(dir = LOCALES_DIR) {
+  return readdirSync(dir)
+    .map((name) => ({ code: LANGUAGE_FILE.exec(name)?.[1], path: join(dir, name) }))
+    .filter(({ code }) => code && code !== SOURCE_LANGUAGE)
+    .sort((a, b) => byCodeUnit(a.code, b.code))
 }
 
-// ── Catalog reconciliation ──────────────────────────────────────────────────
-
-/** The catalog files in `src/locales/`, by locale code. */
-export function catalogFiles(dir = LOCALES_DIR) {
-  return readdirSync(dir)
-    .filter((name) => name.endsWith('.json') && !NON_CATALOG_FILES.has(name))
-    .sort(byCodeUnit)
-    .map((name) => ({ code: name.replace(/\.json$/, ''), path: join(dir, name) }))
+export function indexPath(dir = LOCALES_DIR) {
+  return join(dir, `${SOURCE_LANGUAGE}.json`)
 }
 
 export function readJson(path) {
   return JSON.parse(readFileSync(path, 'utf8'))
 }
 
+/** The index on disk, or an empty one. */
+export function readIndex(dir = LOCALES_DIR) {
+  try {
+    return readJson(indexPath(dir))
+  } catch {
+    return { locale: SOURCE_LANGUAGE, name: 'English', messages: {} }
+  }
+}
+
 /**
- * Reconcile one catalog against the index.
+ * Reconcile the index against the scan.
  *
- * Existing values are carried over verbatim; a key the index no longer contains
- * moves to `obsolete` if it holds a translation and is dropped if it does not
- * (an empty entry says nothing worth keeping). A key is never resurrected FROM
- * `obsolete`: a reworded string is a new string, and the report has to say so
- * until someone confirms the old translation still fits.
+ * The code half is what the scan found, source and all; the `module.*` half is
+ * carried over untouched. Nothing else survives: a code key the scan no longer
+ * sees was reworded or deleted, and an index entry for it would list work that
+ * does not exist.
  */
-export function reconcileCatalog(catalog, index, { prune = false } = {}) {
+export function reconcileIndex(index, found) {
   const messages = {}
-  const contexts = {}
-  const previousMessages = { ...(catalog.messages ?? {}) }
-  const previousContexts = catalog.contexts ?? {}
-
-  for (const entry of Object.values(index.index)) {
-    if (entry.context) {
-      const bucket = (contexts[entry.context] ??= {})
-      bucket[entry.message] = previousContexts[entry.context]?.[entry.message] ?? ''
-    } else {
-      messages[entry.message] = previousMessages[entry.message] ?? ''
-    }
+  for (const [key, source] of Object.entries(index.messages ?? {})) {
+    if (isMetadataKey(key)) messages[key] = source
   }
-
-  const obsolete = {
-    messages: { ...(catalog.obsolete?.messages ?? {}) },
-    contexts: structuredClone(catalog.obsolete?.contexts ?? {}),
-  }
-  for (const [message, translation] of Object.entries(previousMessages)) {
-    if (message in messages || !translation) continue
-    obsolete.messages[message] = translation
-  }
-  for (const [context, entries] of Object.entries(previousContexts)) {
-    for (const [message, translation] of Object.entries(entries)) {
-      if (contexts[context]?.[message] !== undefined || !translation) continue
-      ;(obsolete.contexts[context] ??= {})[message] = translation
-    }
-  }
-
-  const out = { locale: catalog.locale }
-  if (catalog.name) out.name = catalog.name
+  for (const [key, entry] of found) messages[key] = entry.source
+  const out = { locale: SOURCE_LANGUAGE, name: index.name || 'English' }
   out.messages = sortedObject(messages)
-  if (Object.keys(contexts).length > 0) {
-    out.contexts = sortedObject(
-      Object.fromEntries(Object.entries(contexts).map(([context, entries]) => [context, sortedObject(entries)])),
-    )
+  return out
+}
+
+/**
+ * Reconcile one language against the scan.
+ *
+ * Existing values are carried over verbatim, `module.*` entries untouched. A
+ * code key the scan no longer finds moves to `obsolete` if it holds a
+ * translation and is dropped if it does not (an empty entry says nothing worth
+ * keeping). A key is never resurrected FROM `obsolete`: a reworded string is a
+ * new string, and the report has to say so until someone confirms the old
+ * translation still fits.
+ */
+export function reconcileLanguage(file, found, { prune = false } = {}) {
+  const previous = { ...(file.messages ?? {}) }
+  const messages = {}
+  for (const [key, value] of Object.entries(previous)) {
+    if (isMetadataKey(key)) messages[key] = value
   }
-  const hasObsolete =
-    !prune && (Object.keys(obsolete.messages).length > 0 || Object.keys(obsolete.contexts).length > 0)
-  if (hasObsolete) {
-    out.obsolete = {}
-    if (Object.keys(obsolete.messages).length > 0) out.obsolete.messages = sortedObject(obsolete.messages)
-    if (Object.keys(obsolete.contexts).length > 0) {
-      out.obsolete.contexts = sortedObject(
-        Object.fromEntries(
-          Object.entries(obsolete.contexts).map(([context, entries]) => [context, sortedObject(entries)]),
-        ),
-      )
-    }
+  for (const key of found.keys()) messages[key] = previous[key] ?? ''
+
+  const obsolete = { ...(file.obsolete ?? {}) }
+  for (const [key, value] of Object.entries(previous)) {
+    if (key in messages || !value) continue
+    obsolete[key] = value
   }
+
+  const out = { locale: file.locale }
+  if (file.name) out.name = file.name
+  out.messages = sortedObject(messages)
+  if (!prune && Object.keys(obsolete).length > 0) out.obsolete = sortedObject(obsolete)
   return out
 }
 
@@ -398,15 +465,18 @@ export function serialize(value) {
   return `${JSON.stringify(value, null, 2)}\n`
 }
 
-/** The index and every reconciled catalog, computed without writing anything. */
-export function extract({ prune = false } = {}) {
-  const index = buildIndex()
-  const catalogs = catalogFiles().map(({ code, path }) => ({
+/** The reconciled index and every reconciled language, computed without writing anything. */
+export function extract({ prune = false, dir = LOCALES_DIR, files } = {}) {
+  const found = collectMessages(files)
+  const previous = readIndex(dir)
+  const index = reconcileIndex(previous, found)
+  const unseen = [...found.keys()].filter((key) => !(key in (previous.messages ?? {})))
+  const languages = languageFiles(dir).map(({ code, path }) => ({
     code,
     path,
-    file: reconcileCatalog(readJson(path), index, { prune }),
+    file: reconcileLanguage(readJson(path), found, { prune }),
   }))
-  return { index, catalogs }
+  return { index, languages, found, unseen }
 }
 
 function writeIfChanged(path, contents) {
@@ -423,17 +493,22 @@ function writeIfChanged(path, contents) {
 
 function main(argv) {
   const prune = argv.includes('--prune')
-  const { index, catalogs } = extract({ prune })
+  const { index, languages, found, unseen } = extract({ prune })
 
-  const indexPath = join(LOCALES_DIR, `${SOURCE_LANGUAGE}.json`)
   const written = []
-  if (writeIfChanged(indexPath, serialize(index))) written.push(originOf(indexPath))
-  for (const catalog of catalogs) {
-    if (writeIfChanged(catalog.path, serialize(catalog.file))) written.push(originOf(catalog.path))
+  if (writeIfChanged(indexPath(), serialize(index))) written.push(originOf(indexPath()))
+  for (const language of languages) {
+    if (writeIfChanged(language.path, serialize(language.file))) written.push(originOf(language.path))
   }
 
-  const total = Object.keys(index.index).length
-  console.log(`i18n: ${total} message(s) across ${catalogs.length + 1} locale file(s)`)
+  const total = Object.keys(index.messages).length
+  console.log(`i18n: ${found.size} code message(s) in src/, ${total} key(s) in the index`)
+  if (unseen.length > 0) {
+    // Not a failure: a string no test has rendered is a test gap, and the scan
+    // just found it. Listed so somebody can decide whether to cover it.
+    console.log(`i18n: ${unseen.length} code message(s) discovery had never seen — a test gap, not an i18n gap:`)
+    for (const key of unseen) console.log(`  ${JSON.stringify(key)}`)
+  }
   console.log(written.length === 0 ? 'i18n: no changes' : `i18n: wrote ${written.join(', ')}`)
 }
 

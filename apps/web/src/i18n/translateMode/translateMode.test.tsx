@@ -8,34 +8,41 @@ import {
   SOURCE_LANGUAGE,
   activateLocale,
   highlightedTexts,
+  resetSourceIndex,
   setMarkMissing,
   setTranslateMode,
   supportsHighlightApi,
-  TABLE_ATTR,
-  tableLabel,
   translate,
   translateModeFlags,
   translatedKeys,
-  useLocaleLabels,
+  translationsUrl,
   useT,
 } from '@/i18n'
 import { disableCollector, enableCollector, flush } from '@/i18n/missing'
-import { translateApiUrl } from '@/i18n/translateTarget'
 
 /** Ask the translate endpoint directly — never through the code under test. */
-async function endpointRows(locale: string): Promise<{ scope: string; key: string; translation: string }[]> {
-  const res = await fetch(`${translateApiUrl()}/ui_translations?locale=eq.${locale}`)
-  return (await res.json()) as { scope: string; key: string; translation: string }[]
+async function record(locale: string): Promise<Record<string, string>> {
+  const res = await fetch(translationsUrl(locale))
+  return (await res.json()) as Record<string, string>
 }
 
-/** Undo whatever a test wrote, through the same endpoint. */
-async function clearEndpoint(locale: string, keys: string[]): Promise<void> {
+async function write(locale: string, key: string, translation: string): Promise<void> {
+  await fetch(translationsUrl(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ locale, key, translation }),
+  })
+}
+
+/**
+ * Undo whatever a test wrote, through the same endpoint. The index first: a
+ * language's empty entry survives only for a key the index knows, so
+ * clearing the index entry is what lets the language entry go.
+ */
+async function forget(keys: string[]): Promise<void> {
   for (const key of keys) {
-    await fetch(`${translateApiUrl()}/ui_translations?on_conflict=locale,scope,key,context`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates' },
-      body: JSON.stringify({ locale, scope: 'message', key, context: '', translation: '' }),
-    })
+    await write(SOURCE_LANGUAGE, key, '')
+    await write('de-DE', key, '')
   }
 }
 
@@ -43,12 +50,13 @@ async function clearEndpoint(locale: string, keys: string[]): Promise<void> {
  * Translate mode, in a real browser, through the real app providers.
  *
  * The host is mounted the way `AppLayout` mounts it, the gate is the real
- * `rpc/get_userinfo` permissions of the run's identity (which holds `admin`),
- * the German is the shipped `de-DE.json`, and the marks are read back off
- * `CSS.highlights` — Chromium's own registry, not a stand-in. Nothing here
- * replaces anything: the writer is the drafts layer because this tenant has no
- * `ui_translations` table (its tests skip with a message elsewhere), and that
- * is the path a self-hosted operator is on too.
+ * target — the dev server this suite runs against, the same endpoint
+ * `pnpm dev` answers — the German is the shipped `de-DE.json`, and the marks
+ * are read back off `CSS.highlights` — Chromium's own registry, not a
+ * stand-in. The probe strings below are deliberately UNKNOWN to every
+ * catalog, so the collector is off in every test that renders them and the
+ * one that turns it on cleans up: the files under public/locales are the
+ * shipped ones.
  */
 
 const GERMAN = { language: 'de-DE', locale: 'de-DE' }
@@ -58,22 +66,26 @@ const UNTRANSLATED = 'A sentence no catalog has ever seen'
 const UNTRANSLATED_LABEL = 'An unmistakably untranslated label'
 
 /** A model label rendered the way the sidebar renders one. Not a real table. */
+const LABEL_MODULE = 'vitest'
 const LABEL_TABLE = 'vitest_probe_table'
+const PLURAL_KEY = `module.${LABEL_MODULE}.${LABEL_TABLE}.entity.plural_label`
+const SINGULAR_KEY = `module.${LABEL_MODULE}.${LABEL_TABLE}.entity.singular_label`
 
 function Probe() {
   const t = useT()
-  const labels = useLocaleLabels()
   return (
     <div>
       <button type="button">{t('Log out')}</button>
       <p>{t(UNTRANSLATED)}</p>
       <input aria-label={t(UNTRANSLATED_LABEL)} />
-      <h2>{tableLabel(labels, LABEL_TABLE, TABLE_ATTR.plural, 'Probe Rows')}</h2>
+      <h2>{t({ id: ['module', LABEL_MODULE, LABEL_TABLE, 'entity', 'plural_label'], defaultMessage: 'Probe Rows' })}</h2>
       {/* The shape the grid's own Add button and search field have: a
           TRANSLATED sentence whose only untranslated part is the model label
           interpolated into it. */}
       <button type="button">
-        {t('Add {label}', { label: tableLabel(labels, LABEL_TABLE, TABLE_ATTR.singular, 'Probe Row') })}
+        {t('Add {label}', {
+          label: t({ id: ['module', LABEL_MODULE, LABEL_TABLE, 'entity', 'singular_label'], defaultMessage: 'Probe Row' }),
+        })}
       </button>
     </div>
   )
@@ -91,20 +103,21 @@ function Page() {
 describe('translate mode', () => {
   beforeAll(async () => {
     // The host loads the chunk lazily; the first test would otherwise spend
-    // its whole wait on Vite transforming the chunk and its index rather than
-    // on the behavior under test. Same module, same URL — just warm.
+    // its whole wait on Vite transforming the chunk rather than on the
+    // behavior under test. Same module, same URL — just warm.
     await import('@/i18n/translateMode')
   })
 
   beforeEach(async () => {
+    // The probe strings must not be discovered into the shipped files.
+    disableCollector()
+    resetSourceIndex()
     await bootApp()
   })
 
   afterEach(async () => {
-    await clearEndpoint('de-DE', [UNTRANSLATED])
-    // The collector is opt-in and off in the setup file; a test that turns it
-    // on has to turn it off, or every later test writes to the tenant.
     disableCollector()
+    await forget([UNTRANSLATED, UNTRANSLATED_LABEL, PLURAL_KEY, SINGULAR_KEY])
   })
 
   it('runs where CSS Custom Highlights exist', () => {
@@ -147,7 +160,7 @@ describe('translate mode', () => {
     expect(document.documentElement.lang).toBe(SOURCE_LANGUAGE)
   })
 
-  it('edits a string in place with Alt+click, and the draft reaches the DOM, the writer and the export', async () => {
+  it('edits a string in place with Alt+click, and the save reaches the DOM and the endpoint', async () => {
     setTranslateMode(true)
     await activateLocale(GERMAN)
     const ui = userEvent.setup()
@@ -167,19 +180,15 @@ describe('translate mode', () => {
     await ui.type(field, 'Ein Satz, den kein Katalog kennt')
     await ui.click(within(dialog).getByRole('button', { name: 'Speichern' }))
 
-    // On screen at once, through Lingui's merging load…
+    // On screen at once…
     await waitFor(() => expect(screen.getByText('Ein Satz, den kein Katalog kennt')).toBeInTheDocument())
-    // …and the mark is gone, because the id is translated now.
+    // …and the mark is gone, because the key is translated now.
     await waitFor(() => expect(highlightedTexts()).toEqual(['Probe Rows', 'Probe Row']))
     expect(translatedKeys('de-DE').has(UNTRANSLATED)).toBe(true)
 
     // And the ENDPOINT holds it — read back over a separate request that does
-    // not go through the code under test. There is no draft and no download:
-    // one contract, whatever is behind it.
-    const saved = await endpointRows('de-DE')
-    expect(saved).toContainEqual(
-      expect.objectContaining({ key: UNTRANSLATED, translation: 'Ein Satz, den kein Katalog kennt' }),
-    )
+    // not go through the code under test. One contract, whatever is behind it.
+    expect((await record('de-DE'))[UNTRANSLATED]).toBe('Ein Satz, den kein Katalog kennt')
 
     // Clearing writes an empty translation through the same call, and the
     // source text shows through again.
@@ -192,6 +201,8 @@ describe('translate mode', () => {
 
     await waitFor(() => expect(screen.getByText(UNTRANSLATED)).toBeInTheDocument())
     await waitFor(() => expect(highlightedTexts()).toEqual([UNTRANSLATED, 'Probe Rows', 'Probe Row']))
+    // A cleared key the index never knew leaves no entry behind.
+    expect((await record('de-DE'))[UNTRANSLATED]).toBeUndefined()
   })
 
   it('opens the editor on right-click, which is what a person tries first', async () => {
@@ -256,12 +267,15 @@ describe('translate mode', () => {
     await ui.keyboard('{/Alt}')
 
     const dialog = await screen.findByRole('dialog', { name: 'Übersetzen' })
+    // A code string's candidate is named as a message; a keyed one by its key.
     expect(within(dialog).getByRole('button', { name: 'Text' })).toBeInTheDocument()
-    await ui.click(within(dialog).getByRole('button', { name: 'Tabelle' }))
+    await ui.click(within(dialog).getByRole('button', { name: SINGULAR_KEY }))
 
     // The label, with the model's own English as the source and the key that
-    // names it — not the sentence, which is already German.
-    expect(within(dialog).getByText(`Tabelle: ${LABEL_TABLE}.singular_label`)).toBeInTheDocument()
+    // names it (the dialog's description) — not the sentence, which is
+    // already German.
+    expect(dialog).toHaveAccessibleDescription(SINGULAR_KEY)
+    expect(within(dialog).getByText('Probe Row')).toBeInTheDocument()
     expect(within(dialog).getByRole('textbox', { name: 'Übersetzung' })).toHaveValue('')
   })
 
@@ -288,12 +302,30 @@ describe('translate mode', () => {
     await ui.keyboard('{/Alt}')
     const forTable = await screen.findByRole('dialog', { name: 'Übersetzen' })
     expect(within(forTable).getByText('Probe Rows')).toBeInTheDocument()
-    expect(within(forTable).getByText(`Tabelle: ${LABEL_TABLE}.plural_label`)).toBeInTheDocument()
-    // No draft yet, so there is nothing to remove.
-    expect(within(forTable).queryByRole('button', { name: 'Entwurf entfernen' })).not.toBeInTheDocument()
+    expect(forTable).toHaveAccessibleDescription(PLURAL_KEY)
   })
 
-  it('lists the model labels on the page, and the whole model from the real tenant', async () => {
+  it('saves a model label like any other message, and the grid text follows', async () => {
+    setTranslateMode(true)
+    await activateLocale(GERMAN)
+    const ui = userEvent.setup()
+    renderInApp(<Page />)
+    await screen.findByRole('button', { name: /Übersetzungen/ })
+    await waitFor(() => expect(highlightedTexts()).toContain('Probe Rows'))
+
+    await ui.keyboard('{Alt>}')
+    await ui.click(screen.getByRole('heading', { name: 'Probe Rows' }))
+    await ui.keyboard('{/Alt}')
+    const dialog = await screen.findByRole('dialog', { name: 'Übersetzen' })
+    await ui.type(within(dialog).getByRole('textbox', { name: 'Übersetzung' }), 'Sondenzeilen')
+    await ui.click(within(dialog).getByRole('button', { name: 'Speichern' }))
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Sondenzeilen' })).toBeInTheDocument())
+    expect((await record('de-DE'))[PLURAL_KEY]).toBe('Sondenzeilen')
+    await waitFor(() => expect(highlightedTexts()).toEqual([UNTRANSLATED, 'Probe Row']))
+  })
+
+  it('lists what is on the page in the panel, keys included, and opens the editor from it', async () => {
     setTranslateMode(true)
     await activateLocale(GERMAN)
     const ui = userEvent.setup()
@@ -301,92 +333,45 @@ describe('translate mode', () => {
 
     await ui.click(await screen.findByRole('button', { name: /Übersetzungen/ }))
     const panel = await screen.findByRole('dialog', { name: 'Übersetzungen' })
-    await ui.click(within(panel).getByRole('tab', { name: 'Modellbezeichnungen' }))
 
-    // This page: the probe's table label, missing, resolved through the
-    // reverse index rather than through any model read.
-    const onPage = await within(panel).findByRole('button', { name: /Probe Rows/ })
-    expect(within(onPage).getByText('Fehlt')).toBeInTheDocument()
-    expect(within(onPage).getByText(`${LABEL_TABLE}.plural_label`)).toBeInTheDocument()
-
-    // The whole model: read from the tenant's own tables/fields/modules. The
-    // real model has no German, so "missing only" lists a real table label.
-    await ui.click(within(panel).getByRole('button', { name: 'Gesamtes Modell' }))
-    await within(panel).findByRole('button', { name: /customers\.plural_label/ })
-    expect(within(panel).queryByRole('button', { name: /Probe Rows/ })).not.toBeInTheDocument()
-  })
-
-  it('lists what is on the page in the panel and opens the editor from it', async () => {
-    setTranslateMode(true)
-    await activateLocale(GERMAN)
-    const ui = userEvent.setup()
-    renderInApp(<Page />)
-
-    await ui.click(await screen.findByRole('button', { name: /Übersetzungen/ }))
-    const panel = await screen.findByRole('dialog', { name: 'Übersetzungen' })
-
-    // The catalog tab, filtered to this page: the untranslated sentence is
-    // there with its "missing" badge, resolved through the reverse index.
+    // Filtered to this page: the untranslated sentence is there with its
+    // "missing" badge, resolved through the reverse index, and the model label
+    // sits in the same list with the key that names it.
     await ui.click(within(panel).getByRole('button', { name: 'Auf dieser Seite' }))
     const entry = await within(panel).findByRole('button', { name: new RegExp(UNTRANSLATED) })
     expect(within(entry).getByText('Fehlt')).toBeInTheDocument()
+    const label = within(panel).getByRole('button', { name: /Probe Rows/ })
+    expect(within(label).getByText(PLURAL_KEY)).toBeInTheDocument()
 
     await ui.click(entry)
     const editor = await screen.findByRole('dialog', { name: 'Übersetzen' })
     expect(within(editor).getByRole('textbox', { name: 'Übersetzung' })).toHaveValue('')
   })
 
-  it('shows a request the collector recorded after the panel had already mounted', async () => {
+  it('shows what discovery recorded in the panel, after the panel had already mounted', async () => {
     // The panel is MOUNTED as soon as translate mode is on, with the sheet
-    // closed, so its queue was read once — before anything had been recorded —
-    // and nothing refreshed it afterwards. The list looked permanently empty
-    // while the page was covered in marks.
+    // closed; the index it lists is re-read every time the sheet opens, so a
+    // key discovered after the mount is there.
     setTranslateMode(true)
     await activateLocale(GERMAN)
     const ui = userEvent.setup()
     renderInApp(<Page />)
     await screen.findByRole('button', { name: /Übersetzungen/ })
 
-    // Record one, the way the running app does: an empty-translation row
-    // inserted with `ignore-duplicates`, which the endpoint keeps as an empty
-    // entry — the same thing an untranslated key in a catalog file is.
+    // Record one, the way the running app does: the key with its source into
+    // the index, and an empty entry into the language.
     enableCollector()
     expect(translate(UNTRANSLATED)).toBe(UNTRANSLATED)
     await flush()
-    await waitFor(async () =>
-      expect((await endpointRows('de-DE')).some((row) => row.key === UNTRANSLATED)).toBe(true),
-    )
-
-    await ui.click(screen.getByRole('button', { name: /Übersetzungen/ }))
-    const panel = await screen.findByRole('dialog', { name: 'Übersetzungen' })
-    await ui.click(within(panel).getByRole('button', { name: 'Angefragt' }))
-
-    expect(await within(panel).findByRole('button', { name: new RegExp(UNTRANSLATED) })).toBeInTheDocument()
-  })
-
-  it('sends you to the labels tab when the marks on the page are model labels', async () => {
-    // Every shipped code string has German, so "Missing" is legitimately empty
-    // — while the page is full of yellow, all of it model labels. "Nothing
-    // matches this filter" reads as broken there.
-    setTranslateMode(true)
-    await activateLocale(GERMAN)
-    const ui = userEvent.setup()
-    renderInApp(<Page />)
-    // The count of marked labels comes from the scan, so wait for it — opening
-    // the panel first would read zero and show the plain empty sentence.
-    await screen.findByRole('button', { name: /Übersetzungen/ })
-    await waitFor(() => expect(highlightedTexts()).toContain('Probe Rows'))
+    disableCollector()
+    expect((await record(SOURCE_LANGUAGE))[UNTRANSLATED]).toBe(UNTRANSLATED)
+    expect((await record('de-DE'))[UNTRANSLATED]).toBe('')
 
     await ui.click(screen.getByRole('button', { name: /Übersetzungen/ }))
     const panel = await screen.findByRole('dialog', { name: 'Übersetzungen' })
     await ui.click(within(panel).getByRole('button', { name: 'Fehlt' }))
 
-    // The way out of an empty "Missing" list on a page full of marks: a button,
-    // not the tab of the same name.
-    await ui.click(await within(panel).findByRole('button', { name: 'Modellbezeichnungen' }))
-
-    // The labels tab, showing what the page actually has.
-    expect(await within(panel).findByRole('button', { name: /Probe Rows/ })).toBeInTheDocument()
+    expect(await within(panel).findByRole('button', { name: new RegExp(UNTRANSLATED) })).toBeInTheDocument()
   })
 
   it('renders nothing while both switches are off', async () => {

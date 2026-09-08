@@ -11,7 +11,16 @@
 
 import { runtimeEnv } from './runtimeEnv'
 import { currentSecureContextError } from './secureContext'
-import { EMPTY_LOCALE_CONFIG, resolveLocales, setDeploymentLocales, type LocaleConfig } from '@/i18n'
+import {
+  EMPTY_LOCALE_CONFIG,
+  TRANSLATE_MODE_VAR,
+  TRANSLATE_URL_VAR,
+  resolveLocales,
+  resolveTranslateTarget,
+  setDeploymentLocales,
+  setTranslateTarget,
+  type LocaleConfig,
+} from '@/i18n'
 import {
   BACKEND_TYPE_VALUES,
   parseBackendType,
@@ -353,6 +362,19 @@ function applyUiCustomizer(cfg: AppConfig): void {
   // the first boot pass does so BootFailure is translated. main.tsx's second
   // activateLocale() pass is what picks this up.
   setDeploymentLocales(locales.locales)
+
+  // The translate target, pushed in the same way (src/i18n/translateTarget.ts).
+  // The mode is explicit configuration, never derived from `import.meta.env.DEV`.
+  const target = resolveTranslateTarget(
+    runtimeEnv(TRANSLATE_MODE_VAR, import.meta.env.VITE_TRANSLATE_MODE),
+    runtimeEnv(TRANSLATE_URL_VAR, import.meta.env.VITE_TRANSLATE_API_URL),
+    typeof window === 'undefined' ? undefined : window.location.origin,
+  )
+  if ('error' in target) {
+    recordConfigError(target.error)
+    return
+  }
+  setTranslateTarget(target.target)
 }
 
 /** Record `message` only if nothing earlier already failed (first error wins). */

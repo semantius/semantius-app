@@ -4,8 +4,28 @@ import tailwindcss from '@tailwindcss/vite'
 import { playwright } from '@vitest/browser-playwright'
 
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
+import { readdirSync } from 'node:fs'
 import { fileURLToPath, URL } from 'node:url'
 import { i18nDevWriter } from './vite-plugins/i18nDevWriter'
+
+/**
+ * The languages this build ships, read off `public/locales/` and inlined as
+ * `__SHIPPED_LOCALES__` (declared in src/env.d.ts). A language file is named
+ * by its BCP-47 tag; `schema.json` and `work.schema.json` are not languages,
+ * and `en-US.json` is the index, not a catalog. The files themselves stay
+ * static assets, fetched one at a time — never bundled.
+ */
+const LANGUAGE_FILE = /^([a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*)\.json$/
+function shippedLocales(): string[] {
+  try {
+    return readdirSync(fileURLToPath(new URL('./public/locales', import.meta.url)))
+      .map((name) => LANGUAGE_FILE.exec(name)?.[1])
+      .filter((code): code is string => Boolean(code) && code !== 'en-US')
+      .sort()
+  } catch {
+    return []
+  }
+}
 
 // There are exactly two environments, and which one a test runs in follows what
 // the code under test touches — not the folder it sits in:
@@ -60,12 +80,14 @@ export default defineConfig(({ mode }) => ({
     }),
     viteReact(),
     tailwindcss(),
-    // Translate mode's writer on a developer's machine: it writes the repo's
-    // own catalog and deployment files. `apply: 'serve'`, so no build has it.
+    // The translate endpoint on a developer's machine: it reads and writes
+    // the repo's own language files under public/locales/, for translate mode
+    // and for discovery. `apply: 'serve'`, so no build has it.
     i18nDevWriter(),
   ],
   define: {
     '__BUILD_DATE__': JSON.stringify(new Date().toISOString()),
+    '__SHIPPED_LOCALES__': JSON.stringify(shippedLocales()),
   },
   resolve: {
     alias: {

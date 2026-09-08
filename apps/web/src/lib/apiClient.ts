@@ -8,7 +8,7 @@
 import { type EntityMetadata } from "@/types/metadata"
 import { getConfig, tryGetConfig } from "@/lib/config"
 import { retryPolicyFor, withRetry } from "@/lib/retry"
-import { translate } from "@/i18n"
+import { appError } from "@/lib/appError"
 
 // --- Fetch interceptor ---
 // Module-level token store for the fetch interceptor
@@ -210,30 +210,33 @@ export async function callRpc<TResult = unknown, TParams = Record<string, unknow
 
   if (!response.ok) {
     const errorText = await response.text()
-    let errorMessage = translate('Failed to call RPC function "{name}"', { name: rpcName })
     let body: Record<string, unknown> = {}
-
     try {
       const errorJson: unknown = JSON.parse(errorText)
       if (errorJson && typeof errorJson === 'object' && !Array.isArray(errorJson)) {
         body = errorJson as Record<string, unknown>
       }
-      errorMessage =
-        (typeof body.message === 'string' && body.message) ||
-        (typeof body.error === 'string' && body.error) ||
-        errorText
     } catch {
-      errorMessage = errorText || errorMessage
+      // Not JSON: the body is not a message, and it is NOT put on screen — a
+      // raw response body used to be the fallback here.
     }
+    // A gateway spells its message `error`; PostgREST spells it `message`.
+    const serverMessage =
+      (typeof body.message === 'string' && body.message) || (typeof body.error === 'string' && body.error) || undefined
 
     // The status and url ride along with the server's own body, the way
-    // `useTable` and `AuthContext.responseError()` do it: a caller that has to
-    // tell "not there" (the table route → not-found page) from "not now" (an
-    // error the user can retry) reads `cause.status`. A bare Error here once
-    // made every failure of `get_schema` a 404 page.
-    throw new Error(errorMessage, {
-      cause: { ...body, status: response.status, url: response.url },
-    })
+    // `useTable` and `AuthContext` do it: a caller that has to tell "not
+    // there" (the table route → not-found page) from "not now" (an error the
+    // user can retry) reads `cause.status`. A bare Error here once made every
+    // failure of `get_schema` a 404 page.
+    const transport = { ...body, status: response.status, url: response.url }
+    if (serverMessage) {
+      throw new Error(serverMessage, { cause: { ...transport, message: serverMessage } })
+    }
+    throw appError(
+      { message: 'Failed to call RPC function "{name}" ({status})', values: { name: rpcName, status: response.status } },
+      transport,
+    )
   }
 
   return await response.json() as TResult

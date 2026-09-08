@@ -1,13 +1,13 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { EntityMetadata } from '@/types/metadata'
 import {
   SOURCE_LANGUAGE,
   activateLocale,
   embeddedSegments,
   isRecordingRenders,
-  labelOf,
+  localeLayers,
   localizeMetadata,
-  moduleOverride,
+  metadataText,
   msg,
   normalizeRenderedText,
   recordRender,
@@ -16,22 +16,44 @@ import {
   reverseIndexSize,
   setRecordingRenders,
   translate,
-  translateDynamic,
+  translateVerbatim,
+  type LocaleFile,
+  type LocaleLayer,
 } from '.'
 
 /**
  * The render-time reverse index translate mode resolves the page through.
  *
  * Pure module state, so it runs in `node`: what is asserted is that every
- * producer of text — `translate()`, the label helpers, `translateDynamic()` —
- * records exactly what it rendered against the id that rendered it, and only
- * while recording is on.
+ * producer of text — `translate()`, the metadata helpers, `translateVerbatim()`
+ * — records exactly what it rendered against the key that rendered it, and
+ * only while recording is on. The test language is supplied as a layer of the
+ * real store, so the German below arrives through the real activation.
  */
 
-const GERMAN = { language: 'de-DE', locale: 'de-DE' }
+const TEST_LANGUAGE = 'xx-TEST'
+const file: LocaleFile = {
+  locale: TEST_LANGUAGE,
+  messages: {
+    'Customer {id}': 'Kunde {id}',
+    'Add {label}': '{label} hinzufügen',
+    'module.crm.customers.entity.plural_label': 'Kunden',
+  },
+}
+const layer: LocaleLayer = {
+  name: 'test',
+  load: (language) => Promise.resolve(language === TEST_LANGUAGE ? file : null),
+}
+const GERMAN = { language: TEST_LANGUAGE, locale: TEST_LANGUAGE }
 
-afterEach(() => {
+beforeEach(() => {
+  localeLayers.push(layer)
+})
+
+afterEach(async () => {
   setRecordingRenders(false)
+  localeLayers.splice(localeLayers.indexOf(layer), 1)
+  await activateLocale({ language: SOURCE_LANGUAGE, locale: SOURCE_LANGUAGE })
 })
 
 describe('recording', () => {
@@ -53,17 +75,17 @@ describe('recording', () => {
     expect(renderedSourceOf('Customer {id}')).toBe('Customer {id}')
   })
 
-  it('records a message with a context under its context-bearing id', () => {
+  it('records a disambiguated message under its prefixed key', () => {
     setRecordingRenders(true)
-    const rendered = translate(msg('View', { context: 'column visibility' }))
+    const rendered = translate(msg('View', { id: ['columnVisibility'] }))
 
-    expect([...resolveRenderedText(rendered)!]).toEqual(['Viewcolumn visibility'])
+    expect([...resolveRenderedText(rendered)!]).toEqual(['columnVisibility.View'])
   })
 
-  it('keeps every id when two messages render the same text', () => {
+  it('keeps every key when two messages render the same text', () => {
     setRecordingRenders(true)
     recordRender('View', 'View', 'View')
-    recordRender('View', 'Viewcolumn visibility', 'View')
+    recordRender('View', 'columnVisibility.View', 'View')
 
     // Two meanings, one word on screen: the editor has to offer both.
     expect(resolveRenderedText('View')?.size).toBe(2)
@@ -77,47 +99,40 @@ describe('recording', () => {
     expect(resolveRenderedText('\n  Log   out\n')).toBeDefined()
   })
 
-  it('records a label with the model text as its source, translated or not', () => {
+  it('records a model label with the model text as its source, translated or not', async () => {
     setRecordingRenders(true)
 
-    expect(labelOf({}, 'table', 'customers.plural_label', 'Customers')).toBe('Customers')
-    expect([...resolveRenderedText('Customers')!]).toEqual(['table:customers.plural_label'])
+    expect(metadataText(['module', 'crm', 'customers', 'entity', 'plural_label'], 'Customers')).toBe('Customers')
+    expect([...resolveRenderedText('Customers')!]).toEqual(['module.crm.customers.entity.plural_label'])
 
-    expect(labelOf({ 'table:customers.plural_label': 'Kunden' }, 'table', 'customers.plural_label', 'Customers')).toBe('Kunden')
-    expect([...resolveRenderedText('Kunden')!]).toEqual(['table:customers.plural_label'])
+    await activateLocale(GERMAN)
+    expect(metadataText(['module', 'crm', 'customers', 'entity', 'plural_label'], 'Customers')).toBe('Kunden')
+    expect([...resolveRenderedText('Kunden')!]).toEqual(['module.crm.customers.entity.plural_label'])
     // The source stays the model's English: that is what the editor shows.
-    expect(renderedSourceOf('table:customers.plural_label')).toBe('Customers')
+    expect(renderedSourceOf('module.crm.customers.entity.plural_label')).toBe('Customers')
   })
 
-  it('records enum values through localizeMetadata even when nothing overrides them', () => {
+  it('records enum values through localizeMetadata even when nothing translates them', () => {
     setRecordingRenders(true)
     const meta = {
-      table: { table_name: 'orders', singular_label: 'Order', plural_label: 'Orders' },
+      table: { table_name: 'orders', module_slug: 'crm', singular_label: 'Order', plural_label: 'Orders' },
       properties: { status: { type: 'string', title: 'Status', enum: ['open', 'closed'] } },
     } as unknown as EntityMetadata
 
     // Identity is kept when nothing changes — the memo contract — and the walk
     // still happened, which is what the recording proves.
-    expect(localizeMetadata(meta, {})).toBe(meta)
-    expect([...resolveRenderedText('open')!]).toEqual(['enum:orders.status.open'])
-    expect([...resolveRenderedText('Status')!]).toEqual(['column:orders.status.title'])
-    expect([...resolveRenderedText('Orders')!]).toEqual(['table:orders.plural_label'])
+    expect(localizeMetadata(meta)).toBe(meta)
+    expect([...resolveRenderedText('open')!]).toEqual(['module.crm.orders.enum.status.open'])
+    expect([...resolveRenderedText('Status')!]).toEqual(['module.crm.orders.field.status.title'])
+    expect([...resolveRenderedText('Orders')!]).toEqual(['module.crm.orders.entity.plural_label'])
   })
 
-  it('records a module name and description, because either may be what renders', () => {
+  it('records a verbatim server sentence under its key', () => {
     setRecordingRenders(true)
-    moduleOverride({}, 'crm', { module_name: '_core', description: 'Administration' })
+    translateVerbatim('23505.modules_module_slug_key', 'duplicate key value violates unique constraint "modules_module_slug_key"')
 
-    expect([...resolveRenderedText('_core')!]).toEqual(['module:crm.name'])
-    expect([...resolveRenderedText('Administration')!]).toEqual(['module:crm.description'])
-  })
-
-  it('records runtime text under its scope', () => {
-    setRecordingRenders(true)
-    translateDynamic('Order must have at least one line', { scope: 'server' })
-
-    expect([...resolveRenderedText('Order must have at least one line')!]).toEqual([
-      'server:Order must have at least one line',
+    expect([...resolveRenderedText('duplicate key value violates unique constraint "modules_module_slug_key"')!]).toEqual([
+      '23505.modules_module_slug_key',
     ])
   })
 
@@ -126,7 +141,7 @@ describe('recording', () => {
     await activateLocale(GERMAN)
     // The order a component renders in: the label first, the sentence around
     // it second. Resolution is lazy, so the reverse order works too.
-    labelOf({}, 'table', 'suppliers.singular_label', 'Supplier')
+    metadataText(['module', 'crm', 'suppliers', 'entity', 'singular_label'], 'Supplier')
     const rendered = translate('Add {label}', { label: 'Supplier' })
 
     expect(rendered).toBe('Supplier hinzufügen')
@@ -136,13 +151,13 @@ describe('recording', () => {
     const segments = embeddedSegments(rendered)
     expect(segments).toHaveLength(1)
     expect(segments[0].value).toBe('Supplier')
-    expect([...segments[0].ids]).toEqual(['table:suppliers.singular_label'])
+    expect([...segments[0].ids]).toEqual(['module.crm.suppliers.entity.singular_label'])
   })
 
   it('records a value the message did not actually interpolate as nothing', async () => {
     setRecordingRenders(true)
     await activateLocale(GERMAN)
-    labelOf({}, 'table', 'suppliers.singular_label', 'Supplier')
+    metadataText(['module', 'crm', 'suppliers', 'entity', 'singular_label'], 'Supplier')
     // A count is not text a translator can act on, and a value the pattern
     // never rendered is not in the string to mark.
     const rendered = translate('Add {label}', { label: 'Supplier', unused: 'Supplier' })

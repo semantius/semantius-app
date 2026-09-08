@@ -1,46 +1,36 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
+import { setInterceptorToken } from '@/lib/apiClient'
 import { initConfig } from '@/lib/config'
+import { bootApp } from '@/test/appHarness'
 import { testToken } from '@/test/session'
+import type { EntityMetadata } from '@/types/metadata'
 import {
   SAVE_PREFERENCES_RPC,
   SOURCE_LANGUAGE,
-  TENANT_TABLE,
   activateLocale,
-  availableLocales,
-  buildLabelInventory,
-  currentLabels,
-  diffLabelInventory,
+  canTranslate,
   isPreferenceRpcAbsent,
-  isTenantTableAbsent,
-  rowsToLocaleFiles,
+  readTranslations,
   sessionPreferenceFrom,
-  setTenantLocaleFiles,
-  tenantPageQuery,
+  targetAvailable,
   translate,
-  type FieldRow,
-  type ModuleRow,
-  type TableRow,
-  type TranslationRow,
+  translateTarget,
 } from '@/i18n'
-import { disableCollector, enableCollector, flush } from '@/i18n/missing'
 
 /**
- * The tenant layer, against the REAL tenant.
+ * The `prod` target and the platform's preferences, against the REAL tenant.
  *
- * Most of it cannot pass yet, and that is the point of the file. `ui_translations`,
- * its policies and the `set_user_preferences` RPC come from a platform migration
- * that has not been applied to the test tenant — so those tests SKIP WITH A
- * MESSAGE naming what is missing, rather than being written against a fake table
- * that would pass forever and prove nothing. The moment the migration lands they
- * run for real, with no edit here.
+ * The record store — the `/translations` endpoint on the tenant's own API — and
+ * the `set_user_preferences` RPC come from platform work that has not landed
+ * on the test tenant. So what is asserted here is the shape the app has to
+ * survive TODAY: the endpoint answers a definitive "no such table", the layer
+ * stands down, the shipped file still renders German, and translate mode is
+ * not offered because a save would have nowhere to go. The moment the
+ * endpoint lands, the first test below turns from "absent" to "a record".
  *
- * What DOES run today: the model reads the label inventory is built from, and
- * the two "is this platform feature present" predicates, which are asserted
- * against the real 404 bodies rather than against a description of them.
+ * What DOES exist and is pinned: `get_schema` carries `module_slug` — every
+ * metadata key starts with it — and names a child relation `table.field`.
  */
-
-/** A locale nothing else uses, so the run cannot disturb a real translation. */
-const TEST_LOCALE = 'xx-TEST'
 
 async function api(path: string, init?: RequestInit): Promise<Response> {
   return fetch(`${apiUrl}${path}`, {
@@ -58,57 +48,56 @@ async function bodyCode(response: Response): Promise<string | undefined> {
   return body && typeof body === 'object' ? ((body as Record<string, unknown>).code as string) : undefined
 }
 
-// TOP-LEVEL AWAIT, not `beforeAll`. `describe.skipIf` is evaluated while the
-// file is being COLLECTED, before any hook has run — so a flag set in a
-// `beforeAll` is still `false` at that moment and the block would skip forever,
-// including after the migration lands. Probing here is what makes the skip
-// temporary rather than permanent.
 const apiUrl = (await initConfig()).apiBaseUrl
 const token = testToken()
-const probe = await api(`/${TENANT_TABLE}?limit=1`)
-/** Whether the platform migration has been applied to this tenant. */
-const tableExists = probe.ok
-if (!tableExists) {
-  // Reported once, loudly. A skipped test that says nothing is a test nobody
-  // ever notices has stopped covering anything.
-  console.warn(
-    `[i18n] ${TENANT_TABLE} is absent from this tenant (${probe.status} ${await bodyCode(probe)}). ` +
-      'The tenant-layer tests are skipped; apply the platform migration to run them.',
-  )
-}
 
 afterEach(async () => {
-  setTenantLocaleFiles(new Map())
-  disableCollector()
+  setInterceptorToken(null)
   await activateLocale({ language: SOURCE_LANGUAGE, locale: SOURCE_LANGUAGE })
 })
 
-afterAll(async () => {
-  if (!tableExists) return
-  await api(`/${TENANT_TABLE}?locale=eq.${TEST_LOCALE}`, { method: 'DELETE' })
-})
+describe('the prod target on this tenant', () => {
+  it('reads the record through the app\'s own API, or stands down on a definitive absence', async () => {
+    await bootApp({ VITE_TRANSLATE_MODE: 'prod' })
+    expect(translateTarget()).toEqual({ url: '', mode: 'prod' })
 
-describe('the platform features this layer needs', () => {
-  it('recognizes an absent table by its BODY, never by a status', async () => {
-    const probe = await api(`/${TENANT_TABLE}?limit=1`)
+    // The relative url is what puts the API base and the bearer token on the
+    // request — the same interceptor every API call goes through, and the
+    // token it holds is the one AuthProviderWrapper hands it after login; no
+    // provider is mounted here, so it is handed over directly.
+    setInterceptorToken(token)
+    const record = await readTranslations('de-DE')
+    const probe = await api('/translations?locale=de-DE')
     if (probe.ok) {
-      expect(tableExists).toBe(true)
+      expect(record).not.toBeNull()
+      expect(targetAvailable()).toBe(true)
       return
     }
     // The real 404 body. A bare 404 under the API base is a cold start, which
-    // the fetch interceptor retries — only a PostgREST code is definitive, and
-    // this is where that distinction is checked against the real thing.
-    const code = await bodyCode(probe)
-    const error = new Error('probe', { cause: { status: probe.status, code } })
-    expect(isTenantTableAbsent(error)).toBe(true)
-    expect(isTenantTableAbsent(new Error('probe', { cause: { status: 404 } }))).toBe(false)
+    // the fetch interceptor retries — only a PostgREST code is definitive.
+    expect(await bodyCode(probe)).toBeTruthy()
+    expect(record).toBeNull()
+    expect(targetAvailable()).toBe(false)
+    // An editor that cannot save is worse than no editor.
+    expect(canTranslate(['admin'])).toBe(false)
   })
 
+  it('still renders German from the shipped file when the record store is absent', async () => {
+    await bootApp({ VITE_TRANSLATE_MODE: 'prod' })
+    await activateLocale({ language: 'de-DE', locale: 'de-DE' })
+
+    expect(translate('Log out')).toBe('Abmelden')
+    expect(document.documentElement.lang).toBe('de-DE')
+  })
+})
+
+describe('the platform features the preferences need', () => {
   it('recognizes an absent preferences RPC by its own code', async () => {
     const probe = await api(`/rpc/${SAVE_PREFERENCES_RPC}`, { method: 'POST', body: '{}' })
     if (probe.ok) return
     const error = new Error('probe', { cause: { status: probe.status, code: await bodyCode(probe) } })
     expect(isPreferenceRpcAbsent(error)).toBe(true)
+    expect(isPreferenceRpcAbsent(new Error('probe', { cause: { status: 404 } }))).toBe(false)
   })
 
   it('reads no language preference off a get_userinfo that has no such column', async () => {
@@ -127,111 +116,19 @@ describe('the platform features this layer needs', () => {
   })
 })
 
-describe('the model the label inventory is built from', () => {
-  it('reads tables, fields and modules with the columns the inventory needs', async () => {
-    const [tables, fields, modules] = await Promise.all([
-      api('/tables?select=table_name,singular_label,plural_label,description,updated_at&limit=200').then((r) =>
-        r.json() as Promise<TableRow[]>,
-      ),
-      api(
-        '/fields?select=table_name,field_name,title,description,enum_values,relationship_label,' +
-          'singular_label_parent,plural_label_parent,updated_at&limit=1000',
-      ).then((r) => r.json() as Promise<FieldRow[]>),
-      api('/modules?select=module_slug,module_name,description,updated_at&limit=200').then((r) =>
-        r.json() as Promise<ModuleRow[]>,
-      ),
-    ])
+describe('the model the keys are built from', () => {
+  it('get_schema names the module slug and shapes a child relation as table.field', async () => {
+    const response = await api('/rpc/get_schema', { method: 'POST', body: JSON.stringify({ p_table_name: 'orders' }) })
+    expect(response.ok, await response.clone().text()).toBe(true)
+    const schema: EntityMetadata = await response.json()
 
-    expect(tables.length).toBeGreaterThan(0)
-    expect(fields.length).toBeGreaterThan(0)
-    expect(modules.length).toBeGreaterThan(0)
-
-    const inventory = buildLabelInventory({ tables, fields, modules })
-    expect(inventory.length).toBeGreaterThan(tables.length)
-    // The four scopes all occur in a real model — an enum among them, which is
-    // the one whose source is the stored value rather than a label.
-    expect(new Set(inventory.map((entry) => entry.scope))).toEqual(
-      new Set(['table', 'column', 'enum', 'module']),
-    )
-
-    // With no translations at all, everything is missing and nothing is orphaned.
-    const diff = diffLabelInventory(inventory, {})
-    expect(diff.missing).toHaveLength(inventory.length)
-    expect(diff.orphaned).toHaveLength(0)
-  })
-})
-
-describe.skipIf(!tableExists)('translations stored as rows', () => {
-  const rows: TranslationRow[] = [
-    { locale: TEST_LOCALE, scope: 'message', key: 'Language', context: '', translation: 'Sprogvalg' },
-    { locale: TEST_LOCALE, scope: 'table', key: 'customers.plural_label', context: '', translation: 'Kunder' },
-    {
-      locale: TEST_LOCALE,
-      scope: 'server',
-      key: 'Order must have at least one line',
-      context: '',
-      translation: 'En ordre skal have mindst en linje',
-    },
-  ]
-
-  beforeAll(async () => {
-    const written = await api(`/${TENANT_TABLE}?on_conflict=locale,scope,key,context`, {
-      method: 'POST',
-      headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
-      body: JSON.stringify(rows),
-    })
-    expect(written.ok, await written.text()).toBe(true)
-  })
-
-  it('reads back through the query the prefetch uses, and activates', async () => {
-    const response = await api(`/${TENANT_TABLE}?${tenantPageQuery(0)}&locale=eq.${TEST_LOCALE}`)
-    const read: TranslationRow[] = await response.json()
-
-    expect(read.length).toBeGreaterThanOrEqual(rows.length)
-    setTenantLocaleFiles(rowsToLocaleFiles(read))
-
-    // A language the build ships no catalog for is switchable purely because the
-    // tenant has rows for it.
-    expect(availableLocales().map((entry) => entry.code)).toContain(TEST_LOCALE)
-
-    await activateLocale({ language: TEST_LOCALE, locale: SOURCE_LANGUAGE })
-    expect(translate('Language')).toBe('Sprogvalg')
-    expect(currentLabels()['table:customers.plural_label']).toBe('Kunder')
-  })
-
-  it('excludes the queue from the layer — an empty row is a request', async () => {
-    await api(`/${TENANT_TABLE}?on_conflict=locale,scope,key,context`, {
-      method: 'POST',
-      headers: { Prefer: 'resolution=ignore-duplicates,return=minimal' },
-      body: JSON.stringify([
-        { locale: TEST_LOCALE, scope: 'message', key: 'Settings', context: '', translation: '' },
-      ]),
-    })
-
-    const response = await api(`/${TENANT_TABLE}?${tenantPageQuery(0)}&locale=eq.${TEST_LOCALE}`)
-    const read: TranslationRow[] = await response.json()
-
-    expect(read.some((row) => row.key === 'Settings')).toBe(false)
-  })
-
-  it('records a miss the collector met, without overwriting a translation', async () => {
-    enableCollector()
-    await activateLocale({ language: TEST_LOCALE, locale: SOURCE_LANGUAGE })
-
-    // A string with no entry, met the way the app meets one.
-    expect(translate('An unmistakably untranslated string')).toBe('An unmistakably untranslated string')
-    await flush()
-
-    const queue = await api(
-      `/${TENANT_TABLE}?select=key,translation&locale=eq.${TEST_LOCALE}&translation=eq.`,
-    ).then((r) => r.json() as Promise<TranslationRow[]>)
-    expect(queue.some((row) => row.key === 'An unmistakably untranslated string')).toBe(true)
-
-    // `ignore-duplicates` is the safety property: a request can never undo a
-    // translation, so the row written above is still translated.
-    const translated = await api(
-      `/${TENANT_TABLE}?select=key,translation&locale=eq.${TEST_LOCALE}&key=eq.Language`,
-    ).then((r) => r.json() as Promise<TranslationRow[]>)
-    expect(translated[0]?.translation).toBe('Sprogvalg')
+    // The slug comes from the model, never from the route: a parent-filtered
+    // view fetches ANOTHER entity's schema, and this is where its module is.
+    expect(schema.table?.module_slug).toBe('nwind')
+    expect(schema.table?.table_name).toBe('orders')
+    for (const child of schema.children ?? []) {
+      // `<child table>.<fk field>` — the two segments the child keys are built from.
+      expect(child.id, child.id).toMatch(/^[a-z0-9_]+\.[a-z0-9_]+$/)
+    }
   })
 })

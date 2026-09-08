@@ -5,7 +5,7 @@
  * pulls in `node:fs` — so importing it from client code would drag node
  * built-ins into the bundle. A bare constant module is the whole fix.
  *
- * It is the PostgREST table path on purpose: the client calls exactly this in
- * dev and in production, and only the BASE url differs.
+ * It is the contract's path (`i18n-endpoint-spec.md`): the client calls
+ * exactly this against every target, and only the BASE url differs.
  */
-export const TRANSLATIONS_PATH = '/ui_translations'
+export const TRANSLATIONS_PATH = '/translations'

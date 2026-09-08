@@ -1,7 +1,9 @@
 # Specification: the translation endpoint
 
-**Status: settled with the owner. Not implemented — what exists today is the
-PostgREST-shaped version described at the bottom.**
+**Status: settled with the owner and implemented on `feat/i18n`. The client
+is `apps/web/src/i18n/translateTarget.ts`; the dev server's side is
+`apps/web/vite-plugins/i18nDevWriter.ts`; the tenant's side does not exist
+yet (see the bottom).**
 
 Kept current with `i18n-metadata-messages-plan.md`; that document is the design,
 this one is the wire contract. Errors are covered here too, because the shape is
@@ -136,11 +138,17 @@ key      = code                       when code is class 90 or 99
            else the message
 ```
 
-**The terminus is the message, and it is reached often.** Every gateway auth
-rejection sends `code: null` with a message — missing credentials, a malformed
+**The terminus is the message, and it extends the backend contract on purpose.**
+That contract ends at the SQLSTATE plus constraint name, because it covers only
+what PostgREST returns. The client also meets errors from outside it: every
+gateway auth rejection sends `code: null` with a message — missing credentials, a malformed
 bearer, an expired token — and a client-raised `appError` has a message and no
 code by design. So a codeless server error and a client error key the same way,
 on their own text.
+
+The backend contract states the test as "a hint that starts with `{`". Deciding
+by the parse instead is deliberate and strictly safer: a malformed `{…` falls
+back to suggestion text rather than to undefined behavior.
 
 - **An envelope was parsed** → this error carries our format. Convert `${…}` in
   `message` and `hint` to ICU, interpolate the envelope's values, and look the
@@ -221,10 +229,12 @@ details: "…free text…"
 - **`hint.code`** carries the catalog number where the SQLSTATE is spoken for by
   the HTTP status mapping. It is optional and may appear on any error; on classes
   90 and 99 it is display detail rather than the message id.
-- **`hint` is a reserved parameter name.** The envelope is one flat object whose
-  `hint` key holds the hint template and whose every other key is a value, so no
-  error may carry a value called `hint`, and a template containing `${hint}` is
-  rejected — it would interpolate the hint template into the message.
+- **Five reserved keys**, which may not be parameter names: `hint` (the
+  suggestion template), `code` (the catalog number on 42501 / 42P01), and
+  `entity`, `rule`, `field`, merged in by the generated validation trigger. They
+  may still be used as placeholders where present.
+- **A placeholder is `${` + `^[a-z][a-z0-9_]*$` + `}`.** The converter matches
+  that grammar exactly.
 - **`detail` and `details` are both accepted** by the client, read as
   `detail ?? details`.
 
@@ -253,9 +263,13 @@ the client derives from what arrives, and expects nothing.
 2. **No value is ever named `hint`.** The envelope is one flat object whose
    `hint` key holds the hint template and whose every other key is a value, so
    that name is taken. A template containing `${hint}` is rejected.
-3. **Values are JSON scalars, and a number arrives as a number.** `{"min": 3}`,
-   never `{"min": "3"}` — ICU's `plural` and number formatting select on the
-   numeric type, and a string renders `NaN` through a plural.
+3. **Values are JSON scalars of their native type.** A number as a JSON number,
+   a boolean as a boolean, an unknown value as `null`, a date or timestamp as an
+   ISO 8601 string. Never `{"min": "3"}` — ICU's `plural` and number formatting
+   select on the JSON type. A `null` is treated by the client exactly like an
+   absent value, because `{count: null}` through a plural renders `0 items`. A
+   date renders as the ISO string it arrived as; the client does not sniff for
+   date-shaped strings.
 
 Explicitly **not** guaranteed: that every `${name}` in a template has a value.
 The client fills any it does not receive with the name itself, so the sentence
@@ -270,22 +284,26 @@ renderer handles every origin.
 
 ## What exists today
 
-The PostgREST-shaped form:
+The client and the dev-server target are implemented as specified above.
 
-```
-POST {base}/ui_translations?on_conflict=locale,scope,key,context
-     Prefer: resolution=merge-duplicates,return=representation
-     [ { locale, scope, key, context, translation } ]
-```
-
-Verified working against a running dev server — a save rewrote
-`src/locales/de-DE.json` as a one-line diff and the read returned 453 rows — but
-it makes the dev server and any stage host reimplement PostgREST's semantics,
-and `vite-plugins/i18nDevWriter.ts` is 244 lines largely because of it.
-`src/i18n/missing.ts` bypasses the target entirely and POSTs at a relative
-`/ui_translations`, which the fetch interceptor rewrites onto the deployment's
-own API — so today a translation typed in dev lands in the repo while every
-discovery lands in a table that answers `PGRST205`.
-
-The database implementation does not exist on any deployment, so the contract
-can still be changed for free.
+- **Client** — `src/i18n/translateTarget.ts`: `setTranslateTarget({ url, mode })`
+  is pushed in by `lib/config.ts` from `VITE_TRANSLATE_MODE` and
+  `VITE_TRANSLATE_API_URL`; `readTranslations(locale)` and
+  `writeTranslation({ locale, key, translation })` are the two calls. A base of
+  `''` (the `prod` default) is the app's own API, reached RELATIVELY so the
+  fetch interceptor supplies the API base and the bearer token. A definitive
+  `PGRST205` / `42P01` / `PGRST202` on the read marks the target absent, and
+  translate mode is not offered in `prod` then.
+- **Dev target** — `vite-plugins/i18nDevWriter.ts` answers both calls from
+  `apps/web/public/locales/<code>.json`. The server owns the merge: a non-empty
+  translation is set; an empty one is kept as an empty entry for a key the
+  index (`en-US.json`) knows — that is work — and dropped for a key it does
+  not, because there is nothing to translate from; in the index itself an
+  empty write drops the entry. A database implementation should follow the
+  same rule.
+- **Discovery** — `src/i18n/missing.ts` writes the index entry only when the
+  index lacks the key or records a different source, and the language's empty
+  entry only when the language's file does not mention the key; index first.
+- **Tenant** — the `/translations` endpoint on the tenant's API does not exist
+  on any deployment yet (the test tenant answers `PGRST205`), so `prod` reads
+  the shipped file only and offers no editing until it does.

@@ -60,9 +60,15 @@ import { clearSession, seedSession } from './session'
  *  3. The session is seeded from the one token `globalSetup` minted for the run.
  *     It must come after the config: the storage keys are prefixed per Vite mode,
  *     and the provider reads them when it mounts.
+ *
+ * The translate target is the dev server this project runs against
+ * (`VITE_TRANSLATE_MODE=dev`, the same value `apps/web/.env.development` gives
+ * `pnpm dev`): `initConfig()` pushes the target from the environment, and the
+ * suite's environment is the one that writes the language files. A test that
+ * wants another mode passes it in `env`.
  */
 export async function bootApp(env: Record<string, string> = {}): Promise<void> {
-  setRuntimeEnv({ VITE_CONTROL_PLANE_ORG: inject('orgSlug'), ...env })
+  setRuntimeEnv({ VITE_CONTROL_PLANE_ORG: inject('orgSlug'), VITE_TRANSLATE_MODE: 'dev', ...env })
   await initConfig()
   seedSession()
 }
@@ -77,7 +83,7 @@ export async function bootApp(env: Record<string, string> = {}): Promise<void> {
  * the assertion it is making ("nothing was requested") would quietly invert.
  */
 export async function bootAppSignedOut(env: Record<string, string> = {}): Promise<void> {
-  setRuntimeEnv({ VITE_CONTROL_PLANE_ORG: inject('orgSlug'), ...env })
+  setRuntimeEnv({ VITE_CONTROL_PLANE_ORG: inject('orgSlug'), VITE_TRANSLATE_MODE: 'dev', ...env })
   await initConfig()
   clearSession()
 }
@@ -107,6 +113,7 @@ export async function bootAppWithFailingUserinfo(): Promise<void> {
   setRuntimeEnv({
     VITE_CONTROL_PLANE_URL: SELF_HOSTED,
     VITE_CONTROL_PLANE_ORG: org,
+    VITE_TRANSLATE_MODE: 'dev',
     VITE_API_BASE_URL: cloud.apiBaseUrl,
     VITE_OAUTH_CLIENT_ID: cloud.oauthClientId,
     VITE_OAUTH_AUTH_ENDPOINT: cloud.oauthAuthEndpoint,

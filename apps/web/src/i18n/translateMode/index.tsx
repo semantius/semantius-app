@@ -9,14 +9,16 @@ import {
   clearMarks,
   consumeJustEnabled,
   entryForId,
-  messageIndex,
+  loadSourceIndex,
   reactivateLocale,
   resolveClickTarget,
   scanAndMark,
   setMissingCount,
   setRecordingRenders,
-  splitScopedId,
+  sourceIndexSnapshot,
+  sourceIndexVersion,
   subscribeToCatalog,
+  subscribeToSourceIndex,
   translatedKeys,
   useLanguage,
   useT,
@@ -50,28 +52,30 @@ export interface TranslateModeProps {
 
 /**
  * Translate mode, mounted by `components/TranslateModeHost.tsx` while either
- * switch is on — and loaded lazily by it, so this chunk (with the `en-US.json`
- * index it imports) never reaches a browser that is not translating.
+ * switch is on — and loaded lazily by it, so this chunk (the editor, the panel
+ * and the highlighter) never reaches a browser that is not translating.
  *
  * Three pieces, all driven by the render-time reverse index
  * (`src/i18n/reverseIndex.ts`):
  *
  *   marking   a MutationObserver over the document, throttled, re-scanning
  *             text nodes and the scanned attributes and painting CSS Custom
- *             Highlights over the ones whose id has no translation;
+ *             Highlights over the ones whose key has no translation;
  *   editing   right-click or Alt+click on any text our own functions produced
  *             opens the editor for it; a plain click is left alone so it still
  *             opens the menu or follows the link the text sits on;
- *   the panel the whole catalog, the model labels, the export.
+ *   the panel the whole index — code strings and model text alike — with its
+ *             filters, and what is on this page.
  *
  * In the source language nothing is marked (nothing is missing there) and the
- * editor offers an override instead.
+ * editor offers an override where the target keeps one.
  */
 export default function TranslateMode({ marking, editing }: TranslateModeProps) {
   const t = useT()
   const language = useLanguage()
   const isSource = language === SOURCE_LANGUAGE
   const version = useSyncExternalStore(subscribeToCatalog, catalogSnapshot, catalogSnapshot)
+  const indexVersion = useSyncExternalStore(subscribeToSourceIndex, sourceIndexVersion, sourceIndexVersion)
   const { missingCount } = useTranslateModeFlags()
   const [present, setPresent] = useState<ReadonlySet<string>>(() => new Set())
   const [request, setRequest] = useState<EditorRequest | null>(null)
@@ -80,9 +84,11 @@ export default function TranslateMode({ marking, editing }: TranslateModeProps) 
   // Record renders for as long as this is mounted. The re-activation is what
   // re-renders every `useT()` consumer and `useLocalizedMetadata` memo, so the
   // index fills with what is on screen rather than waiting for the next change.
+  // The source index is what the count and the panel measure against.
   useEffect(() => {
     setRecordingRenders(true)
     void reactivateLocale()
+    void loadSourceIndex()
     return () => {
       setRecordingRenders(false)
       clearMarks()
@@ -135,20 +141,23 @@ export default function TranslateMode({ marking, editing }: TranslateModeProps) 
     }
   }, [language, mark])
 
-  // The count the Language submenu shows: every index message without a
-  // translation, plus every model label on the page without one.
+  // The count the Language submenu shows: every key in the index without a
+  // translation, plus what is on this page that the index has not caught up
+  // with yet — a string discovered this session.
   useEffect(() => {
     if (isSource) {
       setMissingCount(0)
       return
     }
     const keys = translatedKeys(language)
+    const index = sourceIndexSnapshot()
     let count = 0
-    for (const id of Object.keys(messageIndex().index)) if (!keys.has(id)) count++
-    for (const id of present) if (splitScopedId(id) && !keys.has(id)) count++
+    if (index) for (const id of index.keys()) if (!keys.has(id)) count++
+    for (const id of present) if (!index?.has(id) && !keys.has(id)) count++
     setMissingCount(count)
-    // `version` stands in for the key set, which changes with it.
-  }, [language, isSource, present, version])
+    // `version` and `indexVersion` stand in for the key set and the index,
+    // which change with them.
+  }, [language, isSource, present, version, indexVersion])
 
   // Two gestures, because one of them is undiscoverable on its own.
   //
@@ -165,8 +174,9 @@ export default function TranslateMode({ marking, editing }: TranslateModeProps) 
     const open = (event: MouseEvent) => {
       const hit = resolveClickTarget(event)
       if (!hit) return
+      const index = sourceIndexSnapshot()
       const entries = hit.ids
-        .map(entryForId)
+        .map((id) => entryForId(id, index))
         .filter((entry): entry is TranslationEntry => entry !== undefined)
       if (entries.length === 0) return
       event.preventDefault()

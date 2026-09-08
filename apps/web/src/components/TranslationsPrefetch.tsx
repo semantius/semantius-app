@@ -1,39 +1,25 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect } from 'react'
 import type { AnyRouter } from '@tanstack/react-router'
 import { useAuth } from '@/hooks/useAuth'
-import { useTable } from '@/hooks/useTable'
-import {
-  TENANT_PAGE_SIZE,
-  TENANT_TABLE,
-  activateLocale,
-  isTenantTableAbsent,
-  resolveInitialLocale,
-  rowsToLocaleFiles,
-  sessionPreferenceFrom,
-  setSessionPreference,
-  setTenantLocaleFiles,
-  setTenantTableAvailable,
-  tenantPageQuery,
-  type LocaleFile,
-  type TranslationRow,
-} from '@/i18n'
-import { translateApiUrl } from '@/i18n/translateTarget'
+import { activateLocale, resolveInitialLocale, sessionPreferenceFrom, setSessionPreference } from '@/i18n'
 
 /**
- * Headless: the tenant's own translations, and the user's saved language.
+ * Headless: the user's saved language, and the translations only a session can read.
  *
  * Two things arrive only after login, and both change what language the app
  * should be in:
  *
- *   1. the `ui_translations` rows — a tenant may translate the UI itself, and
- *      may offer a language this build ships no catalog for at all;
- *   2. the session preference — `get_userinfo`'s `language` / `locale`, which is
- *      the choice that follows a person between devices.
+ *   1. the session preference — `get_userinfo`'s `language` / `locale`, which
+ *      is the choice that follows a person between devices;
+ *   2. the translate target's record for the language, in `prod` the tenant's
+ *      own overrides — read by the i18n layer itself (src/i18n/store.ts), but
+ *      through the app's API with the bearer token, so not before there is one.
  *
- * So the locale is resolved a THIRD time here, after boot's two passes. A
- * tenant-only language therefore paints English first and switches once the rows
- * land; that is accepted, and it is why the pre-login cache exists (see
- * resolveLocale.ts) — the second visit paints it immediately.
+ * So the locale is resolved a THIRD time here, after boot's two passes: once
+ * the token and `get_userinfo` have settled, the preference is pushed in and
+ * the language activated again, which is also what loads the record. A
+ * tenant's overrides therefore paint the shipped file first and switch once
+ * the record lands; that is accepted.
  *
  * Mounted beside SidebarPrefetch in main.tsx, OUTSIDE the ProtectedRoute gate,
  * so nothing waits on it and the boot-overlay invariant is untouched: this
@@ -43,70 +29,24 @@ import { translateApiUrl } from '@/i18n/translateTarget'
  * is undefined outside `<RouterProvider>` — the same reason
  * `AuthProviderWrapper` takes one.
  *
- * Everything it knows about the platform's shape (the query, the paging, the
- * codes, the userinfo fields) is in `src/i18n/tenant.ts`.
+ * Everything it knows about the platform's shape (the userinfo fields) is in
+ * `src/i18n/tenant.ts`.
  */
 export function TranslationsPrefetch({ router }: { router: AnyRouter }) {
-  const { token, rpcUserInfo, userInfo } = useAuth()
-
-  // Through the GENERIC useTable, like every other read in the app: that is what
-  // puts the request through the fetch interceptor (so a cold-start 404 is
-  // retried rather than read as "no such table"), and it is what makes a row
-  // edited in the admin grid refresh this layer — any generic mutation on the
-  // table invalidates the ['table', TENANT_TABLE] key.
-  // The translate target, which may be the dev server writing this repo rather
-  // than the tenant — same table, same query, different host.
-  const baseUrl = translateApiUrl()
-  const first = useTable<TranslationRow>(TENANT_TABLE, {
-    query: tenantPageQuery(0),
-    count: true,
-    enabled: !!token,
-    baseUrl,
-  })
-
-  // Further pages, one hook each: hooks cannot be called in a loop, and the
-  // total is only known after the first page answers with its Content-Range.
-  const total = first.totalCount ?? 0
-  const second = useTable<TranslationRow>(TENANT_TABLE, {
-    query: tenantPageQuery(1),
-    baseUrl,
-    enabled: !!token && total > TENANT_PAGE_SIZE,
-  })
-  const third = useTable<TranslationRow>(TENANT_TABLE, {
-    query: tenantPageQuery(2),
-    baseUrl,
-    enabled: !!token && total > TENANT_PAGE_SIZE * 2,
-  })
-  const fourth = useTable<TranslationRow>(TENANT_TABLE, {
-    query: tenantPageQuery(3),
-    baseUrl,
-    enabled: !!token && total > TENANT_PAGE_SIZE * 3,
-  })
-
-  const files = useMemo<ReadonlyMap<string, LocaleFile> | null>(() => {
-    if (first.error && isTenantTableAbsent(first.error)) return new Map()
-    if (!first.data) return null
-    return rowsToLocaleFiles([
-      ...first.data,
-      ...(second.data ?? []),
-      ...(third.data ?? []),
-      ...(fourth.data ?? []),
-    ])
-  }, [first.data, first.error, second.data, third.data, fourth.data])
+  const { token, rpcUserInfo, rpcUserInfoLoading, userInfo } = useAuth()
 
   useEffect(() => {
-    if (!files) return
-    // Whether translate mode is offered at all: a definitive "no such table"
-    // means this target holds no translations, and the mode is not shown.
-    // Decided here, from the body, so nothing downstream has to probe.
-    setTenantTableAvailable(!(first.error && isTenantTableAbsent(first.error)))
-    setTenantLocaleFiles(files)
+    // Wait for `get_userinfo` to settle either way: a platform without the
+    // preference columns answers without them, and a failed call answers with
+    // nothing — both are "no session preference", and both still get the
+    // third pass, because the record needs the token that is now there.
+    if (!token || rpcUserInfoLoading) return
     setSessionPreference(sessionPreferenceFrom(rpcUserInfo, userInfo))
     // Idempotent, so StrictMode's doubled effect changes nothing: activation
     // replaces the message table with the same content, and invalidate() re-runs
     // loaders that are already cached (get_schema is on the QueryClient).
     void activateLocale(resolveInitialLocale()).then(() => router.invalidate())
-  }, [files, first.error, rpcUserInfo, userInfo, router])
+  }, [token, rpcUserInfo, rpcUserInfoLoading, userInfo, router])
 
   return null
 }

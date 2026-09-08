@@ -1,6 +1,6 @@
 # Plan: metadata messages are messages
 
-**Status: nothing implemented yet.** The design is settled with the owner.
+**Status: implemented on `feat/i18n`, in the order of work below.** The design is settled with the owner.
 Everything raised in review is decided; the answers are recorded under "Decided
 in review" at the end.
 
@@ -351,11 +351,17 @@ key      = code                       when code is class 90 or 99
            else the message
 ```
 
-**The terminus is the message, and it is reached often.** Every gateway auth
-rejection sends `code: null` with a message — missing credentials, a malformed
+**The terminus is the message, and it extends the backend contract on purpose.**
+That contract ends at the SQLSTATE plus constraint name, because it covers only
+what PostgREST returns. The client also meets errors from outside it: every
+gateway auth rejection sends `code: null` with a message — missing credentials, a malformed
 bearer, an expired token — and a client-raised `appError` has a message and no
 code by design. So a codeless server error and a client error key the same way,
 on their own text.
+
+The backend contract states the test as "a hint that starts with `{`". Deciding
+by the parse instead is deliberate and strictly safer: a malformed `{…` falls
+back to suggestion text rather than to undefined behavior.
 
 - **An envelope was parsed** → this error carries our format. Convert `${…}` in
   `message` and `hint` to ICU, interpolate the envelope's values, and look the
@@ -422,10 +428,31 @@ platform's existing plain-text ones into the same shape with nothing branching
 on which kind arrived — though only a *parsed object* marks the error as
 carrying our format, since a normalized plain hint brings no values with it.
 Inside the object the key `hint` is the hint template and
-every other key is a value, so **`hint` is a reserved parameter name** — a
-template containing `${hint}` is rejected rather than interpolating the hint into
-itself. Values are JSON scalars, and a number arrives as a number: ICU's
-`plural` and number formatting select on the numeric type.
+every other key is a value.
+
+**Five keys are reserved** and may not be parameter names: `hint` (the
+suggestion template), `code` (the catalog number where the SQLSTATE is 42501 or
+42P01), and `entity`, `rule` and `field`, which the generated validation trigger
+merges in. They may still be *used* as placeholders where they are present, so
+`${entity}` and `${field}` are legitimate.
+
+**A placeholder is `${` + a name matching `^[a-z][a-z0-9_]*$` + `}`.** The
+converter matches exactly that grammar — a looser one would rewrite literal text
+like `${NOT_A_PARAM}` that the backend never emits as a placeholder.
+
+Values are JSON scalars of their native type: a number as a JSON number, a
+boolean as a boolean, an unknown value as `null`, and a date or timestamp as an
+ISO 8601 string. ICU's `plural` and number formatting select on the JSON type,
+so `"3"` would neither pluralize nor localize.
+
+**A date parameter renders as the raw ISO string, and that is the decision** —
+measured, `due 2026-09-08T10:00:00Z`. ICU cannot format it without a `date`
+format and a real `Date`, and the wire carries a string. The client does NOT
+sniff for ISO-8601-shaped values: a heuristic that decides some strings are
+dates would eventually reformat one that is not, and an error message is the
+worst place to find that out. If a localized date is wanted later, the template
+gets an explicit ICU `date` format and the converter builds a `Date` for that
+named argument — an opt-in per placeholder, never a guess.
 
 ### `${…}` → ICU, in a single pass
 
@@ -606,6 +633,13 @@ A missing simple argument disappears silently, leaving a mutilated sentence with
 a double space; a missing plural argument renders **`NaN`**. Neither is
 acceptable on screen and neither is detectable afterwards.
 
+**An explicitly `null` value is worse and must be treated identically.** The
+contract sends `null` for an unknown value, and `{count: null}` through a plural
+renders **`0 items`** — a confident lie, where `NaN` at least looks broken.
+`{field: null}` renders empty, exactly like a missing key. So the fill applies to
+a name that is absent OR whose value is `null`; "unknown value" and "no value"
+are the same thing on screen.
+
 So the renderer fills the gap before interpolating: `placeholdersOf(template)`
 (`src/i18n/placeholders.ts`, already used by translate mode and the catalog test)
 gives the argument names, and any name the envelope does not carry is supplied as
@@ -753,6 +787,8 @@ Everything raised in review is settled. The answers:
 | 14 | `detail` or `details`? | **Both.** The client reads `detail ?? details`; no producer changes |
 | 15 | What is the key when there is no code? | **The message.** Gateway auth rejections send `code: null` with a message, and a client `appError` has no code at all — so a codeless server error and a client error key alike |
 | 16 | Must the server supply a value for every `${name}`? | **No.** The client fills any missing name with the name itself — Lingui's default renders a missing argument as empty and a missing plural as `NaN` |
+| 17 | And an explicitly `null` value? | **Same treatment.** `{count: null}` through a plural renders `0 items`, a confident lie; absent and null are one case |
+| 18 | How are date parameters rendered? | **As the raw ISO string.** No sniffing — a heuristic deciding which strings are dates would eventually reformat one that is not. A localized date would be an explicit ICU `date` format per placeholder, later |
 
 ## Against the owner's requirements
 

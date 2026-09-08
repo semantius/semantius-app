@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { Trans } from '@lingui/react'
 import { render, screen, waitFor } from '@/test/render'
 import { render as renderWithoutProvider } from '@testing-library/react'
+import { disableCollector } from '@/i18n/missing'
 import {
   SOURCE_LANGUAGE,
   activateLocale,
@@ -14,7 +15,7 @@ import {
 
 /**
  * The translation runtime, in a real browser against the real `de-DE` catalog
- * that ships in `src/locales/`.
+ * that ships in `public/locales/`.
  *
  * Nothing here is a fixture: the German comes from the file the app loads, the
  * `<html lang>` assertions read the real document, and the language switch goes
@@ -25,6 +26,13 @@ import {
 
 const GERMAN = { language: 'de-DE', locale: 'de-DE' }
 const SOURCE = { language: SOURCE_LANGUAGE, locale: SOURCE_LANGUAGE }
+
+// This file renders probe strings — an unknown sentence, a malformed ICU
+// pattern, a <Trans> id of its own — and none of them may be discovered into
+// the shipped index. The real strings it also renders are in the index already.
+beforeEach(() => {
+  disableCollector()
+})
 
 function LogOutLabel() {
   const t = useT()
@@ -84,6 +92,9 @@ describe('translate', () => {
   })
 
   it('falls back to the source text for a message the catalog does not have', async () => {
+    // A probe string, not a real message: it must not be discovered into the
+    // shipped index.
+    disableCollector()
     await activateLocale(GERMAN)
 
     // Every untranslated string renders in English rather than as a key or a
@@ -193,6 +204,7 @@ describe('activateLocale', () => {
 
 describe('translatedKeys', () => {
   it('lists what the active language actually has', async () => {
+    disableCollector()
     await activateLocale(GERMAN)
 
     const keys = translatedKeys('de-DE')

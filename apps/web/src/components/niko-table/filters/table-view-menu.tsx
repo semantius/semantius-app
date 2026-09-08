@@ -79,12 +79,13 @@ export function TableViewMenu<TData>({
         }
       >
         <Settings2 />
-        {/* A CONTEXT, because the source string is the key and "View" is two
-            different words in this app: the noun here (which columns are shown)
-            and the verb in the row menu ("View" this record). German wants
-            "Ansicht" for one and "Anzeigen" for the other, and without a context
-            they would share one entry and one of them would be wrong. */}
-        {t({ message: "View", context: "column visibility" })}
+        {/* A DISAMBIGUATING ID, because the source string is the key and "View"
+            is two different words in this app: the noun here (which columns are
+            shown) and the verb in the row menu ("View" this record). German
+            wants "Ansicht" for one and "Anzeigen" for the other, and without the
+            prefix they would share one entry and one of them would be wrong.
+            The key is `columnVisibility.View`. */}
+        {t({ id: ["columnVisibility"], message: "View" })}
         <ChevronsUpDown className="ml-auto opacity-50" />
       </PopoverTrigger>
       <PopoverContent align="end" className="w-fit p-0">

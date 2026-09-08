@@ -7,11 +7,11 @@ import { useParams } from '@tanstack/react-router'
 import { useModuleNavigate } from '@/hooks/useModuleNavigate'
 import { openCommandPalette } from './CommandPalette'
 import { PlatformShortcut } from '@/components/ui-ext/platform-shortcut'
-import { getModuleDisplay } from '@/contexts/AuthContext'
+import { getModuleDisplay, moduleLabels } from '@/contexts/AuthContext'
 import type { Module } from '@/contexts/AuthContext'
 import { useTable } from '@/hooks/useTable'
 import { Skeleton } from '@/components/ui/skeleton'
-import { moduleOverride, useLocaleLabels, useT } from '@/i18n'
+import { useT } from '@/i18n'
 
 import {
   DropdownMenu,
@@ -44,13 +44,14 @@ function useModules(): { modules: ModuleItem[]; loading: boolean } {
     query: 'order=module_name.asc',
   })
   // Module names are model data like table labels are, so the active language
-  // may override them; `getModuleDisplay` applies the override inside its own
-  // three naming rules rather than on top of their result.
-  const labels = useLocaleLabels()
+  // may translate them; `getModuleDisplay` applies the translation inside its
+  // own three naming rules rather than on top of their result. `t` in the deps
+  // is what re-runs this on a language switch.
+  const t = useT()
 
   const modules = React.useMemo<ModuleItem[]>(() =>
     (data ?? []).map((module) => {
-      const { displayName, displayTitle } = getModuleDisplay(module, moduleOverride(labels, module.module_slug, module))
+      const { displayName, displayTitle } = getModuleDisplay(module, moduleLabels(t, module))
       return {
         name: module.module_name,
         displayName,
@@ -62,7 +63,7 @@ function useModules(): { modules: ModuleItem[]; loading: boolean } {
         id: module.id,
         home_page: module.home_page,
       }
-    }), [data, labels])
+    }), [data, t])
 
   return { modules, loading: isLoading }
 }

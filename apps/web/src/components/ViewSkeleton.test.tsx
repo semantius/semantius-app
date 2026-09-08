@@ -18,6 +18,7 @@ describe('ViewSkeleton', () => {
     const metadata: EntityMetadata = {
       table: {
         table_name: 'customers',
+        module_slug: 'crm',
         singular: 'customer',
         plural: 'customers',
         singular_label: 'Customer',

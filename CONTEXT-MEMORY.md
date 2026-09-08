@@ -395,58 +395,190 @@ pinning permanently. `state` re-reads it.
 
 **Lingui's RUNTIME only** — `@lingui/core`, `@lingui/react`, `@lingui/message-utils`
 — with no macros, no Babel plugin, no Vite transform, no CLI and no PO files. The
-extractor (`apps/web/scripts/i18n/extract.mjs`, TypeScript compiler API) and the
-catalogs (JSON, `apps/web/src/locales/`) are ours. Re-proposing the macros means
-re-proposing a Babel pass over every file in `vite build` and both Vitest
-projects, plus hashed ids that need source-text workarounds; that trade was
-already made.
+language files (JSON, `apps/web/public/locales/`), the endpoint client and the
+optional scan (`apps/web/scripts/i18n/extract.mjs`, TypeScript compiler API) are
+ours. Re-proposing the macros means re-proposing a Babel pass over every file in
+`vite build` and both Vitest projects, plus hashed ids that need source-text
+workarounds; that trade was already made.
 
-**The extractor's accepted argument forms are a WHITELIST, not a blacklist.**
-`t()` / `translate()` / `msg()` / `<Trans id>` take a string literal, a template
-with no expressions, an object literal with a literal `message`, or a bare
-reference (identifier, `a.b`, `a[0]`) whose `msg()` site is extracted elsewhere.
-Everything else — a template with expressions, a conditional, a concatenation, a
-call, a logical expression — FAILS the extraction by name and line, and the
-wrappers (`(…)`, `as`, `!`, `satisfies`) are unwrapped first so a single pair of
-parentheses cannot smuggle a concatenation past the check. A permissive
-fallthrough here is not a small bug: an unreadable call site is a string that is
-neither translated nor listed anywhere as untranslated.
+**A metadata message is a message, and there are three call forms.** `t('Save')`
+is keyed by its text; `t({ id: ['columnVisibility'], message: 'View' })` is keyed
+`columnVisibility.View` (the id disambiguates two meanings of one word — the
+old `context` option and its U+0004 separator are gone); `t({ id: ['module',
+slug, table, 'field', field, 'title'], defaultMessage: property.title ?? field })`
+is keyed by the id ALONE, the model's English being the fallback. Which field is
+present is the discriminator. The id is passed as SEGMENTS: `messageId()` in
+`src/i18n/catalog.ts` joins and escapes (an enum value may contain a dot), and a
+metadata id is a tuple type (`MetadataId`) checked at runtime too. **`module` is a
+reserved first segment**: a code key may never start with it, `messageId()`
+throws if one does, and that one rule is what tells the two kinds apart in a
+file, a query and a grep. Three, five or six segments — module attribute, entity
+attribute, field/enum with a kind marker in position 4 — so `module.nwind.name`
+and an entity named `name` cannot collide. The attribute vocabulary is the
+model's own column names. The slug comes from `get_schema`'s `module_slug`
+(`SemSchemaTable.module_slug`, non-optional), NEVER the route param: the route is
+a catch-all and a parent-filtered view fetches ANOTHER entity's schema. A child
+relation's `id` is `<childTable>.<fkField>`; its `title` and the two `*_parent`
+labels are that FIELD's attributes and its singular/plural the child ENTITY's,
+keyed under the parent's module.
 
-**The English source string IS the key.** There are no message ids, so rewording
-a string in code creates a NEW key and moves its translations to `obsolete` — run
-`i18n:extract` and retranslate. A PR that adds or rewords a string fills its
-`de-DE.json` entry in the same PR, and `i18n:status` prints 0 missing before it
-merges. `en-US.json` is GENERATED (the index of every message with its origins
-and placeholders, committed like `routeTree.gen.ts`) and is never hand-edited and
-never loaded as a catalog — the repo layer's glob excludes it, and `glossary.json`
-with it. `labels`, `server` and `rule` sections are tenant or deployment data and
-are rejected in a repo catalog.
+**The lint rule exempts every literal inside a whitelisted call, and that is the
+whole reason metadata ids are spelled inline.** `t` is in the plugin's default
+callee list, so `t({ id: ['module', slug, 'entity', 'plural_label'], … })` costs no
+suppression; the same tuple built by a helper OUTSIDE a `t()` call is reported
+literal by literal in a component file. `moduleLabels(t, module)` in
+`contexts/AuthContext.tsx` exists because `getModuleDisplay` needs the pair; it
+builds both ids inside `t()`.
 
-**Because the source string is the key, two meanings of one English word SHARE
-an entry** — and the collision is invisible in English, where both render the
-word that was already there. `View` was both the grid's column-visibility button
-(a noun, "Ansicht") and its row menu's open action (a verb, "Anzeigen"); one
-German entry had to be wrong. The fix is a `context` on the narrower use
-(`t({ message: 'View', context: 'column visibility' })`), which makes it a
-separate id and a separate catalog entry under `contexts`. Find these by reading
-`en-US.json` for an entry with **more than one origin file** — same word, two
-components, is where to look.
+**The scan's accepted argument forms are a WHITELIST, not a blacklist.** `t()` /
+`translate()` / `msg()` / `appError()` / `<Trans id>` take a string literal, a
+template with no expressions, an object literal with a literal `message` (and a
+literal `id` array for form 2, a literal `hint` for `appError`), or a bare
+reference (identifier, `a.b`, `a[0]`) whose `msg()` site is scanned elsewhere. A
+descriptor with `defaultMessage` is SKIPPED, not refused — its inventory is
+discovery's. Everything else — a template with expressions, a conditional, a
+concatenation, a call, a logical expression, a computed form-2 id, an id
+starting with `module` — FAILS the scan by name and line, and the wrappers
+(`(…)`, `as`, `!`, `satisfies`) are unwrapped first so a single pair of
+parentheses cannot smuggle a concatenation past the check. A message passed
+through a VARIABLE into `appError()` is refused too, which is why the three
+mutation hooks spell their template at the `throw`.
+
+**One flat file per language, and `en-US.json` is the index.** `{ locale, name,
+messages, obsolete }`, all maps flat, in `public/locales/` — there is no
+`src/locales` and no `labels` / `server` / `rule` / `contexts` section. `en-US.json`
+has the same shape with the SOURCE text as every value: the complete baseline a
+new language is started from. It is NEVER loaded as the source language's
+catalog (`store.ts` skips it): a recorded source would render in place of a
+model label that has since been reworded. `__SHIPPED_LOCALES__` — the language
+files present at build time, read off the folder by `vite.config.ts` and
+declared in `src/env.d.ts` — is what `availableLanguages()` lists; the files stay
+static assets, fetched one at a time. `glossary.json` and `TRANSLATION-GUIDE.md`
+live in `scripts/i18n/`.
+
+**Discovery is how the index is maintained, and the test suite is what runs it.**
+`translate()` and `translateVerbatim()` report every render (key + source) to the
+collector (`src/i18n/missing.ts`); Lingui's `missing` event covers `<Trans>`. The
+collector writes the index entry only when the index lacks the key or records a
+DIFFERENT source (that is how a reworded label is noticed), and the language's
+empty entry only when the language's file does not mention the key
+(`isKnownKey`, which keeps empties the flattener drops) — index first, one
+message per POST. It runs only where the target's mode DISCOVERS (`dev`,
+`stage`). `setup.browser.ts` points the target at the dev server and enables the
+collector before every test, flushes after it: `pnpm check` fills
+`public/locales/en-US.json`, and its diff is the discovery. Consequences: a test
+that renders a FIXTURE string — a probe sentence, a custom menu title — must
+`disableCollector()` first, or the string is shipped (`NavUser.test.tsx`,
+`i18n.test.tsx`, `translateMode.test.tsx` do; the scan prunes a leak, but do not
+rely on it); a `.json` write under `public/` triggers NO Vite reload (matched
+against no module — verified in Vite 7's `handleHMRUpdate`), which is what makes
+writing the served folder mid-test safe; and the node project cannot discover
+(no server), so a string only a node test renders is a scan finding.
+
+**`i18n:extract` is an optional tool you run, never a gate.** Not in `pnpm build`,
+`pnpm check` or a hook — the drift assertion that once made it mandatory is
+gone. Its job is PRUNING: a reworded or deleted code string leaves a key nothing
+at runtime can observe as gone, and the scan moves its translation to `obsolete`
+(`--prune` empties it). It never touches `module.*` — runtime owns that half —
+and it lists, without failing, code strings discovery has never seen (test
+gaps). `reconcileLanguage` keeps every `module.*` entry and every existing
+value verbatim. What it DOES prune: a runtime-discovered key that is not
+`module.*` — a server error's `23505.…` key, an operator's menu title — because it
+cannot tell those from a deleted code string; their translation lands in
+`obsolete` and the key is rediscovered on the next render. `i18n:status` reads
+the index and reports both kinds, code and model counted separately.
+
+**The translate target carries a MODE, and it is explicit configuration.**
+`VITE_TRANSLATE_MODE` is `dev` / `stage` / `prod` / `off` (default), never derived
+from `import.meta.env.DEV`; `apps/web/.env.development` sets `dev` for `vite dev`
+(un-ignored in `.gitignore`; it holds nothing else and a shell variable wins over
+it) and the test harness passes `dev` to `initConfig()`. `lib/config.ts` resolves
+mode and url through `resolveTranslateTarget()` (the diagnostics live in
+`src/i18n/translateTarget.ts` so `config.ts` gains no lint suppressions) and
+PUSHES `setTranslateTarget({ url, mode })`, the way every other configuration
+reaches `src/i18n`. One contract: `GET {base}/translations?locale=` answers the
+language's flat map, `POST {base}/translations` takes `{ locale, key,
+translation }`, the server owns the merge, an empty translation clears. `prod`'s
+base is `''` — a RELATIVE `/translations`, so the fetch interceptor supplies the
+API base and the bearer token; before login it answers 401 and the layer stands
+down, and `TranslationsPrefetch` re-activates once `get_userinfo` has settled,
+which is what loads the record. A definitive `PGRST205` / `42P01` / `PGRST202`
+marks the target absent and `canTranslate()` says no in `prod` — the test tenant
+is in that state today. In `dev` and `stage` the target's file IS the language
+(the static file is not read); in `prod` and `off` the shipped file is, with the
+record merged over it per key. `useTable` and `useCreateRecord` no longer take a
+`baseUrl`: the i18n layer owns its own calls.
+
+**Discovery's empty write can clear a translation another session saved after
+this one loaded the language.** The contract has no "record only" write, so two
+browsers on one `stage` copy can undo each other that way. Known and raised with
+the owner; do not paper over it in the client without a contract change.
+
+**The dev server's write semantics are the model for a database
+implementation.** `vite-plugins/i18nDevWriter.ts`: a non-empty translation is
+set; an empty one is kept as an empty entry for a key the index knows (that is
+work) and DROPPED for a key it does not (nothing to translate from); in the
+index itself an empty write drops the entry. That is what lets a test clean up a
+probe — clear it in the index first, then in the language. It writes the bytes
+`i18n:extract` would (`locale`, `name`, `messages`, `obsolete`, contents sorted by
+code unit), so a save arrives as a one-line diff and a following scan is a no-op.
+
+**`activateLocale` is a network round trip now, so the LAST call wins.** Two
+activations can overlap — a switch followed by another, a boot pass by the
+post-login pass, a test's switch by the setup's reset — and without the serial
+check in `index.ts` the one finishing last decided. `NavUser.test.tsx` failed
+that way once: a switch to German landed after the `afterEach` reset to English.
+
+**Every error reaches a screen in one shape, through ONE renderer.** The app
+throws `appError({ message, hint?, values?, details? })` (`src/lib/appError.ts`):
+an ICU template plus values, no translation performed — `error.message` IS the
+template, uninterpolated, the values on `cause`, so a test asserts
+`'{field} is required for update'` and `cause.values`. That is what lets a
+`queryFn`, a loader or the userinfo effect throw without a hook, and a language
+switch re-render an error already on screen (`AuthContext` no longer needs its
+`translate()` workaround). `renderError(error, t)` in `src/lib/apiErrors.ts` is
+the one display path (`ApiErrorDisplay`, `ErrorPage`, `ApiKeysCard`, the module
+dashboard, `ConfirmDeleteDialog`, `api-select`): an app envelope; a platform
+error whose `hint` parsed as a JSON object (PRESENCE marks it structured — `${…}`
+converted to ICU only then; the CLASS picks the key: the SQLSTATE on 90/99, a
+class-99 key scoped by `hint.entity`, else `hint.code`, else SQLSTATE plus
+constraint name, else the SQLSTATE, else the message); a plain PostgreSQL
+sentence looked up VERBATIM by `translateVerbatim()` under that key, never
+ICU-compiled; the foreign-key sentence with the model label. `details` /
+`detail` is text behind the toggle and never a key. `src/i18n/errors.ts` is the
+pure parser; measured facts it rests on: `${name}` must be quoted PER BRACE
+(`$'{'NOT_A_PARAM'}'`), because an ICU quote only opens directly before a brace
+— quoting a whole run leaves `'$` literal and the brace an argument; apostrophes
+are doubled; a missing or `null` value is filled with its own name
+(`fillPlaceholders`), since Lingui renders a missing simple argument as nothing,
+a missing plural as `NaN` and a null count as `0`. `appError` is in the lingui
+rule's `ignoreFunctions` — every literal in the call is exempt, `values:` ones
+included, so review those by eye.
 
 **Components use `useT()` and list `t` in their deps; everything outside React
-uses `translate()`** — a route's `head()`, `main.tsx`, the three class components
+uses `translate()`** — a route's `head()`, `main.tsx`, the class components
 (`ErrorBoundary.tsx`, `form/InputJson.tsx`,
-`niko-table/core/data-table-error-boundary.tsx`). The module function cannot
-re-render a component when the language changes, and three grid components are
-`React.memo`, so a `translate()` inside one would never update; ESLint bans the
-import under `components/**` with those three as the exceptions. `useT()` needs no
-provider (it is `useSyncExternalStore` on the Lingui singleton's `change` event);
-only `<Trans>` does, which is what `src/test/render.tsx` is for.
+`niko-table/core/data-table-error-boundary.tsx`, `i18n/TranslateModeBoundary.tsx`).
+The module function cannot re-render a component when the language changes, and
+three grid components are `React.memo`, so a `translate()` inside one would
+never update; ESLint bans the import under `components/**` with the class
+components as the exceptions. `useT()` needs no provider (it is
+`useSyncExternalStore` on the Lingui singleton's `change` event); only `<Trans>`
+does, which is what `src/test/render.tsx` is for. `useLocalizedMetadata()` in the
+`$table_name` route is THE choke point for entity metadata: `View`,
+`DataTableView`, `SchemaForm`, `DataFormPage`, `ConfirmDeleteDialog`,
+`ViewSkeleton`, `api-select` and `InputReference` all inherit that one prop, and
+`localizeMetadata()` (`src/i18n/metadata.ts`) applies translations AT RENDER —
+never in a loader, never by mutation — with `enum` VALUES kept as the database
+holds them and only `enum_labels` filled. The sidebar, the command palette, the
+breadcrumb, the module tiles and `View`'s PARENT schema read `tables`/`modules`
+directly, so each spells its own keys inline in `t()`.
 
 **`I18nProvider` renders `null` until a locale is active, and under the boot
 overlay that is a HANG, not an error.** So `activateLocale()` never throws and
-always ends with something active — a failed layer logs and keeps the built-in
-catalog — and `main.tsx` activates before `initConfig()` and again after it,
-inside the one promise chain whose `.catch` calls `hideAppLoader()`.
+always ends with something active — a failed source logs and keeps what loaded —
+and `main.tsx` activates before `initConfig()` and again after it, inside the one
+promise chain whose `.catch` calls `hideAppLoader()`.
 
 **Language and formatting locale are TWO preferences.** `language` picks the
 catalog, `locale` drives every `Intl` call, date-fns and `localeCompare`. Each
@@ -466,8 +598,8 @@ available after login. `activateLocale`'s `persist` is per field and
 three-valued: a string saves, `null` clears (that is "use browser default"), an
 omitted field leaves the key alone — which is what lets a language change avoid
 promoting a browser-derived formatting locale into a preference nobody chose.
-`activateLocale` uses the REPLACING `loadAndActivate`; only a single-key save uses
-the merging `i18n.load`.
+`activateLocale` uses the REPLACING `loadAndActivate`; a translate-mode save
+replaces Lingui's table with the catalog's own map (`useTranslationWriter`).
 
 **A switch needs `router.invalidate()`, never `location.reload()`.**
 `document.title` comes from the matched route's `head()`, which re-runs only on
@@ -475,13 +607,16 @@ invalidation; a reload would throw away the session's client state to change a
 string. `src/i18n` cannot import the router, so the caller does it (`NavUser`
 through `useRouter()`).
 
-**Empty strings are dropped when the layers are merged.** Lingui treats `""` as a
+**Empty strings are dropped when the sources are merged.** Lingui treats `""` as a
 present translation, so a gap has to be ABSENT for the fallback to the source
-text to apply.
+text to apply — and a `defaultMessage` of `''` is not translated at all
+(`translate()` answers `''` without minting a key).
 
 **Never build a sentence by concatenation or English morphology** — no
-`singularize()`, no `${x ? 's' : ''}`, no `.toLowerCase()` on a model label. One
-ICU message per sentence, model labels inserted as given.
+`singularize()`, no `${x ? 's' : ''}`, no `.toLowerCase()` on a model label, no
+`` `${errorMessage}: ${response.statusText}` `` (the data layer did that once; the
+status is a VALUE of the template now). One ICU message per sentence, model
+labels inserted as given.
 
 **The Base UI submenu cannot be driven by userEvent's pointer.** userEvent moves
 its pointer in a single jump, which takes it out of the submenu trigger, and Base
@@ -495,23 +630,26 @@ does. Do not reach for `pointerEventsCheck: 0`; the substitutions ratchet counts
 it.
 
 **Both Vitest projects activate a locale before the first test** (`setup.node.ts`
-is new for exactly this, `setup.browser.ts` does the same and also clears the two
+exists for exactly this, `setup.browser.ts` does the same and also clears the two
 cache keys): `i18n._()` THROWS with no active locale, and pure code renders
 messages too — `resolveUserMenu`'s built-in titles are `msg()` descriptors, so
-`userMenu.test.ts` and `config.test.ts` compare them through `translate()`.
+`userMenu.test.ts` and `config.test.ts` compare them through `translate()`. A node
+test that needs a language other than English supplies it as a LAYER pushed
+onto `localeLayers` (`metadata.test.ts`, `apiErrors.test.ts`, `reverseIndex.test.ts`)
+— the real activation path over a fixture file, not a stub of the catalog.
 
 **`eslint-suppressions.json` is the migration ratchet and only shrinks**, but its
 counts are per file and per rule, so a same-file swap of one violation for
 another is invisible to it and has to be caught in review. `eslint-plugin-lingui`
 already whitelists `t` and `msg` as callees (verified in the rule's source);
-`translate` and `translateDynamic` are ours and are named in `ignoreFunctions`.
-Keep the `ignore` regexes NARROW — an over-broad one hides a real string forever
-and silently, while an unmigrated string lands in the baseline once and is
-visible there. **`react-hooks/exhaustive-deps` is an ERROR for `src/**` through
-the same baseline** (seven violations predated it), because `useT()` returns a
-new function per language: a `useMemo`/`useEffect` that omits `t` keeps rendering
-the previous language behind a memo, and as a warning among ninety the rule would
-never be read.
+`translate`, `translateVerbatim` and `appError` are ours and are named in
+`ignoreFunctions`. Keep the `ignore` regexes NARROW — an over-broad one hides a
+real string forever and silently, while an unmigrated string lands in the
+baseline once and is visible there. **`react-hooks/exhaustive-deps` is an ERROR
+for `src/**` through the same baseline** (seven violations predated it), because
+`useT()` returns a new function per language: a `useMemo`/`useEffect` that omits
+`t` keeps rendering the previous language behind a memo, and as a warning among
+ninety the rule would never be read.
 
 **`ignoreFunctions` exempts the whole CALL, and for a curried call it walks in to
 the inner callee** — the rule takes a literal's nearest enclosing
@@ -559,42 +697,37 @@ on an intrinsic element for exactly that reason.
 
 `Trans` is deliberately NOT in that ban and needs no test: `TransProps` declares
 no `children`, so `<Trans id="…">text</Trans>` is a **tsc error** (TS2322,
-verified). Its message comes from `id`, which the extractor reads.
+verified). Its message comes from `id`, which the scan reads.
 
-**What is left in `eslint-suppressions.json` after P3 is not language.** The
-count fell 947 → 610 and the residue is six families, none of which a catalog
-can hold: PostgREST query fragments and URL templates, identifiers and enum
-members (`'asc'`, `'default'`, a column name, an RPC name, a lucide icon id),
-CSS class and custom-property strings, `throw new Error` invariants and
-`console.warn` developer messages, **operator-facing boot diagnostics** (see
-below), and `src/components/ui/**`, which is CLI-owned and cannot be hand-edited
-at all. Read the number as "strings the rule cannot tell apart from text", not
-as "untranslated UI". Audited by random sample plus a prose filter over all of
-them; nothing user-visible is hiding in there.
+**What is left in `eslint-suppressions.json` is not language.** The residue is
+six families, none of which a catalog can hold: PostgREST query fragments and
+URL templates, identifiers and enum members (`'asc'`, `'default'`, a column
+name, an RPC name, a lucide icon id), CSS class and custom-property strings,
+`throw new Error` invariants and `console.warn` developer messages,
+**operator-facing boot diagnostics** (see below), and `src/components/ui/**`,
+which is CLI-owned and cannot be hand-edited at all. Read the number as
+"strings the rule cannot tell apart from text", not as "untranslated UI".
 
 **A boot diagnostic is not language; a boot INSTRUCTION is.** `lib/config.ts`
-(44) and `lib/userMenu.ts` (29) stay English because they are machine reports
-for the operator who wrote the `.env`: an HTTP status with the URL that produced
-it, a missing-field list, a stack trace, and validation messages that quote
-`VITE_UI_CUSTOMIZER`'s JSON keys verbatim ("`\"title\"` must be a non-empty
-string"). Translating those makes the operator map German back onto English
-keys. The line is CONTENT, not the `detail` slot it happens to land in —
-`lib/secureContext.ts` renders into the same `BootFailure` `detail` and IS
-translated, because it is a sentence telling a human what to do ("Serve the app
-over HTTPS, or reach it at http://localhost").
+and `lib/userMenu.ts` stay English because they are machine reports for the
+operator who wrote the `.env`: an HTTP status with the URL that produced it, a
+missing-field list, a stack trace, and validation messages that quote
+`VITE_UI_CUSTOMIZER`'s JSON keys verbatim. Translating those makes the operator
+map German back onto English keys. The line is CONTENT, not the `detail` slot it
+happens to land in — `lib/secureContext.ts` renders into the same `BootFailure`
+`detail` and IS translated, because it is a sentence telling a human what to do.
 
-**Two `ignores` beyond the plan's `src/charts/**`, both deliberate.**
-(1) *Tests and their helpers* (`**/*.{test,spec}.*`, `**/__tests__/**`,
-`src/test/**`): a test's strings are assertions, fixtures and query strings, and
-there are ~2600 of them against ~1200 in product code — baselining them would
-bury the ratchet under entries that can never be migrated. (2) *`src/i18n/*.ts`*,
-the translation machinery itself, whose every string is a locale tag, a storage
-key or an `Intl` option. That second one is scoped to the TOP-LEVEL modules on
-purpose: `src/i18n/**` would also exempt `src/i18n/translateMode/` (translate
-mode, still to come), which is
-ordinary UI with ordinary user-visible strings. Neither ignore costs P3 its
-"suppressions pruned to zero outside `src/charts/**`" target, because an ignored
-file produces no suppression entries at all.
+**Two `ignores` beyond `src/charts/**`, both deliberate.** (1) *Tests and their
+helpers* (`**/*.{test,spec}.*`, `**/__tests__/**`, `src/test/**`): a test's strings
+are assertions, fixtures and query strings, and there are ~2600 of them against
+~1200 in product code — baselining them would bury the ratchet under entries
+that can never be migrated. (2) *`src/i18n/*.ts`*, the translation machinery
+itself, whose every string is a locale tag, a storage key, a code, a regex or
+an `Intl` option — which is also why `errors.ts`, `localeConfig.ts` and the
+translate target's diagnostics sit there rather than under `lib/`. Scoped to the
+TOP-LEVEL modules on purpose: `src/i18n/**` would also exempt
+`src/i18n/translateMode/`, which is ordinary UI with ordinary user-visible
+strings.
 
 **`dist-e2e-*` are in `globalIgnores`.** Playwright builds two extra bundles
 there; without the ignore ESLint parses ~3400 minified files on every run for no
@@ -602,10 +735,12 @@ rules at all.
 
 **A file that exceeds its recorded suppression count reports ALL of that rule's
 violations, not the excess.** Two new `'date'` literals in `ApiKeysCard.tsx`
-(40 recorded) turned the whole file into 42 errors, which reads as "the
-migration broke this file" and is really "two over the line". `--prune-suppressions`
-only LOWERS a count, so the fix is to get back under it — never to re-baseline.
-Budget a literal before adding one to a file that is still in the baseline.
+turned the whole file into 42 errors, which reads as "the migration broke this
+file" and is really "two over the line". `--prune-suppressions` only LOWERS a
+count, so the fix is to get back under it — never to re-baseline. Budget a
+literal before adding one to a file that is still in the baseline; a set of
+field names belongs in `src/i18n/errors.ts` (`ERROR_TEXT_FIELDS`), not in a
+component.
 
 **Every calendar goes through `ui-ext/localized-calendar.tsx`, never
 `ui/calendar.tsx` directly.** react-day-picker renders month and weekday names
@@ -626,115 +761,47 @@ both read as "use the built-in default". Where a formatting locale TAG is enough
 prefer `Intl` over date-fns: it needs no chunk and is right on the first render.
 
 **A `lib/` function that produces a sentence takes `t` as a PARAMETER.**
-`formatDeleteError(error, t, label)` is the shape: importing `translate` there
+`renderError(error, t, { label })` is the shape: importing `translate` there
 would render the current catalog but could not re-render the component holding
 the string, and the ESLint ban on `translate` under `components/**` is only
 enforced at the import site. A component passes its own `useT()` down.
 
-**The data layer's own error sentences are UI text, and translating them does
-not collide with the runtime collector.** `useTable`, `useTableMutations`,
-`useRpc`, `callRpc`, the `$table_name` loader and `AuthContext` all end up in
-`ApiErrorDisplay`, a toast or a delete dialog, so their messages go through the
-catalog like anything else on screen. The reason that is safe alongside
-`translateDynamic` — which looks a server message up VERBATIM and records a
-`server` row for a miss — is that the two never meet: an app-authored fallback
-("Failed to fetch {table}") is only reached when the response body carried no
-PostgREST `message`, and a body with a `code` always carries one, so the
-collector's "record only when `cause` has a `code`" filter never sees a
-translated app string. Keep that property when touching either side: if a
-thrower ever attaches a `code` while keeping its own wording, German text starts
-appearing as tenant rows.
+**Two sources, later wins, and NOTHING pulls its own configuration.**
+`src/i18n/store.ts` loads a language from the static file ← the target's record,
+merging what each answers. Configuration is PUSHED in (`setDeploymentLocales`
+from `applyUiCustomizer`, `setTranslateTarget` beside it) rather than pulled,
+because the FIRST boot pass activates a locale **before** `initConfig()` so
+`BootFailure` is translated — a pull would have to call `getConfig()`, which
+throws at that moment. The same rule is why `src/i18n` still imports no router.
 
-**Outside `components/**` the hook/module split is a judgment call, not a lint
-rule.** `RouterContextUpdater` in `contexts/AuthContext.tsx` is a component and
-uses `translate()` on purpose: its messages are produced inside the userinfo
-effect, and listing a `t` from `useT()` in that effect's deps would refetch
-userinfo on every language switch. The message is frozen at the moment the
-request failed, which is the same trade every toast already makes.
+**A static language file is fetched with an ABSOLUTE url and its content-type
+is checked, and both are load-bearing.** `apiClient.ts` rewrites every `fetch`
+whose url starts with `/` onto the PostgREST base with a bearer token, so a
+relative `/locales/fr-FR.json` would be asked of the API; and a web server with a
+SPA fallback answers a MISSING file with the app's own HTML and a **200**, so
+`res.ok` alone hands `res.json()` a page of markup. A wrong `url` must read as "no
+such language", not as a parse error at boot. `docker/nginx.conf` serves
+`/locales/` with `try_files $uri =404` for the same reason. The target's record
+read applies the same content-type check.
 
-**Four layers, later wins, and NOTHING pulls its own configuration.**
-`src/i18n/store.ts` loads a language from repo catalog ← operator deployment file
-← tenant rows ← drafts (translate mode, still to come), merging what each
-answers. Configuration is PUSHED
-in (`setDeploymentLocales` from `applyUiCustomizer`, `setTenantLocaleFiles` from
-`components/TranslationsPrefetch.tsx`) rather than pulled, because the FIRST boot
-pass activates a locale **before** `initConfig()` so `BootFailure` is translated —
-a pull would have to call `getConfig()`, which throws at that moment. The same
-rule is why `src/i18n` still imports no router.
+**Registration reuses `VITE_UI_CUSTOMIZER`; the translate target needed one new
+var** (`VITE_TRANSLATE_MODE`, registered at all seven points). Its parsing
+lives in `parseUiCustomizer`, which runs UNCONDITIONALLY — an operator on the
+`cloud` or `self_hosted` built-in menu must still be able to register a language,
+so `user.menu` is mandatory only for `custom`. `src/i18n/localeConfig.ts`
+validates the `locales` section and a malformed one BLOCKS BOOT, as does an
+unknown mode or `stage` with no url: a language silently missing from the menu,
+with nothing anywhere saying why, is far worse than a loud configuration screen.
+A language that lives only in a target's record has to be REGISTERED to be
+listed — the contract has no call that enumerates records.
 
-**A deployment file is fetched with an ABSOLUTE url and its content-type is
-checked, and both are load-bearing.** `apiClient.ts` rewrites every `fetch` whose
-url starts with `/` onto the PostgREST base with a bearer token, so a relative
-`/locales/fr-FR.json` would be asked of the API; and a web server with a SPA
-fallback answers a MISSING file with the app's own HTML and a **200**, so `res.ok`
-alone hands `res.json()` a page of markup. A wrong `url` must read as "no such
-language", not as a parse error at boot. `docker/nginx.conf` serves `/locales/`
-with `try_files $uri =404` for the same reason.
-
-**Registration reuses `VITE_UI_CUSTOMIZER`; there is no new `VITE_*` var** (so
-the seven registration points do not apply). Its parsing therefore moved out of
-`resolveUserMenu` into `parseUiCustomizer`, which runs UNCONDITIONALLY — an
-operator on the `cloud` or `self_hosted` built-in menu must still be able to
-register a language, so `user.menu` is mandatory only for `custom`.
-`src/i18n/localeConfig.ts` validates the `locales` section and a malformed one
-BLOCKS BOOT: a language silently missing from the menu, with nothing anywhere
-saying why, is far worse than a loud configuration screen.
-
-**Model labels are DATA and have their own key scheme.** `table`
-`<table>.singular_label|plural_label|description`; `column`
-`<table>.<field>.title|description|relationship_label|singular_label_parent|plural_label_parent`;
-`enum` `<table>.<field>.<STORED VALUE>`; `module` `<slug>.name|description`. The
-runtime id is `scope + ':' + key` (a message id is the source text itself and has
-no prefix). Overrides apply AT RENDER through `localizeMetadata()` — never in a
-loader, never by mutation — so a language switch re-renders the grid without
-refetching the schema, `enum` VALUES stay exactly what the database holds (only
-`enum_labels`, the one consumer-facing slot on `JsonSchemaProperty`, is filled),
-and the loader's data stays the model as the server sent it.
-`useLocalizedMetadata()` in the `$table_name` route is THE choke point: `View`,
-`DataTableView`, `SchemaForm`, `DataFormPage`, `ConfirmDeleteDialog`,
-`ViewSkeleton`, `api-select` and `InputReference` all inherit that one prop. The
-sidebar, the command palette, the breadcrumb, the module tiles and `View`'s
-PARENT schema read `tables`/`modules` directly, so each looks its own labels up
-through `useLocaleLabels()`.
-
-**A model label is invisible to the extractor, so its inventory comes from the
-model.** `tables`, `fields` and `modules` are read and diffed against the labels
-layer BOTH ways: a label with no translation is missing, a translation whose key
-the model no longer has is **orphaned** (a renamed table), and an orphan is
-reported, never pruned — deleting one is a translator's decision. Never expect
-`i18n:status` or the catalog test to report a label; `labels.mjs` is where they
-come from, and it is the step to run after any model change.
-
-**Two shared modules live in `scripts/i18n/` and the app RE-EXPORTS them**:
-`localeFile.mjs` (file ↔ rows) and `labelInventory.mjs`. Plain ESM, because the
-tenant scripts run under bare `node` with nothing transpiling TypeScript, and a
-hand-kept second copy is exactly the divergence that would make an export and an
-import disagree about a key. `src/i18n/localeFile.ts` and
-`src/i18n/labelInventory.ts` are the two-line re-exports; `.d.mts` files type
-them, the way `extract.d.mts` already did. The one fact still spelled on both
-sides is the `scope:key` id format, pinned by `labelInventory.test.ts`.
-
-**Runtime text — `server` and `rule` — is looked up VERBATIM and never
-ICU-compiled.** A PostgREST message may legitimately contain braces, and running
-it through the compiler would throw or silently eat them. `translateDynamic()`
-does the lookup; `serverMessage(error)` in `lib/apiErrors.ts` is what every error
-surface calls (`ApiErrorDisplay`, `formatDeleteError`, `ApiKeysCard`,
-`ErrorPage`, the module dashboard). A React ERROR BOUNDARY's message is
-deliberately NOT routed through it: that is a JS exception, not server text.
-
-**Every miss becomes an empty-translation row, and the `code` filter is what
-keeps the app's own English out of the queue.** `src/i18n/missing.ts` records a
-`server` miss only for an error whose `cause` carries a PostgREST `code`; an
-error the app threw itself carries none and its wording is already a catalog
-message. Message misses come from Lingui's own `missing` event (so `<Trans>` is
-covered too) and are skipped in `en-US`, where every id legitimately has no
-entry; `server`/`rule` misses are recorded in EVERY language, because a backend
-message is authored in the tenant's language and may not be English. Label misses
-are reported from `useLocalizedMetadata` in an EFFECT, never in the memo — a
-render must not write to the network. Rows are inserted with
-`Prefer: resolution=ignore-duplicates`, so a request can never overwrite a
-translation. **The collector is OPT-IN** (`enableCollector()` in `main.tsx`), so
-the suite's own API errors never write rows.
+**A plain server sentence is looked up VERBATIM and never ICU-compiled.** A
+PostgreSQL message may legitimately contain braces, and running it through the
+compiler would throw or silently eat them. `translateVerbatim(key, text)` reads
+the catalog map directly; the editor and `import.mjs` skip the compile and
+placeholder checks for a SQLSTATE-shaped key outside class 90/99
+(`isVerbatimKey`). A React ERROR BOUNDARY's message is deliberately NOT routed
+through it: that is a JS exception, not server text.
 
 **The session preference is three-valued and the third state is the whole
 point.** `get_userinfo`'s `language` / `locale`: a string is a saved choice,
@@ -748,32 +815,29 @@ choice on the next resolve. A reload discards that module state, which is why
 `NavUser.test.tsx`'s "boots from the cached keys alone" calls
 `clearSessionPreference()`, and why both test setups clear it in `afterEach`.
 
-**Nothing PROBES for a platform feature.** A definitive `PGRST205` / `42P01`
-disables the tenant layer, a definitive `PGRST202` disables the preference
-write-back for the rest of the session (module state, because the menu unmounts
-every time it closes). A bare 404 means neither — the tenant's serverless
-PostgREST answers one to the first request after an idle period, and the fetch
-interceptor retries it. All of these predicates are in `src/i18n/tenant.ts`, with
-the query and the paging, so `TranslationsPrefetch` holds no platform strings at
-all — in a component they would be indistinguishable from untranslated UI text.
+**Nothing PROBES for a platform feature.** A definitive `PGRST205` / `42P01` on
+the record read marks the target absent, a definitive `PGRST202` disables the
+preference write-back for the rest of the session (module state, because the
+menu unmounts every time it closes). A bare 404 means neither — the tenant's
+serverless PostgREST answers one to the first request after an idle period, and
+the fetch interceptor retries it. The predicates live in `src/i18n/tenant.ts`
+and `src/i18n/translateTarget.ts`, so no component holds a platform string.
 
-**`get_schema` moved onto the QueryClient, and the router context carries it.**
-A language switch calls `router.invalidate()` so every route's `head()` re-runs
+**`get_schema` is on the QueryClient, and the router context carries it.** A
+language switch calls `router.invalidate()` so every route's `head()` re-runs
 and `document.title` follows; re-running the loader would refetch the schema for
 a change that is purely local. `ensureQueryData` with `staleTime: Infinity` and
 `rpcQueryKey()` — exported from `hooks/useRpc.ts` so the loader and the hook fill
-the SAME entry — makes it a cache hit. `head()` reads `currentLabels()`
-synchronously, because it is not a component.
+the SAME entry — makes it a cache hit. `head()` renders the title through
+`translate()` with the metadata's own `module_slug`, because it is not a
+component.
 
 **The lingui rule cannot tell an identifier from a sentence, and the answer is
 WHERE the string lives, not a wider `ignore`.** `src/i18n/*.ts` is already exempt
-as machinery, so a snake_case model attribute (`'plural_label'`), a PostgREST
-code, an RPC name and a query fragment belong there — `TABLE_ATTR` / `COLUMN_ATTR`
-/ `MODULE_ATTR` in `labels.ts`, the constants in `tenant.ts` — and call sites pass
-the constant. Widening `ignore` to cover `'description'` or `'title'` would hide
-a real string forever and silently. This is also why `localeConfig.ts` sits under
-`src/i18n/` rather than beside `lib/userMenu.ts`: every string in it is a JSON key
-or an operator diagnostic.
+as machinery, so a PostgREST code, an RPC name, a field-name list and a
+diagnostic belong there and call sites pass the constant. Widening `ignore` to
+cover `'description'` or `'title'` would hide a real string forever and
+silently.
 
 **A per-call `{ timeout }` LOWERS the project's `asyncUtilTimeout`.**
 `setup.browser.ts` configures 15s for the whole browser project; four `findByRole`
@@ -782,31 +846,34 @@ random while passing alone — four browser workers each mounting an editor is a
 real second or two of contention, and the budget was deciding, not the code.
 Removed; do not add one back.
 
-**Verified against the live test tenant, and still true:** `ui_translations` is
-absent (`PGRST205`), `set_user_preferences` is absent (`PGRST202`), and
-`get_userinfo` returns no `language`/`locale`. `src/i18n/tenantTranslations.test.tsx`
-therefore SKIPS its row tests with a message naming the migration — and it probes
-at COLLECTION time with a top-level `await`, not in a `beforeAll`, because
-`describe.skipIf` is evaluated before any hook runs and a flag set in a hook would
-make the skip permanent. `fields.enum_values` really is a JSON array, and
-`tables` / `fields` / `modules` really do expose every column the inventory reads.
-`modules.module_slug` IS a unique constraint, which is what `useCreateRecord`'s
-`onConflict` is proven against while the translations table is missing.
+**Verified against the live test tenant, and still true:** `/translations`
+answers `PGRST205` (no record store), `set_user_preferences` is absent
+(`PGRST202`), `get_userinfo` returns no `language`/`locale`, and `get_schema`
+returns `module_slug` on every table block with children named `table.field`.
+`src/i18n/tenantTranslations.test.tsx` pins all four, and turns from "absent" to
+"a record" by itself when the endpoint lands.
 
 **Translate mode resolves the page through a reverse index RECORDED AT THE
-PRODUCER, never by wrapping `t()` or reading the DOM for meaning.** `translate()`,
-`labelOf()`, `localizeMetadata()`'s enum walk, `moduleOverride()` and
-`translateDynamic()` each hand their rendered output plus its id to
+PRODUCER, never by wrapping `t()` or reading the DOM for meaning.** `translate()`
+and `translateVerbatim()` hand their rendered output plus its key to
 `src/i18n/reverseIndex.ts` while recording is on (one boolean check per call
-otherwise); a text node or an `aria-label` is then looked up AS RENDERED, values
-interpolated. Two consequences that are easy to break: a new producer of
-user-visible text has to record too, or its output is invisible to marking and
-Alt+click; and a memo that skips the walk (`localizeMetadata` used to return early
-on an empty label map) skips the recording — the walk must run while recording
-even when nothing changes. `activateLocale` clears the index, and switching the
-mode on calls `reactivateLocale()` so every `useT()` consumer re-renders and
-records; a component that reads `translate()` at module scope is never
-re-recorded, which is one more reason the `components/**` ban exists.
+otherwise) — and every metadata label goes through `translate()`, so
+`localizeMetadata`'s walk records them too; a text node or an `aria-label` is
+then looked up AS RENDERED, values interpolated. Two consequences that are easy
+to break: a new producer of user-visible text has to render through `translate`
+or record itself, or its output is invisible to marking and Alt+click; and a
+memo that skips the walk skips the recording — `localizeMetadata` runs its walk
+whether or not anything changes. `activateLocale` clears the index, and
+switching the mode on calls `reactivateLocale()` so every `useT()` consumer
+re-renders and records; a component that reads `translate()` at module scope is
+never re-recorded, which is one more reason the `components/**` ban exists.
+
+**The panel measures against the index, loaded on demand.** `loadSourceIndex()`
+in `store.ts` reads `en-US` through the target in `dev`/`stage` and the static
+file otherwise, cached, re-read every time the sheet opens; the missing count is
+index keys without a translation plus what is on the page that the index has
+not caught up with. One list, one tab: code strings and model text are told apart
+by nothing but the key the list shows beside a source that differs from it.
 
 **The marks are CSS Custom Highlights, and the DOM is not mutated for them.**
 Ranges over text nodes go into `CSS.highlights` under `semantius-i18n-missing`;
@@ -816,12 +883,13 @@ this design system is a box-shadow (`ring-*`), so an outline composes with it,
 while the box-shadow this first shipped with replaced the ring on every marked
 control — and the `border-radius` beside it squared every marked button,
 because the file is unlayered and an unlayered declaration beats any Tailwind
-utility (which is also what lets the mark show through `outline-none`). The scan walks `document.body`, because every Base UI
-popup is portaled beside `#root`, and prunes subtrees marked `data-i18n-ui` —
-translate mode's own dialog, panel and button. Anything that adds a scanned
-attribute (`aria-label`, `aria-description`, `placeholder`, `title`, `alt`) is
-in the observer's `attributeFilter`; `data-i18n-missing` deliberately is not, or
-the scan would observe itself.
+utility (which is also what lets the mark show through `outline-none`). The scan
+walks `document.body`, because every Base UI popup is portaled beside `#root`,
+and prunes subtrees marked `data-i18n-ui` — translate mode's own dialog, panel
+and button. Anything that adds a scanned attribute (`aria-label`,
+`aria-description`, `placeholder`, `title`, `alt`) is in the observer's
+`attributeFilter`; `data-i18n-missing` deliberately is not, or the scan would
+observe itself.
 
 **A sentence built from a model label is ONE text node, and the label inside it
 has to be reached separately.** `t('Add {label}', { label })` renders "Supplier
@@ -833,61 +901,40 @@ having no text node, is outlined whole). The values are stored raw and resolved
 at scan time, never at record time: a component may render the sentence before
 the label it embeds, and a lookup then would be too early. A click resolves the
 embedded id first when the caret fell inside the segment and the surrounding
-sentence otherwise, offering both as candidates. Reported by the owner within a
-minute of using it — which is what a design keyed on whole rendered strings
-costs if the interpolated case is not handled.
+sentence otherwise, offering both as candidates — a code string's candidate is
+labeled "Message", a keyed one by its key. Reported by the owner within a minute
+of using it — which is what a design keyed on whole rendered strings costs if
+the interpolated case is not handled.
 
-**Editing is Alt+click, and the editor and panel are MODAL.** A plain click in
-translate mode still opens the menu or follows the link the text sits on —
-otherwise the entries inside a submenu could never be reached to translate them.
-`ModalInert` makes `#root` inert for ANY `[role=dialog][data-open]` outside it,
-modal or not, so a "non-modal" panel would block the page exactly as a modal one
-does while announcing itself as something else; in-context editing is therefore
-done with the panel closed.
+**Editing is Alt+click or right-click, and the editor and panel are MODAL.** A
+plain click in translate mode still opens the menu or follows the link the text
+sits on — otherwise the entries inside a submenu could never be reached to
+translate them. `ModalInert` makes `#root` inert for ANY `[role=dialog][data-open]`
+outside it, modal or not, so a "non-modal" panel would block the page exactly as
+a modal one does while announcing itself as something else; in-context editing
+is therefore done with the panel closed. In the source language under `dev` or
+`stage` the editor offers nothing: `en-US.json` is the index, and an override
+written there would misrecord the English; a `prod` record is where an `en-US`
+override lives.
 
 **There is ONE writer, one contract, and no fallback — a draft or a download is
-not a save.** Every target speaks the same three calls (an upsert on
-`ui_translations` keyed by `(locale, scope, key, context)`, the layer read, and
-the `ignore-duplicates` queue insert) and only the BASE differs:
-`VITE_TRANSLATE_API_URL`, resolved by `src/i18n/translateTarget.ts`. Unset it is
-the app's own API, which in a deployment is the tenant; under `vite dev` it
-defaults to the app origin, where `vite-plugins/i18nDevWriter.ts` answers by
-writing the repo — a code string into `src/locales/<code>.json`, everything else
-into `public/locales/<code>.json`, because a repo catalog may not hold labels.
-Translate mode is NOT OFFERED where no target answers (`canTranslate`), which is
-the whole reason the earlier drafts-plus-download branch is gone: the tenant
-table exists nowhere yet, so that branch was the only reachable one, and an edit
-made in production could never correct the repo — `export.mjs --messages-into`
-fills only EMPTY entries, so a wrong shipped translation stayed wrong.
-
-Three consequences worth keeping. The translate target is its own axis, so
-`pnpm dev` pointed at a stage host is just a different url. Under Vitest the
-plugin writes a SCRATCH directory (`process.env.VITEST`) — and ONLY under
-Vitest: a real `pnpm dev` writes the checkout, which is the entire point.
-
-And **the dev writer must serialize in the extractor's SECTION ORDER, which is
-not alphabetical.** `reconcileCatalog` writes `locale`, `name`, `messages`,
-`contexts`, `obsolete`, sorting the CONTENTS of each by code unit; a plain deep
-sort puts `contexts` above `locale` and `name` last, so a one-word save arrived
-as a 32-line reordering that the next `i18n:extract` reordered back. Verified
-the way it has to be: save through a running dev server, then check that the
-diff is one line AND that `i18n:extract` afterwards is a no-op.
-
-**Lingui's message table can only be REPLACED, so a cleared message needs the
-catalog map pushed back into it.** `addMessageEntry(id, '')` updates
-`currentMessages()`, and the writer then calls
-`i18n.loadAndActivate({ locale, messages: { ...currentMessages() } })`.
-`reactivateLocale()` is wrong there: it re-folds the LAYERS, which still hold the
-old value until the mutation's invalidation lands, so the cleared string comes
-straight back.
+not a save.** `useTranslationWriter` calls `writeTranslation()` and applies the
+result at once: `addMessageEntry` into the catalog's own map, then Lingui's
+table REPLACED with that map. `reactivateLocale()` is wrong there: it re-folds
+the sources, which still hold the old value, so the cleared string comes straight
+back. Translate mode is NOT OFFERED where no target answers (`canTranslate`):
+the tenant record store exists nowhere yet, so `prod` shows no switches, and an
+edit made in production could never correct the repo anyway — `export.mjs` fills
+only EMPTY entries, so a wrong shipped translation stays wrong until a `dev`
+change goes through a PR.
 
 **A dependency reached only through a lazy chunk must be named in
-`optimizeDeps.include`.** Vite's crawler never sees `sonner` or
-`@base-ui/react/tabs` behind `import('@/i18n/translateMode')`, discovers them on
-first load and RELOADS the page; in the Vitest browser project that reload lands
-mid-test and leaves two copies of React in the module graph ("Invalid hook call"
-inside `<TabsRoot>`), which reads like a component bug. Vitest prints the fix in
-its own warning; `vite.config.ts` carries it.
+`optimizeDeps.include`.** Vite's crawler never sees `sonner` behind
+`import('@/i18n/translateMode')`, discovers it on first load and RELOADS the
+page; in the Vitest browser project that reload lands mid-test and leaves two
+copies of React in the module graph ("Invalid hook call"), which reads like a
+component bug. Vitest prints the fix in its own warning; `vite.config.ts`
+carries it.
 
 ### Routing Conventions
 

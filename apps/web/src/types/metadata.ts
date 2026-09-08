@@ -55,6 +55,11 @@ export interface SemSchemaTable {
   icon_url?: string
   description?: string
   module_id?: number
+  // The module's slug, as `get_schema` returns it beside `module_id`. It is
+  // what every metadata message key starts with (`module.<slug>.<table>…`,
+  // see src/i18n/catalog.ts) — never the route param, which is a catch-all
+  // and wrong for a parent-filtered view that fetches ANOTHER entity's schema.
+  module_slug: string
   view_permission?: string | null
   edit_permission?: string | null
   id_column: string

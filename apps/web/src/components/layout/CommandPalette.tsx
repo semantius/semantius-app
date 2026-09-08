@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { useAuth } from '@/hooks/useAuth'
-import { MODULE_ATTR, TABLE_ATTR, moduleLabel, moduleOverride, tableLabel, useLocaleLabels, useT } from '@/i18n'
+import { moduleLabels } from '@/contexts/AuthContext'
+import { useT } from '@/i18n'
 import { getApiConfig, createApiHeaders } from '@/lib/apiClient'
 import {
   Command,
@@ -145,9 +146,6 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
   const t = useT()
-  // The palette lists entities and modules straight from the model tables, so
-  // like the sidebar it resolves its own label overrides.
-  const labels = useLocaleLabels()
 
   const { data: entities, isLoading: entitiesLoading } = useCatalog<EntityRecord>(
     'entities',
@@ -223,8 +221,16 @@ export function CommandPalette() {
               const slug = moduleSlugById.get(entity.module_id)
               // Skip entities whose module isn't loaded/known — we can't build a URL.
               if (!slug) return null
-              const label = tableLabel(labels, entity.table_name, TABLE_ATTR.plural, entity.plural_label)
-              const description = tableLabel(labels, entity.table_name, TABLE_ATTR.description, entity.description)
+              // The palette lists entities and modules straight from the model
+              // tables, so like the sidebar it renders its own labels as
+              // messages keyed by their model path.
+              const label = t({
+                id: ['module', slug, entity.table_name, 'entity', 'plural_label'],
+                defaultMessage: entity.plural_label,
+              })
+              const description = entity.description
+                ? t({ id: ['module', slug, entity.table_name, 'entity', 'description'], defaultMessage: entity.description })
+                : ''
               return (
                 <CommandItem
                   key={`entity-${entity.module_id}-${entity.table_name}`}
@@ -252,9 +258,9 @@ export function CommandPalette() {
 
           <CommandGroup heading={t('Modules')}>
             {modules?.map((module) => {
-              const override = moduleOverride(labels, module.module_slug, module)
-              const name = override?.name || module.module_name
-              const description = moduleLabel(labels, module.module_slug, MODULE_ATTR.description, module.description)
+              const labels = moduleLabels(t, module)
+              const name = labels.name || module.module_name
+              const description = labels.description ?? ''
               return (
                 <CommandItem
                   key={`module-${module.id}`}

@@ -205,7 +205,16 @@ export default defineConfig([
           // an entry.) Verified in the installed rule's source, not assumed.
           ignoreFunctions: [
             'translate',
-            'translateDynamic',
+            'translateVerbatim',
+            // `appError({ message, hint, values, details })` packages a
+            // user-facing error as an ICU template plus values, rendered at
+            // display time (src/lib/appError.ts); the extractor reads
+            // `message` and `hint` out of it like any `t()` call. The hazard,
+            // deliberately accepted: this exempts EVERY literal in the call,
+            // so a `values: { field: 'literal' }` is silently exempted too —
+            // convenient for `details`, which is never translated, and a place
+            // a real mistake can hide. Review a `values:` literal by eye.
+            'appError',
             'cn',
             'cva',
             'clsx',

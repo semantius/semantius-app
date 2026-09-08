@@ -4,6 +4,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { NavUser } from './NavUser'
 import { SidebarProvider } from '@/components/ui/sidebar'
 import { bootApp, renderInApp } from '@/test/appHarness'
+import { disableCollector } from '@/i18n/missing'
 import type { UserMenuEntry } from '@/lib/userMenu'
 import {
   LANGUAGE_CACHE_KEY,
@@ -88,6 +89,9 @@ describe('NavUser — configuration-driven menu', () => {
       VITE_BACKEND_TYPE: 'custom',
       VITE_UI_CUSTOMIZER: JSON.stringify({ user: { menu: MENU } }),
     })
+    // The menu above is a fixture: its titles are rendered through `t()` the
+    // way an operator's are, and must not be discovered into the shipped index.
+    disableCollector()
   })
 
   it('hides an entry gated on a permission this user does not hold', async () => {
@@ -160,7 +164,7 @@ describe('NavUser — configuration-driven menu', () => {
 /**
  * The language switcher, driven the way a keyboard user drives it.
  *
- * The German comes from `src/locales/de-DE.json`, the file the app ships and
+ * The German comes from `public/locales/de-DE.json`, the file the app ships and
  * loads; the cache keys are the real `localStorage` ones; `<html lang>` is read
  * off the real document. Nothing is activated by hand except to simulate the
  * NEXT boot, which is the one thing an interaction cannot do.
@@ -184,6 +188,9 @@ describe('NavUser — the language switcher', () => {
       VITE_BACKEND_TYPE: 'custom',
       VITE_UI_CUSTOMIZER: JSON.stringify({ user: { menu: MENU } }),
     })
+    // The menu above is a fixture: its titles are rendered through `t()` the
+    // way an operator's are, and must not be discovered into the shipped index.
+    disableCollector()
   })
 
   /**

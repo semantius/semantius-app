@@ -10,7 +10,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Loader2 } from 'lucide-react'
 import { Trans } from '@lingui/react'
-import { formatDeleteError } from '@/lib/apiErrors'
+import { renderError } from '@/lib/apiErrors'
 import { useT } from '@/i18n'
 
 interface ConfirmDeleteDialogProps {
@@ -80,7 +80,7 @@ export function ConfirmDeleteDialog({
           </AlertDialogDescription>
           {error && (
             <p role="alert" className="text-sm font-medium text-destructive pt-1">
-              {formatDeleteError(error, t, type)}
+              {renderError(error, t, { label: type }).message}
             </p>
           )}
         </AlertDialogHeader>

@@ -6,6 +6,8 @@ import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { interpolate, inputSurfaceClassName } from "@/lib/utils-ext";
 import { useT } from "@/i18n";
+import { appError } from "@/lib/appError";
+import { renderError } from "@/lib/apiErrors";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -191,13 +193,15 @@ export function APISelect<T>({
             .replace(/\?&/, "?");
         }
         const res = await fetch(url);
-        if (!res.ok) throw new Error(t("Search failed: {status}", { status: res.statusText }));
+        // A template plus values, rendered where it is displayed (renderError):
+        // the status is a value, and the sentence follows a language switch.
+        if (!res.ok) throw appError({ message: "Search failed ({status})", values: { status: res.status } });
         const data = await res.json();
         return resolvedGetRecords ? resolvedGetRecords(data) : data;
       }
       return [];
     },
-    [fetcher, searchUrl, resolvedGetRecords, t]
+    [fetcher, searchUrl, resolvedGetRecords]
   );
 
   const effectiveRecordFetcher = useCallback(
@@ -245,7 +249,7 @@ export function APISelect<T>({
     staleTime: Infinity,
   });
 
-  const error = queryError ? (queryError instanceof Error ? queryError.message : t("Failed to fetch options")) : null;
+  const error = queryError ? (queryError instanceof Error ? renderError(queryError, t).message : t("Failed to fetch options")) : null;
 
   useEffect(() => {
     setMounted(true);

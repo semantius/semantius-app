@@ -18,6 +18,8 @@
     "genconfig": "node scripts/genconfig.js",
     "i18n:extract": "node scripts/i18n/extract.mjs",
     "i18n:status": "node scripts/i18n/status.mjs",
+    "i18n:translate": "node scripts/i18n/translate.mjs",
+    "i18n:import": "node scripts/i18n/import.mjs",
     "a11y:tokens": "node scripts/derive-a11y-tokens.mjs",
     "preview:wrangler": "../../workplace/deploy-wrangler.sh",
     "test:e2e": "dotenvx run -f ../../.env -- playwright test",

@@ -2,24 +2,18 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import {
-  CONTEXT_SEPARATOR,
-  buildIndex,
-  collectMessages,
-  reconcileCatalog,
-  serialize,
-} from '../../scripts/i18n/extract.mjs'
+import { collectMessages, reconcileIndex, reconcileLanguage, serialize } from '../../scripts/i18n/extract.mjs'
 
 /**
- * The extractor's contract, exercised against real files on disk.
+ * The scan's contract, exercised against real files on disk.
  *
- * It matters more than most tests here because of what the scheme rests on: the
- * source string IS the key, so a call site the extractor cannot read is a string
- * that can never be translated AND never appears in any report. "It fails on a
- * template with expressions" is therefore a claim that has to be measured, not
- * asserted in a comment — and the interesting half is the FALSE negatives: a
- * concatenation inside one pair of parentheses, or a call expression, both of
- * which an earlier permissive fallthrough waved through in silence.
+ * It is an optional tool, but where it runs it has to be sound: for a code
+ * string the source IS the key, so a call site the scan cannot read is a
+ * string it cannot prune and cannot report. "It fails on a template with
+ * expressions" is therefore a claim that has to be measured, not asserted in a
+ * comment — and the interesting half is the FALSE negatives: a concatenation
+ * inside one pair of parentheses, or a call expression, both of which an
+ * earlier permissive fallthrough waved through in silence.
  *
  * The fixtures are written to a temp directory rather than committed under
  * `src/`, because a file holding `t(cond ? 'a' : 'b')` with no `t` in scope is a
@@ -35,7 +29,7 @@ function fixture(name: string, source: string): string {
   return path
 }
 
-/** The ids the extractor found in `source`, or the error it refused with. */
+/** The keys the scan found in `source`, or the error it refused with. */
 function extractFrom(source: string, name = 'probe.tsx'): string[] {
   return [...collectMessages([fixture(name, source)]).keys()]
 }
@@ -46,7 +40,7 @@ function refusalFor(source: string, name = 'probe.tsx'): string {
   } catch (err) {
     return (err as Error).message
   }
-  throw new Error(`expected the extractor to refuse:\n${source}`)
+  throw new Error(`expected the scan to refuse:\n${source}`)
 }
 
 beforeAll(() => {
@@ -57,7 +51,7 @@ afterAll(() => {
   rmSync(dir, { recursive: true, force: true })
 })
 
-describe('what the extractor reads', () => {
+describe('what the scan reads', () => {
   it('takes a string literal and a template with no expressions', () => {
     expect(extractFrom("export const a = () => t('Save')")).toEqual(['Save'])
     expect(extractFrom('export const a = () => t(`Save`)')).toEqual(['Save'])
@@ -67,10 +61,28 @@ describe('what the extractor reads', () => {
     expect(extractFrom("t('A'); translate('B'); msg('C')")).toEqual(['A', 'B', 'C'])
   })
 
-  it('keys a descriptor with a context by message + U+0004 + context', () => {
-    expect(extractFrom("t({ message: 'Right', context: 'direction' })")).toEqual([
-      `Right${CONTEXT_SEPARATOR}direction`,
+  it('keys a disambiguated message by its id and message', () => {
+    expect(extractFrom("t({ id: ['columnVisibility'], message: 'View' })")).toEqual(['columnVisibility.View'])
+    const found = collectMessages([fixture('form2.tsx', "t({ id: ['columnVisibility'], message: 'View' })")])
+    expect(found.get('columnVisibility.View')?.source).toBe('View')
+  })
+
+  it('skips a keyed message — its inventory is discovery, its source is the model', () => {
+    expect(
+      extractFrom("declare const p: { title?: string }; t({ id: ['module', 'nwind', 'orders', 'field', 'city', 'title'], defaultMessage: p.title ?? 'city' })"),
+    ).toEqual([])
+    // Even with a literal default: a keyed message is never the scan's.
+    expect(extractFrom("t({ id: ['x'], defaultMessage: 'literal' })")).toEqual([])
+  })
+
+  it('reads an appError template and its hint as two messages', () => {
+    const found = collectMessages([
+      fixture(
+        'error.ts',
+        "appError({ message: 'Failed to fetch {table} ({status})', hint: 'Try again', values: { table: 'x', status: 1 }, details: 'trace' })",
+      ),
     ])
+    expect([...found.keys()]).toEqual(['Failed to fetch {table} ({status})', 'Try again'])
   })
 
   it('reads a <Trans id>, so rich text is in the index like everything else', () => {
@@ -79,18 +91,13 @@ describe('what the extractor reads', () => {
     ])
   })
 
-  it('merges the origins of one message met in several files, sorted', () => {
-    const found = collectMessages([
-      fixture('b.tsx', "t('Shared')"),
-      fixture('a.tsx', "t('Shared')"),
-    ])
-
-    const origins = found.get('Shared')?.origin
-    expect([...(origins ?? [])].sort()).toHaveLength(2)
+  it('keeps a comment for the translator', () => {
+    const found = collectMessages([fixture('c.tsx', "t({ message: 'Right', comment: 'the direction' })")])
+    expect(found.get('Right')?.comment).toBe('the direction')
   })
 })
 
-describe('what the extractor refuses', () => {
+describe('what the scan refuses', () => {
   it('refuses a template literal with an expression', () => {
     expect(refusalFor('const n = 1; t(`Hello ${n}`)')).toMatch(/template literal with expressions/)
   })
@@ -121,6 +128,12 @@ describe('what the extractor refuses', () => {
   it('refuses a descriptor whose message is not a literal', () => {
     expect(refusalFor('declare const m: string; t({ message: m })')).toMatch(/must be a plain string literal/)
     expect(refusalFor('declare const d: object; t({ ...d })')).toMatch(/no literal "message"/)
+    // A form-2 id has to be static: it is part of the key.
+    expect(refusalFor("declare const p: string; t({ id: [p], message: 'View' })")).toMatch(/array of string literals/)
+  })
+
+  it('refuses a code key that starts with the reserved root', () => {
+    expect(refusalFor("t({ id: ['module', 'x'], message: 'View' })")).toMatch(/reserved segment "module"/)
   })
 
   it('names the file and the line, so the complaint is actionable', () => {
@@ -128,78 +141,94 @@ describe('what the extractor refuses', () => {
   })
 
   it('lets an identifier or a member expression through, recording nothing', () => {
-    // `t(entry.title)` renders a msg() descriptor extracted at its own
-    // declaration site, or an operator's plain string, which belongs in a
-    // deployment file rather than in this index.
+    // `t(entry.title)` renders a msg() descriptor scanned at its own
+    // declaration site, or an operator's plain string, which discovery records.
     expect(extractFrom('declare const entry: { title: string }; t(entry.title)')).toEqual([])
     expect(extractFrom('declare const rows: string[]; t(rows[0])')).toEqual([])
     expect(extractFrom('declare const title: string; t(title)')).toEqual([])
   })
 })
 
-describe('the index', () => {
-  it('records origins without line numbers and the ICU placeholders', () => {
-    const index = buildIndex(collectMessages([fixture('one.tsx', "t('Delete {label}?')")]))
+describe('reconciling the index', () => {
+  const found = new Map([
+    ['Save', { source: 'Save' }],
+    ['columnVisibility.View', { source: 'View' }],
+  ])
 
-    expect(index.index['Delete {label}?']).toMatchObject({
-      message: 'Delete {label}?',
-      placeholders: ['label'],
-    })
-    expect(index.index['Delete {label}?'].origin[0]).not.toMatch(/:\d/)
-  })
-
-  it('finds the arguments of a plural, not just the top-level ones', () => {
-    const index = buildIndex(
-      collectMessages([fixture('two.tsx', "t('{count, plural, one {# {noun}} other {# {noun}s}}')")]),
+  it('sets the code half from the scan and never touches module.*', () => {
+    const out = reconcileIndex(
+      {
+        locale: 'en-US',
+        name: 'English',
+        messages: {
+          'module.nwind.orders.field.city.title': 'City',
+          'Old wording': 'Old wording',
+          Save: 'Save',
+        },
+      },
+      found,
     )
-
-    expect(Object.values(index.index)[0].placeholders).toEqual(['count', 'noun'])
+    expect(out.messages).toEqual({
+      Save: 'Save',
+      'columnVisibility.View': 'View',
+      'module.nwind.orders.field.city.title': 'City',
+    })
+    expect(out.name).toBe('English')
   })
 })
 
-describe('reconciling a catalog', () => {
-  const index = { locale: 'en-US', index: { Save: { message: 'Save', origin: [], placeholders: [] } } }
+describe('reconciling a language', () => {
+  const found = new Map([['Save', { source: 'Save' }]])
 
   it('never overwrites an existing translation, and adds a gap for a new key', () => {
-    const out = reconcileCatalog({ locale: 'de-DE', name: 'Deutsch', messages: { Save: 'Speichern' } }, index)
+    const out = reconcileLanguage({ locale: 'de-DE', name: 'Deutsch', messages: { Save: 'Speichern' } }, found)
     expect(out.messages).toEqual({ Save: 'Speichern' })
 
-    const fresh = reconcileCatalog({ locale: 'de-DE', messages: {} }, index)
+    const fresh = reconcileLanguage({ locale: 'de-DE', messages: {} }, found)
     expect(fresh.messages).toEqual({ Save: '' })
   })
 
-  it('moves a removed key to obsolete, and drops it when it held nothing', () => {
-    const out = reconcileCatalog(
-      { locale: 'de-DE', messages: { Save: 'Speichern', 'Old wording': 'Alt', Never: '' } },
-      index,
+  it('moves a removed code key to obsolete, drops it when it held nothing, and leaves module.* alone', () => {
+    const out = reconcileLanguage(
+      {
+        locale: 'de-DE',
+        messages: {
+          Save: 'Speichern',
+          'Old wording': 'Alt',
+          Never: '',
+          'module.nwind.orders.field.city.title': 'Stadt',
+          'module.nwind.orders.field.zip.title': '',
+        },
+      },
+      found,
     )
 
-    expect(out.obsolete?.messages).toEqual({ 'Old wording': 'Alt' })
-    expect(out.messages).not.toHaveProperty('Never')
+    expect(out.obsolete).toEqual({ 'Old wording': 'Alt' })
+    expect(out.messages).toEqual({
+      Save: 'Speichern',
+      'module.nwind.orders.field.city.title': 'Stadt',
+      'module.nwind.orders.field.zip.title': '',
+    })
   })
 
   it('empties obsolete on --prune', () => {
-    const out = reconcileCatalog(
-      { locale: 'de-DE', messages: { Save: 'Speichern' }, obsolete: { messages: { Old: 'Alt' } } },
-      index,
+    const out = reconcileLanguage(
+      { locale: 'de-DE', messages: { Save: 'Speichern' }, obsolete: { Old: 'Alt' } },
+      found,
       { prune: true },
     )
-
     expect(out.obsolete).toBeUndefined()
   })
 
   it('is idempotent and sorted, so a rerun is a no-op on any machine', () => {
     const messy = { locale: 'de-DE', name: 'Deutsch', messages: { Zebra: 'Zebra', Save: 'Speichern' } }
-    const wide = {
-      locale: 'en-US',
-      index: {
-        Save: { message: 'Save', origin: [], placeholders: [] },
-        Zebra: { message: 'Zebra', origin: [], placeholders: [] },
-      },
-    }
+    const wide = new Map([
+      ['Save', { source: 'Save' }],
+      ['Zebra', { source: 'Zebra' }],
+    ])
 
-    const once = reconcileCatalog(messy, wide)
-    const twice = reconcileCatalog(once, wide)
+    const once = reconcileLanguage(messy, wide)
+    const twice = reconcileLanguage(once, wide)
 
     expect(serialize(twice)).toBe(serialize(once))
     expect(Object.keys(once.messages ?? {})).toEqual(['Save', 'Zebra'])

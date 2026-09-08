@@ -5,45 +5,30 @@
  * `node` from the repo root, where nothing transpiles TypeScript.
  */
 
-import type { LocaleFile, TranslationScope } from '../../src/i18n/catalog'
-import type { InventoryEntry } from './labelInventory.d.mts'
-import type { TranslationRow } from './localeFile.d.mts'
+import type { LocaleFile, TranslationMap } from '../../src/i18n/catalog'
 
 /** One thing to translate, as the work file carries it. */
 export interface WorkEntry {
   key: string
-  context?: string
   source: string
   translation: string
-  comment?: string
   placeholders?: string[]
-  origin?: string[]
+  comment?: string
 }
 
 export interface WorkFile {
   locale: string
   generated?: string
-  entries: Partial<Record<TranslationScope, WorkEntry[]>>
-}
-
-/** One entry of the generated `en-US.json` index. */
-export interface IndexEntry {
-  message: string
-  context?: string
-  origin: string[]
-  placeholders: string[]
-  comment?: string
+  entries: WorkEntry[]
 }
 
 export interface WorkInputs {
-  index: { locale: string; index: Record<string, IndexEntry> }
-  catalog: LocaleFile
-  inventory: readonly InventoryEntry[]
-  labels: Record<string, string>
-  requests: readonly TranslationRow[]
+  index: LocaleFile
+  file: LocaleFile
+  record?: TranslationMap
 }
 
 export declare const WORK_DIR: string
 export declare function workFilePath(locale: string): string
-export declare function readRepoCatalog(locale: string): LocaleFile
+export declare function readLanguageFile(locale: string): LocaleFile
 export declare function buildWorkFile(locale: string, inputs: WorkInputs): WorkFile

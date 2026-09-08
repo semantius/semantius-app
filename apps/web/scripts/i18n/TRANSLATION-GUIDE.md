@@ -1,0 +1,165 @@
+# Translation guide
+
+For whoever — person or agent — fills in a language file under
+`apps/web/public/locales/`.
+
+## What is in there
+
+| File | What it is |
+| --- | --- |
+| `en-US.json` | **The index.** Every key the app has rendered, with its SOURCE text as the value: a code string's own English, a model label as the model spells it, a server error's template. Filled by the running app (discovery); the complete baseline a new language is started from. Never a catalog. |
+| `de-DE.json` | A language. `messages` (key to translation) and `obsolete`, nothing else. |
+| `schema.json` | The shape of a language file, served by the build so an editor's `$schema` validates as you type. |
+| `work.schema.json` | The shape of the work file `i18n:translate` writes. |
+| `scripts/i18n/glossary.json` | Fixed product terms per language, checked by `src/test/i18nCatalogs.test.ts`. |
+
+**One flat map per language.** A code string and a piece of model text are both
+messages; they are told apart by nothing but their keys.
+
+## The keys
+
+| Kind | Key | Source |
+| --- | --- | --- |
+| a code string | its own English text: `Save`, `Delete {label}?` | the key itself |
+| a disambiguated code string | an id prefix, then the text: `columnVisibility.View` | `View` |
+| a module | `module.nwind.name`, `module.nwind.description` | the model |
+| an entity | `module.nwind.orders.entity.plural_label` (`singular_label`, `description`) | the model |
+| a field | `module.nwind.orders.field.city.title` (`description`, `relationship_label`, `singular_label_parent`, `plural_label_parent`) | the model |
+| an enum value | `module.nwind.orders.enum.status.pending` — the **stored value**, never its English label | the stored value |
+| a platform error | its code: `99017.orders`, `90042` | an ICU template |
+| a plain server sentence | its SQLSTATE plus the constraint name: `23505.modules_module_slug_key`, or `42703` | the sentence, verbatim |
+
+`module` is a reserved first segment: no code string ever starts with it. The
+attribute vocabulary is the model's own column names.
+
+## The rules
+
+1. **The English source text is the key of a code string.** There are no
+   message ids. Rewording a string in the code therefore creates a NEW key; the
+   optional `i18n:extract` scan moves the old translation to `obsolete`. A
+   metadata message has a key instead, so relabeling a field in the model does
+   not move its translation — `en-US.json` records the new source next to the
+   old key, which is how you notice the German is stale.
+2. **An empty value means "not translated yet".** It is not "translate to
+   nothing": the app falls back to the source text for an empty entry, so
+   leaving one blank is safe, visible and reported. Discovery writes empty
+   entries; you fill them.
+3. **Placeholders must survive.** `{count}`, `{label}`, `{table}` are ICU
+   arguments and are substituted at render time. Every placeholder in the source
+   has to appear in the translation, spelled identically. The catalog test fails
+   on a mismatch, because a dropped placeholder silently loses data on screen
+   and an invented one renders as literal braces.
+4. **The translation is ICU, so it can be plural- and gender-aware.** Where the
+   source uses `{count, plural, one {# row} other {# rows}}`, the translation may
+   use whatever plural categories the language has — German has `one` and
+   `other`, Polish has `one`, `few`, `many` and `other`. The value has to
+   compile; the catalog test checks that too. **A plain server sentence (a
+   SQLSTATE key outside class 90 and 99) is the exception**: it is looked up
+   verbatim and may contain braces.
+5. **Do not translate what is not language.** Format examples (`192.168.1.1`),
+   identifiers, table names and the product name `Semantius` stay as they are.
+6. **Never build a sentence out of fragments.** If a translation only works by
+   splitting the source string, the SOURCE is wrong — say so rather than
+   working around it, and it gets rewritten as one ICU message.
+7. **`obsolete` is a parking lot, not a graveyard.** An entry there is a
+   translation whose code string has gone. Copy it back up if a reworded
+   string means the same thing; otherwise leave it. `i18n:extract --prune`
+   empties the section. Nothing retires a `module.*` key: a removed field is a
+   manual edit.
+
+## The workflow
+
+```bash
+# 1. what is open, both kinds
+pnpm --filter @semantius/frontend i18n:status -- --verbose
+
+# 2. everything still needed, as one file
+pnpm --filter @semantius/frontend i18n:translate -- --locale de-DE
+#   -> apps/web/.i18n/work-de-DE.json  (git-ignored; schema: /locales/work.schema.json)
+
+# 3. fill in every `translation`, keeping `placeholders` exactly, then
+pnpm --filter @semantius/frontend i18n:import -- --locale de-DE
+
+# 4. confirm
+pnpm --filter @semantius/frontend i18n:status     # 0 missing
+pnpm check
+```
+
+`i18n:import` refuses the whole file if any translation drops or invents an ICU
+placeholder, or fails to compile, and never overwrites a value that is already
+there. Editing `de-DE.json` by hand is equally fine — it is the same file.
+
+**Where the index comes from.** Running the app. Every string a screen renders
+that the language does not know is written to the translate target
+(`VITE_TRANSLATE_MODE=dev` under `pnpm dev`, and the browser test suite, which
+renders the app): the key with its source into `en-US.json`, an empty entry into
+the active language. `pnpm check` therefore fills `en-US.json`, and its diff is
+the discovery. `i18n:extract` is an optional scan of `src/` that prunes reworded
+code strings; it never touches `module.*`.
+
+## Translating in the app
+
+The running app has a translate mode (root README, "Translate mode"): mark what
+is missing, Alt+click or right-click a string to translate it in context, or
+work through the panel. Under `pnpm dev` a save lands in
+`apps/web/public/locales/<code>.json` — the same file as above, reviewed in a
+PR like any other change. On a stage host it lands in that host's copy;
+`export.mjs --target <url>` copies it back into the file's empty entries.
+
+## Fixed terms (de-DE)
+
+These are the words the product uses for its own concepts. Use them
+consistently; `glossary.json` is the machine-readable copy of this table, and the
+catalog test reports a translation that reaches for a synonym.
+
+| English | German |
+| --- | --- |
+| Customer | Kunde |
+| Favorites | Favoriten |
+| Home | Startseite |
+| Language | Sprache |
+| Log out | Abmelden |
+| Module | Modul |
+| Settings | Einstellungen |
+| Sign in | Anmelden |
+
+Style, beyond the glossary:
+
+- **A plural branch carries the grammatical case the sentence around it needs.**
+  German inflects, so a plural form is not one word for every position: `von
+  {total, plural, other {# Einträge}}` is wrong because `von` takes the dative
+  and the dative plural is `Einträgen`. Read the whole rendered sentence, not the
+  branch on its own, and check each category the language has.
+- **One English word gets one German word across the product.** `item` and
+  `items` must not become `Element` in one message and `Eintrag` in the next; a
+  reader meets both on the same screen. `glossary.json` only catches terms whose
+  German stem survives inflection as a substring, so the rest is on you.
+- **A model label is inserted into a sentence as given.** `Add {label}` renders
+  the entity's singular label untouched, so translate the label under its own
+  key (`module.nwind.orders.entity.singular_label`) and the sentence under its
+  own; never bend one to fit the other.
+- Address the user with the formal **Sie**, consistently.
+- Sentence case for headings, as in the English source; do not add title case.
+- German quotation marks are `„…“`, not `"…"`.
+- Keep the source's punctuation weight — an English sentence ending in a period
+  ends in one in German too.
+
+## Adding a language
+
+Create `<code>.json` under `apps/web/public/locales/` with
+`{ "locale": "<code>", "name": "<endonym>", "messages": {} }` — the build lists
+every language file there — then `i18n:translate -- --locale <code>` for the
+work. `name` is the language's own name for itself ("Deutsch", not "German") and
+wins over the browser's display name.
+
+A language that ships with the product belongs there. A language for ONE
+deployment or ONE tenant does not — those are served or stored at runtime and
+never built into the bundle:
+
+| Who | Where its translations live |
+| --- | --- |
+| the product | `public/locales/<code>.json` |
+| a self-hosted operator | `/locales/<code>.json` next to the deployed app, registered in `VITE_UI_CUSTOMIZER` |
+| a cloud customer | the per-language record behind `/translations` on their own API (`VITE_TRANSLATE_MODE=prod`) |
+
+The root `README.md` has all three, under "Internationalization".

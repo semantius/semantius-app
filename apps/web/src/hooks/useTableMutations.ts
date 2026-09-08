@@ -1,9 +1,10 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/hooks/useAuth'
-import { useT } from '@/i18n'
+import { appError } from '@/lib/appError'
 import { getApiConfig, createApiHeaders, refreshSchemaCache } from '@/lib/apiClient'
 import { getConfig } from '@/lib/config'
 import { UPSERT_PREFER, UPSERT_QUERY } from '@/lib/postgrest'
+import { errorBody } from './useTable'
 
 export interface CreateRecordOptions {
   /**
@@ -13,15 +14,26 @@ export interface CreateRecordOptions {
    * `Prefer: resolution=merge-duplicates`, so a row whose unique key already
    * exists is UPDATED with the body instead of answering 409. The columns must
    * name a unique or exclusion constraint the table actually has — PostgREST
-   * answers `42P10` otherwise. The first caller is translate mode's writer
-   * (`ui_translations`, unique on locale/scope/key/context).
+   * answers `42P10` otherwise.
    */
   onConflict?: readonly string[]
-  /**
-   * A different PostgREST base to write to. Defaults to the app's own API; the
-   * translate target (`VITE_TRANSLATE_API_URL`) is the one caller today.
-   */
-  baseUrl?: string
+}
+
+/**
+ * What a failed write left to throw: the transport facts for `cause`, and the
+ * server's own sentence as an error when it sent one — keyed and looked up by
+ * `renderError`. The call site throws that, or else the app's fallback as a
+ * TEMPLATE plus values (`appError`), rendered at display time through the
+ * component's own `t`. The template is spelled at the call site because the
+ * scan reads it there: a message passed through a variable is invisible to it.
+ */
+async function writeFailure(response: Response): Promise<{ transport: Record<string, unknown>; serverError: Error | null }> {
+  const body = await errorBody(response)
+  // Status alongside the server's body, like every other thrower here.
+  const transport = { ...body, status: response.status, url: response.url }
+  const serverError =
+    typeof body.message === 'string' && body.message ? new Error(body.message, { cause: transport }) : null
+  return { transport, serverError }
 }
 
 /**
@@ -39,28 +51,25 @@ export function useCreateRecord<T = Record<string, unknown>>(
   tableName: string,
   options: CreateRecordOptions = {},
 ) {
-  // These messages are what ApiErrorDisplay and the delete dialog put on
-  // screen, so they are UI text and go through the catalog.
-  const t = useT()
   const { token } = useAuth()
-  const apiBaseUrl = options.baseUrl ?? getApiConfig().baseUrl
+  const { baseUrl: apiBaseUrl } = getApiConfig()
   const queryClient = useQueryClient()
   const conflictColumns = options.onConflict?.length ? options.onConflict : undefined
 
   return useMutation<T, Error, Partial<T>>({
     mutationFn: async (data) => {
       if (!token) {
-        throw new Error(t('Authentication token is required'))
+        throw appError({ message: 'Authentication token is required' })
       }
 
       // Validate table name
       if (!/^[a-zA-Z0-9_-]+$/.test(tableName)) {
-        throw new Error(t('Invalid table name'))
+        throw appError({ message: 'Invalid table name' })
       }
 
       // Same rule for the conflict target: it goes into the URL.
       if (conflictColumns && !conflictColumns.every((column) => /^[a-zA-Z0-9_]+$/.test(column))) {
-        throw new Error(t('Invalid column name'))
+        throw appError({ message: 'Invalid column name' })
       }
 
       const url = conflictColumns
@@ -80,27 +89,14 @@ export function useCreateRecord<T = Record<string, unknown>>(
       })
 
       if (!response.ok) {
-        let errorMessage = t('Failed to create {table} record', { table: tableName })
-        let errorDetails: Record<string, unknown> | undefined
-
-        try {
-          const errorData = await response.json()
-          if (errorData && typeof errorData === 'object' && !Array.isArray(errorData)) {
-            // Status alongside the server's body, like every other thrower here.
-            errorDetails = { ...(errorData as Record<string, unknown>), status: response.status }
-            if ('message' in errorDetails && typeof errorDetails.message === 'string') {
-              errorMessage = errorDetails.message
-            }
-          }
-        } catch {
-          errorMessage = `${errorMessage}: ${response.statusText}`
-        }
-
-        const error = new Error(errorMessage)
-        if (errorDetails) {
-          error.cause = errorDetails
-        }
-        throw error
+        const { transport, serverError } = await writeFailure(response)
+        throw (
+          serverError ??
+          appError(
+            { message: 'Failed to create {table} record ({status})', values: { table: tableName, status: response.status } },
+            transport,
+          )
+        )
       }
 
       const result = await response.json()
@@ -121,11 +117,11 @@ export function useCreateRecord<T = Record<string, unknown>>(
 
 /**
  * Generic hook for updating records in a PostgREST table
- * 
+ *
  * @param tableName - Name of the table in the PostgREST API
  * @param idField - Name of the ID field (default: 'id')
  * @returns Mutation hook for updating records
- * 
+ *
  * @example
  * const updateCustomer = useUpdateRecord('customers')
  * updateCustomer.mutate({ id: 123, email: 'newemail@example.com' })
@@ -134,7 +130,6 @@ export function useUpdateRecord<T extends Record<string, unknown>>(
   tableName: string,
   idField: string = 'id'
 ) {
-  const t = useT()
   const { token } = useAuth()
   const { baseUrl: apiBaseUrl } = getApiConfig()
   const queryClient = useQueryClient()
@@ -142,17 +137,17 @@ export function useUpdateRecord<T extends Record<string, unknown>>(
   return useMutation<T, Error, Partial<T> & { [key: string]: unknown }>({
     mutationFn: async (data) => {
       if (!token) {
-        throw new Error(t('Authentication token is required'))
+        throw appError({ message: 'Authentication token is required' })
       }
 
       // Validate table name
       if (!/^[a-zA-Z0-9_-]+$/.test(tableName)) {
-        throw new Error(t('Invalid table name'))
+        throw appError({ message: 'Invalid table name' })
       }
 
       const id = data[idField]
       if (!id) {
-        throw new Error(t('{field} is required for update', { field: idField }))
+        throw appError({ message: '{field} is required for update', values: { field: idField } })
       }
 
       // Create a copy without the ID field for the update payload
@@ -173,27 +168,14 @@ export function useUpdateRecord<T extends Record<string, unknown>>(
       })
 
       if (!response.ok) {
-        let errorMessage = t('Failed to update {table} record', { table: tableName })
-        let errorDetails: Record<string, unknown> | undefined
-
-        try {
-          const errorData = await response.json()
-          if (errorData && typeof errorData === 'object' && !Array.isArray(errorData)) {
-            // Status alongside the server's body, like every other thrower here.
-            errorDetails = { ...(errorData as Record<string, unknown>), status: response.status }
-            if ('message' in errorDetails && typeof errorDetails.message === 'string') {
-              errorMessage = errorDetails.message
-            }
-          }
-        } catch {
-          errorMessage = `${errorMessage}: ${response.statusText}`
-        }
-
-        const error = new Error(errorMessage)
-        if (errorDetails) {
-          error.cause = errorDetails
-        }
-        throw error
+        const { transport, serverError } = await writeFailure(response)
+        throw (
+          serverError ??
+          appError(
+            { message: 'Failed to update {table} record ({status})', values: { table: tableName, status: response.status } },
+            transport,
+          )
+        )
       }
 
       const result = await response.json()
@@ -204,9 +186,10 @@ export function useUpdateRecord<T extends Record<string, unknown>>(
       // `Prefer: return=representation` above is what makes the empty array
       // observable at all.
       if (Array.isArray(result) && result.length === 0) {
-        throw new Error(t('This {table} record no longer exists', { table: tableName }), {
-          cause: { status: 404, matched: 0, [idField]: id },
-        })
+        throw appError(
+          { message: 'This {table} record no longer exists', values: { table: tableName } },
+          { status: 404, matched: 0, [idField]: id },
+        )
       }
       return Array.isArray(result) ? result[0] : result
     },
@@ -224,17 +207,16 @@ export function useUpdateRecord<T extends Record<string, unknown>>(
 
 /**
  * Generic hook for deleting records in a PostgREST table
- * 
+ *
  * @param tableName - Name of the table in the PostgREST API
  * @param idField - Name of the ID field (default: 'id')
  * @returns Mutation hook for deleting records
- * 
+ *
  * @example
  * const deleteCustomer = useDeleteRecord('customers')
  * deleteCustomer.mutate(123)
  */
 export function useDeleteRecord(tableName: string, idField: string = 'id') {
-  const t = useT()
   const { token } = useAuth()
   const { baseUrl: apiBaseUrl } = getApiConfig()
   const queryClient = useQueryClient()
@@ -242,12 +224,12 @@ export function useDeleteRecord(tableName: string, idField: string = 'id') {
   return useMutation<void, Error, string | number>({
     mutationFn: async (id) => {
       if (!token) {
-        throw new Error(t('Authentication token is required'))
+        throw appError({ message: 'Authentication token is required' })
       }
 
       // Validate table name
       if (!/^[a-zA-Z0-9_-]+$/.test(tableName)) {
-        throw new Error(t('Invalid table name'))
+        throw appError({ message: 'Invalid table name' })
       }
 
       const url = `${apiBaseUrl}/${tableName}?${idField}=eq.${id}`
@@ -266,35 +248,23 @@ export function useDeleteRecord(tableName: string, idField: string = 'id') {
       })
 
       if (!response.ok) {
-        let errorMessage = t('Failed to delete {table} record', { table: tableName })
-        let errorDetails: Record<string, unknown> | undefined
-
-        try {
-          const errorData = await response.json()
-          if (errorData && typeof errorData === 'object' && !Array.isArray(errorData)) {
-            // Status alongside the server's body, like every other thrower here.
-            errorDetails = { ...(errorData as Record<string, unknown>), status: response.status }
-            if ('message' in errorDetails && typeof errorDetails.message === 'string') {
-              errorMessage = errorDetails.message
-            }
-          }
-        } catch {
-          errorMessage = `${errorMessage}: ${response.statusText}`
-        }
-
-        const error = new Error(errorMessage)
-        if (errorDetails) {
-          error.cause = errorDetails
-        }
-        throw error
+        const { transport, serverError } = await writeFailure(response)
+        throw (
+          serverError ??
+          appError(
+            { message: 'Failed to delete {table} record ({status})', values: { table: tableName, status: response.status } },
+            transport,
+          )
+        )
       }
 
       // See the Prefer header above: `[]` means no row carried this id.
       const deleted: unknown = await response.json().catch(() => [])
       if (Array.isArray(deleted) && deleted.length === 0) {
-        throw new Error(t('This {table} record no longer exists', { table: tableName }), {
-          cause: { status: 404, matched: 0, [idField]: id },
-        })
+        throw appError(
+          { message: 'This {table} record no longer exists', values: { table: tableName } },
+          { status: 404, matched: 0, [idField]: id },
+        )
       }
     },
     onSuccess: () => {

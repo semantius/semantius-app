@@ -11,10 +11,9 @@ import { NotFoundPage } from '@/components/NotFoundPage'
 import { useUpdateRecord } from '@/hooks/useTableMutations'
 import { useTable } from '@/hooks/useTable'
 import { getConfig } from '@/lib/config'
-import { getModuleDisplay } from '@/contexts/AuthContext'
-import { moduleOverride, useLocaleLabels } from '@/i18n'
+import { getModuleDisplay, moduleLabels } from '@/contexts/AuthContext'
 import { useT } from '@/i18n'
-import { serverMessage } from '@/lib/apiErrors'
+import { renderError } from '@/lib/apiErrors'
 
 export const Route = createFileRoute('/_app/$moduleId/')({
   // The module's display name lives in rpcUserInfo, which head() cannot reach;
@@ -29,7 +28,6 @@ const EMPTY_CONFIG: DashboardConfig = { portlets: [] }
 
 function ModuleHomeComponent() {
   const t = useT()
-  const labels = useLocaleLabels()
   const { moduleId } = Route.useParams()
   const { rpcUserInfo, token } = useAuth()
   const updateModule = useUpdateRecord<{ id: number; dashboard_config: DashboardConfig | null }>('modules')
@@ -71,7 +69,7 @@ function ModuleHomeComponent() {
     return <NotFoundPage />
   }
 
-  const { displayName, displayTitle } = getModuleDisplay(module, moduleOverride(labels, module.module_slug, module))
+  const { displayName, displayTitle } = getModuleDisplay(module, moduleLabels(t, module))
 
   const moduleHeader = (
     <div className="flex items-center gap-4">
@@ -96,7 +94,7 @@ function ModuleHomeComponent() {
         {moduleHeader}
         <Card>
           <CardContent className="py-6 text-destructive text-sm">
-            {t('Failed to save dashboard: {message}', { message: serverMessage(updateModule.error) })}
+            {t('Failed to save dashboard: {message}', { message: renderError(updateModule.error, t).message })}
           </CardContent>
         </Card>
       </div>

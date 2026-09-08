@@ -12,34 +12,26 @@
  */
 
 import { useSyncExternalStore } from 'react'
-import { tenantTableAvailable } from './store'
 import { FALLBACK_TRANSLATE_PERMISSION, TRANSLATE_PERMISSION } from './tenant'
-import { translateTargetIsRepo } from './translateTarget'
+import { targetAvailable, translateTarget } from './translateTarget'
 
 export const MARK_MISSING_KEY = 'semantius-i18n-mark'
 export const TRANSLATE_MODE_KEY = 'semantius-i18n-translate'
 
-/** The panel's tabs and its catalog filters — identifiers, named here so the UI files carry no bare literals. */
-export const PANEL_TAB = { catalog: 'catalog', labels: 'labels' } as const
-export type PanelTab = (typeof PANEL_TAB)[keyof typeof PANEL_TAB]
-
+/** The panel's filters — identifiers, named here so the UI files carry no bare literals. */
 export const CATALOG_FILTER = {
   all: 'all',
   missing: 'missing',
-  requested: 'requested',
   onPage: 'on-page',
 } as const
 export type CatalogFilter = (typeof CATALOG_FILTER)[keyof typeof CATALOG_FILTER]
-
-export const LABEL_VIEW = { page: 'page', model: 'model' } as const
-export type LabelView = (typeof LABEL_VIEW)[keyof typeof LABEL_VIEW]
 
 export interface TranslateModeFlags {
   /** Highlight untranslated text on the page. */
   marking: boolean
   /** The full mode: marking, Alt+click editing and the panel. */
   editing: boolean
-  /** What the active language still lacks — the index plus the labels on screen. */
+  /** What the active language still lacks — the index plus what is on screen. */
   missingCount: number
 }
 
@@ -131,18 +123,19 @@ export function setMissingCount(count: number): void {
  * Whether translate mode is offered at all.
  *
  * There is exactly one writer and no fallback, so the mode exists only where a
- * translation has somewhere real to go: the dev server writing this checkout,
- * or a translate target whose `ui_translations` table answered. A deployment
+ * translation has somewhere real to go: a `dev` or `stage` target, which needs
+ * no permission — it writes the file of whoever runs it — or a `prod` target
+ * whose record store answered, for a user who may write to it. A deployment
  * with neither does not show the switches — an editor that cannot save is
  * worse than no editor.
  *
  * `translations.edit` is the permission the platform migration creates; until a
- * tenant has it, `admin` stands in. The dev server needs neither: it writes the
- * repo of whoever is running it.
+ * tenant has it, `admin` stands in.
  */
 export function canTranslate(permissions: readonly string[] | undefined): boolean {
-  if (translateTargetIsRepo()) return true
-  if (!tenantTableAvailable()) return false
+  const { mode } = translateTarget()
+  if (mode === 'dev' || mode === 'stage') return true
+  if (mode !== 'prod' || targetAvailable() !== true) return false
   if (!permissions) return false
   return permissions.includes(TRANSLATE_PERMISSION) || permissions.includes(FALLBACK_TRANSLATE_PERMISSION)
 }

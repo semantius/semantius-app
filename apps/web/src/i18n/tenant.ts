@@ -1,113 +1,25 @@
 /**
- * The tenant's own translation layer, and the preference stored on the session.
+ * The platform's side of the two preferences, and the translate permission.
  *
- * A cloud customer translates their deployment by writing rows into a
- * `ui_translations` table in their own database, and stores their chosen
- * language on their own user row. Both are platform data, so everything about
- * HOW they are read and written — the query, the paging, the RPC name, the codes
- * that mean "this platform has not applied the migration" — lives here, and
- * `components/TranslationsPrefetch.tsx` and `NavUser.tsx` hold none of it.
+ * A cloud customer's chosen language is stored on their own user row and
+ * returned by `get_userinfo`; the switcher writes it back through an RPC.
+ * Everything about HOW — the RPC name, its argument names, the code that
+ * means "this platform has not applied the migration" — lives here, and
+ * `NavUser.tsx` and `TranslationsPrefetch.tsx` hold none of it.
  *
- * That split is not tidiness. Every string below is an identifier, a query
- * fragment or an error code, and this directory is where the lint rule already
- * expects those; the same strings inside a component would be indistinguishable
- * from untranslated UI text.
+ * That split is not tidiness. Every string below is an identifier or an error
+ * code, and this directory is where the lint rule already expects those; the
+ * same strings inside a component would be indistinguishable from
+ * untranslated UI text.
  */
 
 import type { SessionPreference } from './resolveLocale'
 
-/** The one table this feature adds. Created by the platform migration. */
-export const TENANT_TABLE = 'ui_translations'
-
-/**
- * The table's unique key, as `on_conflict` wants it. A translate-mode save is
- * an UPSERT on these four columns (`Prefer: resolution=merge-duplicates`), one
- * row per save; the collector's insert uses the same columns with
- * `ignore-duplicates`, which is what keeps a request from overwriting a
- * translation.
- */
-export const TRANSLATION_CONFLICT_COLUMNS: readonly string[] = ['locale', 'scope', 'key', 'context']
-
-/** The permission the migration creates for writing translations. */
+/** The permission the platform migration creates for writing translations. */
 export const TRANSLATE_PERMISSION = 'translations.edit'
 
 /** What stands in for it on a tenant whose migration has not landed. */
 export const FALLBACK_TRANSLATE_PERMISSION = 'admin'
-
-/**
- * The queue for one language: every request the collector recorded, newest
- * first. Read by the translate-mode panel when it opens, never prefetched.
- */
-export function queueQuery(locale: string): string {
-  return (
-    'select=id,scope,key,context,origin,first_seen&translation=eq.' +
-    `&locale=eq.${encodeURIComponent(locale)}&order=first_seen.desc&limit=${TENANT_PAGE_SIZE}`
-  )
-}
-
-/**
- * When each of a language's translations was last written — the panel's
- * "changed since translated" compares this against the model's `updated_at`.
- */
-export function translatedAtQuery(locale: string): string {
-  return (
-    'select=scope,key,context,updated_at&translation=neq.' +
-    `&locale=eq.${encodeURIComponent(locale)}&limit=${TENANT_PAGE_SIZE}`
-  )
-}
-
-/** The three model reads the label inventory is built from. */
-export const MODEL_TABLES = {
-  tables: 'tables',
-  fields: 'fields',
-  modules: 'modules',
-} as const
-
-export const MODEL_QUERIES = {
-  tables: 'select=table_name,singular_label,plural_label,description,updated_at&limit=1000',
-  fields:
-    'select=table_name,field_name,title,description,enum_values,relationship_label,' +
-    'singular_label_parent,plural_label_parent,updated_at&limit=5000',
-  modules: 'select=module_slug,module_name,description,updated_at&limit=1000',
-} as const
-
-/** One page. PostgREST's own `max-rows` may cap it lower, which is harmless. */
-export const TENANT_PAGE_SIZE = 1000
-
-/**
- * How many pages the prefetch will read. Hooks cannot be called in a loop, so
- * the ceiling is fixed; 4000 translated rows is a heavily translated tenant, and
- * anything past it simply falls back to English rather than breaking.
- */
-export const TENANT_MAX_PAGES = 4
-
-/**
- * `translation=neq.` excludes the QUEUE — an empty translation is a request the
- * collector recorded, not something to render. `&` with an empty value after the
- * operator is valid PostgREST and means exactly "not the empty string".
- */
-const TENANT_SELECT = 'select=locale,scope,key,context,translation&translation=neq.&order=id.asc'
-
-/**
- * The query for one page. Byte-identical between pages apart from the offset,
- * because the query string is part of the react-query key.
- */
-export function tenantPageQuery(page: number): string {
-  const offset = page * TENANT_PAGE_SIZE
-  return offset === 0
-    ? `${TENANT_SELECT}&limit=${TENANT_PAGE_SIZE}`
-    : `${TENANT_SELECT}&limit=${TENANT_PAGE_SIZE}&offset=${offset}`
-}
-
-/**
- * PostgREST's own codes for "that relation is not there".
- *
- * A STATUS never means this. The tenant's serverless PostgREST answers a bare
- * 404 to the first request after an idle period, and the fetch interceptor has
- * already spent its retry budget on that by the time an error surfaces — so only
- * a definitive body turns the tenant layer off.
- */
-const TABLE_ABSENT_CODES = new Set(['42P01', 'PGRST205'])
 
 /** PostgREST's own code for a function that is not in the schema. */
 const FUNCTION_ABSENT_CODE = 'PGRST202'
@@ -120,13 +32,12 @@ function causeCode(error: unknown): string | undefined {
   return typeof code === 'string' ? code : undefined
 }
 
-/** True only for a definitive "no such table" — see TABLE_ABSENT_CODES. */
-export function isTenantTableAbsent(error: unknown): boolean {
-  const code = causeCode(error)
-  return code !== undefined && TABLE_ABSENT_CODES.has(code)
-}
-
-/** True only for a definitive "no such function". */
+/**
+ * True only for a definitive "no such function". A STATUS never means this:
+ * the tenant's serverless PostgREST answers a bare 404 to the first request
+ * after an idle period, and the fetch interceptor has already spent its retry
+ * budget on that by the time an error surfaces.
+ */
 export function isPreferenceRpcAbsent(error: unknown): boolean {
   return causeCode(error) === FUNCTION_ABSENT_CODE
 }

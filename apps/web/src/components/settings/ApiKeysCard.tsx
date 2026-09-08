@@ -8,7 +8,7 @@ import { useFormattingLocale, useT } from '@/i18n'
 import { formatDateForDisplay, type DateFormat } from '@/lib/date-format'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { serverMessage } from '@/lib/apiErrors'
+import { renderError } from '@/lib/apiErrors'
 import {
   Card,
   CardContent,
@@ -219,7 +219,7 @@ export function ApiKeysCard() {
           />
           {createMutation.error && (
             <p className="text-sm text-destructive">
-              {serverMessage(createMutation.error)}
+              {renderError(createMutation.error, t).message}
             </p>
           )}
           <DialogFooter>
@@ -320,7 +320,7 @@ export function ApiKeysCard() {
             </AlertDialogDescription>
             {revokeMutation.error && (
               <p className="text-sm text-destructive pt-1">
-                {serverMessage(revokeMutation.error)}
+                {renderError(revokeMutation.error, t).message}
               </p>
             )}
           </AlertDialogHeader>

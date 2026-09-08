@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://semantius.com/schemas/locale-file.json",
-  "title": "Semantius locale file",
-  "description": "One language, in the single shape every translation layer speaks: the repo catalogs under apps/web/src/locales, an operator's deployment file served from /locales/<code>.json, the tenant's ui_translations rows exported as a file, and translate mode's export. Which sections a file MAY carry depends on where it lives — a repo catalog carries messages, contexts and obsolete only (labels, server and rule are tenant or deployment data), which src/test/i18nCatalogs.test.ts enforces separately. The source string is the key: there are no message ids.",
+  "title": "Semantius language file",
+  "description": "One language, in the single shape every place a language lives speaks: the files shipped under apps/web/public/locales, an operator's replacement of one, a stage host's copy, a work file's source. The map is FLAT. A code string is keyed by its own English source text (there are no message ids; a disambiguated one is prefixed, `columnVisibility.View`); model text is keyed by its model path under the reserved `module.` root (`module.nwind.orders.field.city.title`, an enum value by its STORED value); a server error by its SQLSTATE plus constraint name, or by its own template. en-US.json is the index: the same shape with the SOURCE text as the value of every key.",
   "type": "object",
   "required": ["locale"],
   "additionalProperties": false,
@@ -19,90 +19,17 @@
     },
     "messages": {
       "$ref": "#/$defs/translationMap",
-      "description": "Code strings, keyed by the English source text exactly as it appears in the app. An empty value means 'not translated yet' and falls through to the source text."
-    },
-    "contexts": {
-      "type": "object",
-      "description": "The same, for messages that carry a context because one English word has two meanings ('View' the noun, 'View' the verb). Keyed by context, then by source text.",
-      "additionalProperties": { "$ref": "#/$defs/translationMap" }
-    },
-    "labels": {
-      "type": "object",
-      "additionalProperties": false,
-      "description": "Model-label overrides. These are DATA — table, column, enum and module labels come from the semantic model, so no extractor can see them and they never appear in a repo catalog.",
-      "properties": {
-        "tables": {
-          "type": "object",
-          "additionalProperties": { "$ref": "#/$defs/tableLabels" }
-        },
-        "modules": {
-          "type": "object",
-          "additionalProperties": { "$ref": "#/$defs/moduleLabels" }
-        }
-      }
-    },
-    "server": {
-      "$ref": "#/$defs/translationMap",
-      "description": "Messages the app cannot know in advance: PostgREST and RPC text raised by the backend. Looked up VERBATIM and never ICU-compiled, because server text may legitimately contain braces."
-    },
-    "rule": {
-      "$ref": "#/$defs/translationMap",
-      "description": "Messages authored in the model's validation rules, looked up the same way as `server`."
+      "description": "Key to translation. An empty value means 'not translated yet' and falls through to the source text — which is what discovery writes when the running app meets a key this language does not know."
     },
     "obsolete": {
-      "type": "object",
-      "additionalProperties": false,
-      "description": "Translations whose source string no longer exists in the code. Repo catalogs only — written by `i18n:extract`, emptied by `i18n:extract --prune`.",
-      "properties": {
-        "messages": { "$ref": "#/$defs/translationMap" },
-        "contexts": {
-          "type": "object",
-          "additionalProperties": { "$ref": "#/$defs/translationMap" }
-        }
-      }
+      "$ref": "#/$defs/translationMap",
+      "description": "Translations whose code string was reworded or removed, kept so they are not lost silently. Written by the optional `i18n:extract` scan, emptied by `i18n:extract --prune`. Never a `module.*` key: nothing retires those."
     }
   },
   "$defs": {
     "translationMap": {
       "type": "object",
       "additionalProperties": { "type": "string" }
-    },
-    "tableLabels": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "singular_label": { "type": "string" },
-        "plural_label": { "type": "string" },
-        "description": { "type": "string" },
-        "columns": {
-          "type": "object",
-          "additionalProperties": { "$ref": "#/$defs/columnLabels" }
-        }
-      }
-    },
-    "columnLabels": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "title": { "type": "string" },
-        "description": { "type": "string" },
-        "relationship_label": { "type": "string" },
-        "singular_label_parent": { "type": "string" },
-        "plural_label_parent": { "type": "string" },
-        "enum": {
-          "type": "object",
-          "description": "One entry per value of the column's enum, keyed by the stored value — never by its English label.",
-          "additionalProperties": { "type": "string" }
-        }
-      }
-    },
-    "moduleLabels": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "name": { "type": "string" },
-        "description": { "type": "string" }
-      }
     }
   }
 }

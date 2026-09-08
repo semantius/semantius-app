@@ -130,7 +130,8 @@ The callback url is /oauth2_callback like http://localhost:5173/oauth2_callback
 | `VITE_CONTROL_PLANE_URL` | Semantius control plane (default on) — set to an explicit empty value for self-hosted |
 | `VITE_CONTROL_PLANE_ORG` | Org slug when using the control plane                    |
 | `VITE_CUBE_API_URL`    | Cube.js analytics API URL (defaults from the tenant)       |
-| `VITE_TRANSLATE_API_URL` | Where translate mode reads and writes. Unset = this app's own API. Under `pnpm dev` it defaults to the dev server, which writes the repo |
+| `VITE_TRANSLATE_MODE` | The translate target's mode: `dev` / `stage` / `prod` / `off` (default). `apps/web/.env.development` sets `dev` for `pnpm dev` |
+| `VITE_TRANSLATE_API_URL` | The translate target's base, answering `GET/POST {base}/translations`. Unset: the app's own origin in `dev`, the app's own API in `prod`. Required for `stage` |
 
 **→ [BACKEND.md](BACKEND.md)** is the reference for what these point at: the two
 deployment shapes, the REST and RPC endpoints, the model schema `get_schema`
@@ -248,15 +249,38 @@ import { translate, msg } from '@/i18n'         // everywhere else
 t('Enter a valid email address')
 t('Delete {label}?', { label: singularLabel })
 t('{count, plural, one {# row} other {# rows}} selected', { count })
-t({ message: 'Right', context: 'direction' })   // two meanings, same word
+t({ id: ['columnVisibility'], message: 'View' })   // two meanings, same word
+t({ id: ['module', slug, table, 'entity', 'plural_label'], defaultMessage: table.plural_label })
 <Trans id="Delete <bold>{name}</bold>?" values={{ name }} components={{ bold: <strong /> }} />
 
 const MENU = [{ title: msg('Settings'), url: '/settings' }]   // rendered with t(entry.title)
 ```
 
-**The English source text is the key.** There are no message ids to invent, so a
-label on screen is found by grepping for the words on it, and adding a string is
-one edit in the file that renders it.
+**Three call forms, and which field is present is the discriminator.** A
+message alone IS its key: there are no message ids to invent, so a label on
+screen is found by grepping for the words on it, and adding a string is one
+edit in the file that renders it. An `id` plus a `message` prefixes the key
+(`columnVisibility.View`) for the one English word that means two things. An
+`id` plus a `defaultMessage` is keyed by the id alone, the English being the
+fallback — that is how MODEL TEXT is a message: a table's plural label, a
+field's title, an enum value, a module's name each have a key built from their
+model path, and the model's own English renders where nothing is translated.
+
+`module` is a reserved first segment. A code key may never start with it, and
+that one rule is what tells the two kinds apart in a file, a query and a grep:
+
+| Kind | Key |
+| --- | --- |
+| a module | `module.nwind.name`, `module.nwind.description` |
+| an entity | `module.nwind.orders.entity.plural_label` (`singular_label`, `description`) |
+| a field | `module.nwind.orders.field.city.title` (`description`, `relationship_label`, `singular_label_parent`, `plural_label_parent`) |
+| an enum value | `module.nwind.orders.enum.status.pending` — the **stored value**, never its label |
+
+The attribute vocabulary is the model's own column names. The slug comes from
+`get_schema`'s `module_slug`, never from the route: `/$moduleId/$table_name` is
+a catch-all, and a parent-filtered view fetches another entity's schema. The
+id is passed as segments — the joining and the escaping live inside `t`, so an
+enum value with a dot in it is a key like any other.
 
 **Two names on purpose.** `translate()` is a module function and cannot re-render
 a component when the language changes, so components use `useT()` and everything
@@ -272,22 +296,56 @@ Two preferences, resolved separately: **`language`** picks the catalog (`de-DE`)
 **`locale`** drives every `Intl` call, date-fns and `localeCompare` (`de-CH`).
 Formatting helpers take `useFormattingLocale()`, never the catalog language.
 
+### The files
+
+One flat file per language under `apps/web/public/locales/`, the shape of
+[`/locales/schema.json`](apps/web/public/locales/schema.json):
+
+```json
+{ "locale": "de-DE",
+  "name": "Deutsch",
+  "messages": { "Save": "Speichern",
+                "columnVisibility.View": "Ansicht",
+                "module.nwind.orders.field.city.title": "Stadt" },
+  "obsolete": { "…": "…" } }
+```
+
+`en-US.json` is the same shape with the SOURCE text as the value of every key:
+**the index**, the complete baseline a new language is started from. It is
+never loaded as a catalog — the source language's catalog is the English in the
+code and the model.
+
+**Discovery is how the index is maintained.** The running app renders a string,
+fails to translate it, and records it through the translate target: the key
+with its source into `en-US.json`, and an empty entry into the language being
+translated. A code message and a piece of model text are recorded the same way
+— adding a field to an entity produces a string that appears in the file, the
+diff and the PR the moment a screen renders it. Coverage comes from the test
+suite: the browser project runs against the dev server, so `pnpm check` is what
+fills `en-US.json`, and its diff is the discovery. A code string no test renders
+is a test gap, not an i18n gap.
+
+The source scan, `pnpm --filter @semantius/frontend i18n:extract`, is an
+**optional tool you run, never a gate**. Its job is pruning: a code string that
+was reworded or deleted leaves a key nothing at runtime can observe as gone, and
+the scan moves its translations to `obsolete` (`--prune` empties it). It never
+touches `module.*` — runtime owns that half — and it reports, without failing,
+any code string discovery has never seen.
+
 ### Adding or changing a string
 
-1. Write it with `t()` / `translate()` / `<Trans>`.
-2. `pnpm --filter @semantius/frontend i18n:extract` — regenerates
-   `apps/web/src/locales/en-US.json` (the index: every message with its origin
-   files and ICU placeholders) and adds the new key to every catalog with an
-   empty value.
-3. Fill in the German in `apps/web/src/locales/de-DE.json`. **In the same PR** —
-   the source string IS the key, so rewording one orphans its translations
-   (they move to `obsolete`) and the new wording is missing until translated.
+1. Write it with `t()` / `translate()` / `<Trans>`, or throw it with `appError()`.
+2. Render it — the test that covers the screen is what puts the key into
+   `apps/web/public/locales/en-US.json` and an empty entry into `de-DE.json`.
+3. Fill in the German in `apps/web/public/locales/de-DE.json`. **In the same PR** —
+   the source string IS the key, so rewording one orphans its translation and
+   the new wording is missing until translated.
 4. `pnpm --filter @semantius/frontend i18n:status` prints `0 missing` before the
    PR merges.
 
-`apps/web/src/locales/TRANSLATION-GUIDE.md` is the brief for whoever does step 3,
-including the fixed product terms. `en-US.json` is generated and committed like
-`routeTree.gen.ts`; never hand-edit it.
+`apps/web/scripts/i18n/TRANSLATION-GUIDE.md` is the brief for whoever does step 3,
+including the fixed product terms, and the agent workflow around
+`i18n:translate` / `i18n:import`.
 
 ### Adding a language without a rebuild (operators)
 
@@ -296,14 +354,15 @@ app and naming it in the customizer. No rebuild, no repo change.
 
 1. Write `<code>.json` against
    [`/locales/schema.json`](apps/web/public/locales/schema.json), which the build
-   serves — point your editor's `$schema` at it. `apps/web/src/locales/de-DE.json`
-   is a worked example of the `messages` half.
+   serves — point your editor's `$schema` at it. Start from `/locales/en-US.json`,
+   the index: every key with its English.
 2. Put it where the app is served from: `apps/web/public/locales/` in this repo's
    own builds, `/usr/share/nginx/html/locales/` in the Docker image (mount a
-   volume or copy it in — see [`docker/README.md`](docker/README.md)).
-3. Register it in `VITE_UI_CUSTOMIZER`, alongside the user menu it already
-   carries. In `docker/.env` the JSON must stay on ONE line; the parser is
-   line-based.
+   volume or copy it in — see [`docker/README.md`](docker/README.md)). A file
+   that REPLACES a shipped one (`de-DE.json`) needs nothing else.
+3. Register a NEW language in `VITE_UI_CUSTOMIZER`, alongside the user menu it
+   already carries. In `docker/.env` the JSON must stay on ONE line; the parser
+   is line-based.
 
    ```json
    {"user":{"menu":[]},
@@ -323,200 +382,111 @@ not there reads as "no such language" and the app stays in English — the loade
 requires `content-type: application/json`, because a web server with a SPA
 fallback answers a missing file with the app's own HTML and a 200.
 
-What a deployment file can carry, beyond `messages` and `contexts`:
+### The translate target
 
-- **`labels`** — model-label overrides for tables, columns, enum values and
-  modules (see below).
-- **`server`** and **`rule`** — messages the backend produces, looked up verbatim
-  and never ICU-compiled.
+Two sources per language, merged per key, the record over the file: the file
+above, and **one record per language** kept by the translate target — where
+overrides and customer-added text live, so they survive a product update. The
+client speaks one contract everywhere ([`i18n-endpoint-spec.md`](i18n-endpoint-spec.md)):
 
-What it **cannot** do, and there is no workaround short of the tenant table: no
-queue (requests stay in the browser's `localStorage`), no saving from inside the
-app, no "changed since translated", no `obsolete`.
-
-### Model labels — table, column and enum names
-
-Table, column, enum and module labels come from the semantic model, not from the
-code, so no extractor can see them and `i18n:status` can never report them. Their
-keys are:
-
-| Scope    | Key |
-| -------- | --- |
-| `table`  | `customers.singular_label` / `.plural_label` / `.description` |
-| `column` | `customers.status.title` / `.description` / `.relationship_label` / `.singular_label_parent` / `.plural_label_parent` |
-| `enum`   | `customers.status.active` — the **stored value**, never its English label |
-| `module` | `crm.name` / `crm.description` |
-
-Overrides apply at render: the model itself is unchanged, filters and comparisons
-keep using the stored values, and switching language re-renders the grid without
-refetching the schema.
-
-Their inventory comes from the model itself:
-
-```bash
-dotenvx run --quiet -- node apps/web/scripts/i18n/labels.mjs --locale de-DE
-dotenvx run --quiet -- node apps/web/scripts/i18n/labels.mjs --locale fr-FR \
-  --file apps/web/public/locales/fr-FR.json
+```
+GET  {base}/translations?locale=de-DE   -> { "<key>": "<translation>", … }
+POST {base}/translations                { locale, key, translation }
 ```
 
-It prints every label the model carries with no translation, every translation
-whose key the model no longer has (**orphaned** — a renamed table or a dropped
-field; deleting one is a translator's call, so it is reported and never pruned),
-and writes a skeleton to fill in. **Run it after any model change**: an agent that
-has just created an entity or a field has produced English labels that nothing
-else in this repo knows about.
+The target carries a **mode**, `VITE_TRANSLATE_MODE` — explicit configuration,
+never derived from the build:
 
-### Tenant translations (`ui_translations`)
+| Mode | A write goes to | Discovers |
+| --- | --- | --- |
+| `dev` | this checkout's `public/locales/<code>.json`, through the Vite dev server (`apps/web/.env.development` sets it for `pnpm dev`) | yes |
+| `stage` | a host holding a copy of the language files (`VITE_TRANSLATE_API_URL`) | yes |
+| `prod` | the per-language record on the app's own API — customizations, or where stage is not possible | no |
+| `off` | nothing — the default | no |
 
-A cloud customer translates their own deployment by writing rows into a table in
-their own database, editable through the app's own admin grid like any other
-entity. One row per translated item — so a save never read-modify-writes a whole
-file, and two translators cannot clobber each other.
+`VITE_TRANSLATE_API_URL` is the base; unset, it is the app's own origin in `dev`
+and the app's own API in `prod`. In `prod` discovery is the on-screen marking:
+a translator finds untranslated text by looking and Alt+clicks it. The
+`/translations` endpoint on the tenant's API is the backend's to build; until
+it answers, `prod` reads the shipped file only and offers no editing.
 
-```sql
-create table ui_translations (
-  id          bigint generated always as identity primary key,
-  locale      text not null,                       -- BCP-47, e.g. 'de-DE'
-  scope       text not null default 'message'
-              check (scope in ('message', 'table', 'column', 'enum', 'module', 'server', 'rule')),
-  key         text not null,                       -- message: the source text
-                                                   -- table:  'accounts.plural_label'
-                                                   -- column: 'accounts.status.title'
-                                                   -- enum:   'accounts.status.active'
-                                                   -- module: 'crm.name'
-  context     text not null default '',            -- message context, '' when none
-  translation text not null default '',            -- '' = requested, not yet translated
-  origin      text,                                -- where the app met it: a route, a rule, an RPC
-  requested_by text,                               -- who met it first; set by a trigger from the JWT
-  first_seen  timestamptz not null default now(),
-  updated_by  text,                                -- who translated it last; set by a trigger
-  updated_at  timestamptz not null default now(),
-  unique (locale, scope, key, context)
-);
-```
+**Terminology overrides.** In `prod`, an `en-US` record replaces the English for
+that tenant — "Customer" → "Patient" — because the source language's record is
+merged like any other. For model text the model itself is usually the better
+place, since renaming `singular_label` changes every screen in every language.
 
-The rest of the migration, all in the same change:
+### Errors
 
-- a `before insert` trigger setting `requested_by` from the JWT when
-  `translation` is empty (type and default as `user_bookmarks.user_id`), and a
-  `before update` trigger setting `updated_at` / `updated_by`;
-- policies: insert when `translation` is empty and `requested_by` is the caller,
-  **or** when the caller holds `translations.edit`; update and delete need
-  `translations.edit`. (An upsert is an insert first, and a translator's plain
-  insert carries a non-empty translation.)
-- semantic-model registration so the grid renders it: entity `ui_translations` in
-  the `admin` module, singular "Translation", plural "Translations",
-  `id_column: id`, `label_column: key`, `scope` an enum field, `requested_by` /
-  `first_seen` / `updated_by` / `updated_at` read-only, `edit_permission` set to a
-  dedicated `translations.edit` permission; every authenticated user may read;
-- `language` and `locale` columns on `users` (nullable — null means "browser
-  default"), returned by `get_userinfo`, and a `set_user_preferences(language,
-  locale)` RPC that updates the caller's own row.
+Every error reaches a screen in one shape, and `renderError` in
+`apps/web/src/lib/apiErrors.ts` is the one renderer:
 
-The app **probes for none of it**. A definitive `PGRST205` / `42P01` disables the
-tenant layer, a definitive `PGRST202` disables the preference write-back for the
-session, and a `get_userinfo` with no `language` field at all leaves this
-browser's own cached choice alone. A bare 404 means none of those — the tenant's
-serverless PostgREST answers one to the first request after an idle period, and
-the fetch interceptor retries it.
-
-**The queue.** Every string the running app fails to translate becomes a row with
-an empty translation: a code string with no catalog entry, a model label with no
-override, and — the ones nothing else can find — a PostgREST message, an RPC's
-`raise`, a message authored in a model validation rule. They are inserted with
-`Prefer: resolution=ignore-duplicates`, so a request can never overwrite a
-translation. A German user meeting an untranslated backend error at 3am leaves a
-row with their id, the time and the route they were on.
-
-```bash
-# what is outstanding, including the queue and the model labels
-dotenvx run --quiet -- node apps/web/scripts/i18n/status.mjs --tenant --locale de-DE
-
-# everything still needed, as one file for an agent to fill in
-dotenvx run --quiet -- node apps/web/scripts/i18n/translate.mjs --locale de-DE
-#   -> apps/web/.i18n/work-de-DE.json  (git-ignored; schema: /locales/work.schema.json)
-
-# write it back: rows on the tenant, code strings into the repo catalog
-dotenvx run --quiet -- node apps/web/scripts/i18n/import.mjs --locale de-DE
-
-# take a language out as a file, or copy tenant translations into repo gaps
-dotenvx run --quiet -- node apps/web/scripts/i18n/export.mjs --locale de-DE --out /tmp/de-DE.json
-dotenvx run --quiet -- node apps/web/scripts/i18n/export.mjs --locale de-DE \
-  --messages-into apps/web/src/locales/de-DE.json
-```
-
-`import.mjs` **refuses the whole file** on any failure — an unknown key, a
-translation that drops or invents an ICU placeholder, one that does not compile.
-None of those are visible in a diff of a thousand entries, and all of them are
-cheap to catch there. `server` and `rule` text is exempt from the compile check:
-it is looked up verbatim and may legitimately contain braces.
-
-All of these need the repo root's `.env` (hence `dotenvx run` rather than a
-package script). They resolve the tenant through the control plane, the way the
-accessibility audit does; a self-hosted deployment sets `SEMANTIUS_TOKEN` and
-passes `--api-url` instead.
-
-**Terminology overrides.** A row with `locale = 'en-US'` replaces the English for
-that tenant — "Customer" → "Patient" — because the source language's layers are
-merged like any other. For a model label the model itself is usually the better
-place, since renaming `singular_label` changes every screen in every language; an
-`en-US` label row is for a tenant that must keep the model's term but show
-another word.
+- **An app error** is thrown with `appError({ message, hint?, values?, details? })`
+  — an ICU template plus its values, keyed by its own English and rendered at
+  DISPLAY time through the component's `t`. `error.message` is the template,
+  uninterpolated; the values sit on `cause`. That is what lets a language
+  switch re-render an error already on screen, and what makes a throw possible
+  from a `queryFn`, a loader or the userinfo effect, none of which can call a
+  hook. Developer invariants stay plain `throw new Error`.
+- **A platform error** arrives from PostgREST with its envelope in `hint` — a
+  JSON object whose `hint` key is the hint template and every other key a value.
+  Its `${name}` placeholders are converted to ICU (one pass, braces escaped),
+  and it is keyed by its code: the SQLSTATE on the platform's own classes 90
+  and 99 (a class-99 key is scoped by `hint.entity`), else `hint.code` where the
+  SQLSTATE is spoken for by the HTTP status. The English in the response is the
+  fallback. A value the server did not send renders as its own name, never as a
+  blank or `NaN`.
+- **A plain server sentence** — PostgreSQL's own — is looked up verbatim, never
+  ICU-compiled, under its SQLSTATE plus the constraint name where one can be
+  parsed (`23505.modules_module_slug_key`), else the bare SQLSTATE, else the
+  sentence itself for a codeless gateway rejection. A foreign-key violation on
+  delete still gets the model label's sentence.
+- **`details`** is shown as text behind the Details toggle and is never a key.
 
 ### Finding what is missing
 
 - `pnpm --filter @semantius/frontend i18n:status -- --verbose` — per language:
-  total, translated, missing with their origin files, obsolete.
-- `git diff` after `i18n:extract` — every new key appears with an empty value.
-- `pnpm check` — `src/test/i18nCatalogs.test.ts` runs the real extractor in
-  memory and **fails** when the index or a catalog is out of date, when a
-  translation's ICU placeholders differ from its source, when a value does not
-  compile, or when a repo catalog carries a section that belongs to a tenant. It
-  only **reports** a missing translation: that renders in English, which is a
-  degraded screen rather than a broken build.
+  total, translated, missing (code and model counted separately), obsolete.
+- `git diff apps/web/public/locales` after `pnpm check` — every newly rendered
+  key appears in the index and as an empty entry in `de-DE.json`.
+- `pnpm check` — `src/test/i18nCatalogs.test.ts` **fails** when a translation's
+  ICU placeholders differ from its source, when a value does not compile, or
+  when `obsolete` holds a `module.*` key. It only **reports** a missing
+  translation — that renders in English, which is a degraded screen rather than
+  a broken build — and it only reports a code string the scan sees that no test
+  has rendered, which is a test gap.
 - In the app, a missing string simply renders in English — and translate mode
   (below) marks it.
 
 ### Translate mode
 
-Anyone holding `translations.edit` (or `admin`, until the migration that creates
-the permission has landed) finds two switches at the foot of the **Language**
-submenu in the account menu:
+In `dev` and `stage` anyone finds two switches at the foot of the **Language**
+submenu in the account menu; in `prod` anyone holding `translations.edit` (or
+`admin`, until the migration that creates the permission has landed), once the
+record store answers:
 
 - **Mark missing translations** highlights every piece of text on the page that
-  the active language has no translation for — code strings, model labels, the
+  the active language has no translation for — code strings, model text, the
   value of an `aria-label` or a `placeholder`. The marks are CSS Custom
   Highlights, so the DOM, the accessible names and the layout are untouched.
   Nothing is marked in `en-US`: the source language is never missing anything.
-- **Translate mode** adds in-context editing and a panel. **Alt+click** any
-  text the app produced to edit its translation where it stands (a plain click
-  still does what it always did, which is how a menu is opened to reach the
-  entries inside it). The editor shows the source, its context and origin files,
-  checks the ICU placeholders live and refuses a translation that does not
+- **Translate mode** adds in-context editing and a panel. **Alt+click** or
+  **right-click** any text the app produced to edit its translation where it
+  stands (a plain click still does what it always did, which is how a menu is
+  opened to reach the entries inside it). The editor shows the source and the
+  key, checks the ICU placeholders live and refuses a translation that does not
   compile. The floating **Translations** button opens the panel: the whole
-  catalog with search and the filters *missing* / *requested* (the queue) /
-  *drafts* / *on this page*, a **Model labels** tab for the current page or the
-  whole model (*missing only*, *orphaned*, *changed since translated*, *newest
-  first*), **Download `<code>.json`** and **Reset drafts**. While the mode is on,
-  the Language submenu shows how much the language still lacks.
+  index — code strings and model text in one list, told apart by their keys —
+  with search and the filters *all* / *missing* / *on this page*. While the
+  mode is on, the Language submenu shows how much the language still lacks.
 
-**There is one writer and no fallback.** Every environment speaks the same
-contract — an upsert on `ui_translations` keyed by `(locale, scope, key,
-context)` — and only the base url differs, which is `VITE_TRANSLATE_API_URL`:
-
-| Target | Base | A save becomes |
-| --- | --- | --- |
-| dev | the Vite dev server (the default under `pnpm dev`) | a change in `src/locales/<code>.json` for a code string, `public/locales/<code>.json` for a model label |
-| stage | whatever host answers the same three calls | whatever that host does |
-| prod | unset, so the tenant's own PostgREST | a row in `ui_translations` |
-
-Translate mode is **not offered at all** where there is no such target or no
-permission: an editor that cannot save is worse than no editor, so there is no
-browser draft and no file download.
+**There is one writer and no fallback.** Every target speaks the contract above,
+and only the base and the mode differ. Translate mode is **not offered at all**
+where there is no target: an editor that cannot save is worse than no editor, so
+there is no browser draft and no file download.
 
 That split is what keeps corrections honest. Fixing a genuinely wrong shipped
-German string is a dev change that lands in the repo and goes through a PR; a
-row on a tenant is an override for that tenant, which is a different thing and
+German string is a `dev` change that lands in the repo and goes through a PR; a
+`prod` record is an override for that tenant, which is a different thing and
 should not be how the source gets fixed.
 
 Two things to know while translating: the marks and the click resolve text AS

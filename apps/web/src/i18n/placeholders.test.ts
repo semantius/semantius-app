@@ -3,19 +3,33 @@ import { extract, placeholdersOf as extractorPlaceholdersOf } from '../../script
 import { compileError, placeholderDiff, placeholdersOf } from './placeholders'
 
 /**
- * The in-app placeholder check against the extractor's.
+ * The in-app placeholder check against the scan's.
  *
  * Translate mode holds a typed translation to the rule `import.mjs` and the
  * catalog test apply — and it cannot import the script, so the walk is written
  * twice. This is what keeps the two from drifting: the whole index, both ways.
+ * A source that does not compile (a plain server sentence with braces can be
+ * in the index) has to fail the same way on both sides.
  */
 describe('placeholdersOf', () => {
-  it('agrees with the extractor over every message in the index', () => {
+  it('agrees with the scan over every message in the index', () => {
     const { index } = extract()
-    expect(Object.keys(index.index).length).toBeGreaterThan(20)
-    for (const [id, entry] of Object.entries(index.index)) {
-      expect(placeholdersOf(entry.message), id).toEqual(entry.placeholders)
-      expect(placeholdersOf(entry.message), id).toEqual(extractorPlaceholdersOf(entry.message))
+    const entries = Object.entries(index.messages ?? {})
+    expect(entries.length).toBeGreaterThan(20)
+    for (const [id, source] of entries) {
+      let app: string[] | 'throws'
+      let script: string[] | 'throws'
+      try {
+        app = placeholdersOf(source)
+      } catch {
+        app = 'throws'
+      }
+      try {
+        script = extractorPlaceholdersOf(source)
+      } catch {
+        script = 'throws'
+      }
+      expect(app, id).toEqual(script)
     }
   })
 

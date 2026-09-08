@@ -144,10 +144,10 @@ activateLocale(resolveInitialLocale()).then(() => initConfig()).then(async () =>
     return
   }
 
-  // Start recording what the app cannot translate. AFTER the config, so the
-  // collector's insert has an API base to go to, and only on a real boot — the
-  // test setup never calls this, which is why the suite's own API errors never
-  // write rows to the tenant.
+  // Start discovery: every string the app renders lands in the index through
+  // the translate target. AFTER the config, because the target and its mode
+  // are pushed in by initConfig() — and a no-op unless the mode discovers
+  // (`dev` and `stage`; see src/i18n/missing.ts).
   enableCollector()
 
   root.render(

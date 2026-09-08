@@ -1,93 +1,79 @@
-import { readFileSync, readdirSync } from 'node:fs'
+import { readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { compileMessageOrThrow } from '@lingui/message-utils/compileMessage'
 import {
+  LANGUAGE_FILE,
   LOCALES_DIR,
-  NON_CATALOG_FILES,
   SOURCE_LANGUAGE,
-  catalogFiles,
-  extract,
+  collectMessages,
+  isMetadataKey,
+  languageFiles,
   placeholdersOf,
+  readIndex,
   readJson,
-  serialize,
 } from '../../scripts/i18n/extract.mjs'
-import { CONTEXT_SEPARATOR, flattenMessages, splitMessageId, type LocaleFile } from '@/i18n/catalog'
+import { isVerbatimKey } from '@/i18n/errors'
+import { flattenMessages, type LocaleFile } from '@/i18n/catalog'
 import { availableLanguages } from '@/i18n/store'
 
 /**
- * The catalogs, checked against the code they came from.
+ * The language files, checked against each other.
  *
- * It runs the REAL extractor in memory — the same module `pnpm i18n:extract`
- * runs — and compares what it computes with what is on disk. A regex
- * re-implementation here would pass while the script that writes the files does
- * something else, which is the only failure mode that matters.
+ * The index (`public/locales/en-US.json`) is the complete baseline, filled by
+ * the running app; each language file is checked against it. What FAILS: a
+ * translation whose ICU placeholders differ from its source, a translation
+ * that does not compile, a `module.*` key in `obsolete`, and a file that
+ * breaks its shape.
  *
- * What FAILS: the index or a catalog being out of date, a translation whose ICU
- * placeholders differ from its source, a translation that does not compile, a
- * repo catalog carrying tenant-only sections, and a file that breaks its shape.
- *
- * What only REPORTS: missing translations and glossary drift. A missing
+ * What only REPORTS: missing translations, glossary drift, and code strings
+ * the optional scan finds that no test has rendered into the index. A missing
  * translation renders in English — a degraded screen, not a broken build — and
- * failing on one would mean an English-only PR could not land, which is exactly
- * the pressure that produces machine-translated placeholder text. `i18n:status`
- * and the PR rule are what keep the count at zero.
+ * failing on one would mean an English-only PR could not land, which is
+ * exactly the pressure that produces machine-translated placeholder text. A
+ * string the scan sees and discovery has not is a test gap, worth knowing and
+ * not a failure: there is deliberately NO assertion that the index and the
+ * scan agree, because that assertion is what once made the scan a gate.
  */
 
-const { index, catalogs } = extract()
+const index = readIndex()
+const entries = Object.entries(index.messages ?? {})
+const languages = languageFiles()
 
-describe('the generated index (src/locales/en-US.json)', () => {
-  it('is up to date with the code', () => {
-    const onDisk = readFileSync(join(LOCALES_DIR, `${SOURCE_LANGUAGE}.json`), 'utf8')
-
-    expect(
-      onDisk,
-      'src/locales/en-US.json is out of date — run `pnpm --filter @semantius/frontend i18n:extract`.',
-    ).toBe(serialize(index))
-  })
-
-  it('found the app\'s messages at all', () => {
+describe('the index (public/locales/en-US.json)', () => {
+  it('holds the app\'s messages at all', () => {
     // Without this every assertion below is vacuously true on an empty index.
-    expect(Object.keys(index.index).length).toBeGreaterThan(20)
+    expect(entries.length).toBeGreaterThan(20)
+    expect(index.locale).toBe(SOURCE_LANGUAGE)
   })
 
-  it('records an origin and a placeholder list for every entry', () => {
-    for (const [id, entry] of Object.entries(index.index)) {
-      expect(entry.message, id).toBeTruthy()
-      expect(entry.origin.length, id).toBeGreaterThan(0)
-      // Origins are repo-relative POSIX paths with no line numbers, so a moved
-      // line does not churn the file.
-      for (const origin of entry.origin) {
-        expect(origin, id).toMatch(/^src\/[\w./$-]+\.tsx?$/)
-      }
-      expect(entry.placeholders, id).toEqual(placeholdersOf(entry.message))
+  it('records a source for every key', () => {
+    for (const [key, source] of entries) {
+      expect(source, key).toBeTruthy()
     }
   })
 
-  it('keys a message with a context by message + U+0004 + context', () => {
-    for (const [id, entry] of Object.entries(index.index)) {
-      const split = splitMessageId(id)
-      expect(split.message, id).toBe(entry.message)
-      expect(split.context, id).toBe(entry.context)
-      expect(id.includes(CONTEXT_SEPARATOR), id).toBe(Boolean(entry.context))
-    }
-  })
-
-  it('is sorted, so a rerun never reorders it', () => {
-    const keys = Object.keys(index.index)
+  it('is sorted, so a rewrite never reorders it', () => {
+    const keys = entries.map(([key]) => key)
     expect(keys).toEqual([...keys].sort())
+  })
+
+  it('reports the code strings the scan finds that discovery has not', () => {
+    const found = collectMessages()
+    const unseen = [...found.keys()].filter((key) => !(key in (index.messages ?? {})))
+    if (unseen.length > 0) {
+      console.warn(
+        `[i18n] ${unseen.length} code string(s) in src/ have not been rendered by any test — a test gap:\n  ` +
+          unseen.map((key) => JSON.stringify(key)).join('\n  '),
+      )
+    }
+    // Reported, never failed. The number that IS asserted: the scan works.
+    expect(found.size).toBeGreaterThan(20)
   })
 })
 
-describe.each(catalogs.map((catalog) => [catalog.code, catalog] as const))('catalog %s', (code, catalog) => {
-  const onDisk: LocaleFile = readJson(catalog.path)
-
-  it('is up to date with the code', () => {
-    expect(
-      readFileSync(catalog.path, 'utf8'),
-      `src/locales/${code}.json is out of date — run \`pnpm --filter @semantius/frontend i18n:extract\`.`,
-    ).toBe(serialize(catalog.file))
-  })
+describe.each(languages.map((language) => [language.code, language] as const))('language %s', (code, language) => {
+  const onDisk: LocaleFile = readJson(language.path)
 
   it('declares its own locale and its own name', () => {
     expect(onDisk.locale).toBe(code)
@@ -96,88 +82,71 @@ describe.each(catalogs.map((catalog) => [catalog.code, catalog] as const))('cata
     expect(onDisk.name, `${code}.json needs a "name" (the language's own name for itself)`).toBeTruthy()
   })
 
-  it('carries no section that belongs to a tenant or a deployment', () => {
-    // `labels` are model overrides, `server` and `rule` are backend messages:
-    // all three are per-tenant data and have no business in the repo, where
-    // they would be shipped to every deployment.
-    for (const forbidden of ['labels', 'server', 'rule'] as const) {
-      expect(onDisk[forbidden], `${code}.json must not carry a "${forbidden}" section`).toBeUndefined()
-    }
-  })
-
   it('keeps every placeholder its source has, and invents none', () => {
-    for (const [id, entry] of Object.entries(index.index)) {
-      const translation = entry.context
-        ? onDisk.contexts?.[entry.context]?.[entry.message]
-        : onDisk.messages?.[entry.message]
-      if (!translation) continue
+    for (const [key, source] of entries) {
+      const translation = onDisk.messages?.[key]
+      if (!translation || isVerbatimKey(key)) continue
       // A dropped placeholder silently loses data on screen; an invented one
       // renders as literal braces.
-      expect(placeholdersOf(translation), `${code}: ${id}`).toEqual(entry.placeholders)
+      expect(placeholdersOf(translation), `${code}: ${key}`).toEqual(placeholdersOf(source))
     }
   })
 
-  it('compiles every translation as ICU', () => {
-    const values = [
-      ...Object.entries(onDisk.messages ?? {}),
-      ...Object.values(onDisk.contexts ?? {}).flatMap((entries) => Object.entries(entries)),
-    ]
-    for (const [key, translation] of values) {
-      if (!translation) continue
+  it('compiles every translation as ICU, verbatim server sentences excepted', () => {
+    for (const [key, translation] of Object.entries(onDisk.messages ?? {})) {
+      if (!translation || isVerbatimKey(key)) continue
       expect(() => compileMessageOrThrow(translation), `${code}: ${key}`).not.toThrow()
     }
   })
 
+  it('retires no model text — nothing prunes a module.* key', () => {
+    for (const key of Object.keys(onDisk.obsolete ?? {})) {
+      expect(isMetadataKey(key), `${code}: ${key} is in obsolete`).toBe(false)
+    }
+  })
+
   it('reports how much is missing, and agrees with the runtime about what "missing" is', () => {
-    const missing = Object.entries(index.index).filter(([, entry]) =>
-      entry.context
-        ? !onDisk.contexts?.[entry.context]?.[entry.message]
-        : !onDisk.messages?.[entry.message],
-    )
+    const missing = entries.filter(([key]) => !onDisk.messages?.[key])
     if (missing.length > 0) {
+      const model = missing.filter(([key]) => isMetadataKey(key)).length
       console.warn(
-        `[i18n] ${code}: ${missing.length} of ${Object.keys(index.index).length} message(s) untranslated. ` +
-          'Run `pnpm --filter @semantius/frontend i18n:status -- --verbose`.',
+        `[i18n] ${code}: ${missing.length} of ${entries.length} key(s) untranslated ` +
+          `(${missing.length - model} code, ${model} model). Run \`pnpm --filter @semantius/frontend i18n:status -- --verbose\`.`,
       )
     }
 
     // The COUNT only reports — a missing translation renders in English, which
     // is a degraded screen rather than a broken build. What is asserted is that
     // this file and the runtime mean the same thing by it: `flattenMessages` is
-    // the function `activateLocale` merges layers with, and it DROPS an empty
+    // the function `activateLocale` merges sources with, and it DROPS an empty
     // value on purpose, because Lingui treats `""` as a present translation and
     // an entry present-but-empty would render as a blank instead of falling back
     // to the English. If that ever stopped being true, every gap in every
-    // catalog would silently become a blank label and the count above would
+    // language would silently become a blank label and the count above would
     // still read zero.
     const runtimeKeys = new Set(Object.keys(flattenMessages(onDisk)))
-    const missingIds = missing.map(([id]) => id)
-    const translatedIds = Object.keys(index.index).filter((id) => !missingIds.includes(id))
+    const missingKeys = missing.map(([key]) => key)
+    const translatedKeys = entries.map(([key]) => key).filter((key) => !missingKeys.includes(key))
 
-    expect(missingIds.filter((id) => runtimeKeys.has(id)), `${code}: a gap the runtime treats as translated`).toEqual([])
-    expect(
-      translatedIds.filter((id) => !runtimeKeys.has(id)),
-      `${code}: a translation the runtime does not load`,
-    ).toEqual([])
+    expect(missingKeys.filter((key) => runtimeKeys.has(key)), `${code}: a gap the runtime treats as translated`).toEqual([])
+    expect(translatedKeys.filter((key) => !runtimeKeys.has(key)), `${code}: a translation the runtime does not load`).toEqual([])
   })
 
   it('uses the product\'s fixed terms, or says why not', () => {
     const glossary: Record<string, string> =
-      readJson(join(LOCALES_DIR, 'glossary.json'))[code] ?? {}
+      readJson(join(LOCALES_DIR, '..', '..', 'scripts', 'i18n', 'glossary.json'))[code] ?? {}
     const drift: string[] = []
-    for (const [id, entry] of Object.entries(index.index)) {
-      const translation = entry.context
-        ? onDisk.contexts?.[entry.context]?.[entry.message]
-        : onDisk.messages?.[entry.message]
+    for (const [key, source] of entries) {
+      const translation = onDisk.messages?.[key]
       if (!translation) continue
       // ICU placeholders are removed first: `{language}` is not a sighting of
       // the word "language", and treating it as one made every parameterized
       // message drift.
-      const source = entry.message.replace(/\{[^}]*\}/g, ' ').toLowerCase()
+      const text = source.replace(/\{[^}]*\}/g, ' ').toLowerCase()
       for (const [term, required] of Object.entries(glossary)) {
-        if (!source.includes(term.toLowerCase())) continue
+        if (!text.includes(term.toLowerCase())) continue
         if (!translation.toLowerCase().includes(required.toLowerCase())) {
-          drift.push(`${id}: "${term}" should be "${required}", got ${JSON.stringify(translation)}`)
+          drift.push(`${key}: "${term}" should be "${required}", got ${JSON.stringify(translation)}`)
         }
       }
     }
@@ -191,22 +160,18 @@ describe.each(catalogs.map((catalog) => [catalog.code, catalog] as const))('cata
 })
 
 describe('the locales folder', () => {
-  it('has a catalog for every switchable language, and nothing else', () => {
-    // The repo layer's `import.meta.glob` names its exclusions literally, so a
-    // new non-catalog file dropped in here would be loaded as a locale. This is
+  it('holds language files, the index and the two schemas, and nothing else', () => {
+    // `__SHIPPED_LOCALES__` is read off this folder by name at build time, so
+    // a stray JSON dropped in here would be listed as a language. This is
     // what notices.
     const onDisk = readdirSync(LOCALES_DIR).filter((name) => name.endsWith('.json'))
-    const expected = [...NON_CATALOG_FILES, ...catalogs.map((catalog) => `${catalog.code}.json`)].sort()
+    const expected = ['schema.json', 'work.schema.json', `${SOURCE_LANGUAGE}.json`, ...languages.map((l) => `${l.code}.json`)].sort()
 
     expect(onDisk.sort()).toEqual(expected)
-    expect(availableLanguages().slice().sort()).toEqual(
-      [SOURCE_LANGUAGE, ...catalogs.map((catalog) => catalog.code)].sort(),
-    )
-  })
-
-  it('excludes the generated index from the catalogs', () => {
-    // Loading it as a catalog would put `{ locale, index }` through the message
-    // merge and translate nothing.
-    expect(catalogFiles().map((entry) => entry.code)).not.toContain(SOURCE_LANGUAGE)
+    for (const name of onDisk) {
+      if (name === 'schema.json' || name === 'work.schema.json') continue
+      expect(LANGUAGE_FILE.test(name), name).toBe(true)
+    }
+    expect(availableLanguages().slice().sort()).toEqual([SOURCE_LANGUAGE, ...languages.map((l) => l.code)].sort())
   })
 })
