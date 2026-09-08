@@ -43,10 +43,12 @@ Follows from (1): model text needed its own list because it was not messages.
 
 Every string the running app fails to translate is inserted as an empty row.
 
-**Kept, and it is the whole discovery mechanism.** Metadata is never processed
-offline (a model script cannot enumerate what nested JsonLogic raises with
-values interpolated), so running the app IS how model text and database text are
-found. That is requirement 10.
+**Kept, and it is the whole discovery mechanism.** Running the app IS how model
+text and database text are found — that is requirement 10, and it is the reason.
+(An earlier version of this entry justified it by claiming a model script cannot
+enumerate what nested JsonLogic raises with values interpolated. That argument
+was about error text, and it does not hold any more either: section 6 solves the
+interpolated case by sending a template and its values.)
 
 Two corrections it needs: it writes through the **configured target** like every
 other write, instead of POSTing at a relative `/ui_translations`; and recording
@@ -92,9 +94,37 @@ route by scope.
 speaker on an English UI would be offered "German" and would have to know the
 English word for their own language to find it.
 
+## 10. The source scanner, and the gate that made it mandatory — RESOLVED
+
+Requirement 9 ruled out Babel, the Vite transform and PO files — Lingui's own
+toolchain. The conclusion drawn was "write our own", and
+`scripts/i18n/extract.mjs` was built: a 447-line TypeScript-compiler pass that
+reads every string out of the source. Requirement 10 had already named the
+mechanism — collect at runtime — so no scanner was ever asked for.
+
+Four layers followed, each justified by the one before it and none of them by
+the owner: the scanner produced a generated `en-US.json`; a generated file can
+drift from the code; `src/test/i18nCatalogs.test.ts` was added to catch the
+drift, which put the tool inside `pnpm check`; and "`i18n:extract` twice with no
+change" became a phase gate. By the end it read as infrastructure rather than as
+a decision anyone had made.
+
+**Resolved, and the tool is kept.** Runtime discovery maintains `en-US.json`, and
+coverage comes from the test suite — all code is tested, tested code renders,
+rendered strings land in discovery, and a code string no test renders is a test
+gap. What survives is **pruning**: a reworded or deleted code string leaves a key
+nothing at runtime can observe as gone. So `i18n:extract` stays as an **optional
+tool you run, never a gate** (1.9s over `src/`), and the drift assertion in
+`i18nCatalogs.test.ts` is deleted. See `i18n-metadata-messages-plan.md`,
+section 2.
+
+`pnpm check` itself is not on this list — it predates the branch by a week
+(`225b64f`, on `main`) and is the owner's own release gate. Only the i18n
+assertion inside it came from here.
+
 ## Still to decide
 
-Nothing on this list. The one thing deliberately postponed is interpolated
-**error** text — see `i18n-metadata-messages-plan.md`, section 6 and "Deferred".
-Errors are skipped in this iteration and addressed in the next, starting on the
-backend.
+Nothing on this list, and nothing postponed. Interpolated **error** text was the
+one deferral; it is now in scope — the server sends a template plus its values
+and the template is the key, which removes the reason it was deferred. See
+`i18n-metadata-messages-plan.md`, section 6, and `i18n-endpoint-spec.md`.
