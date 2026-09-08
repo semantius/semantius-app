@@ -24,6 +24,7 @@ export declare function isMetadataKey(key: string): boolean
 export declare function sourceFiles(dir?: string): string[]
 export declare function collectMessages(files?: string[]): Map<string, CollectedMessage>
 export declare function placeholdersOf(message: string): string[]
+export declare function sortedObject<T>(entries: Record<string, T>): Record<string, T>
 export declare function languageFiles(dir?: string): { code: string; path: string }[]
 export declare function indexPath(dir?: string): string
 export declare function readJson(path: string): any

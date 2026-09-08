@@ -379,7 +379,16 @@ function byCodeUnit(a, b) {
   return a < b ? -1 : a > b ? 1 : 0
 }
 
-function sortedObject(entries) {
+/**
+ * The order every writer produces — the extractor here, the dev writer in
+ * `vite-plugins/i18nDevWriter.ts`: keys sorted by code unit, as a JavaScript
+ * object then enumerates them. That last clause is a real exception: an
+ * all-digit key (a bare SQLSTATE such as `42703`, recorded verbatim) is an
+ * array index to the language and is enumerated FIRST whatever the sort said,
+ * so `Object.keys(sortedObject(x))` is the yardstick for "sorted", not
+ * `[...keys].sort()`.
+ */
+export function sortedObject(entries) {
   const out = {}
   for (const key of Object.keys(entries).sort(byCodeUnit)) out[key] = entries[key]
   return out

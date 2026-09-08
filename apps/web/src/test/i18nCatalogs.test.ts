@@ -12,6 +12,7 @@ import {
   placeholdersOf,
   readIndex,
   readJson,
+  sortedObject,
 } from '../../scripts/i18n/extract.mjs'
 import { isVerbatimKey } from '@/i18n/errors'
 import { flattenMessages, type LocaleFile } from '@/i18n/catalog'
@@ -53,9 +54,14 @@ describe('the index (public/locales/en-US.json)', () => {
     }
   })
 
-  it('is sorted, so a rewrite never reorders it', () => {
+  it('is in the order every writer produces, so a rewrite never reorders it', () => {
+    // Code-unit order as the extractor and the dev writer both sort it — with
+    // the one exception a JavaScript object imposes: an all-digit key (a bare
+    // SQLSTATE such as `42703`) is enumerated first whatever the sort said.
+    // So the writer's own function is the yardstick, not `[...keys].sort()`,
+    // which would fail on the first server error discovered by its code.
     const keys = entries.map(([key]) => key)
-    expect(keys).toEqual([...keys].sort())
+    expect(keys).toEqual(Object.keys(sortedObject(index.messages ?? {})))
   })
 
   it('reports the code strings the scan finds that discovery has not', () => {
