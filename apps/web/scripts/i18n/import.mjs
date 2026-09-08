@@ -75,7 +75,17 @@ export function validateWork(work) {
       problems.push(`${at} (${entry.key}): does not compile as ICU — ${err.message}`)
       return
     }
-    const wanted = [...(entry.placeholders ?? [])].sort()
+    // Both sides are read off the TEXT. The expectation must never come from a
+    // field in this file: the file is what the translator edits, so an entry
+    // whose array was emptied or deleted would silently stop being checked —
+    // and a dropped placeholder is exactly what that entry then hides.
+    let wanted
+    try {
+      wanted = placeholdersOf(entry.source ?? '').sort()
+    } catch (err) {
+      problems.push(`${at} (${entry.key}): the source does not compile as ICU — ${err.message}`)
+      return
+    }
     const got = placeholdersOf(translation).sort()
     if (wanted.join('|') !== got.join('|')) {
       problems.push(`${at} (${entry.key}): placeholders are [${got}] but the source has [${wanted}]`)

@@ -60,7 +60,9 @@ a11y-reports/latest.json
 # uploaded as a CI artifact. Cite a run by its JSON; the pictures are not a record.
 a11y-reports/screenshots/
 
-# Translation work files. `apps/web/scripts/i18n/translate.mjs` writes one per
-# language for an agent to fill in and `import.mjs` reads it back; the RESULT is
-# committed (src/locales/<code>.json) or written to the tenant, never this.
-apps/web/.i18n/
+# Translation work files (`apps/web/public/locales/work-<locale>.json`) are NOT
+# ignored. They hold work: a partly filled one is somebody's half-finished
+# translation, and regenerating it gives back empty strings, so ignoring it
+# loses that work the moment the device changes. They are committed like any
+# other authored file. `vite.config.ts` drops them from `dist/` instead, so
+# being in the repo never means being deployed.

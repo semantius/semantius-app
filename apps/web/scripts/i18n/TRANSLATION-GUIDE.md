@@ -74,9 +74,9 @@ pnpm i18n:status -- --verbose
 
 # 2. everything still needed, as one file
 pnpm i18n:translate -- --locale de-DE
-#   -> apps/web/.i18n/work-de-DE.json  (git-ignored; schema: /locales/work.schema.json)
+#   -> apps/web/public/locales/work-de-DE.json  (committed, beside de-DE.json)
 
-# 3. fill in every `translation`, keeping `placeholders` exactly, then
+# 3. fill in every `translation`, keeping every `{placeholder}` its source uses, then
 pnpm i18n:import -- --locale de-DE
 
 # 4. confirm
@@ -86,7 +86,52 @@ pnpm check
 
 `i18n:import` refuses the whole file if any translation drops or invents an ICU
 placeholder, or fails to compile, and never overwrites a value that is already
-there. Editing `de-DE.json` by hand is equally fine — it is the same file.
+there. It reads the placeholders off the SOURCE text, not off a field in the
+work file, so there is nothing in the file you can edit to switch that check off.
+Editing `de-DE.json` by hand is equally fine — it is the same file.
+
+**The work file is committed, and rerunning step 2 does not cost you anything.**
+It lives beside the language it is about, so `de-DE.json` and `work-de-DE.json`
+open together, and it is tracked like any other authored file — a half-filled
+one is half a day of work, and a device switch must not lose it. Rerunning
+`i18n:translate` treats what is already there as input: every filled
+`translation` is carried forward, entries imported since drop out, and the run
+says how many it kept. The one thing it cannot carry is a filled entry whose key
+has left the index; those are printed by key, because there is no entry left to
+put them in.
+
+## Managed languages, and the hints they give
+
+`MANAGED_LANGUAGES` in `scripts/i18n/extract.mjs` names the languages a human
+has reviewed. Today that is `de-DE`.
+
+Every entry of a work file for some OTHER language carries what each managed
+language already says for that key:
+
+```json
+{
+  "key": "module.admin.entities.field.order_column.title",
+  "source": "Order Column",
+  "translation": "",
+  "hints": { "de-DE": "Sortierspalte" }
+}
+```
+
+That exists because English underspecifies and a reviewed language has already
+had to resolve it. `Order` is an entity in nwind and a sort position in
+`order_column`; `Title` is a job title on employees and a form of address in
+`title_of_courtesy`. With one source the translator goes and reads the model
+again for each; with two, what they agree on is the meaning and where they
+differ is language-specific packaging. The payoff is inverse to length — it is
+large on a bare label and near zero on a full sentence, where the English is
+already self-sufficient and a second long string mostly invites you to inherit
+its phrasing.
+
+Hints are context. `i18n:import` never reads them, a language is never hinted
+with itself, and a language with no answer for a key is left out rather than
+offered as an empty string. **The English is the source of truth.** Where a hint
+cannot be reconciled with it, that is a question worth raising, not a tie to
+break quietly — it may be the hint that is wrong.
 
 **Where the index comes from.** Running the app. Every string a screen renders
 that the language does not know is written to the translate target
@@ -149,11 +194,26 @@ Style, beyond those terms:
 
 ## Adding a language
 
-Create `<code>.json` under `apps/web/public/locales/` with
-`{ "locale": "<code>", "name": "<endonym>", "messages": {} }` — the build lists
-every language file there — then `i18n:translate -- --locale <code>` for the
-work. `name` is the language's own name for itself ("Deutsch", not "German") and
-wins over the browser's display name.
+```bash
+pnpm i18n:translate -- --locale fr-FR --create
+```
+
+`--create` writes `public/locales/fr-FR.json` as
+`{ "locale": "fr-FR", "name": "français", "messages": {} }` and then does the
+normal export, hints included. The file IS the registration — the build lists
+every language file in that folder — so from the next build the switcher offers
+the language, with every key falling back to English until it is filled. Writing
+the file by hand does the same thing.
+
+`name` is the language's own name for itself ("Deutsch", not "German") and wins
+over the browser's display name. It is derived from the tag; pass `--name` to
+override it, and for a tag `Intl` has no name for, `--name` is required rather
+than guessed.
+
+**Creating a language does not make it managed.** It joins `MANAGED_LANGUAGES`
+when you have reviewed it and edit that array — not before. A machine-filled
+language quoted as context to the next language propagates its mistakes and
+makes them look corroborated.
 
 A language that ships with the product belongs there. A language for ONE
 deployment or ONE tenant does not — those are served or stored at runtime and

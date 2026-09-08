@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://semantius.com/schemas/i18n-work-file.json",
   "title": "Semantius translation work file",
-  "description": "What one language still needs, in one file, for a translator (usually an agent) to fill in. Written by apps/web/scripts/i18n/translate.mjs into apps/web/.i18n/ (git-ignored) and read back by import.mjs. Every entry carries its English source and the placeholders it has to keep; `translation` is the only field to edit.",
+  "description": "What one language still needs, in one file, for a translator (usually an agent) to fill in. Written by apps/web/scripts/i18n/translate.mjs into apps/web/public/locales/, beside the language file it is about, and read back by import.mjs. It is COMMITTED: a partly filled one is half-finished work, and regenerating it hands back empty strings. Every entry carries its English source; `translation` is the only field to edit. The ICU placeholders a translation must keep are read off the source TEXT by import.mjs, on both sides, and are deliberately not a field here: an expectation stored in the file the translator edits can be emptied, and the entry it then stops checking is the one hiding a dropped placeholder.",
   "type": "object",
   "required": ["locale", "entries"],
   "additionalProperties": false,
@@ -28,10 +28,10 @@
         "source": { "type": "string", "description": "The English (or, for a server sentence, the original) text to translate." },
         "translation": { "type": "string", "description": "FILL THIS IN. Empty means still untranslated; import.mjs skips it." },
         "comment": { "type": "string", "description": "A note the developer left for the translator." },
-        "placeholders": {
-          "type": "array",
-          "items": { "type": "string" },
-          "description": "The ICU placeholders the source uses. The translation MUST use exactly these — import.mjs refuses the file otherwise, because a dropped placeholder loses data on screen and an invented one renders as literal braces."
+        "hints": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "What each OTHER managed language already says for this key, by BCP-47 tag (MANAGED_LANGUAGES in scripts/i18n/extract.mjs). CONTEXT ONLY — import.mjs never reads it. English underspecifies: `Order` is an entity in nwind and a sort position in `order_column`, and a reviewed language has already had to decide which. What the sources agree on is the meaning; where they differ is language-specific packaging. A language with no translation for the key is omitted rather than offered as an empty string, and the whole field is absent when no managed language has one."
         }
       }
     }

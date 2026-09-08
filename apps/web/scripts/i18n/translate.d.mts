@@ -12,8 +12,9 @@ export interface WorkEntry {
   key: string
   source: string
   translation: string
-  placeholders?: string[]
   comment?: string
+  /** What each other managed language says for this key. Context only. */
+  hints?: Record<string, string>
 }
 
 export interface WorkFile {
@@ -22,13 +23,40 @@ export interface WorkFile {
   entries: WorkEntry[]
 }
 
+/** One managed language, as `readHintLanguages` hands it over. */
+export interface HintLanguage {
+  code: string
+  messages: TranslationMap
+}
+
 export interface WorkInputs {
   index: LocaleFile
   file: LocaleFile
   record?: TranslationMap
+  hints?: HintLanguage[]
+  /** The work file already on disk. Filled translations in it are carried over. */
+  previous?: WorkFile
+}
+
+/** `buildWorkFile`'s report. Only `WorkFile`'s own fields are written to disk. */
+export interface WorkBuild extends WorkFile {
+  /** How many entries came back filled in from `previous`. */
+  carriedOver: number
+  dropped: {
+    /** Filled, and since imported into the language or the target. Fine. */
+    landed: string[]
+    /** Filled, but the key has left the index. This text has nowhere to go. */
+    orphaned: string[]
+  }
 }
 
 export declare const WORK_DIR: string
 export declare function workFilePath(locale: string): string
 export declare function readLanguageFile(locale: string): LocaleFile
-export declare function buildWorkFile(locale: string, inputs: WorkInputs): WorkFile
+export declare function buildWorkFile(locale: string, inputs: WorkInputs): WorkBuild
+export declare function readHintLanguages(locale: string, dir?: string): HintLanguage[]
+export declare function endonymFor(locale: string): string | undefined
+export declare function createLanguageFile(
+  locale: string,
+  options?: { name?: string; dir?: string },
+): { path: string; created: boolean; name?: string }

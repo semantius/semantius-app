@@ -40,6 +40,9 @@ const index = readIndex()
 const entries = Object.entries(index.messages ?? {})
 const languages = languageFiles()
 
+/** `work-<locale>.json`, a translation in progress, committed beside its language. */
+const WORK_FILE = /^work-.+\.json$/
+
 describe('the index (public/locales/en-US.json)', () => {
   it('holds the app\'s messages at all', () => {
     // Without this every assertion below is vacuously true on an empty index.
@@ -142,8 +145,10 @@ describe('the locales folder', () => {
   it('holds language files, the index and the two schemas, and nothing else', () => {
     // `__SHIPPED_LOCALES__` is read off this folder by name at build time, so
     // a stray JSON dropped in here would be listed as a language. This is
-    // what notices.
-    const onDisk = readdirSync(LOCALES_DIR).filter((name) => name.endsWith('.json'))
+    // what notices. `work-<locale>.json` is the one thing that may also be
+    // here: a translation in progress, committed beside the language it is about
+    // (see WORK_DIR in scripts/i18n/translate.mjs), and covered below.
+    const onDisk = readdirSync(LOCALES_DIR).filter((name) => name.endsWith('.json') && !WORK_FILE.test(name))
     const expected = ['schema.json', 'work.schema.json', `${SOURCE_LANGUAGE}.json`, ...languages.map((l) => `${l.code}.json`)].sort()
 
     expect(onDisk.sort()).toEqual(expected)
@@ -152,5 +157,17 @@ describe('the locales folder', () => {
       expect(LANGUAGE_FILE.test(name), name).toBe(true)
     }
     expect(availableLanguages().slice().sort()).toEqual([SOURCE_LANGUAGE, ...languages.map((l) => l.code)].sort())
+  })
+
+  it('does not mistake a work file for a language', () => {
+    // The whole reason a work file can live here. `work-de-DE` is not a BCP-47
+    // tag, so no name-matched list — `languageFiles()`, `shippedLocales()` in
+    // vite.config.ts, `availableLanguages()` — can pick one up. If that regex
+    // is ever loosened, a translator's scratch file becomes a language in the
+    // switcher.
+    for (const name of ['work-de-DE.json', 'work-fr-FR.json', 'work-zh-Hans-CN.json']) {
+      expect(LANGUAGE_FILE.test(name), name).toBe(false)
+    }
+    expect(languages.map((l) => l.code)).not.toContain('work-de-DE')
   })
 })

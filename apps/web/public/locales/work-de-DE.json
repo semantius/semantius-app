@@ -1,0 +1,2986 @@
+{
+  "locale": "de-DE",
+  "generated": "2026-09-08T18:02:50.807Z",
+  "entries": [
+    {
+      "key": "module.admin.audit_ddl_logs.entity.description",
+      "source": "DDL audit trail for schema change events",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_ddl_logs.entity.plural_label",
+      "source": "Audit DDL Logs",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_ddl_logs.entity.singular_label",
+      "source": "Audit DDL Log",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_ddl_logs.field._label.description",
+      "source": "Composed, human-readable label folded from the parent chain",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_ddl_logs.field._label.title",
+      "source": "Audit DDL Log",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_ddl_logs.field.command_tag.description",
+      "source": "DDL command type (e.g. CREATE TABLE, ALTER TABLE)",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_ddl_logs.field.command_tag.title",
+      "source": "Command Tag",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_ddl_logs.field.event_time.description",
+      "source": "When the DDL command completed",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_ddl_logs.field.event_time.title",
+      "source": "Event Time",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_ddl_logs.field.id.title",
+      "source": "Id",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_ddl_logs.field.object_identity.description",
+      "source": "Fully qualified name of the affected object",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_ddl_logs.field.object_identity.title",
+      "source": "Object Identity",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_ddl_logs.field.object_type.description",
+      "source": "Type of database object affected",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_ddl_logs.field.object_type.title",
+      "source": "Object Type",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_ddl_logs.field.query_text.description",
+      "source": "The SQL statement that triggered the event",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_ddl_logs.field.query_text.title",
+      "source": "Query Text",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_ddl_logs.field.user_id.description",
+      "source": "Internal user id from JWT context (0 when unavailable)",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_ddl_logs.field.user_id.title",
+      "source": "User Id",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_record_logs.entity.description",
+      "source": "DML audit trail for entity table records",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_record_logs.entity.plural_label",
+      "source": "Audit Record Logs",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_record_logs.entity.singular_label",
+      "source": "Audit Record Log",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_record_logs.field._label.description",
+      "source": "Composed, human-readable label folded from the parent chain",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_record_logs.field._label.title",
+      "source": "Audit Record Log",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_record_logs.field.id.title",
+      "source": "Id",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_record_logs.field.old_record.description",
+      "source": "Previous record before UPDATE/DELETE (JSONB)",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_record_logs.field.old_record.title",
+      "source": "Old Record",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_record_logs.field.old_record_id.description",
+      "source": "Record id before update/delete",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_record_logs.field.old_record_id.title",
+      "source": "Old Record Id",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_record_logs.field.op.description",
+      "source": "DML operation type: INSERT, UPDATE, DELETE, TRUNCATE",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_record_logs.field.op.title",
+      "source": "Operation",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_record_logs.field.record.description",
+      "source": "Full record after INSERT/UPDATE (JSONB)",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_record_logs.field.record.title",
+      "source": "Record",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_record_logs.field.record_id.description",
+      "source": "Deterministic UUID computed from table OID and primary key values",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_record_logs.field.record_id.title",
+      "source": "Record Id",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_record_logs.field.record_pk.description",
+      "source": "Primary key value of the affected record",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_record_logs.field.record_pk.title",
+      "source": "Record PK",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_record_logs.field.table_name.description",
+      "source": "Name of the affected table",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_record_logs.field.table_name.title",
+      "source": "Table Name",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_record_logs.field.table_oid.description",
+      "source": "PostgreSQL internal object identifier for the table",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_record_logs.field.table_oid.title",
+      "source": "Table OID",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_record_logs.field.table_schema.description",
+      "source": "Schema containing the table",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_record_logs.field.table_schema.title",
+      "source": "Table Schema",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_record_logs.field.ts.description",
+      "source": "When the operation occurred",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_record_logs.field.ts.title",
+      "source": "Timestamp",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_record_logs.field.user_id.description",
+      "source": "Internal user id from JWT context (0 when unavailable)",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.audit_record_logs.field.user_id.title",
+      "source": "User Id",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.dashboards.entity.description",
+      "source": "User-configured dashboard layouts and configurations",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.dashboards.entity.plural_label",
+      "source": "Dashboards",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.dashboards.entity.singular_label",
+      "source": "Dashboard",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.dashboards.field._label.description",
+      "source": "Composed, human-readable label folded from the parent chain",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.dashboards.field._label.title",
+      "source": "Dashboard",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.dashboards.field.config.description",
+      "source": "Dashboard layout and widget configuration",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.dashboards.field.config.title",
+      "source": "Configuration",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.dashboards.field.created_at.title",
+      "source": "Created At",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.dashboards.field.id.title",
+      "source": "Id",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.dashboards.field.label.title",
+      "source": "Dashboard",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.dashboards.field.module_id.description",
+      "source": "Module this dashboard belongs to",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.dashboards.field.module_id.title",
+      "source": "Module",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.dashboards.field.module_id_label.description",
+      "source": "Composed label of the referenced Module",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.dashboards.field.module_id_label.title",
+      "source": "Module",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.dashboards.field.position.description",
+      "source": "Display order position",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.dashboards.field.position.title",
+      "source": "Position",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.dashboards.field.updated_at.title",
+      "source": "Updated At",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.dashboards.field.view_permission.description",
+      "source": "Permission required to view this dashboard",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.dashboards.field.view_permission.title",
+      "source": "View Permission",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.dashboards.field.view_permission_label.description",
+      "source": "Composed label of the referenced Permission",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.dashboards.field.view_permission_label.title",
+      "source": "View Permission",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.entity.description",
+      "source": "Catalog of tables in Semantius",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.entity.plural_label",
+      "source": "Entities",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.entity.singular_label",
+      "source": "Entity",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.enum.cube_mode.auto",
+      "source": "auto",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.enum.cube_mode.disabled",
+      "source": "disabled",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.enum.edit_mode.auto",
+      "source": "auto",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.enum.edit_mode.modal",
+      "source": "modal",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.enum.edit_mode.page",
+      "source": "page",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.enum.edit_mode.sidebar",
+      "source": "sidebar",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.enum.entity_type.catalog",
+      "source": "catalog",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.enum.entity_type.computed",
+      "source": "computed",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.enum.entity_type.junction",
+      "source": "junction",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.enum.entity_type.operational_record",
+      "source": "operational_record",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.enum.entity_type.operational_workflow",
+      "source": "operational_workflow",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.enum.entity_type.unclassified",
+      "source": "unclassified",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field._label.description",
+      "source": "Composed, human-readable label folded from the parent chain",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field._label.title",
+      "source": "Entity",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.audit_log.description",
+      "source": "When enabled, DML operations on this table are logged to the audit log",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.audit_log.title",
+      "source": "Audit Log",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.catalog_entity_aliases.description",
+      "source": "Reuse/merge record: JSON array of {alias_code, source_domain, source_module, decided}. Append-only. Empty array = never a merge target.",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.catalog_entity_aliases.title",
+      "source": "Catalog Entity Aliases",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.catalog_entity_code.description",
+      "source": "Stable canonical identity this entity realizes (uber-model code, e.g. vendors); the rename/dialect/silo join key. table_name holds the deployed name. Empty = created outside the deploy pipeline.",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.catalog_entity_code.title",
+      "source": "Catalog Entity Code",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.catalog_owner_module.description",
+      "source": "For an embedded-master placeholder, the slug of the module that should own this entity. Soft pointer (not an FK); empty when this module is the owner or the entity is local.",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.catalog_owner_module.title",
+      "source": "Catalog Owner Module",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.computed_fields.description",
+      "source": "JsonLogic derivations evaluated on every write",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.computed_fields.title",
+      "source": "Computed Fields",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.created_at.title",
+      "source": "Created At",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.cube_mode.description",
+      "source": "Cube mode for OLAP cube generation",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.cube_mode.title",
+      "source": "Cube Mode",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.description.title",
+      "source": "Description",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.edit_mode.description",
+      "source": "UI edit mode for records of this table: auto, sidebar, modal, or page",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.edit_mode.title",
+      "source": "Edit Mode",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.edit_permission.description",
+      "source": "Permission required to INSERT/UPDATE/DELETE from this table",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.edit_permission.title",
+      "source": "Edit Permission",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.edit_permission_label.description",
+      "source": "Composed label of the referenced Permission",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.edit_permission_label.title",
+      "source": "Edit Permission",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.entity_type.description",
+      "source": "Data-class axis (operational_workflow|operational_record|catalog|junction|computed|unclassified). Write tier derives from it; unclassified = absent/derive-locally.",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.entity_type.title",
+      "source": "Entity Type",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.icon_url.description",
+      "source": "Optional URL or path to icon for this table",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.icon_url.title",
+      "source": "Icon URL",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.id_column.description",
+      "source": "Name of primary key column",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.id_column.title",
+      "source": "Id Column",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.is_child.description",
+      "source": "Whether table has any parent relationships (auto-computed)",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.is_child.title",
+      "source": "Is Child",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.label_column.description",
+      "source": "Name of label/display column",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.label_column.title",
+      "source": "Label Column",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.label_parent.description",
+      "source": "Names the reference/parent FK that is this entity's identity spine for the composed _label. Empty = intrinsic/self-identifying (composed label = local label).",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.label_parent.title",
+      "source": "Label Parent",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.managed.description",
+      "source": "When false, automatic DDL execution is disabled",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.managed.title",
+      "source": "Managed",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.module_id.title",
+      "source": "Module Id",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.module_id_label.description",
+      "source": "Composed label of the referenced Module",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.module_id_label.title",
+      "source": "Module Id",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.order_column.description",
+      "source": "Store a fixed row order in this column",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.order_column.title",
+      "source": "Order Column",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.plural.description",
+      "source": "Plural form of table name, auto-assigned to table_name",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.plural.title",
+      "source": "Plural",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.plural_label.description",
+      "source": "Human-readable plural label for UI/reports",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.plural_label.title",
+      "source": "Plural Label",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.searchable.description",
+      "source": "Whether table is included in full-text search (auto-computed)",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.searchable.title",
+      "source": "Searchable",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.select_rule.description",
+      "source": "JsonLogic rule for per-row FOR SELECT RLS policy",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.select_rule.title",
+      "source": "Select Rule",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.singular.description",
+      "source": "Singular form of table name (auto-derived from table_name when blank)",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.singular.title",
+      "source": "Singular",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.singular_label.description",
+      "source": "Human-readable singular label for UI/reports",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.singular_label.title",
+      "source": "Singular Label",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.table_name.description",
+      "source": "Physical table name in database",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.table_name.title",
+      "source": "Table Name",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.updated_at.title",
+      "source": "Updated At",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.validation_rules.description",
+      "source": "JsonLogic invariants that must hold for the write to succeed",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.validation_rules.title",
+      "source": "Validation Rules",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.view_permission.description",
+      "source": "Permission required to SELECT from this table",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.view_permission.title",
+      "source": "View Permission",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.view_permission_label.description",
+      "source": "Composed label of the referenced Permission",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.entities.field.view_permission_label.title",
+      "source": "View Permission",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.fields.entity.description",
+      "source": "Catalog of the fields that make up a table",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.fields.entity.plural_label",
+      "source": "Fields",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.fields.entity.singular_label",
+      "source": "Field",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.fields.field.table_name.title",
+      "source": "Table Name",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.entity.description",
+      "source": "Groups of related tables and permissions",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.entity.plural_label",
+      "source": "Modules",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.entity.singular_label",
+      "source": "Module",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.enum.access_scope.basic",
+      "source": "basic",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.enum.access_scope.full",
+      "source": "full",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.enum.module_type.domain",
+      "source": "domain",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.enum.module_type.master",
+      "source": "master",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field._label.description",
+      "source": "Composed, human-readable label folded from the parent chain",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field._label.title",
+      "source": "Module",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.access_scope.description",
+      "source": "Basic for simple read/edit; full for role tiers, approvals & gating",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.access_scope.title",
+      "source": "Access Scope",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.admin_permission.title",
+      "source": "Admin Permission",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.admin_permission_label.description",
+      "source": "Composed label of the referenced Permission",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.admin_permission_label.title",
+      "source": "Admin Permission",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.catalog_module_code.description",
+      "source": "Catalog blueprint this module was provisioned/cloned from; also the domain axis (non-unique). Empty = greenfield.",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.catalog_module_code.title",
+      "source": "Catalog Module Code",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.created_at.title",
+      "source": "Created At",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.dashboard_config.title",
+      "source": "Dashboard Configuration",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.default_admin_role_id.title",
+      "source": "Default Admin Role",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.default_admin_role_id_label.description",
+      "source": "Composed label of the referenced Role",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.default_admin_role_id_label.title",
+      "source": "Default Admin Role",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.default_manager_role_id.title",
+      "source": "Default Manager Role",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.default_manager_role_id_label.description",
+      "source": "Composed label of the referenced Role",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.default_manager_role_id_label.title",
+      "source": "Default Manager Role",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.default_viewer_role_id.title",
+      "source": "Default Viewer Role",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.default_viewer_role_id_label.description",
+      "source": "Composed label of the referenced Role",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.default_viewer_role_id_label.title",
+      "source": "Default Viewer Role",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.description.title",
+      "source": "Description",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.domain_code.description",
+      "source": "Short uppercase code for the business domain this module belongs to (e.g. ATS, HCM, ITSM, CRM)",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.domain_code.title",
+      "source": "Domain Code",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.home_page.description",
+      "source": "Default home page path for module",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.home_page.title",
+      "source": "Home Page",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.icon_name.description",
+      "source": "Icon or logo name identifier",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.icon_name.title",
+      "source": "Icon Name",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.id.title",
+      "source": "Id",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.logo_color.description",
+      "source": "Hex color code for module logo",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.logo_color.title",
+      "source": "Logo Color",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.manage_permission.title",
+      "source": "Manage Permission",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.manage_permission_label.description",
+      "source": "Composed label of the referenced Permission",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.manage_permission_label.title",
+      "source": "Manage Permission",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.module_name.description",
+      "source": "Unique module name",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.module_name.title",
+      "source": "Module Name",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.module_slug.description",
+      "source": "URL-safe unique identifier for module",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.module_slug.title",
+      "source": "Module Slug",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.module_type.description",
+      "source": "Module type: domain (normal) or master (promoted for sharing)",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.module_type.title",
+      "source": "Module Type",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.settings.description",
+      "source": "Module-specific settings and configuration",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.settings.title",
+      "source": "Settings",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.updated_at.title",
+      "source": "Updated At",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.version.description",
+      "source": "Auto-incremented version number",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.version.title",
+      "source": "Version",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.version_date.description",
+      "source": "Timestamp of last version change",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.version_date.title",
+      "source": "Version Date",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.view_permission.description",
+      "source": "Permission required to view this module",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.view_permission.title",
+      "source": "View Permission",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.view_permission_label.description",
+      "source": "Composed label of the referenced Permission",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.modules.field.view_permission_label.title",
+      "source": "View Permission",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.permission_hierarchy.entity.description",
+      "source": "Defines permission inclusion (including permission implies included permissions)",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.permission_hierarchy.entity.plural_label",
+      "source": "Permission Hierarchy",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.permission_hierarchy.entity.singular_label",
+      "source": "Permission Hierarchy",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.permission_hierarchy.field.included_permission_name.plural_label_parent",
+      "source": "Included in",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.permission_hierarchy.field.included_permission_name.singular_label_parent",
+      "source": "Included in",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.permission_hierarchy.field.included_permission_name.title",
+      "source": "Included Permission Name",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.permission_hierarchy.field.including_permission_name.plural_label_parent",
+      "source": "Includes",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.permission_hierarchy.field.including_permission_name.singular_label_parent",
+      "source": "Includes",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.permission_hierarchy.field.including_permission_name.title",
+      "source": "Including Permission Name",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.permissions.entity.description",
+      "source": "System permissions that can be assigned to roles",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.permissions.entity.plural_label",
+      "source": "Permissions",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.permissions.entity.singular_label",
+      "source": "Permission",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.permissions.field._label.description",
+      "source": "Composed, human-readable label folded from the parent chain",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.permissions.field._label.title",
+      "source": "Permission",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.permissions.field.created_at.title",
+      "source": "Created At",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.permissions.field.description.title",
+      "source": "Description",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.permissions.field.module_id.description",
+      "source": "Module this permission belongs to",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.permissions.field.module_id.title",
+      "source": "Module Id",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.permissions.field.module_id_label.description",
+      "source": "Composed label of the referenced Module",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.permissions.field.module_id_label.title",
+      "source": "Module Id",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.permissions.field.permission_name.description",
+      "source": "Unique permission name",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.permissions.field.permission_name.title",
+      "source": "Permission Name",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.permissions.field.updated_at.title",
+      "source": "Updated At",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.process_gates.entity.description",
+      "source": "Governance registry: maps entity transitions to processes",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.process_gates.entity.plural_label",
+      "source": "Process Gates",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.process_gates.entity.singular_label",
+      "source": "Process Gate",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.process_gates.field.process_id.title",
+      "source": "Process",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.processes.entity.description",
+      "source": "RACI process catalog",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.processes.entity.plural_label",
+      "source": "Processes",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.processes.entity.singular_label",
+      "source": "Process",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.processes.field._label.description",
+      "source": "Composed, human-readable label folded from the parent chain",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.processes.field._label.title",
+      "source": "Process",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.processes.field.created_at.title",
+      "source": "Created At",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.processes.field.description.description",
+      "source": "Detailed description of the process",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.processes.field.description.title",
+      "source": "Description",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.processes.field.id.title",
+      "source": "Id",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.processes.field.module_id.description",
+      "source": "Owning module",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.processes.field.module_id.title",
+      "source": "Module",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.processes.field.module_id_label.description",
+      "source": "Composed label of the referenced Module",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.processes.field.module_id_label.title",
+      "source": "Module",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.processes.field.name.description",
+      "source": "Display name of the process",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.processes.field.name.title",
+      "source": "Name",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.processes.field.ordering.description",
+      "source": "Optional display ordering",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.processes.field.ordering.title",
+      "source": "Ordering",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.processes.field.process_key.description",
+      "source": "Stable snake_case identifier, unique within module",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.processes.field.process_key.title",
+      "source": "Process Key",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.processes.field.updated_at.title",
+      "source": "Updated At",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.queue_table_events.entity.description",
+      "source": "Maps table DML events to queues",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.queue_table_events.entity.plural_label",
+      "source": "Queue Table Events",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.queue_table_events.entity.singular_label",
+      "source": "Queue Table Event",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.queue_table_events.field.queue_id.title",
+      "source": "Queue",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.queues.entity.description",
+      "source": "Message queues backed by pgmq",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.queues.entity.plural_label",
+      "source": "Queues",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.queues.entity.singular_label",
+      "source": "Queue",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.queues.field._label.description",
+      "source": "Composed, human-readable label folded from the parent chain",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.queues.field._label.title",
+      "source": "Queue",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.queues.field.created_at.title",
+      "source": "Created At",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.queues.field.id.title",
+      "source": "Id",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.queues.field.manage_permission.description",
+      "source": "Permission required to pop, archive or delete messages from this queue.",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.queues.field.manage_permission.title",
+      "source": "Manage Permission",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.queues.field.manage_permission_label.description",
+      "source": "Composed label of the referenced Permission",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.queues.field.manage_permission_label.title",
+      "source": "Manage Permission",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.queues.field.queue_name.title",
+      "source": "Queue",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.queues.field.updated_at.title",
+      "source": "Updated At",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.queues.field.view_permission.description",
+      "source": "Permission required to read messages from this queue (queue_read). Readers see the table, id and operation of every table mapped to this queue.",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.queues.field.view_permission.title",
+      "source": "View Permission",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.queues.field.view_permission_label.description",
+      "source": "Composed label of the referenced Permission",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.queues.field.view_permission_label.title",
+      "source": "View Permission",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.raci_assignments.entity.description",
+      "source": "RACI matrix rows assigning roles to processes",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.raci_assignments.entity.plural_label",
+      "source": "RACI Assignments",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.raci_assignments.entity.singular_label",
+      "source": "RACI Assignment",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.raci_assignments.field.process_id.title",
+      "source": "Process",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.raci_events.entity.description",
+      "source": "Notify/consult audit log for RACI-governed record transitions",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.raci_events.entity.plural_label",
+      "source": "RACI Events",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.raci_events.entity.singular_label",
+      "source": "RACI Event",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.raci_events.field.process_id.title",
+      "source": "Process",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.role_permissions.entity.description",
+      "source": "Many-to-many mapping between roles and permissions",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.role_permissions.entity.plural_label",
+      "source": "Role Permissions",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.role_permissions.entity.singular_label",
+      "source": "Role Permission",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.role_permissions.field.permission_name.plural_label_parent",
+      "source": "Permissions",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.role_permissions.field.permission_name.singular_label_parent",
+      "source": "Permission",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.role_permissions.field.permission_name.title",
+      "source": "Permission Name",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.role_permissions.field.role_id.plural_label_parent",
+      "source": "Permissions",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.role_permissions.field.role_id.singular_label_parent",
+      "source": "Permission",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.role_permissions.field.role_id.title",
+      "source": "Role Id",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.roles.entity.description",
+      "source": "Groups of permissions that can be assigned to users",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.roles.entity.plural_label",
+      "source": "Roles",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.roles.entity.singular_label",
+      "source": "Role",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.roles.enum.origin.model",
+      "source": "model",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.roles.enum.origin.model_master",
+      "source": "model_master",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.roles.enum.origin.system",
+      "source": "system",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.roles.enum.origin.user",
+      "source": "user",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.roles.field._label.description",
+      "source": "Composed, human-readable label folded from the parent chain",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.roles.field._label.title",
+      "source": "Role",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.roles.field.catalog_role_code.description",
+      "source": "Stable catalog persona/role this role was provisioned from (lineage; non-unique). Empty = created outside the pipeline.",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.roles.field.catalog_role_code.title",
+      "source": "Catalog Role Code",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.roles.field.created_at.title",
+      "source": "Created At",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.roles.field.description.title",
+      "source": "Description",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.roles.field.id.title",
+      "source": "Id",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.roles.field.module_id.description",
+      "source": "Module this role belongs to",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.roles.field.module_id.title",
+      "source": "Module Id",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.roles.field.module_id_label.description",
+      "source": "Composed label of the referenced Module",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.roles.field.module_id_label.title",
+      "source": "Module Id",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.roles.field.origin.title",
+      "source": "Origin",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.roles.field.role_name.description",
+      "source": "Unique role name",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.roles.field.role_name.title",
+      "source": "Role Name",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.roles.field.slug.description",
+      "source": "Snake_case unique identifier for role, auto-generated from role_name",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.roles.field.slug.title",
+      "source": "Slug",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.roles.field.updated_at.title",
+      "source": "Updated At",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.user_bookmarks.entity.description",
+      "source": "Manage and order your facorites for quick access to frequently used apps and records.",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.user_bookmarks.entity.plural_label",
+      "source": "Favorites",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.user_bookmarks.entity.singular_label",
+      "source": "User Bookmark",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.user_bookmarks.field._label.description",
+      "source": "Composed, human-readable label folded from the parent chain",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.user_bookmarks.field._label.title",
+      "source": "User Bookmark",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.user_bookmarks.field.created_at.title",
+      "source": "Created At",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.user_bookmarks.field.entity_id.description",
+      "source": "ID of the related record in the entity table (0 = no record)",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.user_bookmarks.field.entity_id.title",
+      "source": "Entity ID",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.user_bookmarks.field.entity_name.description",
+      "source": "Name of the related entity table",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.user_bookmarks.field.entity_name.title",
+      "source": "Entity",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.user_bookmarks.field.id.title",
+      "source": "Id",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.user_bookmarks.field.title.title",
+      "source": "User Bookmark",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.user_bookmarks.field.updated_at.title",
+      "source": "Updated At",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.user_bookmarks.field.url.description",
+      "source": "Bookmark URL",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.user_bookmarks.field.url.title",
+      "source": "URL",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.user_bookmarks.field.user_id.description",
+      "source": "Owner of this bookmark (auto-assigned to current user)",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.user_bookmarks.field.user_id.title",
+      "source": "User",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.user_bookmarks.field.user_id_label.description",
+      "source": "Composed label of the referenced User",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.user_bookmarks.field.user_id_label.title",
+      "source": "User",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.user_permissions.entity.description",
+      "source": "Many-to-many mapping between users and permissions for direct per-user permission grants",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.user_permissions.entity.plural_label",
+      "source": "User Permissions",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.user_permissions.entity.singular_label",
+      "source": "User Permission",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.user_permissions.field.permission_name.plural_label_parent",
+      "source": "Users",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.user_permissions.field.permission_name.singular_label_parent",
+      "source": "User",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.user_permissions.field.permission_name.title",
+      "source": "Permission Name",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.user_permissions.field.user_id.plural_label_parent",
+      "source": "Permissions",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.user_permissions.field.user_id.singular_label_parent",
+      "source": "Permission",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.user_permissions.field.user_id.title",
+      "source": "User Id",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.user_roles.entity.description",
+      "source": "Many-to-many mapping between users and roles",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.user_roles.entity.plural_label",
+      "source": "User Roles",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.user_roles.entity.singular_label",
+      "source": "User Role",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.user_roles.field.role_id.plural_label_parent",
+      "source": "Users",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.user_roles.field.role_id.singular_label_parent",
+      "source": "User",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.user_roles.field.role_id.title",
+      "source": "Role Id",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.user_roles.field.user_id.plural_label_parent",
+      "source": "Roles",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.user_roles.field.user_id.singular_label_parent",
+      "source": "Role",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.user_roles.field.user_id.title",
+      "source": "User Id",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.users.entity.description",
+      "source": "Users and agents",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.users.entity.plural_label",
+      "source": "Users",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.users.entity.singular_label",
+      "source": "User",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.users.field._label.description",
+      "source": "Composed, human-readable label folded from the parent chain",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.users.field._label.title",
+      "source": "User",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.users.field.created_at.title",
+      "source": "Created At",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.users.field.display_name.title",
+      "source": "Display Name",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.users.field.email.title",
+      "source": "Email",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.users.field.external_id.description",
+      "source": "Identity: the JWT sub claim. Users bring theirs from the authentication provider; an agent saved without one gets agent:<uuid>",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.users.field.external_id.title",
+      "source": "External Id",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.users.field.first_name.description",
+      "source": "First name from JWT given_name claim",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.users.field.first_name.title",
+      "source": "First Name",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.users.field.id.title",
+      "source": "Id",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.users.field.is_agent.description",
+      "source": "When TRUE this user is a service principal (agent)",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.users.field.is_agent.title",
+      "source": "Is Agent",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.users.field.is_disabled.title",
+      "source": "Is Disabled",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.users.field.last_name.description",
+      "source": "Last name from JWT family_name claim",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.users.field.last_name.title",
+      "source": "Last Name",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.users.field.last_seen.description",
+      "source": "Timestamp when user was last active",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.users.field.last_seen.title",
+      "source": "Last Seen",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.users.field.settings.description",
+      "source": "User-specific settings and preferences",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.users.field.settings.title",
+      "source": "Settings",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.users.field.updated_at.title",
+      "source": "Updated At",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.webhook_receiver_logs.entity.description",
+      "source": "Log of webhook receiver events",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.webhook_receiver_logs.entity.plural_label",
+      "source": "Webhook Receiver Logs",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.webhook_receiver_logs.entity.singular_label",
+      "source": "Webhook Receiver Log",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.webhook_receiver_logs.field.webhook_id.title",
+      "source": "Webhook Receiver",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.webhook_receivers.entity.description",
+      "source": "Configuration for webhook endpoints",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.webhook_receivers.entity.plural_label",
+      "source": "Webhook Receivers",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.webhook_receivers.entity.singular_label",
+      "source": "Webhook Receiver",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.webhook_receivers.enum.auth_type.header",
+      "source": "header",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.webhook_receivers.enum.auth_type.hmac",
+      "source": "hmac",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.webhook_receivers.enum.auth_type.none",
+      "source": "none",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.webhook_receivers.field._label.description",
+      "source": "Composed, human-readable label folded from the parent chain",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.webhook_receivers.field._label.title",
+      "source": "Webhook Receiver",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.webhook_receivers.field.auth_type.description",
+      "source": "Type of authentication (none, hmac, or custom header)",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.webhook_receivers.field.auth_type.title",
+      "source": "Authentication Type",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.webhook_receivers.field.created_at.title",
+      "source": "Created At",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.webhook_receivers.field.description.description",
+      "source": "Description of webhook receiver purpose",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.webhook_receivers.field.description.title",
+      "source": "Description",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.webhook_receivers.field.header_name.description",
+      "source": "Custom header name for authentication",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.webhook_receivers.field.header_name.title",
+      "source": "Header Name",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.webhook_receivers.field.header_value.description",
+      "source": "Expected value for custom header authentication",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.webhook_receivers.field.header_value.title",
+      "source": "Header Value",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.webhook_receivers.field.id.title",
+      "source": "Id",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.webhook_receivers.field.jsonata.description",
+      "source": "Optional JSONata expression to transform incoming data",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.webhook_receivers.field.jsonata.title",
+      "source": "JSONata Expression",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.webhook_receivers.field.label.title",
+      "source": "Webhook Receiver",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.webhook_receivers.field.secret.description",
+      "source": "Secret for webhook authentication",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.webhook_receivers.field.secret.title",
+      "source": "Secret",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.webhook_receivers.field.table_name.description",
+      "source": "Target table for webhook data",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.webhook_receivers.field.table_name.title",
+      "source": "Table",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.webhook_receivers.field.table_name_label.description",
+      "source": "Composed label of the referenced Entity",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.webhook_receivers.field.table_name_label.title",
+      "source": "Table",
+      "translation": ""
+    },
+    {
+      "key": "module.admin.webhook_receivers.field.updated_at.title",
+      "source": "Updated At",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.categories.entity.description",
+      "source": "Product categories",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.categories.entity.plural_label",
+      "source": "Categories",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.categories.entity.singular_label",
+      "source": "Category",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.categories.field._label.description",
+      "source": "Composed, human-readable label folded from the parent chain",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.categories.field._label.title",
+      "source": "Category",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.categories.field.category_name.title",
+      "source": "Category",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.categories.field.created_at.title",
+      "source": "Created At",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.categories.field.description.description",
+      "source": "Description of the product category",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.categories.field.description.title",
+      "source": "Description",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.categories.field.id.title",
+      "source": "Id",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.categories.field.updated_at.title",
+      "source": "Updated At",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.customers.entity.description",
+      "source": "Customer information and contact details",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.customers.entity.plural_label",
+      "source": "Customers",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.customers.entity.singular_label",
+      "source": "Customer",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.customers.field._label.description",
+      "source": "Composed, human-readable label folded from the parent chain",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.customers.field._label.title",
+      "source": "Customer",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.customers.field.address.title",
+      "source": "Street Address",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.customers.field.city.title",
+      "source": "City",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.customers.field.company_name.title",
+      "source": "Customer",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.customers.field.contact_name.title",
+      "source": "Contact Name",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.customers.field.contact_title.description",
+      "source": "Job title of the primary contact",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.customers.field.contact_title.title",
+      "source": "Contact Title",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.customers.field.country.title",
+      "source": "Country",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.customers.field.created_at.title",
+      "source": "Created At",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.customers.field.customer_id.description",
+      "source": "Unique short code identifying the customer",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.customers.field.customer_id.title",
+      "source": "Customer ID",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.customers.field.fax.title",
+      "source": "Fax",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.customers.field.id.title",
+      "source": "Id",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.customers.field.phone.description",
+      "source": "Primary phone number",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.customers.field.phone.title",
+      "source": "Phone",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.customers.field.postal_code.description",
+      "source": "Postal or ZIP code",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.customers.field.postal_code.title",
+      "source": "Postal Code",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.customers.field.region.description",
+      "source": "State or province",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.customers.field.region.title",
+      "source": "Region",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.customers.field.updated_at.title",
+      "source": "Updated At",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employee_territories.entity.description",
+      "source": "Links employees to their assigned territories",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employee_territories.entity.plural_label",
+      "source": "Employee Territories",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employee_territories.entity.singular_label",
+      "source": "Employee Territory",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employee_territories.field.employee_id.title",
+      "source": "Employee",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employees.entity.description",
+      "source": "Employee records and contact information",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employees.entity.plural_label",
+      "source": "Employees",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employees.entity.singular_label",
+      "source": "Employee",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employees.enum.title_of_courtesy.Dr\\.",
+      "source": "Dr.",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employees.enum.title_of_courtesy.Mr\\.",
+      "source": "Mr.",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employees.enum.title_of_courtesy.Mrs\\.",
+      "source": "Mrs.",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employees.enum.title_of_courtesy.Ms\\.",
+      "source": "Ms.",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employees.field._label.description",
+      "source": "Composed, human-readable label folded from the parent chain",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employees.field._label.title",
+      "source": "Employee",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employees.field.address.title",
+      "source": "Street Address",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employees.field.birth_date.title",
+      "source": "Birth Date",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employees.field.city.title",
+      "source": "City",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employees.field.country.title",
+      "source": "Country",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employees.field.created_at.title",
+      "source": "Created At",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employees.field.extension.description",
+      "source": "Phone extension",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employees.field.extension.title",
+      "source": "Extension",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employees.field.first_name.title",
+      "source": "First Name",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employees.field.hire_date.title",
+      "source": "Hire Date",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employees.field.home_phone.title",
+      "source": "Home Phone",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employees.field.id.title",
+      "source": "Id",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employees.field.last_name.title",
+      "source": "Last Name",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employees.field.notes.title",
+      "source": "Notes",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employees.field.photo_path.title",
+      "source": "Photo Path",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employees.field.postal_code.description",
+      "source": "Postal or ZIP code",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employees.field.postal_code.title",
+      "source": "Postal Code",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employees.field.region.description",
+      "source": "State or province",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employees.field.region.title",
+      "source": "Region",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employees.field.reports_to.description",
+      "source": "Manager this employee reports to",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employees.field.reports_to.title",
+      "source": "Reports To",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employees.field.reports_to_label.description",
+      "source": "Composed label of the referenced Employee",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employees.field.reports_to_label.title",
+      "source": "Reports To",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employees.field.title.description",
+      "source": "Job title",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employees.field.title.title",
+      "source": "Title",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employees.field.title_of_courtesy.description",
+      "source": "Courtesy title (Mr., Ms., Dr., etc.)",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employees.field.title_of_courtesy.title",
+      "source": "Title of Courtesy",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.employees.field.updated_at.title",
+      "source": "Updated At",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.order_details.entity.description",
+      "source": "Individual line items within an order",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.order_details.entity.plural_label",
+      "source": "Order Details",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.order_details.entity.singular_label",
+      "source": "Order Detail",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.order_details.field.order_id.description",
+      "source": "Reference to the order",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.order_details.field.order_id.title",
+      "source": "Order",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.order_details.field.product_id.title",
+      "source": "Product",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.orders.entity.description",
+      "source": "Customer orders and shipping details",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.orders.entity.plural_label",
+      "source": "Orders",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.orders.entity.singular_label",
+      "source": "Order",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.orders.enum.status.pending",
+      "source": "pending",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.orders.enum.status.shipped",
+      "source": "shipped",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.orders.field._label.description",
+      "source": "Composed, human-readable label folded from the parent chain",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.orders.field._label.title",
+      "source": "Order",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.orders.field.created_at.title",
+      "source": "Created At",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.orders.field.customer_id.description",
+      "source": "Customer who placed the order",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.orders.field.customer_id.title",
+      "source": "Customer",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.orders.field.customer_id_label.description",
+      "source": "Composed label of the referenced Customer",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.orders.field.customer_id_label.title",
+      "source": "Customer",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.orders.field.employee_id.description",
+      "source": "Employee who handled the order",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.orders.field.employee_id.title",
+      "source": "Employee",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.orders.field.employee_id_label.description",
+      "source": "Composed label of the referenced Employee",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.orders.field.employee_id_label.title",
+      "source": "Employee",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.orders.field.freight.description",
+      "source": "Freight cost for the order",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.orders.field.freight.title",
+      "source": "Freight",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.orders.field.id.title",
+      "source": "Id",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.orders.field.order_date.title",
+      "source": "Order Date",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.orders.field.required_date.title",
+      "source": "Required Date",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.orders.field.ship_address.title",
+      "source": "Ship Address",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.orders.field.ship_city.title",
+      "source": "Ship City",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.orders.field.ship_country.title",
+      "source": "Ship Country",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.orders.field.ship_name.title",
+      "source": "Order",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.orders.field.ship_postal_code.title",
+      "source": "Ship Postal Code",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.orders.field.ship_region.description",
+      "source": "State or province for shipment",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.orders.field.ship_region.title",
+      "source": "Ship Region",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.orders.field.ship_via.description",
+      "source": "Shipper used for this order",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.orders.field.ship_via.title",
+      "source": "Shipped Via",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.orders.field.ship_via_label.description",
+      "source": "Composed label of the referenced Shipper",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.orders.field.ship_via_label.title",
+      "source": "Shipped Via",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.orders.field.shipped_date.title",
+      "source": "Shipped Date",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.orders.field.status.description",
+      "source": "Order lifecycle state",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.orders.field.status.title",
+      "source": "Status",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.orders.field.updated_at.title",
+      "source": "Updated At",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.products.entity.description",
+      "source": "Product catalog and inventory",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.products.entity.plural_label",
+      "source": "Products",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.products.entity.singular_label",
+      "source": "Product",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.products.field._label.description",
+      "source": "Composed, human-readable label folded from the parent chain",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.products.field._label.title",
+      "source": "Product",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.products.field.category_id.description",
+      "source": "Category this product belongs to",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.products.field.category_id.title",
+      "source": "Category",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.products.field.category_id_label.description",
+      "source": "Composed label of the referenced Category",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.products.field.category_id_label.title",
+      "source": "Category",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.products.field.created_at.title",
+      "source": "Created At",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.products.field.discontinued.description",
+      "source": "Whether the product is discontinued",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.products.field.discontinued.title",
+      "source": "Discontinued",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.products.field.id.title",
+      "source": "Id",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.products.field.product_name.title",
+      "source": "Product",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.products.field.quantity_per_unit.description",
+      "source": "Quantity and unit of measure per package",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.products.field.quantity_per_unit.title",
+      "source": "Quantity Per Unit",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.products.field.reorder_level.description",
+      "source": "Minimum stock level before reordering",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.products.field.reorder_level.title",
+      "source": "Reorder Level",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.products.field.supplier_id.description",
+      "source": "Supplier providing this product",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.products.field.supplier_id.title",
+      "source": "Supplier",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.products.field.supplier_id_label.description",
+      "source": "Composed label of the referenced Supplier",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.products.field.supplier_id_label.title",
+      "source": "Supplier",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.products.field.unit_price.title",
+      "source": "Unit Price",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.products.field.units_in_stock.description",
+      "source": "Current stock quantity",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.products.field.units_in_stock.title",
+      "source": "Units In Stock",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.products.field.units_on_order.description",
+      "source": "Quantity currently on order from supplier",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.products.field.units_on_order.title",
+      "source": "Units On Order",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.products.field.updated_at.title",
+      "source": "Updated At",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.regions.entity.description",
+      "source": "Sales territories and geographic regions",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.regions.entity.plural_label",
+      "source": "Regions",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.regions.entity.singular_label",
+      "source": "Region",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.regions.field._label.description",
+      "source": "Composed, human-readable label folded from the parent chain",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.regions.field._label.title",
+      "source": "Region",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.regions.field.created_at.title",
+      "source": "Created At",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.regions.field.id.title",
+      "source": "Id",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.regions.field.region_description.title",
+      "source": "Region",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.regions.field.updated_at.title",
+      "source": "Updated At",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.shippers.entity.description",
+      "source": "Shipping companies and carriers",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.shippers.entity.plural_label",
+      "source": "Shippers",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.shippers.entity.singular_label",
+      "source": "Shipper",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.shippers.field._label.description",
+      "source": "Composed, human-readable label folded from the parent chain",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.shippers.field._label.title",
+      "source": "Shipper",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.shippers.field.company_name.title",
+      "source": "Shipper",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.shippers.field.created_at.title",
+      "source": "Created At",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.shippers.field.id.title",
+      "source": "Id",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.shippers.field.phone.title",
+      "source": "Phone",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.shippers.field.updated_at.title",
+      "source": "Updated At",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.suppliers.entity.description",
+      "source": "Supplier information and contact details",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.suppliers.entity.plural_label",
+      "source": "Suppliers",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.suppliers.entity.singular_label",
+      "source": "Supplier",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.suppliers.field._label.description",
+      "source": "Composed, human-readable label folded from the parent chain",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.suppliers.field._label.title",
+      "source": "Supplier",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.suppliers.field.address.title",
+      "source": "Street Address",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.suppliers.field.city.title",
+      "source": "City",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.suppliers.field.company_name.title",
+      "source": "Supplier",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.suppliers.field.contact_name.title",
+      "source": "Contact Name",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.suppliers.field.contact_title.description",
+      "source": "Job title of the primary contact",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.suppliers.field.contact_title.title",
+      "source": "Contact Title",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.suppliers.field.country.title",
+      "source": "Country",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.suppliers.field.created_at.title",
+      "source": "Created At",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.suppliers.field.fax.title",
+      "source": "Fax",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.suppliers.field.homepage.description",
+      "source": "Supplier website URL",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.suppliers.field.homepage.title",
+      "source": "Homepage",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.suppliers.field.id.title",
+      "source": "Id",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.suppliers.field.phone.description",
+      "source": "Primary phone number",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.suppliers.field.phone.title",
+      "source": "Phone",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.suppliers.field.postal_code.description",
+      "source": "Postal or ZIP code",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.suppliers.field.postal_code.title",
+      "source": "Postal Code",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.suppliers.field.region.description",
+      "source": "State or province",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.suppliers.field.region.title",
+      "source": "Region",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.suppliers.field.updated_at.title",
+      "source": "Updated At",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.territories.entity.description",
+      "source": "Sales territories within regions",
+      "translation": ""
+    },
+    {
+      "key": "module.nwind.territories.entity.plural_label",
+      "source": "Territories",
+      "translation": ""
+    }
+  ]
+}

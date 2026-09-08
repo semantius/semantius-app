@@ -9,6 +9,8 @@
 import type { LocaleFile } from '../../src/i18n/catalog'
 
 export declare const SOURCE_LANGUAGE: string
+/** Reviewed languages, exported as `hints` on every other language's work file. */
+export declare const MANAGED_LANGUAGES: string[]
 export declare const MODULE_ROOT: string
 export declare const LANGUAGE_FILE: RegExp
 export declare const SRC_DIR: string

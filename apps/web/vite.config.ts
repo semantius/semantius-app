@@ -1,10 +1,11 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type PluginOption } from 'vite'
 import viteReact from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { playwright } from '@vitest/browser-playwright'
 
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
-import { readdirSync } from 'node:fs'
+import { existsSync, readdirSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
 import { fileURLToPath, URL } from 'node:url'
 import { i18nDevWriter } from './vite-plugins/i18nDevWriter'
 
@@ -24,6 +25,32 @@ function shippedLocales(): string[] {
       .sort()
   } catch {
     return []
+  }
+}
+
+/**
+ * Keep the translation work files out of the build.
+ *
+ * `i18n:translate` writes `public/locales/work-<locale>.json` beside the
+ * language it is about, which is where a human wants it — but `publicDir` is
+ * copied into `dist/` wholesale and Vite has no per-file exclude, so without
+ * this the scratch file is deployed and fetchable at `/locales/work-fr-FR.json`.
+ * `writeBundle` runs after that copy. No BCP-47 tag matches `work-*.json`, so
+ * `shippedLocales()` never listed one as a language in the first place.
+ */
+function dropWorkFiles(): PluginOption {
+  return {
+    name: 'i18n-drop-work-files',
+    apply: 'build',
+    writeBundle(options) {
+      const dir = join(options.dir ?? 'dist', 'locales')
+      if (!existsSync(dir)) return
+      for (const name of readdirSync(dir)) {
+        if (name.startsWith('work-') && name.endsWith('.json') && name !== 'work.schema.json') {
+          rmSync(join(dir, name), { force: true })
+        }
+      }
+    },
   }
 }
 
@@ -84,6 +111,7 @@ export default defineConfig(({ mode }) => ({
     // the repo's own language files under public/locales/, for translate mode
     // and for discovery. `apply: 'serve'`, so no build has it.
     i18nDevWriter(),
+    dropWorkFiles(),
   ],
   define: {
     '__BUILD_DATE__': JSON.stringify(new Date().toISOString()),

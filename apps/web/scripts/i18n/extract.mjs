@@ -58,6 +58,19 @@ import { compileMessageOrThrow } from '@lingui/message-utils/compileMessage'
 /** The source language: its file is the index, the SOURCE text of every key. */
 export const SOURCE_LANGUAGE = 'en-US'
 
+/**
+ * The languages a human has reviewed. `translate.mjs` exports their
+ * translations as `hints` on every OTHER language's work file, because English
+ * alone underspecifies: `Order` is an entity in nwind and a sort position in
+ * `order_column`, and a reviewed language has already had to decide which. What
+ * two sources agree on is the meaning; where they differ is packaging.
+ *
+ * A language joins this list by a deliberate edit, once you have reviewed it —
+ * never by being created. A machine-filled language quoted as context to the
+ * next one propagates its mistakes and makes them look corroborated.
+ */
+export const MANAGED_LANGUAGES = ['de-DE']
+
 /** The reserved first segment of every metadata key. Mirrors `src/i18n/catalog.ts`. */
 export const MODULE_ROOT = 'module'
 

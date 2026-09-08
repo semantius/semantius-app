@@ -483,6 +483,63 @@ in it is attached to a key; the eight words survive as a plain table in
 `TRANSLATION-GUIDE.md` for a human, who applies sense where a substring match
 cannot.
 
+**A work file is WORK, and it is committed.** `i18n:translate` writes
+`public/locales/work-<locale>.json` BESIDE the language it is about — not in a
+dotfolder — and it is tracked like any other authored file. The tempting
+argument is that it regenerates, so ignore it; that is true only of an EMPTY
+one. A partly filled work file is somebody's half-finished translation, and
+regenerating hands back empty strings, so ignoring it loses that work the
+moment the device changes. Being in the repo must not mean being deployed:
+`public/` is copied into `dist/` wholesale and Vite has no per-file exclude, so
+`dropWorkFiles()` in `vite.config.ts` removes them in `writeBundle`. Nothing
+lists one as a language either — no BCP-47 tag matches `work-*.json`, which
+`i18nCatalogs.test.ts` pins, because loosening that regex would put a
+translator's file in the language switcher.
+
+**The same reasoning makes REBUILDING it non-destructive.** `buildWorkFile`
+takes `previous` — the file already on disk — and carries every filled
+`translation` forward; it used to write them all back as `''`, so rerunning
+`i18n:translate` mid-job silently destroyed everything filled since the last
+import. Entries imported in the meantime drop out and are reported as `landed`;
+a filled entry whose key has left the index is reported as `orphaned`, by key,
+because that is the one case with nowhere to put the text. `carriedOver` and
+`dropped` are the build's REPORT and are stripped before writing — the file's
+own schema is `additionalProperties: false`.
+
+**Managed languages are the ones a human REVIEWED, and the list is explicit.**
+`MANAGED_LANGUAGES` in `scripts/i18n/extract.mjs` (`de-DE` today). Every other
+language's work file carries `hints`: what each managed language already says
+for that key, because English underspecifies and a reviewed language has had to
+resolve it — `Order` is an nwind entity and a sort position in `order_column`,
+`Title` is a job title and a form of address. Hints are context: `import.mjs`
+never reads them, a language is never hinted with itself, and a language with no
+answer is omitted rather than offered as an empty string. A language joins the
+list by a deliberate edit AFTER review, never by being created
+(`i18n:translate --create`): a machine-filled language quoted as context to the
+next one propagates its mistakes and makes them look corroborated.
+
+**A check reads its expectation from the artifact, never from the file under
+check.** `validateWork` in `import.mjs` compared a translation's ICU
+placeholders against a `placeholders` array the WORK FILE carried — an
+expectation stored in the very file a translator edits. Emptying that array made
+a German that DROPPED `{label}` pass, which is the one case the check exists
+for, and `translate.mjs` additionally swallowed a non-compiling source into an
+empty array. Both sides are read off the text now, `placeholdersOf(entry.source)`
+against `placeholdersOf(translation)`, and the field is gone from the writer, the
+schema, the `.d.mts` and the guide. `i18nCatalogs.test.ts` had always compared
+the two texts directly for the shipped language files; the importer was the one
+place that did not. Anything derivable from `source` stays out of the work file
+for the same reason.
+
+**A model label or description containing a BRACE crashes its own render.** Every
+metadata message goes through Lingui, so `{alias_code, source_domain, …}` in a
+description — a JSON shape written as documentation — parses as an ICU argument
+of an unknown type, and formatting it throws `TypeError: formatter is not a
+function`. It throws on the ENGLISH fallback path, with no translation involved:
+`module.admin.entities.field.catalog_entity_aliases.description` is in that state
+today. The fix belongs in the model text; escaping per brace (`$'{'…'}'`) works
+but leaves the description unreadable in the grid.
+
 **Discovery is how the index is maintained, and the test suite is what runs it.**
 `translate()` and `translateVerbatim()` report every render (key + source) to the
 collector (`src/i18n/missing.ts`); Lingui's `missing` event covers `<Trans>`. The
