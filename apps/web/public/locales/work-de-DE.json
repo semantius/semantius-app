@@ -1,6 +1,6 @@
 {
   "locale": "de-DE",
-  "generated": "2026-09-08T18:02:50.807Z",
+  "generated": "2026-09-08T18:31:52.921Z",
   "entries": [
     {
       "key": "module.admin.audit_ddl_logs.entity.description",
@@ -433,8 +433,8 @@
       "translation": ""
     },
     {
-      "key": "module.admin.entities.field.catalog_entity_aliases.description",
-      "source": "Reuse/merge record: JSON array of {alias_code, source_domain, source_module, decided}. Append-only. Empty array = never a merge target.",
+      "key": "XXX module.admin.entities.field.catalog_entity_aliases.description",
+      "source": "XXX Reuse/merge record: JSON array of {alias_code, source_domain, source_module, decided}. Append-only. Empty array = never a merge target.",
       "translation": ""
     },
     {

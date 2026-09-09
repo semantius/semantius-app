@@ -109,6 +109,22 @@ export function isMetadataKey(key) {
   return key === MODULE_ROOT || key.startsWith(`${MODULE_ROOT}.`)
 }
 
+/** A SQLSTATE outside the platform's own classes: a plain server sentence. */
+const SQLSTATE_KEY = /^(?!9[09])[0-9A-Z]{5}(\.|$)/
+
+/**
+ * Whether a stored key names text that is looked up verbatim and never
+ * ICU-compiled: model text, or a plain server sentence. Mirrors
+ * `isVerbatimKey` in `src/i18n/errors.ts` — keep the two in step.
+ *
+ * Model text qualifies because nothing ever passes values to a metadata
+ * message, so a brace in one is literal: a JSON shape in a field description is
+ * documentation, not a template.
+ */
+export function isVerbatimKey(key) {
+  return isMetadataKey(key) || SQLSTATE_KEY.test(key)
+}
+
 // ── Source scan ─────────────────────────────────────────────────────────────
 
 /** Every product `.ts`/`.tsx` under `dir`, tests excluded, sorted for determinism. */
@@ -363,6 +379,46 @@ export function collectMessages(files = sourceFiles()) {
 }
 
 // ── ICU placeholders ────────────────────────────────────────────────────────
+
+/**
+ * The argument types Lingui can format. Mirrors `FORMAT_TYPES` in
+ * `src/i18n/translate.ts` — keep the two in step.
+ */
+const FORMAT_TYPES = new Set(['plural', 'select', 'selectordinal', 'number', 'date', 'time'])
+
+/**
+ * The first argument in `message` whose type Lingui cannot format, or
+ * `undefined` when every one is fine.
+ *
+ * COMPILING IS NOT BEING RENDERABLE, and that gap is what let a broken message
+ * through. A JSON shape written into a model description —
+ * `{alias_code, source_domain, source_module, decided}` — is valid ICU syntax:
+ * an argument named `alias_code` of type `source_domain`. It compiles, so
+ * `placeholdersOf` reported `['alias_code']` and the importer demanded that of
+ * the translation, rejecting a correct sentence without it and accepting one
+ * that copied the JSON in. Formatting it throws `TypeError: formatter is not a
+ * function`, which is what the app's own `formattable()` guard exists to
+ * prevent; these scripts had no equivalent.
+ */
+export function unformattableArgument(message) {
+  const walk = (tokens) => {
+    for (const token of tokens) {
+      if (typeof token === 'string' || !Array.isArray(token)) continue
+      const [name, type, format] = token
+      if (type !== undefined && !FORMAT_TYPES.has(type)) return { name, type }
+      if (format && typeof format === 'object' && !Array.isArray(format)) {
+        for (const [key, choice] of Object.entries(format)) {
+          if (key === 'offset' || !Array.isArray(choice)) continue
+          const bad = walk(choice)
+          if (bad) return bad
+        }
+      }
+    }
+    return undefined
+  }
+  const compiled = compileMessageOrThrow(message)
+  return walk(Array.isArray(compiled) ? compiled : [compiled])
+}
 
 /** Every argument name an ICU message interpolates, sorted. Throws on a message that does not compile. */
 export function placeholdersOf(message) {

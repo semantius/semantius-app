@@ -137,13 +137,26 @@ describe('the constraint extractor', () => {
 })
 
 describe('isVerbatimKey', () => {
-  it('names a plain SQLSTATE key, not a platform one and not a message', () => {
+  it('names a plain SQLSTATE key or model text, not a platform error and not a code string', () => {
     expect(isVerbatimKey('23505.modules_module_slug_key')).toBe(true)
     expect(isVerbatimKey('42703')).toBe(true)
     expect(isVerbatimKey('99017.modules')).toBe(false)
     expect(isVerbatimKey('90001')).toBe(false)
     expect(isVerbatimKey('Save')).toBe(false)
-    expect(isVerbatimKey('module.nwind.name')).toBe(false)
+  })
+
+  it('names MODEL TEXT, because nothing ever passes it values', () => {
+    // This used to be false, and a JSON shape in a field description
+    // (`{alias_code, source_domain, …}`) was therefore compiled as ICU: an
+    // argument of a type with no formatter. `metadataText` and the inline
+    // `t({ id: ['module', …], defaultMessage })` call sites pass no values, so
+    // a metadata message cannot have a real argument and every brace in one is
+    // literal.
+    expect(isVerbatimKey('module.nwind.name')).toBe(true)
+    expect(isVerbatimKey('module.admin.entities.field.catalog_entity_aliases.description')).toBe(true)
+    // The reserved segment has to be followed by a dot: a code string may not
+    // start with `module.`, but `modules are listed here` is ordinary English.
+    expect(isVerbatimKey('modules are listed here')).toBe(false)
   })
 })
 

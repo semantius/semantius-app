@@ -25,12 +25,9 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import Ajv from 'ajv'
 import { compileMessageOrThrow } from '@lingui/message-utils/compileMessage'
-import { LOCALES_DIR, placeholdersOf, readJson, serialize } from './extract.mjs'
+import { isVerbatimKey, LOCALES_DIR, placeholdersOf, readJson, serialize, unformattableArgument } from './extract.mjs'
 import { argValue, connectTarget, writeMessage } from './tenant.mjs'
 import { readLanguageFile, workFilePath } from './translate.mjs'
-
-/** A SQLSTATE key outside the platform's own classes names a verbatim sentence. */
-const VERBATIM_KEY = /^(?!9[09])[0-9A-Z]{5}(\.|$)/
 
 /**
  * The work file's shape, from the schema that ships in the build.
@@ -67,7 +64,7 @@ export function validateWork(work) {
     if (typeof entry?.translation !== 'string') problems.push(`${at}: "translation" must be a string`)
     const translation = entry?.translation
     if (!translation) return
-    if (VERBATIM_KEY.test(entry.key)) return
+    if (isVerbatimKey(entry.key)) return
 
     try {
       compileMessageOrThrow(translation)
@@ -81,9 +78,31 @@ export function validateWork(work) {
     // and a dropped placeholder is exactly what that entry then hides.
     let wanted
     try {
+      // Compiling is not the same as being renderable. A source whose argument
+      // names a type Lingui cannot format would otherwise have its accidental
+      // argument DEMANDED of the translation — that is how a JSON shape in a
+      // model description came to reject correct German and accept German that
+      // copied the JSON in.
+      const bad = unformattableArgument(entry.source ?? '')
+      if (bad) {
+        problems.push(
+          `${at} (${entry.key}): the source is not a renderable message — "{${bad.name}, ${bad.type}…}" reads as an ` +
+            `argument of type "${bad.type}", which has no formatter. If those braces are literal text, the key must be ` +
+            'verbatim (model text and plain server sentences are); otherwise fix the source.',
+        )
+        return
+      }
       wanted = placeholdersOf(entry.source ?? '').sort()
     } catch (err) {
       problems.push(`${at} (${entry.key}): the source does not compile as ICU — ${err.message}`)
+      return
+    }
+    const badTranslation = unformattableArgument(translation)
+    if (badTranslation) {
+      problems.push(
+        `${at} (${entry.key}): the translation is not renderable — "{${badTranslation.name}, ${badTranslation.type}…}" ` +
+          `reads as an argument of type "${badTranslation.type}", which has no formatter.`,
+      )
       return
     }
     const got = placeholdersOf(translation).sort()

@@ -39,7 +39,7 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { LANGUAGE_FILE, LOCALES_DIR, MANAGED_LANGUAGES, languageFiles, readIndex, readJson, serialize, SOURCE_LANGUAGE } from './extract.mjs'
+import { isVerbatimKey, LANGUAGE_FILE, LOCALES_DIR, MANAGED_LANGUAGES, languageFiles, readIndex, readJson, serialize, SOURCE_LANGUAGE, unformattableArgument } from './extract.mjs'
 import { argValue, connectTarget, readRecord, TARGET_ABSENT_MESSAGE } from './tenant.mjs'
 
 /**
@@ -142,6 +142,39 @@ export function buildWorkFile(locale, { index, file, record = {}, hints = [], pr
   }
 }
 
+/**
+ * The entries whose SOURCE cannot be rendered, with what is wrong with each.
+ *
+ * Handing one to a translator is asking for a translation of a message the app
+ * can never show. It also poisons the import: `placeholdersOf` reads the
+ * accidental argument off the source and then DEMANDS it of the translation, so
+ * a correct sentence is rejected and one that copies the broken text in is
+ * accepted. Caught here, at the point the work is handed out, rather than after
+ * somebody has translated it.
+ *
+ * A verbatim key is exempt by definition — model text and plain server
+ * sentences are never compiled, so their braces are literal and a JSON shape in
+ * a field description is documentation rather than a defect.
+ */
+export function unrenderableSources(entries) {
+  const found = []
+  for (const entry of entries) {
+    if (isVerbatimKey(entry.key)) continue
+    try {
+      const bad = unformattableArgument(entry.source)
+      if (bad) {
+        found.push({
+          key: entry.key,
+          reason: `"{${bad.name}, ${bad.type}…}" reads as an argument of type "${bad.type}", which has no formatter`,
+        })
+      }
+    } catch (err) {
+      found.push({ key: entry.key, reason: `does not compile as ICU — ${err instanceof Error ? err.message : err}` })
+    }
+  }
+  return found
+}
+
 /** The language's own name for itself, which is what the account menu shows. */
 export function endonymFor(locale) {
   const language = locale.split('-')[0]
@@ -215,6 +248,19 @@ async function main(argv) {
   }
 
   const { carriedOver, dropped, ...work } = buildWorkFile(locale, { index, file, record, hints, previous })
+
+  // Refuse to hand out work that cannot be right. Checked BEFORE the write, so
+  // a failed run leaves whatever was already in the file untouched.
+  const unrenderable = unrenderableSources(work.entries)
+  if (unrenderable.length > 0) {
+    console.error(
+      `translate: ${unrenderable.length} source message(s) cannot be rendered, so nothing was written.\n` +
+        'Fix the source, or make the key verbatim if the braces are literal text:',
+    )
+    for (const { key, reason } of unrenderable) console.error(`  ${key}: ${reason}`)
+    process.exit(1)
+  }
+
   mkdirSync(WORK_DIR, { recursive: true })
   writeFileSync(out, serialize(work), 'utf8')
 

@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import { MANAGED_LANGUAGES } from '../../scripts/i18n/extract.mjs'
-import { buildWorkFile, createLanguageFile, endonymFor, readHintLanguages } from '../../scripts/i18n/translate.mjs'
+import { buildWorkFile, createLanguageFile, endonymFor, readHintLanguages, unrenderableSources } from '../../scripts/i18n/translate.mjs'
 import { mergeIntoFile, validateWork } from '../../scripts/i18n/import.mjs'
 import { fillEmptyMessages } from '../../scripts/i18n/export.mjs'
 import type { LocaleFile } from '@/i18n'
@@ -207,6 +207,56 @@ describe('validateWork', () => {
       expect(problems.some((p) => p.includes('additional properties')), `${stale}: schema`).toBe(true)
       expect(problems.some((p) => p.includes('placeholders are [] but the source has [label]')), `${stale}: check`).toBe(true)
     }
+  })
+
+  describe('a source whose braces are not really arguments', () => {
+    // A JSON shape written into a model description. Valid ICU SYNTAX — an
+    // argument named `alias_code` of type `source_domain` — so it compiles, and
+    // `placeholdersOf` reports `['alias_code']`. It cannot be FORMATTED: there
+    // is no such formatter. Before this, the importer demanded that argument of
+    // the German, so a correct sentence was rejected and one that copied the
+    // JSON literal in was accepted.
+    const source =
+      'Reuse/merge record: JSON array of {alias_code, source_domain, source_module, decided}. Append-only. Empty array = never a merge target.'
+    const metadataKey = 'module.admin.entities.field.catalog_entity_aliases.description'
+
+    it('accepts a real translation of it under a model key, braces and all not required', () => {
+      // Model text is verbatim: nothing passes values to a metadata message, so
+      // its braces are literal and it is never compiled.
+      const entries = [{ key: metadataKey, source, translation: 'Wiederverwendungssatz. Nur Anfügen.' }]
+      expect(validateWork({ locale: 'de-DE', entries })).toEqual([])
+    })
+
+    it('refuses it under a CODE key, naming the argument and its bogus type', () => {
+      // A code string is ICU, so the same text there is a real defect and the
+      // translator must not be asked to reproduce it.
+      const entries = [{ key: 'A code string', source, translation: 'Wiederverwendungssatz.' }]
+      const problems = validateWork({ locale: 'de-DE', entries })
+      expect(problems).toHaveLength(1)
+      expect(problems[0]).toContain('source_domain')
+      expect(problems[0]).toContain('no formatter')
+    })
+
+    it('is caught at GENERATE, before anybody translates it', () => {
+      // The import check is the backstop. The work is handed out here, so this
+      // is where a message the app can never render has to be refused — and it
+      // is refused before the file is written, so a failed run leaves whatever
+      // was already there untouched.
+      expect(unrenderableSources([{ key: 'A code string', source, translation: '' }])).toEqual([
+        { key: 'A code string', reason: expect.stringContaining('source_domain') },
+      ])
+      // Model text and plain server sentences are never compiled, so their
+      // braces are literal and there is nothing here to refuse.
+      expect(unrenderableSources([{ key: metadataKey, source, translation: '' }])).toEqual([])
+      expect(unrenderableSources([{ key: '23505.modules_module_slug_key', source, translation: '' }])).toEqual([])
+    })
+
+    it('refuses a TRANSLATION that introduces one', () => {
+      const entries = [{ key: 'Save', source: 'Save', translation: 'Speichern {x, nonsense}' }]
+      const problems = validateWork({ locale: 'de-DE', entries })
+      expect(problems).toHaveLength(1)
+      expect(problems[0]).toContain('translation is not renderable')
+    })
   })
 
   it('reports a source that is not ICU rather than passing everything under it', () => {

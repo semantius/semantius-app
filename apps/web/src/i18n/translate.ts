@@ -20,6 +20,7 @@
 import { i18n } from '@lingui/core'
 import { compileMessageOrThrow, type CompiledMessage } from '@lingui/message-utils/compileMessage'
 import { currentMessages, messageId, sourceOf, type MessageDescriptor } from './catalog'
+import { isVerbatimKey } from './errors'
 import { isRecordingRenders, recordRender } from './reverseIndex'
 
 export { i18n }
@@ -125,6 +126,15 @@ export const translate: TranslateFn = (message, values) => {
   const source = sourceOf(message)
   if (!source) return ''
   const id = messageId(message)
+  // Model text is never ICU. `localizeMetadata` and the inline
+  // `t({ id: ['module', …], defaultMessage })` call sites pass no values, so a
+  // metadata message has no arguments and every brace in one is literal — a
+  // JSON shape in a field description is documentation. Compiling it makes an
+  // argument of an unknown type out of `{alias_code, source_domain, …}`, which
+  // the compiler below then has to undo, and which made the translation
+  // scripts demand `{alias_code}` of the German. Routed here rather than in
+  // `metadataText` so it holds for every producer of a `module.*` key.
+  if (isVerbatimKey(id)) return translateVerbatim(id, source)
   // The source is the fallback when the catalog has no entry — for a keyed
   // message the id is not readable text on its own.
   let rendered: string

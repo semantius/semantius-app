@@ -531,14 +531,45 @@ the two texts directly for the shipped language files; the importer was the one
 place that did not. Anything derivable from `source` stays out of the work file
 for the same reason.
 
-**A model label or description containing a BRACE crashes its own render.** Every
-metadata message goes through Lingui, so `{alias_code, source_domain, …}` in a
-description — a JSON shape written as documentation — parses as an ICU argument
-of an unknown type, and formatting it throws `TypeError: formatter is not a
-function`. It throws on the ENGLISH fallback path, with no translation involved:
-`module.admin.entities.field.catalog_entity_aliases.description` is in that state
-today. The fix belongs in the model text; escaping per brace (`$'{'…'}'`) works
-but leaves the description unreadable in the grid.
+**A model label or description containing a BRACE is an ICU template by
+accident. The APP survives it; the translation scripts do not.** Every metadata
+message goes through Lingui, so `{alias_code, source_domain, …}` in a description
+— a JSON shape written as documentation — parses as an argument named
+`alias_code` of type `source_domain`, and formatting one throws `TypeError:
+formatter is not a function`. `src/i18n/translate.ts` already guards both ends:
+`formattable()` rejects any argument type outside `plural`/`select`/
+`selectordinal`/`number`/`date`/`time` and the messages compiler falls back to
+the literal string, and `translate()` catches a render throw and shows the
+source. So the description renders correctly and nothing crashes — do not
+"fix" a crash that is not there.
+
+Two rules came out of it, and both are now enforced.
+
+**Model text is VERBATIM, decided by KEY.** `isVerbatimKey` (`src/i18n/errors.ts`)
+covers every `module.*` key alongside the plain-SQLSTATE ones, and `translate()`
+takes that branch before anything is compiled. It is in `translate()` rather
+than in `metadataText` so it holds for every producer of a metadata key — the
+sidebar, breadcrumb and command palette spell their own `t({ id: ['module', …],
+defaultMessage })` inline. What makes it sound: NOTHING passes values to a
+metadata message, so it can never have a real argument. `import.mjs` mirrors the
+predicate; keep the two in step.
+
+**COMPILING IS NOT BEING RENDERABLE, and the check belongs at GENERATE.** That
+gap is what let the bad message through: the string compiles, so
+`placeholdersOf` reported `['alias_code']` and the importer DEMANDED it of the
+German — rejecting a correct sentence without the braces and accepting one that
+copied the JSON literal in, pushing the translator toward keeping it.
+`unformattableArgument` (`extract.mjs`) mirrors `FORMAT_TYPES` from
+`src/i18n/translate.ts`; two copies of that set, so changing one means changing
+the other.
+
+`translate.mjs` runs it over every entry through `unrenderableSources` and
+EXITS NON-ZERO before writing, so a failed run leaves the work file untouched
+and nobody is handed a message the app can never show. Catching it in
+`import.mjs` was too late by a whole translation pass; the check stays there
+only as a backstop for input that never came from generate — `--file <path>`,
+or an operator's plain language file, which `workFromLanguageFile` converts to
+work shape. Verbatim keys are exempt in both, by definition.
 
 **Discovery is how the index is maintained, and the test suite is what runs it.**
 `translate()` and `translateVerbatim()` report every render (key + source) to the

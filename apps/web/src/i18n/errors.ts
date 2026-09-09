@@ -29,6 +29,7 @@
  * the renderer that puts the result on screen.
  */
 
+import { MODULE_ROOT } from './catalog'
 import { placeholdersOf } from './placeholders'
 
 /** The keys inside an envelope that are not parameters — `hint` is the template. */
@@ -162,11 +163,23 @@ export function foreignKeyTables(message: string): { table: string; referencing:
 }
 
 /**
- * Whether a stored key names a plain server sentence, looked up verbatim and
- * never ICU-compiled: a SQLSTATE outside the platform's own classes. Class 90
- * and 99 keys are ICU templates like any code message.
+ * Whether a stored key names text that is looked up verbatim and never
+ * ICU-compiled. Two kinds:
+ *
+ * - a plain server sentence: a SQLSTATE outside the platform's own classes.
+ *   Class 90 and 99 keys are ICU templates like any code message.
+ * - **model text**, every `module.*` key. `metadataText` passes no values and
+ *   neither does any inline `t({ id: ['module', …], defaultMessage })` call
+ *   site, so a metadata message can never have a real argument and every brace
+ *   in one is literal — a JSON shape in a field description
+ *   (`{alias_code, source_domain, …}`) is documentation, not a template. Left
+ *   as ICU it parses as an argument of an unknown type, which the app survives
+ *   (`formattable()` in ./translate.ts) but the translation scripts do not:
+ *   they demanded `{alias_code}` of the German and rejected a correct sentence
+ *   without it.
  */
 export function isVerbatimKey(key: string): boolean {
+  if (key.startsWith(`${MODULE_ROOT}.`)) return true
   const first = key.split('.')[0]
   return SQLSTATE.test(first) && !isCatalogClass(first)
 }

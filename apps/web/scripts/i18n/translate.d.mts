@@ -60,3 +60,6 @@ export declare function createLanguageFile(
   locale: string,
   options?: { name?: string; dir?: string },
 ): { path: string; created: boolean; name?: string }
+export declare function unrenderableSources(
+  entries: readonly WorkEntry[],
+): { key: string; reason: string }[]
