@@ -493,7 +493,7 @@
     "module.admin.entities.field._label.title": "Entity",
     "module.admin.entities.field.audit_log.description": "When enabled, DML operations on this table are logged to the audit log",
     "module.admin.entities.field.audit_log.title": "Audit Log",
-    "module.admin.entities.field.catalog_entity_aliases.description": "Reuse/merge record: JSON array of {alias_code, source_domain, source_module, decided}. Append-only. Empty array = never a merge target.",
+    "XXX module.admin.entities.field.catalog_entity_aliases.description": "Reuse/merge record: JSON array of {alias_code, source_domain, source_module, decided}. Append-only. Empty array = never a merge target.",
     "module.admin.entities.field.catalog_entity_aliases.title": "Catalog Entity Aliases",
     "module.admin.entities.field.catalog_entity_code.description": "Stable canonical identity this entity realizes (uber-model code, e.g. vendors); the rename/dialect/silo join key. table_name holds the deployed name. Empty = created outside the deploy pipeline.",
     "module.admin.entities.field.catalog_entity_code.title": "Catalog Entity Code",
