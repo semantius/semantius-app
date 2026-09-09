@@ -19,7 +19,7 @@
 
 import { i18n } from '@lingui/core'
 import { compileMessageOrThrow, type CompiledMessage } from '@lingui/message-utils/compileMessage'
-import { currentMessages, messageId, sourceOf, type MessageDescriptor } from './catalog'
+import { currentMessages, isMetadataKey, messageId, sourceOf, type MessageDescriptor } from './catalog'
 import { isVerbatimKey } from './errors'
 import { isRecordingRenders, recordRender } from './reverseIndex'
 
@@ -52,6 +52,19 @@ export type TranslateFn = (message: string | MessageDescriptor, values?: Message
 
 const compiledCache = new Map<string, CompiledMessage>()
 let warnedAboutCompileFailure = false
+
+/**
+ * Model text with its braces removed, contents kept.
+ *
+ * `{alias_code, source_domain, …}` in a field description becomes
+ * `alias_code, source_domain, …`: it still reads as the documentation it is,
+ * and it can no longer be mistaken for an ICU argument by anything downstream.
+ * Applied to MODEL text only — a code string's braces are real placeholders and
+ * a server sentence's are PostgreSQL's own.
+ */
+export function withoutBraces(text: string): string {
+  return text.includes('{') || text.includes('}') ? text.replace(/[{}]/g, '') : text
+}
 
 /** The argument types Lingui can format. Anything else throws at render. */
 const FORMAT_TYPES = new Set(['plural', 'select', 'selectordinal', 'number', 'date', 'time'])
@@ -126,14 +139,20 @@ export const translate: TranslateFn = (message, values) => {
   const source = sourceOf(message)
   if (!source) return ''
   const id = messageId(message)
-  // Model text is never ICU. `localizeMetadata` and the inline
-  // `t({ id: ['module', …], defaultMessage })` call sites pass no values, so a
-  // metadata message has no arguments and every brace in one is literal — a
-  // JSON shape in a field description is documentation. Compiling it makes an
-  // argument of an unknown type out of `{alias_code, source_domain, …}`, which
-  // the compiler below then has to undo, and which made the translation
-  // scripts demand `{alias_code}` of the German. Routed here rather than in
-  // `metadataText` so it holds for every producer of a `module.*` key.
+  // Model text is never ICU, and its braces are STRIPPED before it becomes a
+  // message at all. `localizeMetadata` and the inline `t({ id: ['module', …],
+  // defaultMessage })` call sites pass no values, so a metadata message has no
+  // arguments and a brace in one is never a placeholder — a JSON shape in a
+  // field description is documentation someone typed. Left in, it is valid ICU
+  // syntax naming an argument of a type with no formatter, and it spreads:
+  // the render needs a guard, the discovered SOURCE carries it into
+  // `en-US.json`, the work file shows it to a translator, and the importer
+  // demands it back. Removed here, at the one point model text becomes a
+  // message, so every producer of a `module.*` key is covered and the index
+  // never records a brace it would have to explain.
+  if (isMetadataKey(id)) return translateVerbatim(id, withoutBraces(source))
+  // A plain server sentence is verbatim too, but its braces are KEPT: it is
+  // PostgreSQL's own text and we do not edit what the server said.
   if (isVerbatimKey(id)) return translateVerbatim(id, source)
   // The source is the fallback when the catalog has no entry — for a keyed
   // message the id is not readable text on its own.

@@ -144,13 +144,17 @@ describe('enumLabel', () => {
 })
 
 describe('metadataText', () => {
-  it('renders model text that is not valid ICU as written, instead of taking the screen down', () => {
+  it('drops the braces out of model text, keeping what they contained', () => {
     // The real description of `entities.catalog_entity_aliases`: braces that
-    // are a JSON example, not an argument. It compiles, and then Lingui throws
-    // at render for the format type `source_domain`.
+    // are a JSON example, not an argument. Model text never receives values, so
+    // a brace in it cannot be a placeholder — and left in it is valid ICU
+    // naming the format type `source_domain`, which has no formatter. This once
+    // asserted the description came back UNCHANGED, which kept the screen up
+    // but let the braces travel into the discovered source and out again as
+    // something the importer demanded of every translation.
     const description = 'JSON array of {alias_code, source_domain, source_module, decided}. Append-only.'
     expect(metadataText(['module', 'admin', 'entities', 'field', 'catalog_entity_aliases', 'description'], description)).toBe(
-      description,
+      'JSON array of alias_code, source_domain, source_module, decided. Append-only.',
     )
   })
 

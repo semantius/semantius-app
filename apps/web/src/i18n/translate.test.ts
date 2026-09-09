@@ -14,19 +14,43 @@ describe('translate', () => {
     expect(translate(broken)).toBe(broken)
   })
 
-  it('renders a message that compiles but cannot be formatted verbatim instead of throwing', () => {
+  it('strips the braces out of MODEL text, keeping what is inside them', () => {
     // The real description of `entities.catalog_entity_aliases` on the test
-    // tenant: ICU reads `{alias_code, source_domain, …}` as an argument named
+    // tenant. ICU reads `{alias_code, source_domain, …}` as an argument named
     // alias_code with the format type source_domain, and Lingui has no such
-    // formatter — "formatter is not a function", at render, inside a route.
+    // formatter — that was "formatter is not a function", at render, inside a
+    // route. A metadata message never receives values, so the braces cannot be
+    // a placeholder and are removed at the point model text becomes a message.
+    // This used to assert the description came back UNCHANGED: rendering was
+    // safe, but the braces then travelled into the discovered source, into
+    // `en-US.json`, into the work file, and back out as something the importer
+    // demanded of the translation.
+    const id = ['module', 'admin', 'entities', 'field', 'catalog_entity_aliases', 'description'] as const
     const description =
       'Reuse/merge record: JSON array of {alias_code, source_domain, source_module, decided}. Append-only. Empty array = never a merge target.'
-    expect(() =>
-      translate({ id: ['module', 'admin', 'entities', 'field', 'catalog_entity_aliases', 'description'], defaultMessage: description }),
-    ).not.toThrow()
-    expect(
-      translate({ id: ['module', 'admin', 'entities', 'field', 'catalog_entity_aliases', 'description'], defaultMessage: description }),
-    ).toBe(description)
+
+    const rendered = translate({ id: [...id], defaultMessage: description })
+
+    expect(rendered).toBe(
+      'Reuse/merge record: JSON array of alias_code, source_domain, source_module, decided. Append-only. Empty array = never a merge target.',
+    )
+    expect(rendered).not.toContain('{')
+    expect(rendered).not.toContain('}')
+  })
+
+  it('leaves a plain server sentence exactly as the server said it', () => {
+    // Verbatim too, but for the opposite reason: that is PostgreSQL's own text
+    // and a brace in it is the server's, not ours to edit.
+    const sentence = 'value {1,2} violates check constraint'
+    expect(translate({ id: ['23514', 'orders_qty_check'], defaultMessage: sentence })).toBe(sentence)
+  })
+
+  it('renders a code string that cannot be formatted verbatim instead of throwing', () => {
+    // A code string IS ICU, so nothing is stripped and the compiler's guard is
+    // what keeps the screen up.
+    const broken = 'Between {a, whoops} and {b}'
+    expect(() => translate(broken)).not.toThrow()
+    expect(translate(broken)).toBe(broken)
   })
 
   it('still formats what is valid ICU', () => {

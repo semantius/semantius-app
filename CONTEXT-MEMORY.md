@@ -545,14 +545,24 @@ source. So the description renders correctly and nothing crashes — do not
 
 Two rules came out of it, and both are now enforced.
 
-**Model text is VERBATIM, decided by KEY.** `isVerbatimKey` (`src/i18n/errors.ts`)
-covers every `module.*` key alongside the plain-SQLSTATE ones, and `translate()`
-takes that branch before anything is compiled. It is in `translate()` rather
-than in `metadataText` so it holds for every producer of a metadata key — the
-sidebar, breadcrumb and command palette spell their own `t({ id: ['module', …],
-defaultMessage })` inline. What makes it sound: NOTHING passes values to a
-metadata message, so it can never have a real argument. `import.mjs` mirrors the
-predicate; keep the two in step.
+**Model text is VERBATIM and its BRACES ARE STRIPPED, both decided by KEY.**
+`isVerbatimKey` (`src/i18n/errors.ts`) covers every `module.*` key alongside the
+plain-SQLSTATE ones, and `translate()` takes that branch before anything is
+compiled; for a `module.*` key it first runs the text through `withoutBraces()`,
+which deletes `{` and `}` and keeps what was between them. It is in
+`translate()` rather than in `metadataText` so it holds for every producer of a
+metadata key — the sidebar, breadcrumb and command palette spell their own
+`t({ id: ['module', …], defaultMessage })` inline. What makes it sound: NOTHING
+passes values to a metadata message, so a brace in one can never be a
+placeholder.
+
+Rendering safely was NOT enough, and that is the point. With the braces left in,
+the render was fine but the SOURCE handed to discovery still carried them, so
+they landed in `en-US.json`, then in the work file, then came back as an
+argument the importer demanded of the German. Strip at the one place model text
+becomes a message and every stage downstream is clean. A plain server sentence
+is the opposite case and keeps its braces: that is PostgreSQL's own text.
+`import.mjs` mirrors the verbatim predicate; keep the two in step.
 
 **COMPILING IS NOT BEING RENDERABLE, and the check belongs at GENERATE.** That
 gap is what let the bad message through: the string compiles, so
