@@ -7,14 +7,14 @@
  *   pnpm i18n:import -- --locale de-DE
  *
  * The work is the index minus what the language already has: every key in
- * `public/locales/en-US.json` — a code string and a model label alike, put
+ * `i18n/en-US.json` — a code string and a model label alike, put
  * there by the running app — with no non-empty value in
- * `public/locales/<locale>.json`. With `--target <url>` the target's record is
+ * `i18n/<locale>.json`. With `--target <url>` the target's record is
  * consulted too, so a key already translated there is not asked for again.
  *
- * The output is `public/locales/work-<locale>.json`, beside the
+ * The output is `i18n/work-<locale>.json`, beside the
  * language file it is about and described by
- * `public/locales/work.schema.json`. Every entry carries its English source,
+ * `i18n/work.schema.json`. Every entry carries its English source,
  * because a translation made without it is a guess. It carries nothing ELSE
  * derived from that source: `import.mjs` reads the ICU placeholders off the
  * source text itself, so there is no field here for a translator to empty and
@@ -30,7 +30,7 @@
  *
  *   pnpm i18n:translate -- --locale fr-FR --create
  *
- * `--create` writes an empty `public/locales/<locale>.json` first, for a
+ * `--create` writes an empty `i18n/<locale>.json` first, for a
  * language that does not exist yet. It does NOT add it to `MANAGED_LANGUAGES`:
  * a machine-filled language quoted as context to the next one would propagate
  * its mistakes and make them look corroborated. Promote it after review.
@@ -44,7 +44,7 @@ import { argValue, connectTarget, readRecord, TARGET_ABSENT_MESSAGE } from './te
 
 /**
  * Work files sit BESIDE the language files they are about, in
- * `public/locales/`, so `de-DE.json` and `work-de-DE.json` open side by side
+ * `i18n/`, so `de-DE.json` and `work-de-DE.json` open side by side
  * rather than one of them hiding in a dotfolder.
  *
  * They are COMMITTED. A partly filled work file is somebody's half-finished
@@ -187,7 +187,7 @@ export function endonymFor(locale) {
 }
 
 /**
- * Create `public/locales/<locale>.json` for a language that has none.
+ * Create `i18n/<locale>.json` for a language that has none.
  *
  * Nothing else registers a shipped language: `__SHIPPED_LOCALES__` is read off
  * this folder by `vite.config.ts`, so the file IS the registration — and the

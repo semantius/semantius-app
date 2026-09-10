@@ -25,20 +25,22 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import Ajv from 'ajv'
 import { compileMessageOrThrow } from '@lingui/message-utils/compileMessage'
-import { isVerbatimKey, LOCALES_DIR, placeholdersOf, readJson, serialize, unformattableArgument } from './extract.mjs'
+import { isVerbatimKey, LOCALES_DIR, placeholdersOf, readJson, SCHEMAS_DIR, serialize, unformattableArgument } from './extract.mjs'
 import { argValue, connectTarget, writeMessage } from './tenant.mjs'
 import { readLanguageFile, workFilePath } from './translate.mjs'
 
 /**
  * The work file's shape, from the schema that ships in the build.
  *
- * Loaded rather than re-described here, so `public/locales/work.schema.json` is
+ * Loaded rather than re-described here, so `i18n/work.schema.json` is
  * load-bearing: a schema nothing validates against drifts from the thing it
  * claims to describe, and an agent reading it would be told a shape the importer
  * does not accept. `strict: false` for the same reason as the locale-file
  * schema — it is written for editors, not for Ajv's linter.
  */
-const workSchemaPath = join(LOCALES_DIR, 'work.schema.json')
+// `SCHEMAS_DIR`, not `LOCALES_DIR`: the schemas ship from `public/`, the work
+// files live in `i18n/`. See the comment on both constants in `extract.mjs`.
+const workSchemaPath = join(SCHEMAS_DIR, 'work.schema.json')
 const validateShape = new Ajv({ allErrors: true, strict: false }).compile(readJson(workSchemaPath))
 
 /**
@@ -181,9 +183,9 @@ async function main(argv) {
   const filePath = join(LOCALES_DIR, `${locale}.json`)
   if (merged > 0) {
     writeFileSync(filePath, serialize(file), 'utf8')
-    console.log(`import: filled ${merged} empty entr(ies) in public/locales/${locale}.json — review them in a PR.`)
+    console.log(`import: filled ${merged} empty entr(ies) in i18n/${locale}.json — review them in a PR.`)
   } else {
-    console.log(`import: public/locales/${locale}.json already answers every entry in the file.`)
+    console.log(`import: i18n/${locale}.json already answers every entry in the file.`)
   }
 
   if (argValue(argv, '--target') !== undefined) {

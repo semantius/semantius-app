@@ -13,7 +13,7 @@
  *
  *   no --out THE ONE PATH BACK INTO THE REPO. A string translated on a stage
  *            host, or as a tenant's override, exists only there until someone
- *            copies it into `public/locales/<locale>.json` for review in a PR.
+ *            copies it into `i18n/<locale>.json` for review in a PR.
  *            This is that copy, and it fills only EMPTY entries: a value
  *            already in the file was reviewed once, and a record does not get
  *            to overwrite it.
@@ -73,9 +73,9 @@ async function main(argv) {
   const filled = fillEmptyMessages(file, record)
   if (filled > 0) {
     writeFileSync(join(LOCALES_DIR, `${locale}.json`), serialize(file), 'utf8')
-    console.log(`export: filled ${filled} empty entr(ies) in public/locales/${locale}.json — review them in a PR.`)
+    console.log(`export: filled ${filled} empty entr(ies) in i18n/${locale}.json — review them in a PR.`)
   } else {
-    console.log(`export: no empty entry in public/locales/${locale}.json matched the record.`)
+    console.log(`export: no empty entry in i18n/${locale}.json matched the record.`)
   }
 }
 

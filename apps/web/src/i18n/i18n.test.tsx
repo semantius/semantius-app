@@ -15,7 +15,7 @@ import {
 
 /**
  * The translation runtime, in a real browser against the real `de-DE` catalog
- * that ships in `public/locales/`.
+ * that ships in `i18n/`.
  *
  * Nothing here is a fixture: the German comes from the file the app loads, the
  * `<html lang>` assertions read the real document, and the language switch goes

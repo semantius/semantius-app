@@ -16,11 +16,11 @@
  * a failure.
  *
  * WHAT IT PRODUCES
- *   public/locales/en-US.json   the index — `{ locale, name, messages }` with
+ *   i18n/en-US.json   the index — `{ locale, name, messages }` with
  *                               the SOURCE text as the value of every key. The
  *                               code half is set from the scan; the `module.*`
  *                               half is runtime's and is never touched.
- *   public/locales/<code>.json  each language, reconciled: a new code key
+ *   i18n/<code>.json  each language, reconciled: a new code key
  *                               appears with `""`, a code key whose source no
  *                               longer exists moves to `obsolete`, and an
  *                               existing translation is never touched.
@@ -88,8 +88,28 @@ const MESSAGE_CALLEES = new Set(['t', 'translate', 'msg', 'appError'])
 const TEST_DIRS = new Set(['test', 'tests', '__tests__', '__mocks__'])
 
 const APP_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
+const REPO_ROOT = resolve(APP_ROOT, '..', '..')
 export const SRC_DIR = join(APP_ROOT, 'src')
-export const LOCALES_DIR = join(APP_ROOT, 'public', 'locales')
+
+/**
+ * The language files, the work files and the todo files: `i18n/` at the
+ * repository root. It is the surface a translator opens, which is why it is not
+ * inside `apps/web` — and it is deliberately NOT under `public/`, because
+ * `public/` means "published verbatim" and a work file must never be served.
+ * The build emits the language files into `dist/locales/` from here.
+ */
+export const LOCALES_DIR = join(REPO_ROOT, 'i18n')
+
+/**
+ * The JSON schemas, which do NOT live beside the files they describe.
+ *
+ * They stay in `public/` because they SHIP: `/locales/schema.json` is a URL on
+ * every deployment, which is what lets an operator writing a language point a
+ * `$schema` at it. Deriving this from `LOCALES_DIR` is therefore wrong — the two
+ * folders moved apart, and a `join(LOCALES_DIR, 'schema.json')` now points at a
+ * file that is not there.
+ */
+export const SCHEMAS_DIR = join(APP_ROOT, 'public', 'locales')
 
 // ── Keys ────────────────────────────────────────────────────────────────────
 //

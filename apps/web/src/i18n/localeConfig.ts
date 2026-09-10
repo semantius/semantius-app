@@ -11,7 +11,7 @@
  *               "available":[{"code":"fr-FR","name":"Français","url":"/locales/fr-FR.json"}]}}
  *
  * `url` is optional and defaults to `/locales/<code>.json`, which is what
- * `apps/web/public/locales/` ships as and what the nginx image serves from
+ * `i18n/` ships as and what the nginx image serves from
  * `/usr/share/nginx/html/locales/` (an operator mounts a volume there).
  *
  * No new `VITE_*` variable: the customizer already exists, is already a

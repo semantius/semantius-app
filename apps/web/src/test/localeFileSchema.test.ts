@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import Ajv from 'ajv'
 import { describe, expect, it } from 'vitest'
-import { indexPath, languageFiles, LOCALES_DIR, readJson } from '../../scripts/i18n/extract.mjs'
+import { indexPath, languageFiles, LOCALES_DIR, readJson, SCHEMAS_DIR } from '../../scripts/i18n/extract.mjs'
 
 /**
  * `apps/web/public/locales/schema.json`, checked against real files.
@@ -17,7 +17,11 @@ import { indexPath, languageFiles, LOCALES_DIR, readJson } from '../../scripts/i
  * forever.
  */
 
-const SCHEMA_PATH = join(LOCALES_DIR, 'schema.json')
+// `SCHEMAS_DIR`, never `LOCALES_DIR`. The language files live in `i18n/` at the
+// repository root; the schemas stay under `public/` because they SHIP. Deriving
+// this path from the language folder is what the assertion at the bottom of this
+// file exists to catch.
+const SCHEMA_PATH = join(SCHEMAS_DIR, 'schema.json')
 const schema: object = JSON.parse(readFileSync(SCHEMA_PATH, 'utf8'))
 
 // `strict: false`: the schema is written for editors and operators, and draft-07

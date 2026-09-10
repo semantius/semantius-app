@@ -7,16 +7,17 @@ import { TRANSLATIONS_PATH } from './i18nDevWritePath'
 const HERE = dirname(fileURLToPath(import.meta.url))
 
 /**
- * The language files. ONE folder: `public/locales/<code>.json` is what the
- * build ships, what nginx serves in the Docker image, and what this endpoint
- * reads and writes on a developer's machine — there is no `src/locales`.
+ * The language files. ONE folder: `i18n/<code>.json` at the repository root is
+ * what the build emits into `dist/locales/`, what nginx serves in the Docker
+ * image from `/usr/share/nginx/html/locales/`, and what this endpoint reads and
+ * writes on a developer's machine — there is no `src/locales`.
  *
  * Under Vitest too. The browser project runs against a Vite server built from
  * this same config, so a test that renders the app records what it rendered
  * into these files, and a test that saves writes them: the suite is what
  * fills `en-US.json`, and the file is a committed artifact of that run.
  */
-export const LOCALES_DIR = join(HERE, '..', 'public', 'locales')
+export const LOCALES_DIR = join(HERE, '..', '..', '..', 'i18n')
 
 const SOURCE_LANGUAGE = 'en-US'
 
@@ -113,7 +114,7 @@ export function applyTranslation(message: TranslationMessage, dir = LOCALES_DIR)
   }
 
   const next = serializeLocaleFile({ ...file, locale, messages })
-  const label = `public/locales/${locale}.json`
+  const label = `i18n/${locale}.json`
   const path = filePathFor(locale, dir)
   const previous = existsSync(path) ? readFileSync(path, 'utf8') : null
   if (previous === next) return { file: label, changed: false }
@@ -138,7 +139,7 @@ function send(res: { statusCode: number; setHeader(k: string, v: string): void; 
  *   POST /translations                { locale, key, translation }
  *
  * In a deployment the app's own API answers it from a per-language record;
- * here the record is the file in `public/locales/`, so a correction to a
+ * here the record is the file in `i18n/`, so a correction to a
  * shipped German string lands in `de-DE.json` and goes through a PR instead
  * of becoming an override that shadows the wrong value in one tenant forever.
  *

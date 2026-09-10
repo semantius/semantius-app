@@ -20,7 +20,7 @@ import { availableLanguages } from '@/i18n/store'
 /**
  * The language files, checked against each other.
  *
- * The index (`public/locales/en-US.json`) is the complete baseline, filled by
+ * The index (`i18n/en-US.json`) is the complete baseline, filled by
  * the running app; each language file is checked against it. What FAILS: a
  * translation whose ICU placeholders differ from its source, a translation
  * that does not compile, a `module.*` key in `obsolete`, and a file that
@@ -43,7 +43,7 @@ const languages = languageFiles()
 /** `work-<locale>.json`, a translation in progress, committed beside its language. */
 const WORK_FILE = /^work-.+\.json$/
 
-describe('the index (public/locales/en-US.json)', () => {
+describe('the index (i18n/en-US.json)', () => {
   it('holds the app\'s messages at all', () => {
     // Without this every assertion below is vacuously true on an empty index.
     expect(entries.length).toBeGreaterThan(20)
@@ -142,18 +142,24 @@ describe.each(languages.map((language) => [language.code, language] as const))('
 })
 
 describe('the locales folder', () => {
-  it('holds language files, the index and the two schemas, and nothing else', () => {
+  it('holds language files and the index, and nothing else that is JSON', () => {
     // `__SHIPPED_LOCALES__` is read off this folder by name at build time, so
     // a stray JSON dropped in here would be listed as a language. This is
     // what notices. `work-<locale>.json` is the one thing that may also be
     // here: a translation in progress, committed beside the language it is about
     // (see WORK_DIR in scripts/i18n/translate.mjs), and covered below.
+    //
+    // The two SCHEMAS used to be in this list and deliberately are not any more:
+    // they stay under `apps/web/public/locales/` because they SHIP, so that
+    // `/locales/schema.json` is a URL an operator can point a `$schema` at,
+    // while the language files moved to `i18n/` at the repository root. That
+    // every JSON here is now a language file with no exceptions is the point —
+    // it is what makes the emit allowlist in `vite.config.ts` sufficient.
     const onDisk = readdirSync(LOCALES_DIR).filter((name) => name.endsWith('.json') && !WORK_FILE.test(name))
-    const expected = ['schema.json', 'work.schema.json', `${SOURCE_LANGUAGE}.json`, ...languages.map((l) => `${l.code}.json`)].sort()
+    const expected = [`${SOURCE_LANGUAGE}.json`, ...languages.map((l) => `${l.code}.json`)].sort()
 
     expect(onDisk.sort()).toEqual(expected)
     for (const name of onDisk) {
-      if (name === 'schema.json' || name === 'work.schema.json') continue
       expect(LANGUAGE_FILE.test(name), name).toBe(true)
     }
     expect(availableLanguages().slice().sort()).toEqual([SOURCE_LANGUAGE, ...languages.map((l) => l.code)].sort())

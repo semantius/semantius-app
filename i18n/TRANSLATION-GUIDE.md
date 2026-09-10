@@ -3,6 +3,13 @@
 For whoever — person or agent — fills in a language file under
 `apps/web/public/locales/`.
 
+> **If you are an agent, read [`i18n/AGENTS.md`](../../../../i18n/AGENTS.md)
+> first.** It holds the rules that are only about you — what you may decide, what
+> you must record, and that you do not run `i18n:import`. This guide is the
+> domain: what the keys mean, how ICU works, what good German looks like. That
+> half applies to a human translator and an agent identically, which is why it is
+> here and not there.
+
 ## What is in there
 
 | File               | What it is                                                                                                                                                                                                                                                                                    |
@@ -79,32 +86,13 @@ pnpm i18n:translate -- --locale de-DE
 # 3. fill in every `translation`, keeping every `{placeholder}` its source uses,
 #    and record anything you could not decide in todo-de-DE.md
 
-# 4. a HUMAN reviews the filled work file and runs the import (see below)
+# 4. review the filled work file, then import it
 pnpm i18n:import -- --locale de-DE
 
 # 5. confirm
 pnpm i18n:status     # 0 missing
 pnpm check
 ```
-
-> ## 🔴 An agent does not run `i18n:import`
->
-> **If you are an agent: fill in the work file, record your findings, and stop.
-> Do not run `i18n:import` unless a human has explicitly told you to in that
-> instruction.** Filling the file is proposing; importing is accepting, and
-> accepting is not yours to do.
->
-> This is not a formality. `i18n:import` merges the translations into
-> `de-DE.json` and the next `i18n:translate` then rebuilds the work file empty —
-> so the artifact a reviewer needs, every proposed translation sitting beside its
-> English source and its hints, **is destroyed by the import**. What is left is a
-> one-line-per-key diff of a 1000-entry JSON file, which is not a review surface.
-> It has already happened once: 596 model-metadata strings were translated and
-> imported in a single unattended run, and the decisions inside them were never
-> reviewed by anyone.
->
-> The filled work file IS the review. Leave it filled, say what you did, and let
-> a human read it.
 
 `i18n:import` refuses the whole file if any translation drops or invents an ICU
 placeholder, or fails to compile, and never overwrites a value that is already
@@ -114,14 +102,11 @@ Editing `de-DE.json` by hand is equally fine — it is the same file.
 
 ## Recording what you could not decide — `todo-<locale>.md`
 
-**Whoever translates writes this file, and that is usually an agent.** It is
-authored, not generated: no script emits it, no script reads it, and
+It is authored, not generated: no script emits it, no script reads it, and
 regenerating the work file never touches it. It is committed like the work file.
 
-**Recording is not optional.** Translating a large catalog means making decisions
-nobody asked you to make. Every one you are not certain of goes in here, in the
-same run that made it — otherwise it exists only in your own head and is lost the
-moment the run ends. Three kinds belong:
+Translating a large catalog means making decisions nobody asked for. Every one
+you are not certain of goes in here. Three kinds belong:
 
 - a term with two defensible renderings, where the product has to pick one
 - a defect in the SOURCE — a typo, a stray brace, a sentence that only works if

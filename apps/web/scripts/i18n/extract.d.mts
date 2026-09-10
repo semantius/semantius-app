@@ -15,6 +15,7 @@ export declare const MODULE_ROOT: string
 export declare const LANGUAGE_FILE: RegExp
 export declare const SRC_DIR: string
 export declare const LOCALES_DIR: string
+export declare const SCHEMAS_DIR: string
 
 export interface CollectedMessage {
   source: string

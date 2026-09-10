@@ -54,7 +54,7 @@ async function forget(keys: string[]): Promise<void> {
  * are read back off `CSS.highlights` — Chromium's own registry, not a
  * stand-in. The probe strings below are deliberately UNKNOWN to every
  * catalog, so the collector is off in every test that renders them and the
- * one that turns it on cleans up: the files under public/locales are the
+ * one that turns it on cleans up: the files under i18n/ are the
  * shipped ones.
  */
 

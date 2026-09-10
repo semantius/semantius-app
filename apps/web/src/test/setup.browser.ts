@@ -39,7 +39,7 @@ const SOURCE = { language: SOURCE_LANGUAGE, locale: SOURCE_LANGUAGE }
 /**
  * THE SUITE WRITES THE LANGUAGE FILES. The translate target is the dev server
  * this project runs against — the same endpoint `pnpm dev` answers — so every
- * string a test renders is discovered into `public/locales/en-US.json`, and a
+ * string a test renders is discovered into `i18n/en-US.json`, and a
  * test that switches to German records what that language lacks. The files are
  * a committed artifact of the run; a test that renders a string no real screen
  * shows switches the collector off first (`disableCollector()`).

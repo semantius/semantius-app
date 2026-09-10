@@ -28,7 +28,7 @@ import {
  * under `src/` into an ES module (`content-type: text/javascript`), so serving
  * the fixture from there would exercise the failure path rather than the happy
  * one. The blob is built from the fixture FILE's own bytes — a real file, in the
- * repo, checked against `public/locales/schema.json` by the node suite — and the
+ * repo, checked against `apps/web/public/locales/schema.json` by the node suite — and the
  * browser fetches it through the same code and the same headers a static file
  * would take. The one thing it cannot cover, a web server actually serving
  * `/locales/fr-FR.json`, is covered by the deployed preview.

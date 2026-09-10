@@ -164,7 +164,7 @@ describe('NavUser — configuration-driven menu', () => {
 /**
  * The language switcher, driven the way a keyboard user drives it.
  *
- * The German comes from `public/locales/de-DE.json`, the file the app ships and
+ * The German comes from `i18n/de-DE.json`, the file the app ships and
  * loads; the cache keys are the real `localStorage` ones; `<html lang>` is read
  * off the real document. Nothing is activated by hand except to simulate the
  * NEXT boot, which is the one thing an interaction cannot do.

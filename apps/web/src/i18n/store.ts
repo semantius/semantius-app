@@ -3,7 +3,7 @@
  *
  *   the file      the complete language for this product version, served as a
  *                 static file so an operator can replace it without a rebuild
- *                 — `public/locales/<code>.json` in this repo, the same path
+ *                 — `i18n/<code>.json` in this repo, the same path
  *                 under nginx in the Docker image, or the url an operator
  *                 registered in `VITE_UI_CUSTOMIZER`
  *   the record    the translate target's per-language record: overrides and
@@ -39,7 +39,7 @@ export interface LocaleInfo {
 }
 
 /**
- * The languages this build ships a file for, read off `public/locales/` at
+ * The languages this build ships a file for, read off `i18n/` at
  * build time by `vite.config.ts` and inlined. The files themselves are never
  * bundled: only the active language is ever fetched, at boot, like any other
  * static file — a deployment with ten languages ships ten files, not ten

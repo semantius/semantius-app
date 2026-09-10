@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://semantius.com/schemas/locale-file.json",
   "title": "Semantius language file",
-  "description": "One language, in the single shape every place a language lives speaks: the files shipped under apps/web/public/locales, an operator's replacement of one, a stage host's copy, a work file's source. The map is FLAT. A code string is keyed by its own English source text (there are no message ids; a disambiguated one is prefixed, `columnVisibility.View`); model text is keyed by its model path under the reserved `module.` root (`module.nwind.orders.field.city.title`, an enum value by its STORED value); a server error by its SQLSTATE plus constraint name, or by its own template. en-US.json is the index: the same shape with the SOURCE text as the value of every key.",
+  "description": "One language, in the single shape every place a language lives speaks: the files in i18n/ at the repository root, which the build emits as /locales/<code>.json, an operator's replacement of one, a stage host's copy, a work file's source. The map is FLAT. A code string is keyed by its own English source text (there are no message ids; a disambiguated one is prefixed, `columnVisibility.View`); model text is keyed by its model path under the reserved `module.` root (`module.nwind.orders.field.city.title`, an enum value by its STORED value); a server error by its SQLSTATE plus constraint name, or by its own template. en-US.json is the index: the same shape with the SOURCE text as the value of every key.",
   "type": "object",
   "required": ["locale"],
   "additionalProperties": false,

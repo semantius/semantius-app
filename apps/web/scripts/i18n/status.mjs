@@ -4,7 +4,7 @@
  *
  *   pnpm i18n:status [--locale de-DE] [--verbose]
  *
- * Reads the index (`public/locales/en-US.json`) and each language file and
+ * Reads the index (`i18n/en-US.json`) and each language file and
  * prints, per language: how many keys exist, how many are translated, which
  * are missing, and how many entries have gone obsolete. Both kinds are in the
  * index — a code string and a model label alike, put there by the running app

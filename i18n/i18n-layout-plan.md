@@ -24,14 +24,13 @@ line points at a section below.
 
 ### Next, in order
 
-**Track B — review the German. Do this first.** Its window closes when
-`de-DE.json` is committed (R7), and it is what the owner asked for before any of
-the layout work. See *Sequence → Track B*. **B1 is not yet executable** — see
-*Not yet specified*.
+This plan is **the folder move and nothing else** — everything in *Target
+layout*, built in the order of *Sequence*, each step reviewed separately.
 
-**Track A — the folder move.** Everything in `Target layout`, built in the order
-of *Sequence → Track A*, each step reviewed separately. Nothing in it depends on
-Track B.
+The German review is separate work and is NOT tracked here. Its findings and
+their state live in `apps/web/public/locales/todo-de-DE.md`. It neither blocks
+the move nor is blocked by it. The one thing the two share is R7: the review
+reads better while `de-DE.json` is still an uncommitted diff.
 
 ### The whole change in six sentences
 
@@ -406,9 +405,9 @@ and are why git treats a `.tsx` file as binary.
 **R7. The review window closes when `de-DE.json` is committed.** Right now the
 596 machine-written entries are a reviewable diff. Merged, they are
 indistinguishable from the 433 that predate them.
-→ **Track B first** (see Sequence). If the file has to be committed sooner,
-commit the pass **alone, in one commit that contains nothing else**, so the
-review can always be run as `git show <sha> -- i18n/de-DE.json`.
+→ Review before committing, or commit the pass **alone, in one commit that
+contains nothing else**, so it can always be re-read as
+`git show <sha> -- de-DE.json`.
 
 **R8. One person cannot review 1033 entries.**
 → **Rule on TERMS, not entries.** The mechanical report groups by English source,
@@ -437,8 +436,8 @@ evidence is which file the diff lands in.
 **R11. A session may be mid-translation when the folder moves.** Its
 `work-de-DE.json` path changes underneath it, and a half-filled work file is
 somebody's day.
-→ **Land Track B first** (already sequenced) so no translation is in flight, or
-announce the move and let it finish.
+→ Move when no translation is in flight, or announce it and let the one in
+progress finish.
 
 **On completeness: this list is not proven exhaustive.** Every item above has a
 mitigation, which is not the same as being solved — R1 and R9 in particular are
@@ -485,9 +484,8 @@ header comments in the six scripts (`export`, `extract`, `import`, `status`,
 
 ## Still open
 
-**Nothing.** Q1–Q18 are all answered and recorded as S1–S17. The plan is fully
-specified; the next step is Track B in the sequence, not another round of
-questions.
+**Nothing.** Q1–Q18 are all answered and recorded as S1–S17. The next step is
+step 1 of *Sequence*, not another round of questions.
 
 What that does NOT mean: that the plan is complete or correct. See the note at
 the end of *Risks* — R1, R9 and R10 are closed by verifying after the move, not
@@ -496,19 +494,14 @@ nobody listed.
 
 ## Sequence
 
-Two tracks. **Track B does not depend on the folder move and starts first**,
-because its window closes when `de-DE.json` is committed (R7).
+One sequence: the folder move.
 
-### Track B — review the current German (S8)
+> **The German review is not part of this plan.** It was discussed in the same
+> session and got bundled in here as "Track B"; it does not belong. Reviewing the
+> German catalog is translation work whose artifact is
+> `apps/web/public/locales/todo-de-DE.md`, and it neither blocks nor is blocked by
+> the folder move. The findings and their state live in that file.
 
-- B1. Run the mechanical consistency report over all 1033 entries. Read-only.
-- B2. File its candidates, plus the three known items, into `todo-de-DE.md` using
-  the approved format. **Stop here** — nothing is edited until the owner rules.
-- B3. Owner rules on the candidates.
-- B4. Apply the rulings to `de-DE.json`. Nowhere else — there is no term list (S16).
-- B5. Land it as its own PR.
-
-### Track A — the folder move
 
 1. Answer Q6, Q10, Q11, Q15, Q4. **Stop here.**
 2. Move the folder; repoint `shippedLocales()`, the six scripts and any test
@@ -551,34 +544,28 @@ repository's own SOP does, and it applies here in full:
 5. `.pr-comment.md` written, then `bash workplace/approve-pr.sh` exits 0, then
    `gh pr create --body-file .pr-comment.md`.
 
-Track B produces no UI change, so its screenshot is of the German rendering that
-changed — the `admin` module label, at minimum.
+The move produces no visible UI change, so the screenshot is of the app running
+normally on the preview with its language switcher working — which is what proves
+`/locales/<code>.json` still resolves from the new folder.
 
 ## Not yet specified
 
-Three things this plan names but does not define. None may be filled in by
-guessing.
+One thing. It is not a decision anyone owes — it is drafting.
 
-**1. The consistency report (B1) has no implementation.** The plan says "report
-every English source that received two or more different German renderings, and
-every German rendering serving two or more different English sources" and stops
-there. Undecided: whether it is a throwaway script, a committed script under
-`apps/web/scripts/i18n/`, or a test; what it prints; whether it runs over all
-languages or one. **B1 cannot be executed as written.**
+**`i18n/AGENTS.md` exists now** with `i18n/CLAUDE.md` symlinked to it, holding the
+rules that are only about an agent: it does not run `i18n:import`; it adds and
+abstains but never chooses between defensible renderings or overwrites; it records
+findings in `todo-<locale>.md` in the run that made them; batching is safe and
+why; `pnpm check` writes to the language files. `TRANSLATION-GUIDE.md` points at
+it and keeps the domain half. **What remains is review of that text, not a gap in
+this plan.**
 
-**2. `AGENTS.md` has an agreed subject and no agreed content.** S6, S7, Q7 and Q8
-settle what it is for and that it points at the guide rather than restating it.
-The actual text does not exist and should be drafted for review, not written into
-place.
-
-**3. Q16 has a consequence nobody has ruled on.** The schemas stay in
-`apps/web/public/locales/` while the language and work files move to `i18n/`. The
-schemas are still SERVED at `/locales/schema.json`, so an operator validating a
-deployed language file is unaffected. But a translator working in the repo who
-wants editor validation now has a `$schema` pointer that crosses from `i18n/` into
-`apps/web/public/locales/`. Nothing in the repo does this today — no language or
-work file carries a `$schema` field, checked — so nothing breaks. It is a question
-about whether in-repo editor validation should be made to work, not a defect.
+Two entries that stood here have been struck. *"The consistency report has no
+implementation"* — it was twenty lines of node, it has been run, and its findings
+are filed in `todo-de-DE.md`; it never needed specifying. *"In-repo editor
+validation across folders"* — no language or work file carries a `$schema` field,
+checked, so nothing does this today and nothing breaks. Both were mine, and both
+described work or worry that did not exist.
 
 ## A formatting wart, left alone deliberately
 

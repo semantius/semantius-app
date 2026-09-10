@@ -4,62 +4,121 @@ import tailwindcss from '@tailwindcss/vite'
 import { playwright } from '@vitest/browser-playwright'
 
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
-import { existsSync, readdirSync, rmSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath, URL } from 'node:url'
 import { i18nDevWriter } from './vite-plugins/i18nDevWriter'
 
 /**
- * The languages this build ships, read off `public/locales/` and inlined as
- * `__SHIPPED_LOCALES__` (declared in src/env.d.ts). A language file is named
- * by its BCP-47 tag; `schema.json` and `work.schema.json` are not languages,
- * and `en-US.json` is the index, not a catalog. The files themselves stay
- * static assets, fetched one at a time — never bundled.
+ * `i18n/` at the repository root: the language files, the work files and the
+ * todo files — the surface a translator opens. Deliberately NOT under
+ * `public/`, which means "published verbatim": a work file holds a half-finished
+ * translation and a todo file holds internal notes about model defects, and
+ * neither may ever be served. What ships is emitted by `emitLanguageFiles()`.
+ */
+const LOCALES_DIR = fileURLToPath(new URL('../../i18n', import.meta.url))
+
+/**
+ * A language file is named by its BCP-47 tag. This regex is the ALLOWLIST that
+ * decides both what `__SHIPPED_LOCALES__` lists and what the build emits — so
+ * `work-de-DE.json`, `todo-de-DE.md`, `AGENTS.md` and the plan documents sitting
+ * in the same flat folder match nothing and cannot leak into `dist/`. A denylist
+ * would rot the moment a new kind of working file appeared.
  */
 const LANGUAGE_FILE = /^([a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*)\.json$/
-function shippedLocales(): string[] {
-  try {
-    return readdirSync(fileURLToPath(new URL('./public/locales', import.meta.url)))
-      .map((name) => LANGUAGE_FILE.exec(name)?.[1])
-      .filter((code): code is string => Boolean(code) && code !== 'en-US')
-      .sort()
-  } catch {
-    return []
-  }
+
+/** Every language file in `i18n/`, `en-US.json` included. */
+function languageFileNames(): string[] {
+  return readdirSync(LOCALES_DIR).filter((name) => LANGUAGE_FILE.test(name))
 }
 
 /**
- * Keep the translator's working files out of the build.
+ * The languages this build ships, inlined as `__SHIPPED_LOCALES__` (declared in
+ * src/env.d.ts). `en-US.json` is the INDEX, not a catalog — it ships as a file
+ * so an operator can start a new language from it, but it is never listed as an
+ * available language. Do not "fix" that exclusion; the two are different things.
  *
- * `i18n:translate` writes `public/locales/work-<locale>.json` and a translator
- * writes `todo-<locale>.md` beside the language they are about, which is where a
- * human wants them — but `publicDir` is copied into `dist/` wholesale and Vite
- * has no per-file exclude, so without this they are deployed and fetchable at
- * `/locales/work-fr-FR.json` and `/locales/todo-de-DE.md`. The todo file is the
- * worse leak of the two: it holds internal notes about model defects and
- * unresolved questions, and it would be served to anyone who guessed the URL.
- * `writeBundle` runs after that copy. No BCP-47 tag matches either name, so
- * `shippedLocales()` never listed one as a language in the first place.
+ * The files themselves stay static assets, fetched one at a time — never bundled.
  *
- * This is a DENYLIST, and that is a defect it inherits from living in `public/`:
- * a new kind of working file leaks until someone remembers to add it here. The
- * fix is the folder move (`i18n-layout-plan.md`), after which the build emits an
- * allowlist of language files and this plugin is deleted.
+ * This used to swallow a missing folder and return `[]`, which meant a typo or a
+ * path that resolved differently in CI produced a build with zero languages: no
+ * error, no warning, just a language switcher with nothing in it and every
+ * string falling back to English. The check is for the INDEX rather than for a
+ * non-empty list, because zero translations is a legitimate state (a repo before
+ * its first one) while a missing `en-US.json` only ever means the folder is not
+ * the folder.
  */
-function dropWorkFiles(): PluginOption {
+function shippedLocales(): string[] {
+  let names: string[]
+  try {
+    names = languageFileNames()
+  } catch (err) {
+    throw new Error(`i18n: cannot read the language folder at ${LOCALES_DIR}`, { cause: err })
+  }
+  if (!names.includes('en-US.json')) {
+    throw new Error(
+      `i18n: no en-US.json in ${LOCALES_DIR}. That file is the index every language starts from, ` +
+        'so its absence means this is not the language folder — not that there is nothing to ship.',
+    )
+  }
+  return names
+    .map((name) => LANGUAGE_FILE.exec(name)?.[1])
+    .filter((code): code is string => Boolean(code) && code !== 'en-US')
+    .sort()
+}
+
+/**
+ * `/locales/<code>.json`, in both runtimes.
+ *
+ * The language files live outside `publicDir` now, so nothing copies them into
+ * the build and nothing serves them in dev — but the URL is a contract. It is
+ * documented in `README.md`, `docker/README.md` and `BACKEND.md`, it is what
+ * `store.ts` fetches, and `docker/nginx.conf` serves the same path out of
+ * `/usr/share/nginx/html/locales/`. It does not change because the source
+ * folder did.
+ *
+ * ONE plugin, two hooks, and no `apply` field: a plugin declaring
+ * `apply: 'build'` is filtered out of the serve-mode plugin container entirely,
+ * so its `configureServer` would never run. `writeBundle` only ever fires on a
+ * build, which is the whole of the guard needed.
+ *
+ * What gets emitted is the ALLOWLIST (`LANGUAGE_FILE`) and never a denylist,
+ * which is what makes the flat folder safe: a work file, a todo file, the
+ * guide, `AGENTS.md` and the plan documents match nothing and stay put. The
+ * predecessor of this plugin deleted work files back out of `dist/` after the
+ * fact — a patch over a placement mistake, and it is gone with the mistake.
+ *
+ * Dev serving is narrower than it looks: in `dev` and `stage` the static file is
+ * not fetched at all (`store.ts` returns null from the file layer and the
+ * language comes from the translate target, which `i18nDevWriter` answers off
+ * disk). The middleware is for a dev server running `VITE_TRANSLATE_MODE=off`
+ * or `prod`, and for anything exercising the static path directly.
+ */
+function emitLanguageFiles(): PluginOption {
   return {
-    name: 'i18n-drop-work-files',
-    apply: 'build',
+    name: 'i18n-language-files',
     writeBundle(options) {
       const dir = join(options.dir ?? 'dist', 'locales')
-      if (!existsSync(dir)) return
-      for (const name of readdirSync(dir)) {
-        const isWork = name.startsWith('work-') && name.endsWith('.json') && name !== 'work.schema.json'
-        const isTodo = name.startsWith('todo-') && name.endsWith('.md')
-        if (isWork || isTodo) {
-          rmSync(join(dir, name), { force: true })
-        }
+      mkdirSync(dir, { recursive: true })
+      for (const name of languageFileNames()) {
+        copyFileSync(join(LOCALES_DIR, name), join(dir, name))
       }
+    },
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const path = (req.url ?? '').split('?')[0]
+        const name = path.startsWith('/locales/') ? path.slice('/locales/'.length) : ''
+        // The allowlist again, and it is the path traversal guard too: a name
+        // holding a slash or a `..` cannot match a BCP-47 tag.
+        if (!LANGUAGE_FILE.test(name)) return next()
+        const file = join(LOCALES_DIR, name)
+        if (!existsSync(file)) return next()
+        // `store.ts` checks the content-type before parsing, because an SPA
+        // fallback answers a missing file with HTML and a 200.
+        res.setHeader('Content-Type', 'application/json; charset=utf-8')
+        res.setHeader('Cache-Control', 'no-store')
+        res.end(readFileSync(file))
+      })
     },
   }
 }
@@ -118,10 +177,12 @@ export default defineConfig(({ mode }) => ({
     viteReact(),
     tailwindcss(),
     // The translate endpoint on a developer's machine: it reads and writes
-    // the repo's own language files under public/locales/, for translate mode
-    // and for discovery. `apply: 'serve'`, so no build has it.
+    // the repo's own language files under `i18n/`, for translate mode and for
+    // discovery. `apply: 'serve'`, so no build has it.
     i18nDevWriter(),
-    dropWorkFiles(),
+    // `/locales/<code>.json` — emitted into `dist/` on a build, served from
+    // `i18n/` in dev. Deliberately no `apply`; see the comment on the plugin.
+    emitLanguageFiles(),
   ],
   define: {
     '__BUILD_DATE__': JSON.stringify(new Date().toISOString()),

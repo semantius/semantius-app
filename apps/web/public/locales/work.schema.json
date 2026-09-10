@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://semantius.com/schemas/i18n-work-file.json",
   "title": "Semantius translation work file",
-  "description": "What one language still needs, in one file, for a translator (usually an agent) to fill in. Written by apps/web/scripts/i18n/translate.mjs into apps/web/public/locales/, beside the language file it is about, and read back by import.mjs. It is COMMITTED: a partly filled one is half-finished work, and regenerating it hands back empty strings. Every entry carries its English source; `translation` is the only field to edit. The ICU placeholders a translation must keep are read off the source TEXT by import.mjs, on both sides, and are deliberately not a field here: an expectation stored in the file the translator edits can be emptied, and the entry it then stops checking is the one hiding a dropped placeholder.",
+  "description": "What one language still needs, in one file, for a translator (usually an agent) to fill in. Written by apps/web/scripts/i18n/translate.mjs into i18n/ at the repository root, beside the language file it is about, and read back by import.mjs. It is COMMITTED: a partly filled one is half-finished work, and regenerating it hands back empty strings. Every entry carries its English source; `translation` is the only field to edit. The ICU placeholders a translation must keep are read off the source TEXT by import.mjs, on both sides, and are deliberately not a field here: an expectation stored in the file the translator edits can be emptied, and the entry it then stops checking is the one hiding a dropped placeholder.",
   "type": "object",
   "required": ["locale", "entries"],
   "additionalProperties": false,
