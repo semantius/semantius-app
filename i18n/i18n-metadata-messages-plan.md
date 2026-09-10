@@ -6,8 +6,7 @@ in review" at the end.
 
 This plan replaces the "model labels" concept in `i18n-plan.md`, and it also
 replaces the first version of this document, which invented a committed model
-snapshot and an offline extraction step. Both were rejected. See
-`UNAUTHORIZED-DECISIONS.md`.
+snapshot and an offline extraction step. Both were rejected.
 
 ## The goal
 

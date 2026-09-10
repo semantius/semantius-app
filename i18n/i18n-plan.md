@@ -4,9 +4,9 @@
 > the document itself and built without ever being put to the owner — the "model
 > labels are data, not messages" concept, the label inventory, browser drafts and
 > the file download among them. Do not treat it as authority. Read
-> `UNAUTHORIZED-DECISIONS.md` for what came from here rather than from the owner,
-> and `i18n-metadata-messages-plan.md` for the replacement of the model-label
-> concept.
+> `i18n-metadata-messages-plan.md` for the replacement of the model-label
+> concept; everything listed above has since been removed or replaced in the
+> code.
 
 ## Context
 
