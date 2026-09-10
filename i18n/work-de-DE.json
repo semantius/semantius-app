@@ -1,5 +1,171 @@
 {
   "locale": "de-DE",
-  "generated": "2026-09-10T09:28:13.194Z",
-  "entries": []
+  "generated": "2026-09-10T17:23:44.023Z",
+  "entries": [
+    {
+      "key": "module.admin.role_permissions.field._label.description",
+      "source": "Composed, human-readable label folded from the parent chain",
+      "translation": "Zusammengesetzte, lesbare Bezeichnung, gebildet aus der übergeordneten Kette"
+    },
+    {
+      "key": "module.admin.role_permissions.field._label.title",
+      "source": "Role Permission",
+      "translation": "Rollenberechtigung"
+    },
+    {
+      "key": "module.admin.role_permissions.field.granted_at.description",
+      "source": "Timestamp when permission was granted",
+      "translation": "Zeitstempel, zu dem die Berechtigung zugewiesen wurde"
+    },
+    {
+      "key": "module.admin.role_permissions.field.granted_at.title",
+      "source": "Granted At",
+      "translation": "Zugewiesen am"
+    },
+    {
+      "key": "module.admin.role_permissions.field.granted_by.description",
+      "source": "User who granted this permission",
+      "translation": "Benutzer, der diese Berechtigung zugewiesen hat"
+    },
+    {
+      "key": "module.admin.role_permissions.field.granted_by.title",
+      "source": "Granted By",
+      "translation": "Zugewiesen von"
+    },
+    {
+      "key": "module.admin.role_permissions.field.granted_by_label.description",
+      "source": "Composed label of the referenced User",
+      "translation": "Zusammengesetzte Bezeichnung des referenzierten Benutzers"
+    },
+    {
+      "key": "module.admin.role_permissions.field.granted_by_label.title",
+      "source": "Granted By",
+      "translation": "Zugewiesen von"
+    },
+    {
+      "key": "module.admin.role_permissions.field.id.description",
+      "source": "Generated identifier (role_id.permission_name)",
+      "translation": "Generierte Kennung (role_id.permission_name)"
+    },
+    {
+      "key": "module.admin.role_permissions.field.id.title",
+      "source": "Id",
+      "translation": "ID"
+    },
+    {
+      "key": "module.admin.role_permissions.field.permission_name.description",
+      "source": "Permission granted to the role",
+      "translation": "Berechtigung, die der Rolle zugewiesen ist"
+    },
+    {
+      "key": "module.admin.role_permissions.field.permission_name_label.description",
+      "source": "Composed label of the referenced Permission",
+      "translation": "Zusammengesetzte Bezeichnung der referenzierten Berechtigung"
+    },
+    {
+      "key": "module.admin.role_permissions.field.permission_name_label.title",
+      "source": "Permission Name",
+      "translation": "Berechtigungsname"
+    },
+    {
+      "key": "module.admin.role_permissions.field.role_id.description",
+      "source": "Role this permission is granted to",
+      "translation": "Rolle, der diese Berechtigung zugewiesen ist"
+    },
+    {
+      "key": "module.admin.role_permissions.field.role_id_label.description",
+      "source": "Composed label of the referenced Role",
+      "translation": "Zusammengesetzte Bezeichnung der referenzierten Rolle"
+    },
+    {
+      "key": "module.admin.role_permissions.field.role_id_label.title",
+      "source": "Role Id",
+      "translation": "Rollen-ID"
+    },
+    {
+      "key": "module.nwind.order_details.field._label.description",
+      "source": "Composed, human-readable label folded from the parent chain",
+      "translation": "Zusammengesetzte, lesbare Bezeichnung, gebildet aus der übergeordneten Kette"
+    },
+    {
+      "key": "module.nwind.order_details.field._label.title",
+      "source": "Order Detail",
+      "translation": "Bestellposition"
+    },
+    {
+      "key": "module.nwind.order_details.field.created_at.title",
+      "source": "Created At",
+      "translation": "Erstellt am"
+    },
+    {
+      "key": "module.nwind.order_details.field.discount.description",
+      "source": "Discount rate applied to this line item",
+      "translation": "Rabattsatz für diese Position"
+    },
+    {
+      "key": "module.nwind.order_details.field.discount.title",
+      "source": "Discount",
+      "translation": "Rabatt"
+    },
+    {
+      "key": "module.nwind.order_details.field.id.title",
+      "source": "Id",
+      "translation": "ID"
+    },
+    {
+      "key": "module.nwind.order_details.field.label.title",
+      "source": "Order Detail",
+      "translation": "Bestellposition"
+    },
+    {
+      "key": "module.nwind.order_details.field.order_id_label.description",
+      "source": "Composed label of the referenced Order",
+      "translation": "Zusammengesetzte Bezeichnung der referenzierten Bestellung"
+    },
+    {
+      "key": "module.nwind.order_details.field.order_id_label.title",
+      "source": "Order",
+      "translation": "Bestellung"
+    },
+    {
+      "key": "module.nwind.order_details.field.product_id.description",
+      "source": "Reference to the product",
+      "translation": "Verweis auf das Produkt"
+    },
+    {
+      "key": "module.nwind.order_details.field.product_id_label.description",
+      "source": "Composed label of the referenced Product",
+      "translation": "Zusammengesetzte Bezeichnung des referenzierten Produkts"
+    },
+    {
+      "key": "module.nwind.order_details.field.product_id_label.title",
+      "source": "Product",
+      "translation": "Produkt"
+    },
+    {
+      "key": "module.nwind.order_details.field.quantity.description",
+      "source": "Number of units ordered",
+      "translation": "Anzahl der bestellten Einheiten"
+    },
+    {
+      "key": "module.nwind.order_details.field.quantity.title",
+      "source": "Quantity",
+      "translation": "Menge"
+    },
+    {
+      "key": "module.nwind.order_details.field.unit_price.description",
+      "source": "Actual price per unit charged on this order",
+      "translation": "Tatsächlich berechneter Preis je Einheit in dieser Bestellung"
+    },
+    {
+      "key": "module.nwind.order_details.field.unit_price.title",
+      "source": "Unit Price",
+      "translation": "Einzelpreis"
+    },
+    {
+      "key": "module.nwind.order_details.field.updated_at.title",
+      "source": "Updated At",
+      "translation": "Aktualisiert am"
+    }
+  ]
 }

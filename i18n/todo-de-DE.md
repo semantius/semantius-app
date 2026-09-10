@@ -28,7 +28,12 @@ the word can be picked.
   `order_details.entity.singular_label` / `.plural_label` ("Bestellposition(en)"),
   `order_details.field.order_id.title` and `.description` — plus the two code
   strings `Total Orders` and `Manage customer information and orders`, which say
-  **"Aufträge"**.
+  **"Aufträge"**. The `order_details` field keys filled in the work file inherit
+  the term and change with it: `field._label.title` and `field.label.title`
+  ("Bestellposition"), `field.order_id_label.title` ("Bestellung") and
+  `.order_id_label.description`, `field.unit_price.description` ("… in dieser
+  Bestellung") and `field.quantity.description` ("Anzahl der **bestellten**
+  Einheiten", which under an Auftrag ruling becomes Auftragsmenge).
 - **What:** in SAP, *Bestellung* is a **purchase order** — what you send to a
   supplier (MM). A customer's order is a *Kundenauftrag*, short *Auftrag* (SD).
   Northwind's `orders` are customer orders: they have a customer, a ship-to
@@ -48,7 +53,10 @@ the word can be picked.
 ## `Created At` / `Updated At` are "Erstellt am" / "Aktualisiert am"
 
 - **Keys:** 18 × `module.*.field.created_at.title`, 18 ×
-  `module.*.field.updated_at.title` — every entity in both modules.
+  `module.*.field.updated_at.title` — every entity in both modules, plus
+  `module.nwind.order_details.field.created_at.title` / `.updated_at.title`,
+  filled in the work file with the same two words so the entity is not the odd
+  one out.
 - **What:** SAP's standard administrative fields are **"Angelegt am"** and
   **"Geändert am"** (with Angelegt von / Geändert von). "Erstellt am" and
   "Aktualisiert am" are literal renderings of the English. This is the largest
@@ -200,6 +208,25 @@ the word can be picked.
   `module.admin.processes.field.ordering.title` ("Ordering") is rendered
   "Reihenfolge".
 - **Needs:** confirm or override; likely "Reihenfolgespalte".
+- **Resolves into:** `de-DE.json`.
+- **State:** open
+
+## `Granted At` / `Granted By` were rendered "Zugewiesen am" / "Zugewiesen von"
+
+- **Keys:** `module.admin.role_permissions.field.granted_at.title` and
+  `.description`, `.granted_by.title`, `.granted_by.description`,
+  `.granted_by_label.title`, plus `.permission_name.description` ("Berechtigung,
+  die der Rolle **zugewiesen** ist") and `.role_id.description`.
+- **What:** new keys from the `role_permissions` fields, translated in the work
+  file. *Grant* has two defensible German verbs here: **zuweisen** (assign) and
+  **erteilen** (grant, SAP's verb in "Berechtigung erteilen"). "Zugewiesen" was
+  chosen because the catalog's own prose already says it —
+  `module.admin.roles.entity.description` ("Berechtigungen, die Benutzern
+  zugewiesen werden können") and the three "n:m-Zuordnung" descriptions — so the
+  entity reads consistently. Against it: `module.admin.user_permissions.entity`
+  says "Vergabe von Berechtigungen", which points at *erteilen/vergeben*.
+- **Needs:** confirm zuweisen, or switch this field group to erteilen and align
+  the descriptions with it.
 - **Resolves into:** `de-DE.json`.
 - **State:** open
 
