@@ -29,14 +29,22 @@ function shippedLocales(): string[] {
 }
 
 /**
- * Keep the translation work files out of the build.
+ * Keep the translator's working files out of the build.
  *
- * `i18n:translate` writes `public/locales/work-<locale>.json` beside the
- * language it is about, which is where a human wants it — but `publicDir` is
- * copied into `dist/` wholesale and Vite has no per-file exclude, so without
- * this the scratch file is deployed and fetchable at `/locales/work-fr-FR.json`.
- * `writeBundle` runs after that copy. No BCP-47 tag matches `work-*.json`, so
+ * `i18n:translate` writes `public/locales/work-<locale>.json` and a translator
+ * writes `todo-<locale>.md` beside the language they are about, which is where a
+ * human wants them — but `publicDir` is copied into `dist/` wholesale and Vite
+ * has no per-file exclude, so without this they are deployed and fetchable at
+ * `/locales/work-fr-FR.json` and `/locales/todo-de-DE.md`. The todo file is the
+ * worse leak of the two: it holds internal notes about model defects and
+ * unresolved questions, and it would be served to anyone who guessed the URL.
+ * `writeBundle` runs after that copy. No BCP-47 tag matches either name, so
  * `shippedLocales()` never listed one as a language in the first place.
+ *
+ * This is a DENYLIST, and that is a defect it inherits from living in `public/`:
+ * a new kind of working file leaks until someone remembers to add it here. The
+ * fix is the folder move (`i18n-layout-plan.md`), after which the build emits an
+ * allowlist of language files and this plugin is deleted.
  */
 function dropWorkFiles(): PluginOption {
   return {
@@ -46,7 +54,9 @@ function dropWorkFiles(): PluginOption {
       const dir = join(options.dir ?? 'dist', 'locales')
       if (!existsSync(dir)) return
       for (const name of readdirSync(dir)) {
-        if (name.startsWith('work-') && name.endsWith('.json') && name !== 'work.schema.json') {
+        const isWork = name.startsWith('work-') && name.endsWith('.json') && name !== 'work.schema.json'
+        const isTodo = name.startsWith('todo-') && name.endsWith('.md')
+        if (isWork || isTodo) {
           rmSync(join(dir, name), { force: true })
         }
       }

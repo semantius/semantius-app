@@ -894,6 +894,7 @@
     "module.nwind.order_details.entity.description": "Einzelne Positionen innerhalb einer Bestellung",
     "module.nwind.order_details.entity.plural_label": "Bestellpositionen",
     "module.nwind.order_details.entity.singular_label": "Bestellposition",
+    "module.nwind.order_details.field.order_id.description": "Verweis auf die Bestellung",
     "module.nwind.order_details.field.order_id.title": "Bestellung",
     "module.nwind.order_details.field.product_id.title": "Produkt",
     "module.nwind.orders.entity.description": "Kundenbestellungen und Versanddetails",
@@ -1033,8 +1034,7 @@
     "{language}: {missing, plural, one {# string} other {# strings}} of {total} still in English.": "{language}: {missing, plural, one {# Text} other {# Texte}} von {total} noch auf Englisch.",
     "{name} deleted": "{name} gelöscht",
     "{start}-{end} of {total, plural, one {# item} other {# items}}": "{start}-{end} von {total, plural, one {# Eintrag} other {# Einträgen}}",
-    "{table} {key} · View": "{table} {key} · Ansicht",
-    "module.nwind.order_details.field.order_id.description": "Verweis auf die Bestellung"
+    "{table} {key} · View": "{table} {key} · Ansicht"
   },
   "obsolete": {
     "Alt+click any text on the page to translate it where it stands.": "Alt+Klick auf einen beliebigen Text der Seite übersetzt ihn an Ort und Stelle.",

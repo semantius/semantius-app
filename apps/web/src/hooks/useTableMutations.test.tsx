@@ -3,6 +3,7 @@ import { renderHook, waitFor } from '@testing-library/react'
 import { useCreateRecord, useUpdateRecord, useDeleteRecord } from './useTableMutations'
 import { getApiConfig } from '@/lib/apiClient'
 import { appWrapper, bootApp } from '@/test/appHarness'
+import { disableCollector } from '@/i18n/missing'
 import { testToken } from '@/test/session'
 
 /**
@@ -85,6 +86,15 @@ async function readModule(id: unknown): Promise<Record<string, unknown> | undefi
 describe('useTableMutations', () => {
   beforeEach(async () => {
     await bootApp()
+    // The module this file creates is a FIXTURE, and its name and description
+    // are rendered through `translate()` like any other model text — so
+    // discovery recorded `module.vitest_<random>.name` and `.description` into
+    // the shipped `en-US.json` on every run. The slug carries a fresh
+    // `randomUUID` each time, so the index gained two keys per run that no
+    // screen will ever render again, and `i18n:extract` cannot prune them
+    // because it never touches `module.*`. Nothing this file renders belongs in
+    // the index; the collector stays off for the whole file.
+    disableCollector()
   })
 
   afterEach(async () => {

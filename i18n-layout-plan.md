@@ -5,6 +5,48 @@
 > there is nothing left to guess at, not that the plan is proven right. If
 > something turns out to be missing, ask rather than fill it in.
 
+## Start here
+
+Everything below this section is the record of how each decision was reached, in
+the order the questions were asked. This section is the reader's version: what is
+already true, what happens next, and where to look. It adds nothing new — every
+line points at a section below.
+
+### Already applied — not pending work
+
+| What | Where |
+| --- | --- |
+| The term list is gone, in all four places it lived | `TRANSLATION-GUIDE.md`, `CONTEXT-MEMORY.md` (×2), `i18n-plan.md` — see S16 |
+| One line-ending standard | `.gitattributes`; the one CRLF-in-index file renormalized — see R6 |
+| An agent never runs `i18n:import` unless told to | `TRANSLATION-GUIDE.md`, as a blocking note in the workflow — see S18 |
+| The TODO-file convention, including that recording is mandatory | `TRANSLATION-GUIDE.md` — see S5 and *The TODO file* |
+| `Administration` ruled (SAP usage) and applied | `de-DE.json`, `module.admin.description` — see *Reviewing the current de-DE catalog* |
+
+### Next, in order
+
+**Track B — review the German. Do this first.** Its window closes when
+`de-DE.json` is committed (R7), and it is what the owner asked for before any of
+the layout work. See *Sequence → Track B*. **B1 is not yet executable** — see
+*Not yet specified*.
+
+**Track A — the folder move.** Everything in `Target layout`, built in the order
+of *Sequence → Track A*, each step reviewed separately. Nothing in it depends on
+Track B.
+
+### The whole change in six sentences
+
+`i18n/` at the repository root holds what a translator or an agent opens: the
+language files, the work files, the todo files, the guide, and an `AGENTS.md`
+with `CLAUDE.md` symlinked to it. The scripts, the two schemas and `src/i18n/`
+stay where they are, because none of them is that surface. `apps/web/public/locales/`
+stops holding language files, which is what deletes `dropWorkFiles()` — nothing
+unpublishable will be sitting in a publish folder any more. One Vite plugin emits
+the language files into `dist/locales/` at build and serves the same path in dev,
+choosing what to emit with an allowlist rather than a denylist. `/locales/<code>.json`
+does not change, because it is a runtime and an operator contract. Turbo gets
+`globalDependencies: ["i18n/**"]` so a translation change cannot be served from a
+stale cache.
+
 ## Why
 
 Two defects, both structural.
@@ -478,3 +520,70 @@ because its window closes when `de-DE.json` is committed (R7).
 6. Documentation sweep.
 
 Steps 2–6 are independently reviewable and must not be bundled.
+
+
+## Verification — what closes each risk
+
+Writing a risk down does not close it. These are the checks, and they are part of
+the work, not optional follow-up.
+
+| Closes | Check |
+| --- | --- |
+| R1 (stale Turbo cache) | change one translation, `pnpm build` twice; the second run must be a **cache MISS**. A HIT means `globalDependencies` is not doing its job. |
+| R2 (unpublishable file ships) | after `pnpm build`, list `dist/locales/` — it must contain the language files and nothing else. No `work-*`, no `todo-*`, no `.md`. |
+| R4 (operator URL broke) | after `pnpm build`, `dist/locales/de-DE.json` and `dist/locales/schema.json` must both exist. |
+| R9 (`shippedLocales()` silently empty) | grep the built bundle for `__SHIPPED_LOCALES__`'s value, or assert it in a test. Zero languages must fail the build, not pass it. |
+| R10 (test suite writes the wrong path) | run `pnpm check`, then `git status` — the discovery diff must land in `i18n/`, not in `apps/web/public/locales/` and not nowhere. |
+
+## Completion gates — from CLAUDE.md, omitted until now
+
+This plan described the work and never said what finishing it requires. The
+repository's own SOP does, and it applies here in full:
+
+1. `pnpm check` — lint plus both Vitest projects. Every test passes, including
+   ones this work did not touch. Note that `check` does **not** typecheck.
+2. `pnpm build` — this is where `tsc -b --noEmit` runs.
+3. `pnpm preview:wrangler` from the repo root (on Windows,
+   `dotenvx run -- bash workplace/deploy-wrangler.sh`). If `.preview-url.md` does
+   not exist afterwards, the deploy FAILED — do not proceed.
+4. A screenshot from the Cloudflare preview URL, never localhost, saved to
+   `screenshots/YYYYMMDDHHMMSS-<title>.png`.
+5. `.pr-comment.md` written, then `bash workplace/approve-pr.sh` exits 0, then
+   `gh pr create --body-file .pr-comment.md`.
+
+Track B produces no UI change, so its screenshot is of the German rendering that
+changed — the `admin` module label, at minimum.
+
+## Not yet specified
+
+Three things this plan names but does not define. None may be filled in by
+guessing.
+
+**1. The consistency report (B1) has no implementation.** The plan says "report
+every English source that received two or more different German renderings, and
+every German rendering serving two or more different English sources" and stops
+there. Undecided: whether it is a throwaway script, a committed script under
+`apps/web/scripts/i18n/`, or a test; what it prints; whether it runs over all
+languages or one. **B1 cannot be executed as written.**
+
+**2. `AGENTS.md` has an agreed subject and no agreed content.** S6, S7, Q7 and Q8
+settle what it is for and that it points at the guide rather than restating it.
+The actual text does not exist and should be drafted for review, not written into
+place.
+
+**3. Q16 has a consequence nobody has ruled on.** The schemas stay in
+`apps/web/public/locales/` while the language and work files move to `i18n/`. The
+schemas are still SERVED at `/locales/schema.json`, so an operator validating a
+deployed language file is unaffected. But a translator working in the repo who
+wants editor validation now has a `$schema` pointer that crosses from `i18n/` into
+`apps/web/public/locales/`. Nothing in the repo does this today — no language or
+work file carries a `$schema` field, checked — so nothing breaks. It is a question
+about whether in-repo editor validation should be made to work, not a defect.
+
+## A formatting wart, left alone deliberately
+
+The three sample TODO entries under *The TODO file* are `##` headings, so they
+appear in this document's outline as though they were top-level sections of the
+plan. They are sample content, not sections. Fixing it means editing existing
+lines, and this addition was made under a no-modification constraint — flagged
+here instead so the next edit can demote them.
