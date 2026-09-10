@@ -1,0 +1,27 @@
+# One line-ending standard for the whole repository.
+#
+# Without this file, normalization depends on each contributor's local
+# `core.autocrlf`, which is a per-machine setting — so the repo has no opinion
+# and CRLF leaks into the index from whichever machine has it off. That is what
+# produced the "read the file's existing line ending and write it back the same
+# way" workaround that used to live in CONTEXT-MEMORY.md. Delete the cause, not
+# the symptom.
+#
+# `eol=lf` applies to the WORKING TREE as well as the index, deliberately: the
+# checkout then matches what is committed, on every platform, so there is no
+# per-file line ending to discover before writing to it. Every tool in this
+# stack (node, pnpm, vite, git bash) is fine with LF on Windows.
+
+* text=auto eol=lf
+
+# Shell scripts break outright with CRLF, including inside the Docker image.
+*.sh   text eol=lf
+*.cmd  text eol=crlf
+
+# Never touched.
+*.png  binary
+*.svg  text eol=lf
+*.ico  binary
+*.woff binary
+*.woff2 binary
+*.pdf  binary

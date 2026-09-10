@@ -43,7 +43,16 @@ at the repository root.
 - **S5. A per-language TODO file**, `todo-de-DE.md` (Q4: same structure as
   `work-de-DE.json` and `de-DE.json`), **committed** (Q5 — the `.gitignore:63`
   reasoning for work files applies verbatim: a half-filled one is somebody's
-  work).
+  work). **Authored, not generated** — written by whoever translates, which is
+  normally an agent; no script emits it, none reads it, and rebuilding the work
+  file never touches it. **Recording is mandatory, in the same run that made the
+  decision.** DONE: the convention is written into `TRANSLATION-GUIDE.md`.
+- **S18. An agent never runs `i18n:import`** unless a human instructs it in that
+  instruction. Filling the work file is proposing; importing is accepting. The
+  import merges into `de-DE.json` and the next `i18n:translate` rebuilds the work
+  file empty, so the import DESTROYS the review artifact — which is how 596
+  strings were translated and merged unreviewed. DONE: written into
+  `TRANSLATION-GUIDE.md` as a blocking note in the workflow.
 - **S6/S12. `i18n/AGENTS.md` is the real file; `i18n/CLAUDE.md` symlinks to it.**
 - **S7. Translations are maintained by agents; conflicts are resolved by
   humans** — the line between them is *An agent may add and may abstain*, below.
@@ -344,11 +353,13 @@ turns a URL regression into a failing build. Do not touch `nginx.conf`.
 move as a rename, so review sees a rename rather than 1000 deleted lines and
 1000 added ones.
 
-**R6. Line endings turn a move into a rewrite.** `core.autocrlf=true` with some
-files stored as CRLF; a tool that rewrites a file with different endings produces
-a whole-file diff and buries the real change.
-→ **Move and edit in separate commits.** `git mv` copies bytes; do the path
-edits afterward, so a reviewer can see that the move changed nothing.
+**R6. ~~Line endings~~ — CAUSE DELETED, not mitigated.** This risk existed only
+because the repo had no `.gitattributes`, so normalization depended on each
+contributor's local `core.autocrlf`. A `.gitattributes` with `* text=auto eol=lf`
+is now in the working tree and the risk is gone. Two follow-ups, neither done:
+`git add --renormalize .` to apply it (it stages everything, so mind R5's shared
+checkout), and `DataTableView.tsx` lines 640-641, which hold literal NUL bytes
+and are why git treats a `.tsx` file as binary.
 
 **R7. The review window closes when `de-DE.json` is committed.** Right now the
 596 machine-written entries are a reviewable diff. Merged, they are

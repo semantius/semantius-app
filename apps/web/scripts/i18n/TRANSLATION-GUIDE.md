@@ -76,19 +76,75 @@ pnpm i18n:status -- --verbose
 pnpm i18n:translate -- --locale de-DE
 #   -> apps/web/public/locales/work-de-DE.json  (committed, beside de-DE.json)
 
-# 3. fill in every `translation`, keeping every `{placeholder}` its source uses, then
+# 3. fill in every `translation`, keeping every `{placeholder}` its source uses,
+#    and record anything you could not decide in todo-de-DE.md
+
+# 4. a HUMAN reviews the filled work file and runs the import (see below)
 pnpm i18n:import -- --locale de-DE
 
-# 4. confirm
+# 5. confirm
 pnpm i18n:status     # 0 missing
 pnpm check
 ```
+
+> ## 🔴 An agent does not run `i18n:import`
+>
+> **If you are an agent: fill in the work file, record your findings, and stop.
+> Do not run `i18n:import` unless a human has explicitly told you to in that
+> instruction.** Filling the file is proposing; importing is accepting, and
+> accepting is not yours to do.
+>
+> This is not a formality. `i18n:import` merges the translations into
+> `de-DE.json` and the next `i18n:translate` then rebuilds the work file empty —
+> so the artifact a reviewer needs, every proposed translation sitting beside its
+> English source and its hints, **is destroyed by the import**. What is left is a
+> one-line-per-key diff of a 1000-entry JSON file, which is not a review surface.
+> It has already happened once: 596 model-metadata strings were translated and
+> imported in a single unattended run, and the decisions inside them were never
+> reviewed by anyone.
+>
+> The filled work file IS the review. Leave it filled, say what you did, and let
+> a human read it.
 
 `i18n:import` refuses the whole file if any translation drops or invents an ICU
 placeholder, or fails to compile, and never overwrites a value that is already
 there. It reads the placeholders off the SOURCE text, not off a field in the
 work file, so there is nothing in the file you can edit to switch that check off.
 Editing `de-DE.json` by hand is equally fine — it is the same file.
+
+## Recording what you could not decide — `todo-<locale>.md`
+
+**Whoever translates writes this file, and that is usually an agent.** It is
+authored, not generated: no script emits it, no script reads it, and
+regenerating the work file never touches it. It is committed like the work file.
+
+**Recording is not optional.** Translating a large catalog means making decisions
+nobody asked you to make. Every one you are not certain of goes in here, in the
+same run that made it — otherwise it exists only in your own head and is lost the
+moment the run ends. Three kinds belong:
+
+- a term with two defensible renderings, where the product has to pick one
+- a defect in the SOURCE — a typo, a stray brace, a sentence that only works if
+  it is split — which this repo may not even be able to fix, because model text
+  lives in the platform
+- anything you translated but are not confident about
+
+One section per finding, five fields:
+
+```markdown
+## Administration → Verwaltung?
+- **Keys:** `module.admin.description`, and the `Admin*` compounds beside it
+- **What:** standalone `Administration` was rendered *Verwaltung* while
+  `Admin Permission` became *Administrationsberechtigung* — one English word,
+  two German words, inside one module. Both are defensible German.
+- **Needs:** a ruling on which German the product uses.
+- **Resolves into:** `de-DE.json`. There is no term list and there will not be one.
+- **State:** open
+```
+
+An entry you cannot answer is also a reason to leave the `translation` EMPTY in
+the work file. An empty entry is safe and is counted by `i18n:status`; a
+confident wrong guess is invisible forever.
 
 **The work file is committed, and rerunning step 2 does not cost you anything.**
 It lives beside the language it is about, so `de-DE.json` and `work-de-DE.json`

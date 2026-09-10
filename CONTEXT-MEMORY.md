@@ -4,6 +4,17 @@
 
 ## Working Agreements (stated human preferences — persist across sessions)
 
+- **NEVER write to `CONTEXT-MEMORY.md` without asking the owner first, and never
+  again without approval.** Not a new section, not a bullet, not an edit to an
+  existing line. Propose the exact text and wait. This was instructed after a
+  session found that what was written here was actively harmful: a workaround for
+  missing `.gitattributes` ("read the file's existing line ending and write it
+  back the same way") was recorded as a permanent coping instruction for every
+  future session instead of the one-file fix, and it named files as CRLF that
+  measurement showed were not; and the glossary paragraph prohibited a term map
+  while blessing an instance of it, which every later session read as sanction to
+  grow one. An agent that writes memory badly poisons every session that follows,
+  and cannot see it happening. Ask.
 - **Memory belongs in this repo, never in an out-of-repo agent memory store.** Do NOT write
   to `~/.claude/projects/*/memory/` or a `MEMORY.md` there. Anything worth keeping across
   sessions goes in **`CONTEXT-MEMORY.md`** (committed, shared, reviewable) or as a comment in
@@ -1657,12 +1668,22 @@ Always inspect API responses with `curl` before implementing — never assume re
 
 ### Working in this checkout — environment quirks
 
-- **`core.autocrlf=true` on a worktree that is mostly LF, with a few CRLF files
-  stored as CRLF** (`DataTableView.tsx`, `View.tsx`, the `_app.*.tsx` routes among
-  them). The "LF will be replaced by CRLF" warning on every commit is noise. But a
-  script that rewrites a CRLF-stored file with LF endings produces a whole-file
-  diff — read the file's existing line ending and write it back the same way, and
-  restore a file from a byte copy, not `git checkout --`.
+- **Line endings are settled by `.gitattributes` (`* text=auto eol=lf`), and that
+  is the end of the subject.** There is nothing to detect before writing to a
+  file and no per-file ending to preserve. What used to stand here was a
+  workaround — "read the file's existing line ending and write it back the same
+  way, and restore from a byte copy, not `git checkout --`" — and it named files
+  as CRLF-in-index that measurement showed were not (`git ls-files --eol` found
+  exactly one, `lib/compose-refs.ts`, while `View.tsx` and the `_app.*` routes
+  were plain `i/lf`). The repo had no `.gitattributes` at all, so normalization
+  depended on each contributor's local `core.autocrlf`. **A coping instruction
+  that every future session has to read is the wrong shape of answer to a
+  one-file fix — check whether the cause can be deleted before writing down how
+  to live with it.**
+- **`DataTableView.tsx` contains literal NUL bytes** (lines 640-641,
+  `join('<NUL>')` as a set-comparison separator, written as raw 0x00 rather than
+  a `\u0000` escape), which is why git classifies a `.tsx` file as binary and
+  why it is exempt from the normalization above.
 - **Two sessions may share this checkout.** Never `git commit` without pathspecs;
   never stage with `-A`.
 - **A temporary file under `src/routes/` is picked up by the TanStack Router
