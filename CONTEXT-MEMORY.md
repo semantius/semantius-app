@@ -479,9 +479,13 @@ matching `Home` inside `Home Phone` and reporting a correct `Privattelefon` as
 drift. It also duplicated the catalog: a code string is keyed by its own English
 text, so a term that is itself a message already has its pair in the language
 file. The reviewed language file IS the terminology record, since every decision
-in it is attached to a key; the eight words survive as a plain table in
-`TRANSLATION-GUIDE.md` for a human, who applies sense where a substring match
-cannot.
+in it is attached to a key. **Nothing survives of it — not a JSON file, not a
+prose table, not eight words "for a human".** A prohibition with a blessed
+instance is one that gets argued around, and this one was, repeatedly: the eight
+pairs were kept as a table in `TRANSLATION-GUIDE.md` and every later session read
+that table as sanction to grow it. The table is gone. Drift between two
+renderings of one English source is found by a consistency report over the whole
+catalog.
 
 **A work file is WORK, and it is committed.** `i18n:translate` writes
 `public/locales/work-<locale>.json` BESIDE the language it is about — not in a
@@ -1675,6 +1679,14 @@ Always inspect API responses with `curl` before implementing — never assume re
   the header without exposing it tests a browser that hides it.
 
 ### Ideas already tried and rejected — do not re-propose
+
+A glossary, term list or fixed-terms table for translation, **in any form** —
+JSON, a catalog test, or a plain table in a document "for a human to read". It
+duplicates the catalog (a code string is keyed by its own English text, so the
+pair is already in the language file; model text is keyed too), it carries no key
+scope, and drift is caught exhaustively by a consistency report instead. This has
+been re-proposed and rejected six times in one session alone; if you are about to
+suggest it, you are repeating that.
 
 jsdom in any project; polyfilling a browser API to make a test pass; stubbing
 `window.location`; axe in jsdom; `useTsTypes` on `lingui/no-unlocalized-strings`

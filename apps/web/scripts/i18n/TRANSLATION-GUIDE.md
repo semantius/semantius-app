@@ -5,28 +5,28 @@ For whoever — person or agent — fills in a language file under
 
 ## What is in there
 
-| File | What it is |
-| --- | --- |
-| `en-US.json` | **The index.** Every key the app has rendered, with its SOURCE text as the value: a code string's own English, a model label as the model spells it, a server error's template. Filled by the running app (discovery); the complete baseline a new language is started from. Never a catalog. |
-| `de-DE.json` | A language. `messages` (key to translation) and `obsolete`, nothing else. |
-| `schema.json` | The shape of a language file, served by the build so an editor's `$schema` validates as you type. |
-| `work.schema.json` | The shape of the work file `i18n:translate` writes. |
+| File               | What it is                                                                                                                                                                                                                                                                                    |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `en-US.json`       | **The index.** Every key the app has rendered, with its SOURCE text as the value: a code string's own English, a model label as the model spells it, a server error's template. Filled by the running app (discovery); the complete baseline a new language is started from. Never a catalog. |
+| `de-DE.json`       | A language. `messages` (key to translation) and `obsolete`, nothing else.                                                                                                                                                                                                                     |
+| `schema.json`      | The shape of a language file, served by the build so an editor's `$schema` validates as you type.                                                                                                                                                                                             |
+| `work.schema.json` | The shape of the work file `i18n:translate` writes.                                                                                                                                                                                                                                           |
 
 **One flat map per language.** A code string and a piece of model text are both
 messages; they are told apart by nothing but their keys.
 
 ## The keys
 
-| Kind | Key | Source |
-| --- | --- | --- |
-| a code string | its own English text: `Save`, `Delete {label}?` | the key itself |
-| a disambiguated code string | an id prefix, then the text: `columnVisibility.View` | `View` |
-| a module | `module.nwind.name`, `module.nwind.description` | the model |
-| an entity | `module.nwind.orders.entity.plural_label` (`singular_label`, `description`) | the model |
-| a field | `module.nwind.orders.field.city.title` (`description`, `relationship_label`, `singular_label_parent`, `plural_label_parent`) | the model |
-| an enum value | `module.nwind.orders.enum.status.pending` — the **stored value**, never its English label | the stored value |
-| a platform error | its code: `99017.orders`, `90042` | an ICU template |
-| a plain server sentence | its SQLSTATE plus the constraint name: `23505.modules_module_slug_key`, or `42703` | the sentence, verbatim |
+| Kind                        | Key                                                                                                                          | Source                 |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| a code string               | its own English text: `Save`, `Delete {label}?`                                                                              | the key itself         |
+| a disambiguated code string | an id prefix, then the text: `columnVisibility.View`                                                                         | `View`                 |
+| a module                    | `module.nwind.name`, `module.nwind.description`                                                                              | the model              |
+| an entity                   | `module.nwind.orders.entity.plural_label` (`singular_label`, `description`)                                                  | the model              |
+| a field                     | `module.nwind.orders.field.city.title` (`description`, `relationship_label`, `singular_label_parent`, `plural_label_parent`) | the model              |
+| an enum value               | `module.nwind.orders.enum.status.pending` — the **stored value**, never its English label                                    | the stored value       |
+| a platform error            | its code: `99017.orders`, `90042`                                                                                            | an ICU template        |
+| a plain server sentence     | its SQLSTATE plus the constraint name: `23505.modules_module_slug_key`, or `42703`                                           | the sentence, verbatim |
 
 `module` is a reserved first segment: no code string ever starts with it. The
 attribute vocabulary is the model's own column names.
@@ -150,32 +150,19 @@ work through the panel. Under `pnpm dev` a save lands in
 PR like any other change. On a stage host it lands in that host's copy;
 `export.mjs --target <url>` copies it back into the file's empty entries.
 
-## Fixed terms (de-DE)
+## German style
 
-These are the words the product uses for its own concepts. Use them
-consistently. Nothing checks it for you, and a term list is not what would: a
-flat English-to-German map carries no sense, so it cannot say that `Order` is
-`Bestellung` as an nwind entity and `Reihenfolge` in `order_column`, and it
-matches `Home` inside `Home Phone`. The reviewed `de-DE.json` is the terminology
-record — every decision in it is attached to a key, which is what a word on its
-own can never be.
-
-| English | German |
-| --- | --- |
-| Customer | Kunde |
-| Favorites | Favoriten |
-| Home | Startseite |
-| Language | Sprache |
-| Log out | Abmelden |
-| Module | Modul |
-| Settings | Einstellungen |
-| Sign in | Anmelden |
-
-Style, beyond those terms:
+**There is no term list, and there is not going to be one.** The reviewed
+`de-DE.json` is the terminology record: every decision in it is attached to a
+key, which is what a word on its own can never be. To find what the product
+already calls something, read the catalog — a code string is keyed by its own
+English text, model text by its key. Drift between two renderings of one English
+source is found by a consistency report over the whole catalog, never by a
+hand-picked list of words.
 
 - **A plural branch carries the grammatical case the sentence around it needs.**
   German inflects, so a plural form is not one word for every position: `von
-  {total, plural, other {# Einträge}}` is wrong because `von` takes the dative
+{total, plural, other {# Einträge}}` is wrong because `von` takes the dative
   and the dative plural is `Einträgen`. Read the whole rendered sentence, not the
   branch on its own, and check each category the language has.
 - **One English word gets one German word across the product.** `item` and
@@ -219,10 +206,10 @@ A language that ships with the product belongs there. A language for ONE
 deployment or ONE tenant does not — those are served or stored at runtime and
 never built into the bundle:
 
-| Who | Where its translations live |
-| --- | --- |
-| the product | `public/locales/<code>.json` |
-| a self-hosted operator | `/locales/<code>.json` next to the deployed app, registered in `VITE_UI_CUSTOMIZER` |
-| a cloud customer | the per-language record behind `/translations` on their own API (`VITE_TRANSLATE_MODE=prod`) |
+| Who                    | Where its translations live                                                                  |
+| ---------------------- | -------------------------------------------------------------------------------------------- |
+| the product            | `public/locales/<code>.json`                                                                 |
+| a self-hosted operator | `/locales/<code>.json` next to the deployed app, registered in `VITE_UI_CUSTOMIZER`          |
+| a cloud customer       | the per-language record behind `/translations` on their own API (`VITE_TRANSLATE_MODE=prod`) |
 
 The root `README.md` has all three, under "Internationalization".
