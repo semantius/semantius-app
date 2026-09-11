@@ -61,11 +61,21 @@ describe('app-loader invariant', () => {
  *
  * Only routes that terminate in their own standalone centered page belong here.
  */
-describe('boot overlay variant', () => {
+/**
+ * The `var plain = [...]` list from index.html's inline script. Either quote
+ * style is accepted: nothing in the repo pins index.html's quote style (ESLint
+ * does not read .html, and there is no formatter config), and an editor's
+ * formatter once rewrote the list to double quotes, which a single-quote
+ * pattern read as an EMPTY list — failing the tests below instead of checking.
+ */
+function plainRoutesFromIndexHtml(): string[] {
   const html = readFileSync(join(ROUTES_DIR, '..', '..', 'index.html'), 'utf8')
-  const plain = [...(html.match(/var plain = \[([^\]]*)\]/s)?.[1] ?? '').matchAll(/'([^']+)'/g)].map(
-    (m) => m[1],
-  )
+  const list = html.match(/var plain = \[([^\]]*)\]/s)?.[1] ?? ''
+  return [...list.matchAll(/(['"])([^'"]+)\1/g)].map((m) => m[2])
+}
+
+describe('boot overlay variant', () => {
+  const plain = plainRoutesFromIndexHtml()
 
   it('parses the plain-variant list out of index.html', () => {
     expect(plain.length).toBeGreaterThan(0)
@@ -94,10 +104,7 @@ describe('boot overlay variant', () => {
  */
 describe('standalone routes take the overlay down themselves', () => {
   const SRC_DIR = join(ROUTES_DIR, '..')
-  const html = readFileSync(join(ROUTES_DIR, '..', '..', 'index.html'), 'utf8')
-  const plain = [...(html.match(/var plain = \[([^\]]*)\]/s)?.[1] ?? '').matchAll(/'([^']+)'/g)].map(
-    (m) => m[1],
-  )
+  const plain = plainRoutesFromIndexHtml()
   const routeFileFor = (path: string) => join(ROUTES_DIR, `${path.slice(1)}.tsx`)
 
   /** Source of the modules a route imports from src/components, one level deep. */

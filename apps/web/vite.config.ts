@@ -203,7 +203,24 @@ export default defineConfig(({ mode }) => ({
     // browser project it reloads a running test, and the half-loaded module
     // graph then holds two copies of React ("Invalid hook call" inside
     // <TabsRoot>). Naming them here is what Vitest asks for in that message.
-    include: ['sonner', '@base-ui/react/tabs'],
+    //
+    // The second group is the same failure on a COLD cache: the browser
+    // project's entries are test files, and these are reached only through
+    // imports the crawler does not follow from them, so a fresh CI runner
+    // discovered all seven mid-run, reloaded, and failed whichever tests were
+    // mounted at that moment (NavUser, the fetch interceptor). A warm
+    // node_modules/.vite hides it locally — reproduce with that folder deleted.
+    include: [
+      'sonner',
+      '@base-ui/react/tabs',
+      'react-dom/client',
+      '@tanstack/react-query-devtools',
+      '@tanstack/router-devtools',
+      'drizzle-cube/client',
+      'drizzle-cube/client/utils',
+      'react-resizable-panels',
+      '@base-ui/react/select',
+    ],
   },
   test: {
     globals: true,
