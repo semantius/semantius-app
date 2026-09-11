@@ -76,6 +76,13 @@ jobs:
       - name: Install Chromium
         run: pnpm --filter @semantius/frontend test:e2e:install
 
+      # `test:e2e` runs Playwright through `dotenvx run`, and dotenvx is a GLOBAL
+      # install (workplace/setup.sh), not a dependency — a runner has never seen
+      # it. checks.yml hit the same `sh: 1: dotenvx: not found` and carries the
+      # same step; this job was missed when the e2e run moved under dotenvx.
+      - name: Install dotenvx
+        run: npm install -g @dotenvx/dotenvx
+
       # Two builds, two projects (playwright.config.ts): `chromium` drives the
       # interactive login against the OIDC test server, and `tenant` injects
       # transient failures into the REAL tenant's endpoints — which needs
