@@ -31,12 +31,17 @@ describe('hideAppLoader', () => {
    * `transitioning: false` gives an element with no transition at all, which is
    * what reduced-motion, a hidden tab and a display:none subtree amount to: the
    * browser fires no `transitionend` and only the timeout can finish the job.
+   *
+   * The fade is 20ms, not index.html's 180ms, on purpose: the transition test
+   * needs `transitionend` to beat hideAppLoader's 300ms fallback, and a 180ms
+   * fade left a loaded CI runner too little of that window. The property under
+   * test is which path sets `hidden`, not how long the fade takes.
    */
   function mountOverlay({ transitioning = true } = {}) {
     const el = document.createElement('div')
     el.id = 'app-loader'
     el.style.opacity = '1'
-    if (transitioning) el.style.transition = 'opacity 180ms linear'
+    if (transitioning) el.style.transition = 'opacity 20ms linear'
     document.body.appendChild(el)
     // Force a style flush so the browser has a "from" value to transition FROM;
     // without it the opacity change coalesces into the initial paint and no
@@ -66,19 +71,25 @@ describe('hideAppLoader', () => {
 
   it('hides once the fade transition ends', async () => {
     const el = mountOverlay()
-    let ended = false
-    el.addEventListener('transitionend', () => { ended = true }, { once: true })
+    // Listeners for one dispatch run in registration order, so these two
+    // bracket hideAppLoader's own: the first runs just before it, the second
+    // just after. Each reads `hidden` synchronously inside the dispatch.
+    let hiddenBefore: boolean | undefined
+    el.addEventListener('transitionend', () => { hiddenBefore = el.hidden }, { once: true })
 
     hideAppLoader()
+    const hiddenAfter = new Promise<boolean>((resolve) => {
+      el.addEventListener('transitionend', () => resolve(el.hidden), { once: true })
+    })
     expect(el.hidden).toBe(false)
 
-    // Polled, not awaited on the event: listeners for one dispatch run in
-    // registration order and a microtask checkpoint falls between them, so
-    // resuming from an `await` on the first listener would assert before
-    // hideAppLoader's own listener had run.
-    await expect.poll(() => el.hidden, { timeout: 250 }).toBe(true)
-    // The transition really ran — this is not the 300ms fallback in disguise.
-    expect(ended).toBe(true)
+    // Not hidden going into the dispatch, hidden coming out of it: the
+    // transitionend listener did it. Had the 300ms fallback got there first,
+    // `hiddenBefore` would already be true — so this is not the fallback in
+    // disguise, and no wall-clock deadline decides it. (It used to be a 250ms
+    // poll, which a loaded CI runner missed and which failed the v0.2.7 release.)
+    expect(await hiddenAfter).toBe(true)
+    expect(hiddenBefore).toBe(false)
   })
 
   it('hides via the timeout fallback when no transitionend arrives', async () => {
