@@ -10,8 +10,11 @@ import {
   CardHeader,
 } from '@/components/ui/card'
 import { hideAppLoader } from '@/lib/appLoader'
+import { useT } from '@/i18n'
 
 export function NotFoundPage() {
+  const t = useT()
+
   useEffect(() => {
     hideAppLoader()
   }, [])
@@ -25,14 +28,14 @@ export function NotFoundPage() {
               <Search className="h-12 w-12 text-muted-foreground" />
             </div>
           </div>
-          <h1 data-slot="card-title" className="font-heading font-medium text-center text-3xl">404 - Page Not Found</h1>
+          <h1 data-slot="card-title" className="font-heading font-medium text-center text-3xl">{t('404 - Page Not Found')}</h1>
           <CardDescription className="text-center">
-            The page you're looking for doesn't exist or has been moved.
+            {t("The page you're looking for doesn't exist or has been moved.")}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-center text-muted-foreground">
-            You may have mistyped the address or the page may have been removed.
+            {t('You may have mistyped the address or the page may have been removed.')}
           </p>
         </CardContent>
         <CardFooter className="flex justify-center">
@@ -46,7 +49,7 @@ export function NotFoundPage() {
           */}
           <Link to="/" className={buttonVariants()}>
             <Home className="h-4 w-4 mr-2" />
-            Back to Home
+            {t('Back to Home')}
           </Link>
         </CardFooter>
       </Card>

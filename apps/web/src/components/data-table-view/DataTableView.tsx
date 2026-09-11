@@ -4,11 +4,12 @@ import { type EntityMetadata, type TableMetadata } from '@/types/metadata'
 import { cn } from '@/lib/utils'
 import { formatNumberForDisplay, resolvePrecision } from '@/lib/number-format'
 import { formatDateForDisplay, isDateFormat } from '@/lib/date-format'
+import { enumLabel, useFormattingLocale, useT, type TranslateFn } from '@/i18n'
 import { useTable } from '@/hooks/useTable'
 import { useUpdateRecord } from '@/hooks/useTableMutations'
 import { useConfirmDelete } from '@/hooks/useConfirmDelete'
 import { useUserHasPermission } from '@/hooks/useUserPermissions'
-import { useIsMobile } from '@/hooks/use-mobile'
+import { GRID_PINNING_MIN_WIDTH_REM, useMinWidth } from '@/hooks/use-min-width'
 import { ConfirmDeleteDialog } from '@/components/ConfirmDeleteDialog'
 import { buildPostgRESTSelect, AUTO_LABEL } from '@/lib/apiClient'
 import {
@@ -63,13 +64,14 @@ type RecordType = Record<string, unknown>
 // listeners — no second useSortable here. Rendered as a <button> so the row's
 // click handler ignores grabs (it skips clicks inside buttons).
 function RowDragHandle() {
+  const t = useT()
   const ctx = useContext(RowDragContext)
   if (!ctx) return null
   return (
     <button
       ref={ctx.setActivatorNodeRef}
       type="button"
-      aria-label="Drag to reorder"
+      aria-label={t('Drag to reorder')}
       className={cn(
         'flex items-center justify-center text-muted-foreground hover:text-foreground',
         'cursor-grab touch-none rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring',
@@ -337,9 +339,15 @@ export function DataTableView({
   if (!tableMetadata.id_column) throw new Error('DataTableView requires metadata.table.id_column to be defined')
   if (!tableMetadata.label_column) throw new Error('DataTableView requires metadata.table.label_column to be defined')
 
+  const t = useT()
+  // The FORMATTING locale drives every Intl call; the catalog language never
+  // does. They are separate preferences (see src/i18n).
+  const formattingLocale = useFormattingLocale()
+
   const tableName = tableMetadata.table_name
   const primaryKeyColumn = tableMetadata.id_column
-  const isMobile = useIsMobile()
+  // Column pinning is keyed on `lg:`, not on the mobile breakpoint — see the hook.
+  const canPin = useMinWidth(GRID_PINNING_MIN_WIDTH_REM)
   const displayColumn = tableMetadata.label_column
   // When the schema declares an order_column, the grid is sorted by it (asc) and
   // rows can be drag-reordered. The column may not exist in `properties`, so it
@@ -678,13 +686,14 @@ export function DataTableView({
   // from metadata (same skip rules as the column build) so it is available while
   // building the columns, where pinned columns need an explicit size + truncation.
   const leftPinnedKeys = useMemo(() => {
-    // No sticky columns on a phone. The pinned set is sized in absolute pixels
+    // No sticky columns below `lg:`. The pinned set is sized in absolute pixels
     // (PINNED_WIDTH_PX), so on a 390px viewport it takes 320 of the grid's 343
-    // available px: every other column is then permanently underneath it, and a
-    // focused header or cell control in one of them cannot be scrolled clear
-    // (2.4.11 — measured, not theorized). Horizontal scrolling with no sticky
-    // overlay is the usable behavior at that width.
-    if (isMobile) return [] as string[]
+    // available px, and at 768px still 370 of 480: every other column is then
+    // permanently underneath it, and a focused header or cell control in one of
+    // them cannot be scrolled clear (2.4.11 — measured at both widths, not
+    // theorized; see GRID_PINNING_MIN_WIDTH_REM). Horizontal scrolling with no
+    // sticky overlay is the usable behavior there.
+    if (!canPin) return [] as string[]
     if (!metadata.properties) return [] as string[]
     const keys: string[] = []
     for (const [key, property] of Object.entries(metadata.properties)) {
@@ -696,7 +705,7 @@ export function DataTableView({
     }
     const labelIndex = keys.indexOf(displayColumn)
     return labelIndex === 0 || labelIndex === 1 ? keys.slice(0, labelIndex + 1) : []
-  }, [metadata.properties, excludeColumns, displayColumn, isMobile])
+  }, [metadata.properties, excludeColumns, displayColumn, canPin])
 
   // --- Column definitions from metadata ---
   const columns = useMemo((): DataTableColumnDef<RecordType>[] => {
@@ -729,8 +738,11 @@ export function DataTableView({
         !(property.enum && property.enum.length > 0)
       const columnTitle = property.title || key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 
+      // The filter's VALUE stays the raw enum value the database holds; only
+      // the label is translated, so a filter built in German still queries the
+      // same rows. `enum_labels` is filled by localizeMetadata at the route.
       const options = property.enum
-        ? property.enum.map(v => ({ label: v, value: v }))
+        ? property.enum.map(v => ({ label: enumLabel(property, v), value: v }))
         : undefined
 
       // Sticky-left-pinned columns get a fixed width and always truncate so their
@@ -797,14 +809,22 @@ export function DataTableView({
           }
 
           if (property.type === 'boolean') {
-            return <Badge variant={value ? 'default' : 'secondary'}>{value ? 'Yes' : 'No'}</Badge>
+            return <Badge variant={value ? 'default' : 'secondary'}>{value ? t('Yes') : t('No')}</Badge>
           }
 
           if (property.enum && Array.isArray(property.enum)) {
-            const sv = String(value || 'unknown')
+            // The enum value exactly as the model spells it — it is data, and
+            // the variant below keeps comparing the RAW value. Only the "no
+            // value at all" case is a word of ours, so only that one is a
+            // message.
+            // The variant keeps comparing the RAW value — it is data, and a
+            // translated badge must not change color with the language. Only
+            // the displayed text goes through the label override, and the "no
+            // value at all" case is a word of ours, so it stays a message.
+            const sv = String(value || '')
             return (
               <Badge variant={sv === 'active' ? 'default' : sv === 'inactive' ? 'secondary' : 'outline'}>
-                {sv}
+                {sv ? enumLabel(property, sv) : t('Unknown')}
               </Badge>
             )
           }
@@ -815,13 +835,16 @@ export function DataTableView({
             // grouping for the primary-key id column — a grouped id like "1,002" reads wrong.
             return (
               <div className="text-right tabular-nums">
-                {formatNumberForDisplay(value, precision, { grouping: key !== primaryKeyColumn })}
+                {formatNumberForDisplay(value, precision, {
+                  locale: formattingLocale,
+                  grouping: key !== primaryKeyColumn,
+                })}
               </div>
             )
           }
 
           if (isDateFormat(property.format)) {
-            const text = formatDateForDisplay(value, property.format) || '-'
+            const text = formatDateForDisplay(value, property.format, { locale: formattingLocale }) || '-'
             return <div className={truncateClasses} style={truncateStyle} title={showTitle ? text : undefined}>{text}</div>
           }
 
@@ -874,13 +897,13 @@ export function DataTableView({
                 />
               }
             >
-              <span className="sr-only">Open menu</span>
+              <span className="sr-only">{t('Open menu')}</span>
               <MoreHorizontal className="h-4 w-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48" sideOffset={5}>
               <DropdownMenuGroup>
                 <DropdownMenuLabel>
-                  Actions
+                  {t('Actions')}
                   {showRecordIdentifier && displayValue != null && String(displayValue) !== '' && (
                     <div className="text-xs font-medium text-foreground mt-0.5 truncate">
                       {String(displayValue)}
@@ -894,12 +917,12 @@ export function DataTableView({
                   {effectiveCanEdit ? (
                     <>
                       <Pencil className="mr-2 h-4 w-4" />
-                      Edit
+                      {t('Edit')}
                     </>
                   ) : (
                     <>
                       <Eye className="mr-2 h-4 w-4" />
-                      View
+                      {t('View')}
                     </>
                   )}
                 </DropdownMenuItem>
@@ -930,18 +953,21 @@ export function DataTableView({
                     e.stopPropagation()
                     deleteConfirm.showConfirmation(
                       recordId as string | number,
-                      displayValue != null && String(displayValue) !== ''
-                        ? String(displayValue)
-                        : 'this record'
+                      // Empty, not a stand-in phrase: ConfirmDeleteDialog and
+                      // the delete toast each have their own sentence for a
+                      // record with no name, because "this record" pushed into
+                      // "{label} {name} deleted" reads as nonsense once the
+                      // sentence inflects.
+                      displayValue != null ? String(displayValue) : ''
                     )
                   }}
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
-                  Delete
+                  {t('Delete')}
                 </DropdownMenuItem>
               )}
               {!hasOpenHandler && !effectiveCanEdit && extraItems.length === 0 && (
-                <div className="px-2 py-1.5 text-sm text-muted-foreground">No actions available</div>
+                <div className="px-2 py-1.5 text-sm text-muted-foreground">{t('No actions available')}</div>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -967,7 +993,14 @@ export function DataTableView({
     }
 
     return cols
-  }, [metadata, excludeColumns, effectiveCanEdit, onEdit, editRoute, onEditModal, deleteConfirm, primaryKeyColumn, displayColumn, leftPinnedKeys, dndEnabled, getRowMenuItems, getRowHref, rowHrefPreservesSearch])
+    // `t` and `formattingLocale` are dependencies for the same reason: both
+    // change identity on a language or format switch, and the cells built here
+    // are captured in a memo that would otherwise keep rendering the previous
+    // language's "Yes"/"No" and the previous locale's numbers and dates.
+    // `editRoute` is NOT here: the memo does not read it (the row menu
+    // navigates through `onEdit`), and exhaustive-deps reports an unused
+    // dependency as an error like any other.
+  }, [metadata, excludeColumns, effectiveCanEdit, onEdit, onEditModal, deleteConfirm, primaryKeyColumn, displayColumn, leftPinnedKeys, dndEnabled, getRowMenuItems, getRowHref, rowHrefPreservesSearch, t, formattingLocale])
 
   // Sticky pinning state: the label column (+ anything left of it, when in
   // position 1 or 2) on the left, and the row-actions column on the right.
@@ -976,12 +1009,20 @@ export function DataTableView({
   // The drag handle pins to the far left (ahead of the label column) so it stays
   // the first visible column while a wide table scrolls. It carries an explicit
   // size (40px) so the sticky offsets stay aligned.
+  //
+  // NOTHING is pinned below `lg:` — not the label column (leftPinnedKeys is
+  // already empty there), and not the drag handle or the actions column either.
+  // "No sticky columns below md" was only two-thirds true: `__drag` and
+  // `actions` kept their sticky position at 320/390, and a sticky column is
+  // exactly what sits over a focused control scrolled to the container's edge
+  // (2.4.11). Both columns are still there, first and last; they scroll with
+  // the row.
   const columnPinning = useMemo(
     () => ({
-      left: dndEnabled ? ['__drag', ...leftPinnedKeys] : leftPinnedKeys,
-      right: ['actions'],
+      left: dndEnabled && canPin ? ['__drag', ...leftPinnedKeys] : leftPinnedKeys,
+      right: canPin ? ['actions'] : [],
     }),
-    [leftPinnedKeys, dndEnabled]
+    [leftPinnedKeys, dndEnabled, canPin]
   )
 
   // Constrain the whole grid to max-w-[760px] when there are ≤ 4 data columns
@@ -996,7 +1037,7 @@ export function DataTableView({
     return (
       <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
         {_emptyIcon || <div className="h-12 w-12 mb-2" />}
-        <p>{emptyMessage || 'No records found'}</p>
+        <p>{emptyMessage || t('No records found')}</p>
       </div>
     )
   }
@@ -1020,7 +1061,7 @@ export function DataTableView({
           state={{
             pagination,
             sorting,
-            // CONTROLLED, not initialState. useIsMobile() resolves in an effect, so
+            // CONTROLLED, not initialState. useMinWidth() resolves in an effect, so
             // its first render is always `false`; with pinning in initialState
             // TanStack read that first value and kept it forever — a phone got the
             // desktop pinning permanently, which is precisely the 2.4.11 failure
@@ -1045,7 +1086,14 @@ export function DataTableView({
             <div className="flex flex-1 gap-2">
               {tableMetadata.searchable && (
                 <DataTableSearchFilter
-                  placeholder={`Search ${tableMetadata.plural_label || 'records'}...`}
+                  // The model's plural label EXACTLY as the model spells it —
+                  // never lowercased, which is what this did and which German
+                  // (where every noun is capitalized) would have rendered wrong.
+                  placeholder={
+                    tableMetadata.plural_label
+                      ? t('Search {entity}...', { entity: tableMetadata.plural_label })
+                      : t('Search records...')
+                  }
                   value={searchText}
                   onChange={handleSearchChange}
                   className="max-w-[400px]"
@@ -1095,7 +1143,7 @@ export function DataTableView({
 
       <ConfirmDeleteDialog
         {...deleteConfirm}
-        entityType={metadata.table?.singular_label || metadata.title || 'Record'}
+        entityType={metadata.table?.singular_label || metadata.title || t('Record')}
       />
     </>
   )

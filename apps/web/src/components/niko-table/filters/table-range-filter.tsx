@@ -3,6 +3,9 @@ import * as React from "react"
 
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
+import { useFormattingLocale, useT } from "@/i18n"
+import { formatNumberForDisplay } from "@/lib/number-format"
+import { fieldNameFor } from "../lib/format"
 import type { ExtendedColumnFilter } from "../types"
 
 interface TableRangeFilterProps<TData> extends React.ComponentProps<"div"> {
@@ -23,6 +26,11 @@ export function TableRangeFilter<TData>({
   className,
   ...props
 }: TableRangeFilterProps<TData>) {
+  const t = useT()
+  // The formatting locale, not the catalog language — the two are separate
+  // preferences (see src/i18n). `toLocaleString(undefined, …)` took the
+  // browser's, which ignored the user's choice entirely.
+  const locale = useFormattingLocale()
   const meta = column.columnDef.meta
 
   const [min, max] = React.useMemo(() => {
@@ -41,11 +49,9 @@ export function TableRangeFilter<TData>({
       const numValue = Number(value)
       return Number.isNaN(numValue)
         ? ""
-        : numValue.toLocaleString(undefined, {
-            maximumFractionDigits: 0,
-          })
+        : formatNumberForDisplay(numValue, 0, { locale })
     },
-    [],
+    [locale],
   )
 
   const value = React.useMemo(() => {
@@ -89,7 +95,7 @@ export function TableRangeFilter<TData>({
       <Input
         id={`${inputId}-min`}
         type="number"
-        aria-label={`${meta?.label} minimum value`}
+        aria-label={t("{field} minimum value", { field: fieldNameFor(meta?.label, column.id) })}
         // The bounds are carried by the native min/max below. aria-valuemin/max
         // belong to role=spinbutton/slider and were being announced to nobody here.
         data-slot="range-min"
@@ -101,11 +107,11 @@ export function TableRangeFilter<TData>({
         defaultValue={value[0]}
         onChange={event => onRangeValueChange(String(event.target.value), true)}
       />
-      <span className="sr-only shrink-0 text-muted-foreground">to</span>
+      <span className="sr-only shrink-0 text-muted-foreground">{t("to")}</span>
       <Input
         id={`${inputId}-max`}
         type="number"
-        aria-label={`${meta?.label} maximum value`}
+        aria-label={t("{field} maximum value", { field: fieldNameFor(meta?.label, column.id) })}
         data-slot="range-max"
         inputMode="numeric"
         placeholder={max.toString()}

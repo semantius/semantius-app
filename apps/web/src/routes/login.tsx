@@ -1,4 +1,5 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
+import { translate, useT } from '@/i18n'
 import { pageTitle } from '@/lib/pageTitle'
 import { useAuth } from '@/hooks/useAuth'
 import { useCallback, useEffect, useRef } from 'react'
@@ -7,7 +8,7 @@ import { AuthFailure } from '@/components/AuthFailure'
 import { hideAppLoader } from '@/lib/appLoader'
 
 export const Route = createFileRoute('/login')({
-  head: () => ({ meta: [{ title: pageTitle('Sign in') }] }),
+  head: () => ({ meta: [{ title: pageTitle(translate('Sign in')) }] }),
   beforeLoad: async ({ context, search }) => {
     if (context.auth.isAuthenticated()) {
       throw redirect({
@@ -25,6 +26,7 @@ function LoginComponent() {
   // crypto.subtle, offline network, blocked storage — surfaces ONLY through
   // this value. Without a branch on it the index.html overlay never comes down
   // and the page spins forever.
+  const t = useT()
   const { logIn, error } = useAuth()
   const search = Route.useSearch()
   const calledRef = useRef(false)
@@ -49,7 +51,7 @@ function LoginComponent() {
     return (
       <AuthFailure
         message={error}
-        description="The login flow could not be started."
+        description={t('The login flow could not be started.')}
         // Retry through the same start() so calledRef stays set and the
         // strict-mode guard can't swallow a manual attempt.
         onRetry={start}

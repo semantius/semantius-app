@@ -1,7 +1,9 @@
 import type { ReactElement, ReactNode } from 'react'
 import { render } from '@testing-library/react'
 import { useForm } from '@tanstack/react-form'
+import { I18nProvider } from '@lingui/react'
 import type { SchemaObject } from 'ajv'
+import { i18n } from '@/i18n'
 import { FormProvider, type FormContextValue } from '../FormContext'
 
 /**
@@ -50,7 +52,15 @@ export function FormHarness({
     validateField: () => undefined,
     formMode,
   }
-  return <FormProvider value={value}>{children}</FormProvider>
+  // <I18nProvider> for the same reason main.tsx has one: a control that uses
+  // <Trans> reads the catalog off React context. Controls that only call useT()
+  // do not need it, but a harness that omits it would make the difference
+  // invisible until the first <Trans> landed.
+  return (
+    <I18nProvider i18n={i18n}>
+      <FormProvider value={value}>{children}</FormProvider>
+    </I18nProvider>
+  )
 }
 
 /** `render()` a control inside the harness. Returns what `render()` returns. */

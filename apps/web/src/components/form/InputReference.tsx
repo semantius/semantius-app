@@ -1,3 +1,4 @@
+import { useT } from '@/i18n'
 import type { FormControlProps } from './types'
 import { useFormContext } from './FormContext'
 import { FormLabel } from './FormLabel'
@@ -14,6 +15,7 @@ export function InputReference({
   validators,
   schema,
 }: FormControlProps) {
+  const t = useT()
   const { form, formMode } = useFormContext()
 
   // Derive props from inputMode
@@ -29,12 +31,14 @@ export function InputReference({
   const getRecords = (schema as any)?.getRecords
   let getRecordId = (schema as any)?.getRecordId ?? '${id}'
   let renderItem = (schema as any)?.renderItem ?? '${label}'
-  let placeholder = (schema as any)?.placeholder || (label ? `Search ${label.toLowerCase()}...` : 'Search...')
+  // The field's own label goes in AS GIVEN — `toLowerCase()` was an English
+  // habit, and German capitalizes every noun.
+  let placeholder = (schema as any)?.placeholder || (label ? t('Search {label}...', { label }) : t('Search...'))
 
   // generate default props based on schema.reference_* properties
   if (schema?.reference_table_id_column) getRecordId = "${" + schema.reference_table_id_column + "}";
   if (schema?.reference_table_label_column) renderItem = "${" + schema.reference_table_label_column + "}";
-  if (schema?.reference_table_plural_label) placeholder = `Search ${String(schema.reference_table_plural_label)}...`;
+  if (schema?.reference_table_plural_label) placeholder = t('Search {label}...', { label: String(schema.reference_table_plural_label) });
 
   if (!searchUrl && schema?.reference_table) {
     const table = schema.reference_table;

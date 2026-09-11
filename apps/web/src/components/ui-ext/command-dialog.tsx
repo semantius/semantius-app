@@ -1,6 +1,7 @@
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
+import { useT } from "@/i18n"
 import {
   Dialog,
   DialogContent,
@@ -38,8 +39,8 @@ import {
  * be diffed against it.
  */
 export function CommandDialog({
-  title = "Command Palette",
-  description = "Search for a command to run...",
+  title,
+  description,
   children,
   className,
   showCloseButton = false,
@@ -51,6 +52,12 @@ export function CommandDialog({
   showCloseButton?: boolean
   children: React.ReactNode
 }) {
+  const t = useT()
+  // Defaulted in the body rather than in the parameter list: a default
+  // parameter is evaluated before the body runs, so it cannot call a hook.
+  const dialogTitle = title ?? t("Command Palette")
+  const dialogDescription = description ?? t("Search for a command to run...")
+
   return (
     <Dialog {...props}>
       <DialogContent
@@ -61,8 +68,8 @@ export function CommandDialog({
         showCloseButton={showCloseButton}
       >
         <DialogHeader className="sr-only">
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
+          <DialogTitle>{dialogTitle}</DialogTitle>
+          <DialogDescription>{dialogDescription}</DialogDescription>
         </DialogHeader>
         {children}
       </DialogContent>

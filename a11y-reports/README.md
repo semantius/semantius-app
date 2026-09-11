@@ -15,10 +15,11 @@ vocabulary: `Supports` / `Partially Supports` / `Does Not Support` /
 - A criterion nothing checked reads **Not Evaluated**, never `Supports`. A
   criterion no rule covers is simply absent from an axe payload; rendering
   absence as a pass would make the whole artifact a dishonest conformance claim.
-- A cell the audit could not measure is **INCONCLUSIVE** and is excluded from
-  every criterion's evidence. `summary.pass` is false whenever any cell is
-  inconclusive, so an unmeasurable run cannot read as a clean one. The reasons
-  are listed under `inconclusive[]`.
+- A view the audit could not measure is **cantTell** and is excluded from
+  every criterion's evidence. `summary.pass` is false whenever any view is
+  cantTell, so an unmeasurable run cannot read as a clean one. The reasons
+  are listed under `cantTell[]` (`inconclusive[]` in the artifacts kept from
+  before the rename; `diff.mjs` reads both).
 
 ## What a run has to clear to be kept here
 
@@ -28,7 +29,7 @@ tell it apart from a real one.
 
 - **It finished.** A killed or crashed run writes nothing; if you find yourself
   reconstructing one from a driver log, throw it away and re-run.
-- **Its inconclusive count is small and explained.** A run whose access token
+- **Its cantTell count is small and explained.** A run whose access token
   expired part-way through measures the token, not the app.
 - **It names the build it ran against.** `meta.url` must be the preview that was
   current at the time. A run against a superseded deploy answers a question
@@ -38,8 +39,20 @@ tell it apart from a real one.
 
 | Run | State of the tree | Notes |
 | --- | --- | --- |
-| `20260905T122344-baseline.json` | After the Level-A fixes and the `--ring` / `--input-border` work, **before** the 1.4.3 palette change | 16 routes x {390, 1440} x {light, dark}. 55/64 cells admissible; the 9 inconclusive ones are the tenant API's cold-start 404 (see below). This is the baseline the color change is meant to be diffed against. |
-| `20260905T230332-after-fixes.json` | The `feat/a11y-wcag-aa-mobile` tip (commit 30, dark `--muted-foreground` restored), preview `feataywcag-20260905232649` | The first kept post-fix run. 16 routes x 7 viewports x {light, dark} = 224 cells, 220 admissible; the 4 inconclusive are three provider `429` cards (now caught by the probe) and one failed navigation. Against the baseline at 390/1440: `2.4.1` and `1.4.11` → Supports; `1.4.3` 38 → 2 findings; `1.4.10` 11 → 0; `2.4.11` 300 → 14; `2.4.7` 16 → 3; `1.3.1` 7 → 4; `2.5.8` 2 → 2; `2.4.2` still one title collision. Seven criteria remain Partially Supports across the full matrix, most of it at 320. `node scripts/a11y-audit/diff.mjs` reproduces this. |
+| `20260905T122344-baseline.json` | After the Level-A fixes and the `--ring` / `--input-border` work, **before** the 1.4.3 palette change | 16 routes x {390, 1440} x {light, dark}. 55/64 views measured; the 9 cantTell ones are the tenant API's cold-start 404 (see below). This is the baseline the color change is meant to be diffed against. |
+| `20260905T230332-after-fixes.json` | The `feat/a11y-wcag-aa-mobile` tip (commit 30, dark `--muted-foreground` restored), preview `feataywcag-20260905232649` | The first kept post-fix run. 16 routes x 7 viewports x {light, dark} = 224 views, 220 measured; the 4 cantTell are three provider `429` cards (now caught by the probe) and one failed navigation. Against the baseline at 390/1440: `2.4.1` and `1.4.11` → Supports; `1.4.3` 38 → 2 findings; `1.4.10` 11 → 0; `2.4.11` 300 → 14; `2.4.7` 16 → 3; `1.3.1` 7 → 4; `2.5.8` 2 → 2; `2.4.2` still one title collision. Seven criteria remain Partially Supports across the full matrix, most of it at 320. `node scripts/a11y-audit/diff.mjs` reproduces this. |
+| `20260906T115727-status.json` | Same tree as `after-fixes` plus the `/xcustomers` exclusion NOT yet applied, preview `feataywcag-20260906112124` | 224 views, 221 measured, 3 cantTell. Kept as the last run before the audit vocabulary changed (`cells` / `INCONCLUSIVE` / `admissible` in its `.txt`) and as the run `a11y-audit-review.md` re-derived its numbers from. |
+
+| `20260906T163431-transport-retry.json` | `main` at `fedca1b`: retry at the transport (a 429 is never a 404 page), grid scroll-padding unfrozen and nothing pinned on phones, 320 reflow rows wrap, skip link below the header, `min-w-6` on column titles, `/xcustomers` excluded; preview `main-20260906170619` | **The first valid run.** 12 routes x 7 viewports x {light, dark} = 168 views, 166 measured; the 2 cantTell are provider `429` cards that outlasted the app's own ~10s retry and the audit's re-navigations. 23 Supports / 3 Partially Supports / 29 Not Evaluated. Against `after-fixes`: `1.4.10` 5 → 0, `2.5.8` 6 → 0, `2.4.7` 13 → 0, `2.4.2` → Supports, `2.4.11` 64 → 54 (42 of the 54 are the grid's pagination controls behind the open record Sheet); `1.3.1` and `1.4.3` unchanged (vendor). `diff.mjs` reproduces this. |
+
+| `20260906T173406-pinning-lg.json` | `main` at `f1a55fb`: grid pinning from `lg:` (768 measured too narrow), the audit probes scoped to an open modal dialog, drizzle-cube's light `--dc-primary` lifted to 6.3:1; preview `main-20260906175709` | **The run `ACCESSIBILITY.md` cites.** 168 views, 164 measured; the 4 cantTell are three tenant-API cards and one provider card that outlasted the app's ~10s retry and the audit's re-navigations. 24 / 2 / 29. Against `transport-retry`: `2.4.11` 54 → **0**, Supports; `1.4.3` 7 vendor findings → 0, but **4 new** on views that happened to render the app's own `ApiErrorDisplay` during the tenant's bad minute — `text-muted-foreground` on `bg-destructive/10`, an error-state pair no earlier run reached (fixed in the tree after this run; not re-audited, since the state cannot be reached on purpose). `1.3.1` unchanged (vendor heading). `diff.mjs` reproduces this. |
+
+**The "of N views" denominators in the three EARLIER kept runs are wrong for any
+criterion two probes touch.** `report.mjs` counted a view once per *probe*, not
+once per view, until 2026-09-06, so `1.3.1` and `1.4.3` say "of 440" / "of 442"
+over a 224-view set. The counting is a `Set` now; the artifacts are not
+regenerable from what they store, so they keep their numbers. Read those
+denominators as ≤ half.
 
 ## The runs that were discarded, and what each changed
 
@@ -47,10 +60,10 @@ Three runs after the fixes were discarded rather than kept, each for a reason th
 bar above names, and each changed the harness:
 
 - one ran against a build that had already been superseded;
-- one minted its token once and ran past the hour, ending with 145 of 224 cells
-  inconclusive — `run.mjs` now re-mints inside the hour;
-- one (2026-09-05 22:13, 224 cells, 31 minutes, 0 inconclusive) looked clean and
-  was not: the identity provider had rate-limited the userinfo call on 19 cells
+- one minted its token once and ran past the hour, ending with 145 of 224 views
+  cantTell — `run.mjs` now re-mints inside the hour;
+- one (2026-09-05 22:13, 224 views, 31 minutes, 0 cantTell) looked clean and
+  was not: the identity provider had rate-limited the userinfo call on 19 views
   (`429`), the app rendered "Failed to fetch user information from OAuth
   provider", and the admissibility probe — which knew only the PostgREST wording
   of that card — counted the error cards as pages. `probes.mjs` now recognizes
@@ -70,8 +83,8 @@ dotenvx run --quiet -- node scripts/mint-token.mjs | head -c 12    # expect "eyJ
 # 2. Deploy the CURRENT tree; the audit must measure the build under review.
 pnpm preview:wrangler
 
-# 3. Audit. 224 cells take about 31 minutes. The run re-mints its own token and
-#    retries a cell that rendered an error surface with growing waits.
+# 3. Audit. 224 views take about 31 minutes. The run re-mints its own token and
+#    retries a view that rendered an error surface with growing waits.
 pnpm test:a11y-audit --url "$(grep -oE 'https://\S+' .preview-url.md)" --label after-fixes --screenshots
 ```
 

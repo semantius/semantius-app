@@ -5,6 +5,7 @@ import * as React from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { useT } from "@/i18n"
 import { Search, X } from "lucide-react"
 
 export interface TableSearchFilterProps<TData> {
@@ -19,11 +20,12 @@ export interface TableSearchFilterProps<TData> {
 export function TableSearchFilter<TData>({
   table,
   className,
-  placeholder = "Search...",
+  placeholder,
   showClearButton = true,
   onChange,
   value,
 }: TableSearchFilterProps<TData>) {
+  const t = useT()
   // Determine if we're in controlled mode
   const isControlled = value !== undefined
 
@@ -88,11 +90,11 @@ export function TableSearchFilter<TData>({
         aria-hidden="true"
       />
       <Input
-        placeholder={placeholder}
+        placeholder={placeholder ?? t("Search...")}
         value={currentValue}
         onChange={handleChange}
         className="pr-9 pl-9"
-        aria-label="Search table"
+        aria-label={t("Search table")}
       />
       {hasValue && showClearButton && (
         <Button
@@ -101,10 +103,10 @@ export function TableSearchFilter<TData>({
           onClick={handleClear}
           className="absolute right-1 h-7 w-7 p-0 hover:bg-muted"
           type="button"
-          aria-label="Clear search"
+          aria-label={t("Clear search")}
         >
           <X className="h-3 w-3" aria-hidden="true" />
-          <span className="sr-only">Clear search</span>
+          <span className="sr-only">{t("Clear search")}</span>
         </Button>
       )}
     </div>

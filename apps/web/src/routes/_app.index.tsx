@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { translate, useT } from '@/i18n'
 import { pageTitle } from '@/lib/pageTitle'
 import { Loader2, Lock, LogOut } from 'lucide-react'
 import { NamedIcon } from '@/components/ui-ext/named-icon'
@@ -10,16 +11,17 @@ import {
 } from '@/components/ui/card'
 import { buttonVariants } from '@/components/ui/button'
 import { useAuth } from '@/hooks/useAuth'
-import { getModuleDisplay } from '@/contexts/AuthContext'
+import { getModuleDisplay, moduleLabels } from '@/contexts/AuthContext'
 import { moduleHomePath } from '@/lib/moduleHome'
 
 export const Route = createFileRoute('/_app/')({
-  head: () => ({ meta: [{ title: pageTitle('Modules') }] }),
+  head: () => ({ meta: [{ title: pageTitle(translate('Modules')) }] }),
   component: IndexComponent,
 })
 
 function IndexComponent() {
   const { rpcUserInfo } = useAuth()
+  const t = useT()
 
   // Get user's permissions array for filtering
   const userPermissions = (rpcUserInfo?.permissions as string[] | undefined) || []
@@ -46,9 +48,9 @@ function IndexComponent() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Modules</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t('Modules')}</h1>
           <p className="text-muted-foreground">
-            Loading your available modules...
+            {t('Loading your available modules...')}
           </p>
         </div>
         <div className="flex items-center justify-center py-12">
@@ -61,9 +63,9 @@ function IndexComponent() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Modules</h1>
+        <h1 className="text-3xl font-bold tracking-tight">{t('Modules')}</h1>
         <p className="text-muted-foreground">
-          Select a module to get started
+          {t('Select a module to get started')}
         </p>
       </div>
 
@@ -72,11 +74,10 @@ function IndexComponent() {
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <Lock className="h-12 w-12 mb-4 text-muted-foreground" />
             <h2 className="text-lg font-semibold">
-              You don&apos;t have access to any modules
+              {t("You don't have access to any modules")}
             </h2>
             <p className="mt-2 max-w-md text-sm text-muted-foreground">
-              Your account doesn&apos;t have permissions for any module yet.
-              Please contact your administrator to request access.
+              {t("Your account doesn't have permissions for any module yet. Please contact your administrator to request access.")}
             </p>
             {/*
               A real link. `/logout` is an in-app route, but the plain <a> is
@@ -89,14 +90,14 @@ function IndexComponent() {
               className={buttonVariants({ variant: 'outline', className: 'mt-6' })}
             >
               <LogOut className="mr-2 h-4 w-4" />
-              Sign in with a different account
+              {t('Sign in with a different account')}
             </a>
           </CardContent>
         </Card>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {modules.map((module) => {
-            const { displayName, displayTitle } = getModuleDisplay(module)
+            const { displayName, displayTitle } = getModuleDisplay(module, moduleLabels(t, module))
             return (
               // A module tile is a navigation target, so it is a link — not a
               // <Card onClick>. The click-only card was unreachable by keyboard,

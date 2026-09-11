@@ -10,6 +10,7 @@ import { Link, useMatchRoute, useNavigate } from '@tanstack/react-router'
 import { useTable } from '@/hooks/useTable'
 import type { Module } from '@/contexts/AuthContext'
 import { ApiErrorDisplay } from '@/components/ApiErrorDisplay'
+import { useT } from '@/i18n'
 
 import {
   DropdownMenu,
@@ -40,6 +41,7 @@ export function NavApps({
   const { isMobile } = useSidebar()
   const matchRoute = useMatchRoute()
   const navigate = useNavigate()
+  const t = useT()
 
   // Fetch tables filtered by module_id
   // Only fetch when we have a valid module_id
@@ -65,8 +67,8 @@ export function NavApps({
   if (error) {
     return (
       <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-        <SidebarGroupLabel>Apps</SidebarGroupLabel>
-        <ApiErrorDisplay error={error} title="Error loading apps" />
+        <SidebarGroupLabel>{t('Apps')}</SidebarGroupLabel>
+        <ApiErrorDisplay error={error} title={t('Error loading apps')} />
       </SidebarGroup>
     )
   }
@@ -77,7 +79,7 @@ export function NavApps({
   if (isLoading || (!moduleId && modulesLoading)) {
     return (
       <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-        <SidebarGroupLabel>Apps</SidebarGroupLabel>
+        <SidebarGroupLabel>{t('Apps')}</SidebarGroupLabel>
         <SidebarMenu>
           {/* SidebarMenuSkeleton renders one item, so repeat it here.
               Its text bar defaults to h-4 (the text-sm line box); a menu label
@@ -102,9 +104,9 @@ export function NavApps({
   if (!moduleId || !tables || tables.length === 0) {
     return (
       <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-        <SidebarGroupLabel>Apps</SidebarGroupLabel>
+        <SidebarGroupLabel>{t('Apps')}</SidebarGroupLabel>
         <div className="text-sm text-muted-foreground px-2 py-1">
-          {!moduleId ? 'Select a module to view apps' : 'No apps available'}
+          {!moduleId ? t('Select a module to view apps') : t('No apps available')}
         </div>
       </SidebarGroup>
     )
@@ -112,11 +114,17 @@ export function NavApps({
 
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-      <SidebarGroupLabel>Apps</SidebarGroupLabel>
+      <SidebarGroupLabel>{t('Apps')}</SidebarGroupLabel>
       <SidebarMenu>
         {tables.map((table) => {
           const tableName = String(table.table_name || '')
-          const label = String(table.plural_label || table.singular_label || tableName)
+          const fallback = String(table.plural_label || table.singular_label || tableName)
+          // The sidebar reads `tables` straight from the model, so it never
+          // sees the localized EntityMetadata the table route builds — it
+          // renders its own labels as messages keyed by their model path.
+          const label = moduleSlug
+            ? t({ id: ['module', moduleSlug, tableName, 'entity', 'plural_label'], defaultMessage: fallback })
+            : fallback
           const url = `/${moduleSlug || ''}/${tableName}`
 
           // Check if this link matches the current route

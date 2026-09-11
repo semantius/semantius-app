@@ -5,6 +5,7 @@ import { useCreateRecord, useUpdateRecord } from '@/hooks/useTableMutations'
 import { SchemaForm } from '@/components/form/SchemaForm'
 import { ApiErrorDisplay } from '@/components/ApiErrorDisplay'
 import { Loader2 } from 'lucide-react'
+import { useT } from '@/i18n'
 import type { EntityMetadata } from '@/types/metadata'
 
 interface DataFormPageProps {
@@ -17,6 +18,7 @@ interface DataFormPageProps {
 }
 
 export function DataFormPage({ schema, recordId, onClose, formMode, formId, onBeforeSubmit }: DataFormPageProps) {
+  const t = useT()
   const tableName = schema.table?.table_name
   const idColumn = schema.table?.id_column
 
@@ -60,7 +62,7 @@ export function DataFormPage({ schema, recordId, onClose, formMode, formId, onBe
   if (!tableName) {
     return (
       <div className="rounded-md bg-destructive/10 p-4 text-sm text-destructive">
-        Error: Table name not found in schema
+        {t('This entity has no table name in its schema, so the form cannot be shown.')}
       </div>
     )
   }
@@ -68,7 +70,7 @@ export function DataFormPage({ schema, recordId, onClose, formMode, formId, onBe
   if (!idColumn) {
     return (
       <div className="rounded-md bg-destructive/10 p-4 text-sm text-destructive">
-        Error: ID column not found in schema
+        {t('This entity has no id column in its schema, so the form cannot be shown.')}
       </div>
     )
   }
@@ -76,7 +78,7 @@ export function DataFormPage({ schema, recordId, onClose, formMode, formId, onBe
   // Handle form submission
   const handleSubmit = async (value: Record<string, any>) => {
     try {
-      const singularLabel = schema.table?.singular_label || 'Record'
+      const singularLabel = schema.table?.singular_label || t('Record')
       const labelColumn = schema.table?.label_column
       if (recordId) {
         // Update existing record
@@ -88,7 +90,13 @@ export function DataFormPage({ schema, recordId, onClose, formMode, formId, onBe
         // Create new record
         const created = await createRecord.mutateAsync(value) as Record<string, unknown> | undefined
         const labelValue = labelColumn && created ? String(created[labelColumn] || '') : ''
-        toast.success(`${singularLabel}${labelValue ? ' ' + labelValue : ''} created`)
+        // Two sentences, not one with the name appended: where the name sits in
+        // "Customer Acme created" is a property of the language, not of a space.
+        toast.success(
+          labelValue
+            ? t('{label} {name} created', { label: singularLabel, name: labelValue })
+            : t('{label} created', { label: singularLabel }),
+        )
       }
       
       // Refetch data if updating
@@ -115,7 +123,7 @@ export function DataFormPage({ schema, recordId, onClose, formMode, formId, onBe
 
   // Show error if fetch failed
   if (recordId && error) {
-    return <ApiErrorDisplay error={error} title="Error loading record" />
+    return <ApiErrorDisplay error={error} title={t('Error loading record')} />
   }
 
   // Get the record data (first item in array)
@@ -142,9 +150,9 @@ export function DataFormPage({ schema, recordId, onClose, formMode, formId, onBe
   // Mutation errors render inside the form's sticky footer (above the buttons) so
   // they stay visible even when the footer is pinned to the bottom of a scroll area.
   const mutationError = createRecord.error ? (
-    <ApiErrorDisplay error={createRecord.error} title="Error creating record" />
+    <ApiErrorDisplay error={createRecord.error} title={t('Error creating record')} />
   ) : updateRecord.error ? (
-    <ApiErrorDisplay error={updateRecord.error} title="Error updating record" />
+    <ApiErrorDisplay error={updateRecord.error} title={t('Error updating record')} />
   ) : null
 
   return (

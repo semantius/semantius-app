@@ -10,13 +10,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
+import { useT } from "@/i18n"
 
 export interface TableColumnActionsProps {
   children: React.ReactNode
   className?: string
   /**
    * Optional label shown at the top of the dropdown.
-   * @default "Column Actions"
+   * @default "Column actions"
    */
   label?: string
   /**
@@ -57,11 +58,13 @@ export interface TableColumnActionsProps {
 export function TableColumnActions({
   children,
   className,
-  label = "Column Actions",
+  label,
   isActive = false,
   trigger,
   align = "end",
 }: TableColumnActionsProps) {
+  const t = useT()
+  const menuLabel = label ?? t("Column actions")
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -77,7 +80,7 @@ export function TableColumnActions({
               )}
             >
               <MoreVertical className="size-4" />
-              <span className="sr-only">{label}</span>
+              <span className="sr-only">{menuLabel}</span>
             </Button>
           )
         }
@@ -85,7 +88,7 @@ export function TableColumnActions({
       <DropdownMenuContent align={align} className="w-48">
         <DropdownMenuGroup>
           <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
-            {label}
+            {menuLabel}
           </DropdownMenuLabel>
         </DropdownMenuGroup>
         {children}

@@ -1,10 +1,21 @@
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, beforeEach } from 'vitest'
 import { NavUser } from './NavUser'
 import { SidebarProvider } from '@/components/ui/sidebar'
 import { bootApp, renderInApp } from '@/test/appHarness'
+import { disableCollector } from '@/i18n/missing'
 import type { UserMenuEntry } from '@/lib/userMenu'
+import {
+  LANGUAGE_CACHE_KEY,
+  LOCALE_CACHE_KEY,
+  TRANSLATE_MODE_KEY,
+  activateLocale,
+  clearSessionPreference,
+  i18n,
+  resolveInitialLocale,
+  translateModeFlags,
+} from '@/i18n'
 
 /**
  * The configuration-driven account menu, configured the way a deployment
@@ -64,8 +75,10 @@ async function openMenu() {
   // there on the first tick.
   const trigger = await waitFor(() => screen.getByRole('button', { name: /Wei Chen/i }))
   await ui.click(trigger)
-  // The popup mounts in a portal a tick after the click.
+  // The popup mounts in a portal a tick after the click, and takes focus a
+  // moment after that; a test that types next needs the second, not the first.
   await waitFor(() => expect(screen.getByText('Log out')).toBeInTheDocument())
+  await waitFor(() => expect(document.activeElement?.closest('[role="menu"]')).toBeTruthy())
   return { ui, router }
 }
 
@@ -78,6 +91,9 @@ describe('NavUser — configuration-driven menu', () => {
       VITE_BACKEND_TYPE: 'custom',
       VITE_UI_CUSTOMIZER: JSON.stringify({ user: { menu: MENU } }),
     })
+    // The menu above is a fixture: its titles are rendered through `t()` the
+    // way an operator's are, and must not be discovered into the shipped index.
+    disableCollector()
   })
 
   it('hides an entry gated on a permission this user does not hold', async () => {
@@ -144,5 +160,203 @@ describe('NavUser — configuration-driven menu', () => {
 
     // A document load, so nothing survives the sign-out.
     expect(screen.getByRole('menuitem', { name: 'Log out' })).toHaveAttribute('href', '/logout')
+  })
+})
+
+/**
+ * The language switcher, driven the way a keyboard user drives it.
+ *
+ * The German comes from `i18n/de-DE.json`, the file the app ships and
+ * loads; the cache keys are the real `localStorage` ones; `<html lang>` is read
+ * off the real document. Nothing is activated by hand except to simulate the
+ * NEXT boot, which is the one thing an interaction cannot do.
+ *
+ * WHY THE KEYBOARD. userEvent moves its pointer in a single jump, so entering a
+ * submenu takes the pointer straight out of the trigger — and Base UI closes the
+ * submenu on that, because its safe-polygon hover logic needs the intermediate
+ * positions only a real mouse produces. The panel then sits in the DOM carrying
+ * `data-closed` with `pointer-events: none` on its positioner, and the next click
+ * fails with "element has pointer-events: none", which reads like a CSS bug and
+ * is really a closed menu. Typeahead + ArrowRight + Enter is what a keyboard user
+ * does anyway, so this is coverage rather than a workaround — and it is the
+ * interaction the pointer path cannot substitute for.
+ *
+ * `setup.browser.ts` clears both cache keys and re-activates `en-US` after every
+ * test, so a switch does not leak into the next file.
+ */
+describe('NavUser — the language switcher', () => {
+  beforeEach(async () => {
+    await bootApp({
+      VITE_BACKEND_TYPE: 'custom',
+      VITE_UI_CUSTOMIZER: JSON.stringify({ user: { menu: MENU } }),
+    })
+    // The menu above is a fixture: its titles are rendered through `t()` the
+    // way an operator's are, and must not be discovered into the shipped index.
+    disableCollector()
+  })
+
+  /**
+   * Typeahead to the submenu whose label starts with `prefix`, then open it.
+   *
+   * A prefix rather than the whole label: a space would be read as "activate the
+   * highlighted item" instead of as another character to search for.
+   *
+   * Every step waits for FOCUS, not for the DOM. Base UI moves focus into a menu
+   * a moment after the menu mounts, so keys typed in between go to whatever held
+   * focus before — the trigger, or the parent menu — and are lost or search the
+   * wrong list. On a loaded CI runner that race was lost: the menu stood open
+   * and the submenu never did.
+   */
+  async function openSubmenu(ui: ReturnType<typeof userEvent.setup>, prefix: string) {
+    const trigger = await screen.findByRole('menuitem', { name: new RegExp(`^${prefix}`) })
+    const menu = trigger.closest<HTMLElement>('[role="menu"]')
+    await waitFor(() => expect(menu).toContainElement(document.activeElement as HTMLElement | null))
+    await ui.keyboard(prefix)
+    await waitFor(() => expect(trigger).toHaveFocus())
+    await ui.keyboard('{ArrowRight}')
+    await waitFor(() => {
+      const focusedMenu = document.activeElement?.closest('[role="menu"]')
+      expect(focusedMenu).toBeTruthy()
+      expect(focusedMenu).not.toBe(menu)
+    })
+  }
+
+  /** Typeahead to a radio entry inside the open submenu and choose it. */
+  async function chooseEntry(ui: ReturnType<typeof userEvent.setup>, prefix: string) {
+    await ui.keyboard(prefix)
+    await waitFor(() => expect(document.activeElement?.textContent?.trim() ?? '').toMatch(new RegExp(`^${prefix}`)))
+    await ui.keyboard('{Enter}')
+  }
+
+  it('checks "Browser default" while nothing has been chosen', async () => {
+    const { ui } = await openMenu()
+
+    await openSubmenu(ui, 'Language')
+
+    // Not a preference — a placeholder. The entry names what the browser would
+    // give, and carries the checkmark until the user picks something.
+    const browserDefault = await screen.findByRole('menuitemradio', { name: /^Browser default \(/ })
+    expect(browserDefault).toHaveAttribute('aria-checked', 'true')
+    expect(localStorage.getItem(LANGUAGE_CACHE_KEY)).toBeNull()
+  })
+
+  it('lists every shipped language by its own name for itself', async () => {
+    const { ui } = await openMenu()
+
+    await openSubmenu(ui, 'Language')
+
+    // "Deutsch", not "German" and not "Deutsch (Deutschland)": the switcher
+    // names a language the way that language names itself, and the region is
+    // noise in a list of languages.
+    expect(await screen.findByRole('menuitemradio', { name: 'Deutsch' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitemradio', { name: 'English' })).toBeInTheDocument()
+  })
+
+  it('switches the whole menu to German and marks the document', async () => {
+    const { ui } = await openMenu()
+    await openSubmenu(ui, 'Language')
+
+    await chooseEntry(ui, 'Deutsch')
+
+    // The catalog really loaded: "Log out" is the entry the menu ends with.
+    await waitFor(() => expect(screen.getByRole('menuitem', { name: 'Abmelden' })).toBeInTheDocument())
+    expect(document.documentElement.lang).toBe('de-DE')
+    expect(document.documentElement.dir).toBe('ltr')
+  })
+
+  it('saves both preferences, because the format was following the language', async () => {
+    const { ui } = await openMenu()
+    await openSubmenu(ui, 'Language')
+
+    await chooseEntry(ui, 'Deutsch')
+
+    await waitFor(() => expect(localStorage.getItem(LANGUAGE_CACHE_KEY)).toBe('de-DE'))
+    // "Same as language" was in effect, so it follows: a user who never touched
+    // the format submenu keeps getting formats that match the language.
+    expect(localStorage.getItem(LOCALE_CACHE_KEY)).toBe('de-DE')
+  })
+
+  it('boots into German from the cached keys alone', async () => {
+    const { ui } = await openMenu()
+    await openSubmenu(ui, 'Language')
+    await chooseEntry(ui, 'Deutsch')
+    await waitFor(() => expect(localStorage.getItem(LANGUAGE_CACHE_KEY)).toBe('de-DE'))
+
+    // What main.tsx does on the next load, with nothing else carried over. The
+    // switcher also mirrors the choice into the SESSION preference — which it
+    // has to, or a stale `get_userinfo` value would outrank the fresh choice —
+    // and that is module state a reload discards, so discard it here too.
+    // Without this the assertion below reads `session`, which is the switcher
+    // being remembered rather than the cache being read.
+    clearSessionPreference()
+    await activateLocale({ language: 'en-US', locale: 'en-US' })
+    expect(i18n.locale).toBe('en-US')
+
+    const resolved = resolveInitialLocale()
+    await activateLocale(resolved)
+
+    expect(resolved).toMatchObject({ language: 'de-DE', languageSource: 'cache', localeSource: 'cache' })
+    expect(i18n.locale).toBe('de-DE')
+  })
+
+  it('offers the format as its own preference, following the language by default', async () => {
+    const { ui } = await openMenu()
+
+    await openSubmenu(ui, 'Number')
+
+    const sameAsLanguage = await screen.findByRole('menuitemradio', { name: /^Same as language \(/ })
+    expect(sameAsLanguage).toHaveAttribute('aria-checked', 'true')
+    // The browser entry names the real navigator.language, not a stubbed one.
+    expect(
+      screen.getByRole('menuitemradio', { name: `Browser default (${navigator.language})` }),
+    ).toBeInTheDocument()
+  })
+
+  it('clears the format preference on its own, leaving the language alone', async () => {
+    const { ui } = await openMenu()
+    await openSubmenu(ui, 'Language')
+    await chooseEntry(ui, 'Deutsch')
+    await waitFor(() => expect(localStorage.getItem(LOCALE_CACHE_KEY)).toBe('de-DE'))
+
+    // Back out to the parent menu, whose entries are themselves German by now —
+    // which is how this also proves the switch reached the menu's own chrome.
+    await ui.keyboard('{ArrowLeft}')
+    await waitFor(() =>
+      expect(screen.getByRole('menuitem', { name: 'Zahlen- und Datumsformat' })).toBeInTheDocument(),
+    )
+    await openSubmenu(ui, 'Zahlen')
+    // Wait for an entry that exists ONLY in the format submenu before the
+    // typeahead below. Both submenus carry a "Browserstandard …" entry, so on a
+    // loaded machine a submenu that has not opened yet sends the next keystrokes
+    // to the LANGUAGE list, which chooses its browser default instead — the
+    // language becomes en-US and the assertion reads a stale-looking locale.
+    await screen.findByRole('menuitemradio', { name: /^Wie die Sprache/ })
+    await chooseEntry(ui, 'Browserstandard')
+
+    await waitFor(() => expect(localStorage.getItem(LOCALE_CACHE_KEY)).toBeNull())
+    // The two preferences are separate: dropping the format must not drop the
+    // language with it.
+    expect(localStorage.getItem(LANGUAGE_CACHE_KEY)).toBe('de-DE')
+  })
+
+  it('offers the translate-mode switch to a user who may translate, and remembers the choice', async () => {
+    const { ui } = await openMenu()
+    await openSubmenu(ui, 'Language')
+
+    // Gated on the real permissions: the run's identity holds `admin`, which
+    // stands in for `translations.edit` until the platform migration lands.
+    // rpcUserInfo arrives asynchronously, so the switch does too.
+    const mode = await screen.findByRole('menuitemcheckbox', { name: 'Translate mode' })
+    expect(mode).toHaveAttribute('aria-checked', 'false')
+    // ONE switch. The marks are part of the mode, not a setting of their own,
+    // so nothing on the page is marked while the mode is off.
+    expect(within(mode.closest('[role="menu"]')!).getAllByRole('menuitemcheckbox')).toHaveLength(1)
+
+    await chooseEntry(ui, 'Translate')
+
+    await waitFor(() => expect(translateModeFlags().enabled).toBe(true))
+    // Per browser, so a translator who reloads keeps the mode.
+    expect(localStorage.getItem(TRANSLATE_MODE_KEY)).toBe('1')
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Translate mode' })).toHaveAttribute('aria-checked', 'true')
   })
 })

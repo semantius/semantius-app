@@ -15,6 +15,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { useT } from "@/i18n"
 import { formatLabel } from "../lib/format"
 
 /**
@@ -35,6 +36,7 @@ export function TableViewMenu<TData>({
   table,
   onColumnVisibilityChange,
 }: TableViewMenuProps<TData>) {
+  const t = useT()
   /**
    * PERFORMANCE: Memoize filtered columns to avoid recalculating on every render.
    *
@@ -65,7 +67,7 @@ export function TableViewMenu<TData>({
       <PopoverTrigger
         render={
           <Button
-            aria-label="Toggle columns"
+            aria-label={t("Toggle columns")}
             // NOT role="combobox": this opens a checklist of columns, it has no
             // text value and no listbox to own. PopoverTrigger already sets
             // aria-expanded and aria-haspopup, which is the whole contract for a
@@ -77,14 +79,20 @@ export function TableViewMenu<TData>({
         }
       >
         <Settings2 />
-        View
+        {/* A DISAMBIGUATING ID, because the source string is the key and "View"
+            is two different words in this app: the noun here (which columns are
+            shown) and the verb in the row menu ("View" this record). German
+            wants "Ansicht" for one and "Anzeigen" for the other, and without the
+            prefix they would share one entry and one of them would be wrong.
+            The key is `columnVisibility.View`. */}
+        {t({ id: ["columnVisibility"], message: "View" })}
         <ChevronsUpDown className="ml-auto opacity-50" />
       </PopoverTrigger>
       <PopoverContent align="end" className="w-fit p-0">
         <Command>
-          <CommandInput placeholder="Search columns..." />
+          <CommandInput placeholder={t("Search columns...")} />
           <CommandList>
-            <CommandEmpty>No columns found.</CommandEmpty>
+            <CommandEmpty>{t("No columns found.")}</CommandEmpty>
             <CommandGroup>
               {columns.map(column => (
                 <CommandItem

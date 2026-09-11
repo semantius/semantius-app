@@ -5,6 +5,9 @@ import { useQuery } from "@tanstack/react-query";
 
 import { cn } from "@/lib/utils";
 import { interpolate, inputSurfaceClassName } from "@/lib/utils-ext";
+import { useT } from "@/i18n";
+import { appError } from "@/lib/appError";
+import { renderError } from "@/lib/apiErrors";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -104,7 +107,7 @@ export function APISelect<T>({
   notFound,
   loadingSkeleton,
   label,
-  placeholder = "Select...",
+  placeholder,
   value,
   onChange,
   disabled = false,
@@ -118,6 +121,10 @@ export function APISelect<T>({
   "aria-describedby": ariaDescribedBy,
   "aria-invalid": ariaInvalid,
 }: APISelectProps<T>) {
+  const t = useT();
+  // Defaulted in the body, not in the parameter list: a default parameter is
+  // evaluated before the body runs, so it cannot call a hook.
+  const placeholderText = placeholder ?? t("Select...");
   const reactId = useId();
   const triggerId = id ?? `${reactId}-trigger`;
   // cmdk's Command.List spreads user props BEFORE writing its own generated
@@ -186,7 +193,9 @@ export function APISelect<T>({
             .replace(/\?&/, "?");
         }
         const res = await fetch(url);
-        if (!res.ok) throw new Error(`Search failed: ${res.statusText}`);
+        // A template plus values, rendered where it is displayed (renderError):
+        // the status is a value, and the sentence follows a language switch.
+        if (!res.ok) throw appError({ message: "Search failed ({status})", values: { status: res.status } });
         const data = await res.json();
         return resolvedGetRecords ? resolvedGetRecords(data) : data;
       }
@@ -240,7 +249,7 @@ export function APISelect<T>({
     staleTime: Infinity,
   });
 
-  const error = queryError ? (queryError instanceof Error ? queryError.message : "Failed to fetch options") : null;
+  const error = queryError ? (queryError instanceof Error ? renderError(queryError, t).message : t("Failed to fetch options")) : null;
 
   useEffect(() => {
     setMounted(true);
@@ -333,10 +342,10 @@ export function APISelect<T>({
             ) : initialLoading ? (
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Loading...</span>
+                <span>{t("Loading...")}</span>
               </div>
             ) : (
-              <span className="text-muted-foreground">{placeholder}</span>
+              <span className="text-muted-foreground">{placeholderText}</span>
             )}
             {!disabled && <ChevronsUpDown className="ml-auto shrink-0 opacity-50" size={10} />}
         </PopoverTrigger>
@@ -346,7 +355,7 @@ export function APISelect<T>({
           // glyph stays 12px.
           <button
             type="button"
-            aria-label="Clear selection"
+            aria-label={t("Clear selection")}
             className="absolute top-1/2 right-7 flex size-6 -translate-y-1/2 items-center justify-center rounded-sm opacity-0 transition-opacity focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring group-hover/combobox:opacity-100 group-focus-within/combobox:opacity-100 group-has-aria-expanded/combobox:opacity-100"
             onPointerDown={(e) => {
               e.preventDefault();
@@ -368,7 +377,7 @@ export function APISelect<T>({
         <Command shouldFilter={false}>
           <div className="relative border-b w-full">
             <CommandInput
-              placeholder={`Search ${label}...`}
+              placeholder={t("Search {label}...", { label })}
               value={searchTerm}
               onValueChange={(value) => {
                 setSearchTerm(value);
@@ -390,7 +399,10 @@ export function APISelect<T>({
               loadingSkeleton || <DefaultLoadingSkeleton />
             )}
             {!loading && !error && options.length === 0 && (
-              notFound || <CommandEmpty>{noResultsMessage ?? `No ${label.toLowerCase()} found.`}</CommandEmpty>
+              // The model's own plural label, inserted AS GIVEN: lowercasing it
+              // was an English habit (German capitalizes every noun) and gluing
+              // the sentence together around it is another.
+              notFound || <CommandEmpty>{noResultsMessage ?? t("No {label} found.", { label })}</CommandEmpty>
             )}
             <CommandGroup>
               {options.map((option) => {

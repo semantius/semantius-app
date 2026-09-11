@@ -159,10 +159,28 @@ export function buildReport({ meta, views }) {
         }
       }
       if (view.controls.indicator.length === 0) {
-        bucket('2.4.7').failures.push({
-          where,
-          detail: `${view.controls.controlsFound} control(s) present but none produced a measurable focus indicator`,
-        })
+        const refused = view.controls.unfocusable ?? []
+        const sampled = view.controls.sampled ?? Math.min(view.controls.controlsFound, 12)
+        if (refused.length > 0 && refused.length === sampled) {
+          // Nothing was measured: every sampled control refused focus — a modal
+          // trapping it, an inert subtree. That is "could not look", not "no
+          // indicator", and it must not read as a 2.4.7 failure (it did once:
+          // all 14 findings of one run were this). Not observed here; the
+          // refusal is kept as evidence so a human can see where the probe was
+          // blind. Runs before this distinction have no `unfocusable` field and
+          // keep their failures.
+          bucket('2.4.7').observedIn.delete(where)
+          bucket('2.4.7').evidence.push({
+            where,
+            detail: `not measured: ${refused.length} sampled control(s) refused focus (${refused.slice(0, 3).join(', ')})`,
+          })
+        } else {
+          bucket('2.4.7').failures.push({
+            where,
+            detail: `${view.controls.controlsFound} control(s) present but none produced a measurable focus indicator` +
+              (refused.length ? `; ${refused.length} of ${sampled} sampled refused focus` : ''),
+          })
+        }
       }
       for (const i of view.controls.indicator) {
         const worst = Math.min(i.vsOutside, i.vsFill)

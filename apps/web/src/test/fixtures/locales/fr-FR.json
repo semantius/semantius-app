@@ -1,0 +1,18 @@
+{
+  "locale": "fr-FR",
+  "name": "Français",
+  "messages": {
+    "Language": "Langue",
+    "Settings": "Paramètres",
+    "Log out": "Se déconnecter",
+    "columnVisibility.View": "Affichage",
+    "module.nwind.customers.entity.singular_label": "Client",
+    "module.nwind.customers.entity.plural_label": "Clients",
+    "module.nwind.customers.field.status.title": "État",
+    "module.nwind.customers.enum.status.active": "Actif",
+    "module.nwind.customers.field.company_name.title": "Société",
+    "module.nwind.name": "Vents du Nord",
+    "module.nwind.description": "Base de données exemple Northwind",
+    "23505.customers_email_key": "Cette adresse e-mail est déjà utilisée."
+  }
+}

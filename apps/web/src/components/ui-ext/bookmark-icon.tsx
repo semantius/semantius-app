@@ -6,6 +6,7 @@ import { Star } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useTable } from "@/hooks/useTable"
+import { useT } from "@/i18n"
 import {
   useCreateRecord,
   useDeleteRecord,
@@ -43,6 +44,7 @@ interface BookmarkIconProps {
  * and `row_order` on insert, so we only ever send `{ title, url }`.
  */
 export function BookmarkIcon({ url, title, label, className }: BookmarkIconProps) {
+  const t = useT()
   const { data, isLoading } = useTable<BookmarkRow>("user_bookmarks", {
     // url may contain "/" and other reserved chars — encode it for the eq. filter.
     query: `select=id,title,url&url=eq.${encodeURIComponent(url)}`,
@@ -88,8 +90,16 @@ export function BookmarkIcon({ url, title, label, className }: BookmarkIconProps
     return () => window.removeEventListener("keydown", handler)
   }, [toggle])
 
-  const verb = isBookmarked ? "Unfavorite" : "Favorite"
-  const tooltipText = label ? `${verb} ${label}` : verb
+  // Four whole sentences rather than a verb glued to a name: German puts the
+  // object before the verb ("Acme zu Favoriten hinzufügen"), so there is no
+  // "verb" fragment to reuse, and the no-label case is its own message.
+  const tooltipText = label
+    ? isBookmarked
+      ? t("Remove {label} from favorites", { label })
+      : t("Add {label} to favorites", { label })
+    : isBookmarked
+      ? t("Remove from favorites")
+      : t("Add to favorites")
 
   return (
     <Tooltip>
@@ -121,7 +131,7 @@ export function BookmarkIcon({ url, title, label, className }: BookmarkIconProps
           data-slot="kbd"
           className="ml-1 inline-flex items-center gap-1 border border-background/20 bg-background/15 px-1 py-px font-sans text-[10px] text-background"
         >
-          <span>Alt</span>
+          <span>{t("Alt")}</span>
           <span>F</span>
         </kbd>
       </TooltipContent>

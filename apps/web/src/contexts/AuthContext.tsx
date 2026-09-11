@@ -4,7 +4,8 @@ import type { IAuthContext } from 'react-oauth2-code-pkce'
 import { ConfigErrorPage } from '@/components/ConfigErrorPage'
 import { getApiConfig, createApiHeaders, setInterceptorToken } from '@/lib/apiClient'
 import { getConfig } from '@/lib/config'
-import { fetchWithRetry } from '@/lib/transientFailure'
+import { appError } from '@/lib/appError'
+import type { TranslateFn } from '@/i18n'
 import type { AnyRouter } from '@tanstack/react-router'
 import type { RouterContext } from '@/routes/__root'
 
@@ -42,23 +43,58 @@ export interface Module {
  * - DisplayName is initialized from module_name, DisplayTitle from description.
  * - If module_name starts with '_': DisplayName = description, DisplayTitle = ""
  * - If description starts with module_name: DisplayName = description, DisplayTitle = ""
+ *
+ * `override` is the active language's `module` labels for this slug (see
+ * src/i18n/labels.ts). The three rules still decide the SHAPE from the model's
+ * own English values, and the overrides are substituted into whichever slot the
+ * chosen rule fills — because the rules are about how the operator NAMED the
+ * module (a leading underscore, a description that repeats the name), and those
+ * facts do not change when someone translates it. Deciding the shape from
+ * translated text instead would make a module render differently per language.
  */
-export function getModuleDisplay(module: Module): { displayName: string; displayTitle: string } {
+export function getModuleDisplay(
+  module: Module,
+  override?: { name?: string; description?: string },
+): { displayName: string; displayTitle: string } {
   const name = module.module_name
   const desc = module.description || ''
+  const shownName = override?.name || name
+  const shownDesc = override?.description || desc
 
   // Rule a: module name starts with underscore — use description as display name
   if (name.startsWith('_')) {
-    return { displayName: desc || name, displayTitle: '' }
+    return { displayName: desc ? shownDesc : shownName, displayTitle: '' }
   }
 
   // Rule b: description starts with module name — promote description to display name
   if (desc.startsWith(name)) {
-    return { displayName: desc, displayTitle: '' }
+    return { displayName: shownDesc, displayTitle: '' }
   }
 
   // Default: name on top, description below
-  return { displayName: name, displayTitle: desc }
+  return { displayName: shownName, displayTitle: shownDesc }
+}
+
+/**
+ * A module's two labels, translated — the `override` `getModuleDisplay` takes.
+ *
+ * Model text is a message keyed by its model path (src/i18n/catalog.ts), with
+ * the module's own English as the fallback; passing the rendered pair in lets
+ * the three naming rules above keep deciding the SHAPE from the untranslated
+ * values. Takes `t` so the caller's component re-renders on a language switch.
+ */
+export function moduleLabels(
+  t: TranslateFn,
+  module: Pick<Module, 'module_slug' | 'module_name' | 'description'>,
+): { name?: string; description?: string } {
+  return {
+    name: module.module_name
+      ? t({ id: ['module', module.module_slug, 'name'], defaultMessage: module.module_name })
+      : undefined,
+    description: module.description
+      ? t({ id: ['module', module.module_slug, 'description'], defaultMessage: module.description })
+      : undefined,
+  }
 }
 
 export interface RpcUserInfo {
@@ -67,15 +103,17 @@ export interface RpcUserInfo {
 }
 
 /**
- * Build an Error from a failed fetch Response, capturing the HTTP status, URL and
- * response body (parsed as JSON when possible) onto `error.cause`.
+ * The transport facts of a failed fetch Response — the HTTP status, URL and
+ * response body (parsed as JSON when possible) — for `error.cause`.
  *
  * ApiErrorDisplay renders `error.cause` in its expandable "Details" panel, so this
  * is what surfaces the actual server payload — e.g. PostgREST's
  * `{"message":"jwk not found"}` — instead of an empty `statusText` (HTTP/2 drops
  * the reason phrase, so `response.statusText` is blank and useless on its own).
+ * The message itself is an `appError` template at the call site: the status
+ * is a VALUE, never English concatenated onto a translated sentence.
  */
-async function responseError(label: string, response: Response): Promise<Error> {
+async function responseCause(response: Response): Promise<Record<string, unknown>> {
   const raw = await response.text().catch(() => '')
   let body: unknown = raw
   try {
@@ -83,10 +121,7 @@ async function responseError(label: string, response: Response): Promise<Error> 
   } catch {
     // Non-JSON body — keep the raw text as-is.
   }
-  const statusText = response.statusText ? ` ${response.statusText}` : ''
-  return new Error(`${label}: ${response.status}${statusText}`, {
-    cause: { status: response.status, url: response.url, response: body },
-  })
+  return { status: response.status, url: response.url, response: body }
 }
 
 // One-shot guard for the token self-heal below. sessionStorage (not local):
@@ -231,8 +266,15 @@ function RouterContextUpdater({
 
     const isAuthenticated = !!token && !!tokenData && tokenData.exp * 1000 > Date.now()
 
+    // SPREAD, not replace. `router.update({ context })` REPLACES the whole
+    // object, so writing only `auth` here drops whatever else the context
+    // carries — today `queryClient`, which main.tsx puts there so a loader can
+    // read the same cache the components use. Dropping it breaks nothing
+    // visibly: the loader falls back to fetching, and `get_schema` is silently
+    // refetched on every language switch instead of being a cache hit.
     router.update({
       context: {
+        ...router.options.context,
         auth: {
           isAuthenticated: () => isAuthenticated,
           getToken: () => token || null,
@@ -281,18 +323,27 @@ function RouterContextUpdater({
 
       if (shouldFetchOAuthUserInfo) {
         promises.push(
-          // Retried, because this endpoint answers 429 when pages load a few
-          // seconds apart and the user has done nothing wrong. Without it the
-          // rate limit arrives as a terminal error card — observed nineteen
-          // times in a single accessibility audit run. See lib/transientFailure.
-          fetchWithRetry(userinfoEndpoint, {
+          // Retried BY THE TRANSPORT (the interceptor in lib/apiClient.ts —
+          // this is a plain `fetch`), because this endpoint answers 429 when
+          // pages load a few seconds apart and the user has done nothing wrong.
+          // Without it the rate limit arrives as a terminal error card —
+          // observed nineteen times in one accessibility audit run. Do not add
+          // a retry here: it would stack on the transport's. See lib/retry.ts.
+          fetch(userinfoEndpoint, {
             headers: {
               Authorization: `Bearer ${token}`,
             },
           })
             .then(async (response) => {
               if (!response.ok) {
-                throw await responseError('Failed to fetch user info', response)
+                // A template plus values, not a rendered sentence: the error
+                // is rendered where it is DISPLAYED, through that component's
+                // `t`, so nothing here needs a `t` in the effect's deps and the
+                // message is not frozen in the language the request failed in.
+                throw appError(
+                  { message: 'Failed to fetch user info ({status})', values: { status: response.status } },
+                  await responseCause(response),
+                )
               }
               const data = await response.json()
               setUserInfo(data)
@@ -301,7 +352,7 @@ function RouterContextUpdater({
             .catch((error) => {
               console.error('Error fetching OAuth user info:', error)
               authErrors.push(error)
-              setUserInfoError(error instanceof Error ? error : new Error('Unknown error'))
+              setUserInfoError(error instanceof Error ? error : appError({ message: 'Unknown error' }))
               setUserInfo(null)
               return false
             })
@@ -315,22 +366,21 @@ function RouterContextUpdater({
         const headersRecord = createApiHeaders(token)
 
         promises.push(
-          // `coldStart404`: the tenant's serverless PostgREST answers the FIRST
-          // request after an idle period with a 404, and a reload fixes it. A
-          // 404 is only transient here — this is a read, on an endpoint that
-          // exists, against a backend that sleeps.
-          fetchWithRetry(
-            `${apiBaseUrl}/rpc/get_userinfo`,
-            {
-              method: 'POST',
-              headers: headersRecord,
-              body: "{}",
-            },
-            { coldStart404: true },
-          )
+          // The tenant's serverless PostgREST answers the FIRST request after
+          // an idle period with a 404, and a reload fixes it. The transport
+          // retries that (a bare 404 under the API base is a cold start; see
+          // lib/retry.ts) — this is a plain `fetch` on purpose.
+          fetch(`${apiBaseUrl}/rpc/get_userinfo`, {
+            method: 'POST',
+            headers: headersRecord,
+            body: "{}",
+          })
             .then(async (response) => {
               if (!response.ok) {
-                throw await responseError('Failed to fetch RPC user info', response)
+                throw appError(
+                  { message: 'Failed to fetch RPC user info ({status})', values: { status: response.status } },
+                  await responseCause(response),
+                )
               }
               const data = await response.json()
               setRpcUserInfo(data)
@@ -339,7 +389,7 @@ function RouterContextUpdater({
             .catch((error) => {
               console.error('Error fetching RPC user info:', error)
               authErrors.push(error)
-              setRpcUserInfoError(error instanceof Error ? error : new Error('Unknown error'))
+              setRpcUserInfoError(error instanceof Error ? error : appError({ message: 'Unknown error' }))
               setRpcUserInfo(null)
               return false
             })

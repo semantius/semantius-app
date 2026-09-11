@@ -17,7 +17,9 @@ import {
   createRouter,
 } from '@tanstack/react-router'
 import { inject } from 'vitest'
+import { I18nProvider } from '@lingui/react'
 import { AuthProviderWrapper } from '@/contexts/AuthContext'
+import { i18n } from '@/i18n'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { initConfig } from '@/lib/config'
 import type { RouterContext } from '@/routes/__root'
@@ -58,9 +60,16 @@ import { clearSession, seedSession } from './session'
  *  3. The session is seeded from the one token `globalSetup` minted for the run.
  *     It must come after the config: the storage keys are prefixed per Vite mode,
  *     and the provider reads them when it mounts.
+ *
+ * The translate target is the dev server this project runs against
+ * (`VITE_TRANSLATE_MODE=dev`, spelled out although an unset mode resolves to
+ * it under Vite's dev server too): `initConfig()` pushes the target from the
+ * environment, and the suite's environment is the one that writes the
+ * language files. A test that
+ * wants another mode passes it in `env`.
  */
 export async function bootApp(env: Record<string, string> = {}): Promise<void> {
-  setRuntimeEnv({ VITE_CONTROL_PLANE_ORG: inject('orgSlug'), ...env })
+  setRuntimeEnv({ VITE_CONTROL_PLANE_ORG: inject('orgSlug'), VITE_TRANSLATE_MODE: 'dev', ...env })
   await initConfig()
   seedSession()
 }
@@ -75,7 +84,7 @@ export async function bootApp(env: Record<string, string> = {}): Promise<void> {
  * the assertion it is making ("nothing was requested") would quietly invert.
  */
 export async function bootAppSignedOut(env: Record<string, string> = {}): Promise<void> {
-  setRuntimeEnv({ VITE_CONTROL_PLANE_ORG: inject('orgSlug'), ...env })
+  setRuntimeEnv({ VITE_CONTROL_PLANE_ORG: inject('orgSlug'), VITE_TRANSLATE_MODE: 'dev', ...env })
   await initConfig()
   clearSession()
 }
@@ -105,6 +114,7 @@ export async function bootAppWithFailingUserinfo(): Promise<void> {
   setRuntimeEnv({
     VITE_CONTROL_PLANE_URL: SELF_HOSTED,
     VITE_CONTROL_PLANE_ORG: org,
+    VITE_TRANSLATE_MODE: 'dev',
     VITE_API_BASE_URL: cloud.apiBaseUrl,
     VITE_OAUTH_CLIENT_ID: cloud.oauthClientId,
     VITE_OAUTH_AUTH_ENDPOINT: cloud.oauthAuthEndpoint,
@@ -159,14 +169,23 @@ export function AppHarness({
           isAuthenticated: () => false,
           getToken: () => null,
         },
+        // What main.tsx puts there: a loader reads and fills the SAME cache the
+        // components use. RouterContextUpdater spreads rather than replaces, so
+        // it survives every auth update.
+        queryClient,
       } satisfies RouterContext,
     }),
   )
 
+  // <I18nProvider> is main.tsx's outermost provider, and it is here for the same
+  // reason: <Trans> reads the catalog off React context. `setup.browser.ts` has
+  // already activated en-US, so it never renders null.
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProviderWrapper router={router}>{children}</AuthProviderWrapper>
-    </QueryClientProvider>
+    <I18nProvider i18n={i18n}>
+      <QueryClientProvider client={queryClient}>
+        <AuthProviderWrapper router={router}>{children}</AuthProviderWrapper>
+      </QueryClientProvider>
+    </I18nProvider>
   )
 }
 
@@ -197,6 +216,7 @@ export function renderInApp(ui: ReactElement, { initialEntries = ['/'] }: { init
   const routeTree = rootRoute.addChildren([
     createRoute({ getParentRoute: () => rootRoute, path: '/', component: () => ui }),
   ])
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const router = createRouter({
     routeTree,
     history: createMemoryHistory({ initialEntries }),
@@ -205,18 +225,22 @@ export function renderInApp(ui: ReactElement, { initialEntries = ['/'] }: { init
         isAuthenticated: () => false,
         getToken: () => null,
       },
+      // See the note in AppHarness: main.tsx puts it there and
+      // RouterContextUpdater must not drop it.
+      queryClient,
     } satisfies RouterContext,
   })
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
   const result = render(
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <AuthProviderWrapper router={router}>
-          <RouterProvider router={router} />
-        </AuthProviderWrapper>
-      </TooltipProvider>
-    </QueryClientProvider>,
+    <I18nProvider i18n={i18n}>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <AuthProviderWrapper router={router}>
+            <RouterProvider router={router} />
+          </AuthProviderWrapper>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </I18nProvider>,
   )
   return { ...result, router }
 }

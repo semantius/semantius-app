@@ -12,6 +12,7 @@ dist
 # The tenant e2e build (playwright.config.ts) writes here so the two e2e builds
 # do not clobber each other.
 dist-e2e-tenant
+dist-e2e-lan
 dist-ssr
 *.local
 .turbo
@@ -58,3 +59,10 @@ a11y-reports/latest.json
 # The audit's --screenshots output: one PNG per cell, regenerated on every run and
 # uploaded as a CI artifact. Cite a run by its JSON; the pictures are not a record.
 a11y-reports/screenshots/
+
+# Translation work files (`apps/web/public/locales/work-<locale>.json`) are NOT
+# ignored. They hold work: a partly filled one is somebody's half-finished
+# translation, and regenerating it gives back empty strings, so ignoring it
+# loses that work the moment the device changes. They are committed like any
+# other authored file. `vite.config.ts` drops them from `dist/` instead, so
+# being in the repo never means being deployed.

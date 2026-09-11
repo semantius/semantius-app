@@ -7,8 +7,13 @@ describe('InputHtml', () => {
   // The editor is code-split, so it has to be awaited. Wait for the editor
   // itself rather than for the Suspense fallback: in a real browser the chunk
   // can land before a test gets around to looking for "Loading editor...".
-  const findEditor = (name: string) =>
-    screen.findByRole('textbox', { name }, { timeout: 5000 })
+  //
+  // NO EXPLICIT TIMEOUT. `setup.browser.ts` configures `asyncUtilTimeout` to
+  // 15s for the whole project, and a per-call `{ timeout: 5000 }` LOWERS it —
+  // which is how this file failed the release gate at random while passing
+  // alone: four browser workers each mounting CodeMirror is a real second or
+  // two of contention, and the budget was the thing that decided, not the code.
+  const findEditor = (name: string) => screen.findByRole('textbox', { name })
 
   it('should render html editor', async () => {
     const { container } = renderControl(<InputHtml name="html" label="Body" />)

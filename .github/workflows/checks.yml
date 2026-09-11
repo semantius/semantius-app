@@ -59,6 +59,15 @@ jobs:
       - name: Install Chromium for the browser tests
         run: pnpm --filter @semantius/frontend test:e2e:install
 
+      # `pnpm check` runs the tests through `dotenvx run`, and dotenvx is a
+      # GLOBAL install here — workplace/setup.sh puts it on every agent sandbox,
+      # so locally it is simply there. A GitHub runner has never seen it. The
+      # first real run of this workflow (dispatched 2026-09-06) got through lint
+      # and died on `sh: 1: dotenvx: not found`. Same package and version source
+      # as setup.sh.
+      - name: Install dotenvx
+        run: npm install -g @dotenvx/dotenvx
+
       # `pnpm check` is the single definition of what "the checks" are — the
       # same command release.sh runs locally and AGENTS.md tells you to run.
       # Change the commands in package.json, not here, or the gates drift apart.

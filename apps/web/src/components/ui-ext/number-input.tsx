@@ -1,6 +1,7 @@
 import { NumericFormat } from 'react-number-format'
 
 import { cn } from '@/lib/utils'
+import { useFormattingLocale } from '@/i18n'
 import { getNumberSeparators } from '@/lib/number-format'
 
 /**
@@ -40,7 +41,7 @@ export interface NumberInputProps {
 
 /**
  * Locale-aware number input built on react-number-format. Renders with the shared shadcn/Base UI
- * input surface (see `NUMBER_INPUT_SURFACE`) and formats with the browser locale's thousands and
+ * input surface (see `NUMBER_INPUT_SURFACE`) and formats with the formatting locale's thousands and
  * decimal separators + the field's precision, matching how the same value renders in the grid
  * (see `lib/number-format.ts`).
  */
@@ -59,7 +60,12 @@ export function NumberInput({
   'aria-invalid': ariaInvalid,
   'aria-describedby': ariaDescribedby,
 }: NumberInputProps) {
-  const { group, decimal } = getNumberSeparators()
+  // The user's FORMATTING locale, not the browser's and not the catalog
+  // language: `getNumberSeparators()` with no argument took whatever the browser
+  // was set to, so a German UI on an English browser typed "1,234.56" into a
+  // field the grid then rendered as "1.234,56".
+  const formattingLocale = useFormattingLocale()
+  const { group, decimal } = getNumberSeparators(formattingLocale)
   // NumericFormat requires the thousands separator to differ from the decimal separator;
   // if a locale yields an empty or equal group separator, drop grouping rather than break input.
   const thousandSeparator = group && group !== decimal ? group : undefined

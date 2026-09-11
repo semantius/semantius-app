@@ -144,3 +144,14 @@ const __label = (el) => {
   }
   return path.join(' > ')
 }
+
+/**
+ * The open modal dialog, if any. Base UI renders a Sheet/Dialog popup as
+ * role="dialog" inside a portal that is a sibling of #root, and traps Tab
+ * inside it while open (Base UI's `modal` defaults to true). It does not set
+ * aria-modal, so the role plus its open state is the test.
+ */
+const __openModalDialog = () =>
+  Array.from(document.querySelectorAll('[role="dialog"]')).find(
+    (d) => __visible(d) && (d.hasAttribute('data-open') || !d.closest('#root')),
+  ) || null

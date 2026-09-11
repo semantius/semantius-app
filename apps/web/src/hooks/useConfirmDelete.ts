@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { useT } from '@/i18n'
 import { useDeleteRecord } from './useTableMutations'
 
 export interface DeleteConfirmation {
@@ -28,6 +29,7 @@ export interface DeleteConfirmation {
  * <ConfirmDeleteDialog {...deleteConfirm} entityType="Customer" />
  */
 export function useConfirmDelete(tableName: string, onSuccess?: () => void, idField?: string, singularLabel?: string) {
+  const t = useT()
   const [isOpen, setIsOpen] = useState(false)
   const [itemToDelete, setItemToDelete] = useState<DeleteConfirmation | null>(null)
   const deleteMutation = useDeleteRecord(tableName, idField)
@@ -47,7 +49,20 @@ export function useConfirmDelete(tableName: string, onSuccess?: () => void, idFi
       const deletedName = itemToDelete.displayName
       setItemToDelete(null)
       onSuccess?.()
-      toast.success(`${singularLabel ? singularLabel + ' ' : ''}${deletedName} deleted`)
+      // Four whole sentences rather than a label glued on with a space: German
+      // puts the verb last, so "Kunde Acme gelöscht" and "Acme gelöscht" are not
+      // the same sentence with a prefix — and a record with no name of its own
+      // needs a sentence that does not have a hole where the name would go,
+      // rather than a stand-in phrase pushed through the same one.
+      toast.success(
+        deletedName
+          ? singularLabel
+            ? t('{label} {name} deleted', { label: singularLabel, name: deletedName })
+            : t('{name} deleted', { name: deletedName })
+          : singularLabel
+            ? t('{label} deleted', { label: singularLabel })
+            : t('Record deleted'),
+      )
     } catch (error) {
       console.error('Delete failed:', error)
       // Keep dialog open on error so user can retry

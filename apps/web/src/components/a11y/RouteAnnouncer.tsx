@@ -12,7 +12,8 @@ import { MAIN_CONTENT_ID } from './landmarks'
  * changed — the app simply appears not to respond.
  *
  * This restores both halves:
- *   - focus moves to the `<main>` landmark (which carries `tabIndex={-1}` so it
+ *   - focus moves to the page content below the app header (`#main-content`,
+ *     which carries `tabIndex={-1}` so it
  *     can receive programmatic focus without becoming a tab stop), so the next
  *     Tab continues from the top of the new page;
  *   - the new document title is written into a polite live region.
@@ -31,19 +32,19 @@ import { MAIN_CONTENT_ID } from './landmarks'
  * true.
  *
  * AND STAND DOWN FOR A MODAL. Opening a record is a pathname change that renders
- * a modal Sheet, so both things happen on the same navigation. Base UI marks
- * everything outside the popup's portal `aria-hidden` / `inert`, `#main-content`
- * included — focusing it would put focus in a subtree the user cannot perceive
- * (axe `aria-hidden-focus`), and the dialog's focus trap would immediately pull
- * it back anyway. The modal names and announces itself, so this steps aside
- * entirely rather than competing.
+ * a modal Sheet, so both things happen on the same navigation. While a dialog
+ * is open, `#root` is `inert` (components/a11y/ModalInert.tsx) — `#main-content`
+ * included — so focusing it would fail silently, and the dialog's focus trap
+ * would pull focus back anyway. The modal names and announces itself, so this
+ * steps aside entirely rather than competing.
  *
- * The live region itself does NOT need relocating out of `#root` for this:
- * Base UI's `markOthers` (floating-ui-react/utils/markOthers) explicitly adds
- * every `[aria-live]` element in the body to its keep set, so this node is left
- * unhidden while its siblings are marked. Verified in @base-ui/react 1.7.0 — if
- * that ever changes, the region has to move to a `createPortal` on `document.body`
- * or announcements go silent behind every overlay.
+ * Base UI's own marking is NOT what this relies on. It does exempt every
+ * `[aria-live]` element from its `aria-hidden` walk (floating-ui-react/utils/
+ * markOthers, verified in @base-ui/react 1.7.0), but that walk runs once, at
+ * open, and misses everything rendered after it — which is why ModalInert
+ * exists. Behind a dialog this region is inert like the rest of `#root`; the
+ * toaster, which does have to announce behind a dialog, is portaled out of
+ * `#root` in main.tsx for exactly that reason.
  */
 /**
  * True when `el` sits inside a subtree an overlay has taken out of the

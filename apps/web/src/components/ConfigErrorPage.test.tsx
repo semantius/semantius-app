@@ -1,4 +1,7 @@
-import { render, screen } from '@testing-library/react'
+// Through the provider-wrapped render: the page's numbered list and its
+// closing note are <Trans> messages (the file names sit inside the sentence in
+// <code> tags), and <Trans> reads the catalog off React context.
+import { render, screen } from '@/test/render'
 import { ConfigErrorPage } from './ConfigErrorPage'
 
 describe('ConfigErrorPage', () => {

@@ -18,6 +18,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
+import { useT } from "@/i18n"
 import { useDataTable } from "../core/data-table-context"
 
 import { SORT_ICONS, SORT_LABELS } from "../config/data-table"
@@ -47,6 +48,7 @@ export function TableColumnSortOptions<TData, TValue>({
   /** Whether to render a separator before the options. @default true */
   withSeparator?: boolean
 }) {
+  const t = useT()
   const context = useDataTable<TData>()
   const table = propTable || context.table
   const sortState = column.getIsSorted()
@@ -133,7 +135,7 @@ export function TableColumnSortOptions<TData, TValue>({
       <DropdownMenuGroup>
       <DropdownMenuLabel className="flex items-center justify-between text-xs font-normal text-muted-foreground">
         <div className="flex items-center gap-2">
-          <span>Column Sort</span>
+          <span>{t("Column sort")}</span>
           {showSortBadge && (
             <Tooltip>
               <TooltipTrigger
@@ -144,7 +146,7 @@ export function TableColumnSortOptions<TData, TValue>({
                 {sortIndex + 1}
               </TooltipTrigger>
               <TooltipContent side="right">
-                Sort priority (order in which columns are sorted)
+                {t("Sort priority (order in which columns are sorted)")}
               </TooltipContent>
             </Tooltip>
           )}
@@ -154,7 +156,7 @@ export function TableColumnSortOptions<TData, TValue>({
             render={<CircleHelp className="size-3.5 cursor-help" />}
           />
           <TooltipContent side="right">
-            TIP: Hold &apos;shift&apos; key to enable multi sort
+            {t("Tip: hold the Shift key to sort by more than one column")}
           </TooltipContent>
         </Tooltip>
       </DropdownMenuLabel>
@@ -167,7 +169,7 @@ export function TableColumnSortOptions<TData, TValue>({
         )}
       >
         <icons.asc className="mr-2 size-4 text-muted-foreground/70" />
-        <span className="flex-1">{labels.asc}</span>
+        <span className="flex-1">{t(labels.asc)}</span>
         {sortState === "asc" && <Check className="ml-2 size-4" />}
       </DropdownMenuItem>
       <DropdownMenuItem
@@ -178,13 +180,13 @@ export function TableColumnSortOptions<TData, TValue>({
         )}
       >
         <icons.desc className="mr-2 size-4 text-muted-foreground/70" />
-        <span className="flex-1">{labels.desc}</span>
+        <span className="flex-1">{t(labels.desc)}</span>
         {sortState === "desc" && <Check className="ml-2 size-4" />}
       </DropdownMenuItem>
       {sortState && (
         <DropdownMenuItem onClick={() => column.clearSorting()}>
           <icons.unsorted className="mr-2 size-4 text-muted-foreground/70" />
-          Clear Sort
+          {t("Clear sort")}
         </DropdownMenuItem>
       )}
     </>
@@ -223,6 +225,7 @@ export function TableColumnSortMenu<TData, TValue>({
   open?: boolean
   onOpenChange?: (open: boolean) => void
 }) {
+  const t = useT()
   const context = useDataTable<TData>()
   const table = propTable || context.table
   const canSort = column.getCanSort()
@@ -276,7 +279,7 @@ export function TableColumnSortMenu<TData, TValue>({
             </span>
           )}
         </div>
-        <span className="sr-only">Sort column</span>
+        <span className="sr-only">{t("Sort column")}</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
         <TableColumnSortOptions

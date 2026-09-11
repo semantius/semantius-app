@@ -108,8 +108,19 @@ export function DataTable({
   // so scrollIntoView stops short of them. The value has to be computed, because
   // it is the sum of the pinned columns' widths and those come from the column
   // model at runtime.
+  //
+  // Computed on EVERY render, deliberately. This was a `useMemo` keyed on
+  // `[table]` — the table object, which is stable for the life of the grid — so
+  // the padding was frozen at first render and never followed a change in the
+  // pinned set: a phone that started as desktop (useIsMobile() answers false on
+  // its first render) kept the desktop padding, and a column pinned later was
+  // never accounted for. The loop is over the visible leaf columns and costs
+  // nothing worth caching against; keying the memo on pinning state, sizing
+  // state AND visibility would re-derive the table's own dependency list by hand.
   const { table } = useDataTable()
-  const { scrollPaddingLeft, scrollPaddingRight } = React.useMemo(() => {
+  let scrollPaddingLeft: number | undefined
+  let scrollPaddingRight: number | undefined
+  {
     const visible = table?.getVisibleLeafColumns?.() ?? []
     let left = 0
     let right = 0
@@ -118,8 +129,9 @@ export function DataTable({
       if (pinned === "left") left += column.getSize()
       else if (pinned === "right") right += column.getSize()
     }
-    return { scrollPaddingLeft: left || undefined, scrollPaddingRight: right || undefined }
-  }, [table])
+    scrollPaddingLeft = left || undefined
+    scrollPaddingRight = right || undefined
+  }
 
   return (
     <div

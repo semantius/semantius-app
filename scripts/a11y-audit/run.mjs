@@ -108,6 +108,12 @@ const REMINT_AFTER_MS = 40 * 60_000
 
 // Waits between retries of a view that rendered a blocking surface. The last
 // value is long enough for a one-minute rate-limit window to pass.
+//
+// The app now retries for itself — its fetch interceptor repeats a 429 or a
+// cold-start 404 inside a ~10s budget (apps/web/src/lib/retry.ts) — so a
+// blocking surface here means a failure that OUTLASTED that budget. These waits
+// are for the rate-limit window behind it, which is longer than ten seconds;
+// they are not a substitute for the app's retry and must not shrink to one.
 const RETRY_BACKOFF_MS = [3_000, 10_000, 30_000, 60_000]
 
 /**
@@ -220,21 +226,19 @@ async function main() {
           let opened
           let admissibility
           let pageErrors
-          // One retry, and only for a blocking surface. The tenant's PostgREST
-          // answers the very first rpc/get_userinfo of a fresh browser session
-          // with a 404 often enough to poison a whole run, and the app renders a
-          // terminal error card rather than retrying. A second navigation
-          // resolves it; if it does not, the view stays `cantTell`, which is
-          // still not a pass. Anything else — a real page error, the wrong theme
-          // — is not retried, because a retry would only hide it.
+          // Retried, and only for a blocking surface: a failure the app's own
+          // retry budget (~10s, lib/retry.ts) did not outlast — the identity
+          // provider's rate-limit window is longer than that. A later navigation
+          // usually resolves it; if it does not, the view stays `cantTell`,
+          // which is still not a pass. Anything else — a real page error, the
+          // wrong theme — is not retried, because a retry would only hide it.
           for (let attempt = 0; attempt < RETRY_BACKOFF_MS.length + 1; attempt++) {
             // Wake the tenant API from Node first. Its serverless PostgREST
             // answers the first request after an idle period with a 404 rather
-            // than a 5xx or a wait, and the app treats that as terminal: it
-            // renders an error card and never retries. Warming from here costs
-            // one request and keeps the audit measuring pages instead of cold
-            // starts. (The app's own lack of a retry is a real robustness gap,
-            // but it is not what this audit is here to measure.)
+            // than a 5xx or a wait. The app retries that now, but a cold start
+            // can take longer than its budget; warming from here costs one
+            // request and keeps the audit measuring pages instead of cold
+            // starts, which is not what it is here to measure.
             await warmApi(apiBaseUrl, token)
             browser.errors({ clear: true })
             opened = browser.open(url)

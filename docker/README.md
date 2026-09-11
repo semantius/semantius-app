@@ -99,7 +99,9 @@ Key variables (see `.env.example` for the full list and comments):
 | `VITE_OAUTH_*_ENDPOINT` | OAuth endpoints — **usually leave blank** and let `VITE_OAUTH_CONFIG` resolve them; set to override. |
 | `VITE_CONTROL_PLANE_URL` / `VITE_CONTROL_PLANE_ORG` | Optional control-plane tenant lookup. |
 | `VITE_BACKEND_TYPE` | Account-menu flavor: `cloud` (default), `self_hosted`, or `custom`. |
-| `VITE_UI_CUSTOMIZER` | Required with `VITE_BACKEND_TYPE=custom` — single-line JSON account menu. |
+| `VITE_UI_CUSTOMIZER` | Single-line JSON: the account menu (required with `VITE_BACKEND_TYPE=custom`) and the `locales` registration for extra languages. |
+| `VITE_TRANSLATE_MODE` | Translate mode: `off` (default), `prod` (per-language override records on this deployment's own API, in-app editing for users holding `translations.edit`), or `stage` (a host that holds a copy of the language files and records what the app cannot translate). |
+| `VITE_TRANSLATE_API_URL` | The translate target's base url, answering `GET/POST {base}/translations`. Unset = this deployment's own API. Required with `VITE_TRANSLATE_MODE=stage`. |
 
 **`VITE_OAUTH_CONFIG` shortcut:** instead of setting each `VITE_OAUTH_*_ENDPOINT`,
 point `VITE_OAUTH_CONFIG` at a `.well-known/openid-configuration` URL. The **app**
@@ -142,7 +144,7 @@ Optional extras as needed: `VITE_CONTROL_PLANE_URL`, `VITE_CONTROL_PLANE_ORG`,
 `VITE_CUBE_API_URL`, `VITE_API_TYPE`, `VITE_SUPABASE_APIKEY`,
 `VITE_OAUTH_AUDIENCE`, `VITE_OAUTH_SCOPE`, `VITE_OAUTH_LOGOUT_ENDPOINT`,
 `VITE_OAUTH_LOGOUT_REDIRECT`, `VITE_OAUTH_REDIRECT_URI`,
-`VITE_BACKEND_TYPE`, `VITE_UI_CUSTOMIZER`.
+`VITE_BACKEND_TYPE`, `VITE_UI_CUSTOMIZER`, `VITE_TRANSLATE_MODE`, `VITE_TRANSLATE_API_URL`.
 
 **Account menu.** `VITE_BACKEND_TYPE` picks the built-in menu — `cloud` (default,
 links to app.semantius.com) or `self_hosted` (Account → `/idp/account`, User
@@ -163,6 +165,35 @@ VITE_UI_CUSTOMIZER='{"user":{"menu":[{"title":"Account","url":"/idp/account","ta
 ```
 
 A bad value or malformed JSON stops boot with a configuration-error screen.
+
+**Languages.** The image ships every language under
+`/usr/share/nginx/html/locales/<code>.json` — one flat file per language, the
+shape of `/locales/schema.json` served by the same image — and an operator
+replaces or adds one without rebuilding: put the file there (a mounted volume
+or a `COPY` in your own layer). A NEW language is named in the same
+`VITE_UI_CUSTOMIZER` JSON that configures the account menu:
+
+```
+VITE_UI_CUSTOMIZER='{"locales":{"default":"de-DE","available":[{"code":"fr-FR","name":"Français","url":"/locales/fr-FR.json"}]}}'
+```
+
+`url` defaults to `/locales/<code>.json`; `name` is the language's own name for
+itself; `locales.default` is what a browser with no saved preference gets and
+never overrides a user's own choice. The image serves `/locales/` with
+`Cache-Control: no-cache` and a real 404 for a missing file, so editing a
+translation needs only a reload and a typo in a filename is visible in the
+network tab rather than silently loading the SPA's own HTML. `locales` and
+`user` are independent — registering a language does **not** require
+`VITE_BACKEND_TYPE=custom`.
+
+The app's translate mode (root README, "Translate mode") needs somewhere to
+write, which is `VITE_TRANSLATE_MODE`: `prod` keeps per-language override
+records on this deployment's own API (`GET/POST /translations`, once the
+backend answers it) and offers in-app editing to users holding
+`translations.edit`; `stage` points `VITE_TRANSLATE_API_URL` at a host that holds
+a copy of the language files and records every string the app cannot
+translate. Unset (`off`) the mode is not offered at all. Editing the files under
+`/locales/` by hand, or with the `i18n` scripts, stays the other way in.
 
 ### Adjusting a running deployment
 
@@ -234,7 +265,7 @@ Change visibility → Public. One-time, per package.
 | `Dockerfile.dockerignore` | BuildKit ignore rules (kept beside the Dockerfile). |
 | `gen-config.sh` | Generates `config.js` from env + `.env` (pure env→JS, no curl/jq). |
 | `docker-entrypoint.sh` | Installed as `/docker-entrypoint.d/40-gen-config.sh`; runs `gen-config.sh` before nginx starts. |
-| `nginx.conf` | Static serving + SPA fallback + cache headers. No proxy routes. |
+| `nginx.conf` | Static serving + SPA fallback + cache headers + `/locales/` (no-cache, real 404). No proxy routes. |
 | `docker-compose.yml` | LOCAL build/run definition. |
 | `docker-compose.ghcr.yml` | Run the PUBLISHED GHCR image (no build). |
 | `build.sh` / `start.sh` | Build / run the local image. |

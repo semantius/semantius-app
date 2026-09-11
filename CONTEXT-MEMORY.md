@@ -4,11 +4,51 @@
 
 ## Working Agreements (stated human preferences — persist across sessions)
 
+- **NEVER write to `CONTEXT-MEMORY.md` without asking the owner first, and never
+  again without approval.** Not a new section, not a bullet, not an edit to an
+  existing line. Propose the exact text and wait. This was instructed after a
+  session found that what was written here was actively harmful: a workaround for
+  missing `.gitattributes` ("read the file's existing line ending and write it
+  back the same way") was recorded as a permanent coping instruction for every
+  future session instead of the one-file fix, and it named files as CRLF that
+  measurement showed were not; and the glossary paragraph prohibited a term map
+  while blessing an instance of it, which every later session read as sanction to
+  grow one. An agent that writes memory badly poisons every session that follows,
+  and cannot see it happening. Ask.
 - **Memory belongs in this repo, never in an out-of-repo agent memory store.** Do NOT write
   to `~/.claude/projects/*/memory/` or a `MEMORY.md` there. Anything worth keeping across
   sessions goes in **`CONTEXT-MEMORY.md`** (committed, shared, reviewable) or as a comment in
   the relevant source file. Memory the team cannot see in the repo is worthless — invisible on
   every other machine and in every review.
+- **The owner's specification IS the specification. Do not substitute a preferred
+  alternative.** If something in it looks wrong, say so in one sentence and then
+  build what was asked. Do not build your own version and mention the deviation
+  in the summary afterwards — that is how a session ends with the owner
+  discovering, by using the feature, that it saves to a browser draft and a file
+  download nobody requested. Real examples from one session, every one of which
+  the owner had to push twice on: an id passed as segments (theirs) versus a
+  `metaKey()` helper (invented); one endpoint everywhere (theirs) versus a writer
+  chosen by capability (invented); deleting `context` and `origin` (theirs)
+  versus defending both (invented); and a field renamed from their `default` to
+  `defaultMessage` on a preference nobody asked for. On that session's record
+  every significant design improvement came from the owner.
+- **A "Stop here and review" in a plan is a stop.** `i18n-metadata-messages-plan.md`
+  said, after steps 1 and 2, "Stop here and review. Steps 1 and 2 are the whole idea
+  and stand on their own." The session implementing it read that line, built steps
+  0 through 9 anyway, deployed a preview and opened a PR — and filled every gap the
+  plan left (how the mode is configured, what an empty write does, how the tests
+  discover, a dozen key shapes) with its own choices, reported at the end. The plan
+  existed to take exactly such invented choices back out. The rule that follows:
+  when a plan marks a review point, stop there, hand over the increment, and do not
+  start the next step until the owner has reviewed; and before building anything a
+  plan does not settle, list the choice and get it approved. "It was needed to make
+  it work" is the reason every unapproved decision was ever made.
+- **A plan document in this repo is NOT agreed requirements unless the owner says
+  so.** `i18n-plan.md` was treated as authority and built from; much of it was
+  invented in the document itself. `UNAUTHORIZED-DECISIONS.md` lists what came
+  from there rather than from the owner. Before implementing anything a plan
+  specifies, check whether the owner actually asked for it — and name any
+  structural choice BEFORE writing code, not in the report afterwards.
 - **Never cite git authorship to attribute code to the human.** Agents work in the human's
   local checkout and commit under their git identity, so the author/committer fields say
   nothing about who wrote a line — much of this repo is agent-written. When existing code is
@@ -145,26 +185,54 @@ Two endpoints the app cannot boot without fail for reasons that have nothing to
 do with the request: the identity provider's `/userinfo` answers **429** when
 pages load a few seconds apart, and the tenant's serverless PostgREST answers
 **404** to the first request after an idle period (a reload fixes it). Both used
-to render a terminal error card.
+to render a terminal error card — and the table route's loader turned every
+failure of `get_schema` into a **404 page**, so a rate limit told the user the
+table did not exist.
 
-`lib/transientFailure.ts` is the single policy — which statuses are worth
-repeating (408, 425, 429, 5xx; never a 400/401/403/422, which the server
-understood and refused), exponential backoff with **full jitter**, `Retry-After`
-honored in both forms and capped, and a **bounded** four attempts so an endpoint
-that is really gone still produces an error the user can act on.
+**`lib/retry.ts` owns the policy, and the fetch interceptor in `lib/apiClient.ts`
+applies it to every request** — both branches, relative and absolute, vendor
+code included — so coverage is by construction and a new call site cannot
+forget it. **TanStack Query's `retry` is `false` in `main.tsx` for that reason:
+a second retry there would stack on the transport's.** The two lines landed in
+one commit and must stay in agreement.
 
-- `withRetry(send, opts)` is the loop over a caller-supplied request function,
-  which is what makes the policy testable in `node` with no fetch, no server and
-  no clock. `fetchWithRetry` is the one-line application of it.
-- **A 404 is retried only where a cold start can produce one** (`coldStart404`),
-  because everywhere else a 404 means the thing is not there.
-- `AuthContext`'s two boot fetches use it; the query client's `retry` in
-  `main.tsx` is a predicate over `isTransientError` (which reads the status off
-  `error.cause` — the data hooks put it there alongside PostgREST's body).
-  **Mutations deliberately do not retry.**
-- Proven in `e2e/transient-failures.spec.ts`, which needs its own Playwright
-  project (see Testing) because the failure has to be injected into a request
-  that would otherwise have SUCCEEDED.
+- **The budget is ~10s of TOTAL elapsed time** (`MAX_ELAPSED_MS`), with a
+  ceiling of six attempts inside it. `Retry-After` is obeyed in full when it
+  fits and ENDS the attempt when it does not — a server asking for 30s is
+  telling us to give up, and clamping it to 5s (as this once did) is a request
+  the server said not to make yet. Exponential backoff with **full jitter**.
+- **The exceptions are by method and URL, in `retryPolicyFor()`, not by
+  omission at a call site.** A `GET` is a read: `408/425/429/5xx` and a network
+  error are repeated. A `POST …/rpc/…` under the API base is a PostgREST function
+  call — how the app READS `get_schema` and `get_userinfo`, but also how
+  `useRpcMutation` writes — so only `425/429/502/503` are repeated: answers a
+  server gives before running anything. A `500`, a `504` or a network error may
+  have run the function, and a repeated write is a duplicate. `POST`/`PATCH`/
+  `DELETE` on a table are never repeated. A body that cannot be replayed (a
+  stream) is never repeated.
+- **A 404 is a cold start only under the API base, and only when it is BARE.**
+  PostgREST's own 404 carries a JSON body with a `code` (`PGRST205`, `PGRST202`,
+  `42P01`); `isDefinitiveNotFound` reads the body (off a clone) and stops the
+  retry, which is what keeps a genuinely missing table from costing the whole
+  budget. The cold-start 404 comes from the layer in front of a sleeping backend
+  and has no such body.
+- **`refreshSchemaCache` is the one deliberate bypass** — it calls the original
+  fetch captured before interception, and its failure is swallowed on purpose.
+- **Every thrower puts `status` (and where it has one, `url`) on `error.cause`**
+  alongside the server's body: `useTable`, `callRpc`, the three mutations and
+  `AuthContext.responseError()`. `statusOf(err)` reads it and answers
+  `undefined` when it cannot tell — never a guess. The table route's loader maps
+  a 404 to `notFound()` and rethrows everything else, which lands on the router's
+  `defaultErrorComponent` (`components/RouteErrorPage.tsx`). **Its Try Again
+  calls `router.invalidate()`** — the boundary's own `reset` only clears the
+  boundary, the match underneath still holds the error, and the button would do
+  nothing.
+- Proven twice: `lib/retry.test.ts` in `node` (the loop over a supplied `send()`,
+  with an injected clock so budget and backoff are asserted, not waited) and
+  `e2e/transient-failures.spec.ts`, which needs its own Playwright project (see
+  Testing) because the failure has to be injected into a request that would
+  otherwise have SUCCEEDED — and which counts, per request shape, how many times
+  the network saw a request the built app made.
 
 ### PKCE Requires a Secure Context (boot gate)
 
@@ -308,6 +376,23 @@ clamping. **Both counts are asserted** in
 palette edit now fails the suite until this sentence and `cssTokens.ts` are
 updated with it.
 
+**Base UI hides the page behind a modal dialog once, at open, and exempts every
+live region's ancestors — so a dialog opened by deep link leaves the page behind
+it exposed.** `modal` (default `true`) traps Tab and locks scroll, measured; but
+its `aria-hidden` marking (floating-ui's `markOthers`) walks the document at open
+and never again, and keeps every `[aria-live]` element and its whole ancestor
+chain. A record opened at `/nwind/orders/11077` mounts its Sheet before the grid's
+rows and pagination arrive, and the pagination's "1-10 of N items" is itself a
+live region, so on a deployed preview nothing in `#root` carried `aria-hidden`
+and the page-number input took focus from script. An earlier note here said the
+opposite; it had measured a Sheet opened from a row click, where the grid already
+existed. `components/a11y/ModalInert.tsx` puts `inert` on `#root` while any
+`[role=dialog][data-open]` outside it exists — every Base UI popup is portaled to
+a sibling of `#root` — and the toaster is portaled out of `#root` so it still
+announces. An audit probe that walks the document must respect `[inert]`;
+`FOCUS_OBSCURED` and `CONTROL_CONTRAST` additionally scope themselves to the open
+dialog, because a control no Tab press reaches cannot be "obscured when focused".
+
 **`position: sticky` and `scroll-padding` are a pair.** Anything sticky over a
 scroll container hides whatever the browser scrolls to that edge, a focused control
 included (2.4.11). Every scroll container with a sticky edge needs matching
@@ -316,13 +401,692 @@ Sheet/Dialog for that same bar inside an overlay, and the data grid's own contai
 for its sticky header and pinned columns — computed at runtime in
 `niko-table/core/data-table.tsx`, because the pinned width comes from the column
 model. Where the sticky surface is wider than the space left over, padding cannot
-help; that is why column pinning is disabled below `md`.
+help; that is why column pinning is disabled below `lg` (`hooks/use-min-width.ts`,
+`GRID_PINNING_MIN_WIDTH_REM`). It was `md` first, and 768px was measured to be
+too early: the sidebar leaves a 480px grid container there and the pinned set
+takes 370px of it, so the band left for a focused control cannot hold a title
+button. Measure the container, not the viewport, before moving this again.
 
 **TanStack Table's `columnPinning` must be CONTROLLED, not `initialState`, when it
-depends on a hook that resolves asynchronously.** `useIsMobile()` returns `false` on
+depends on a hook that resolves asynchronously.** `useMinWidth()` (like `useIsMobile()`) returns `false` on
 its first render (its state starts `undefined` and an effect fills it in), so
 `initialState` captured the desktop value and kept it forever: a phone got desktop
 pinning permanently. `state` re-reads it.
+
+### Internationalization
+
+**Lingui's RUNTIME only** — `@lingui/core`, `@lingui/react`, `@lingui/message-utils`
+— with no macros, no Babel plugin, no Vite transform, no CLI and no PO files. The
+language files (JSON, `apps/web/public/locales/`), the endpoint client and the
+optional scan (`apps/web/scripts/i18n/extract.mjs`, TypeScript compiler API) are
+ours. Re-proposing the macros means re-proposing a Babel pass over every file in
+`vite build` and both Vitest projects, plus hashed ids that need source-text
+workarounds; that trade was already made.
+
+**A metadata message is a message, and there are three call forms.** `t('Save')`
+is keyed by its text; `t({ id: ['columnVisibility'], message: 'View' })` is keyed
+`columnVisibility.View` (the id disambiguates two meanings of one word — the
+old `context` option and its U+0004 separator are gone); `t({ id: ['module',
+slug, table, 'field', field, 'title'], defaultMessage: property.title ?? field })`
+is keyed by the id ALONE, the model's English being the fallback. Which field is
+present is the discriminator. The id is passed as SEGMENTS: `messageId()` in
+`src/i18n/catalog.ts` joins and escapes (an enum value may contain a dot), and a
+metadata id is a tuple type (`MetadataId`) checked at runtime too. **`module` is a
+reserved first segment**: a code key may never start with it, `messageId()`
+throws if one does, and that one rule is what tells the two kinds apart in a
+file, a query and a grep. Three, five or six segments — module attribute, entity
+attribute, field/enum with a kind marker in position 4 — so `module.nwind.name`
+and an entity named `name` cannot collide. The attribute vocabulary is the
+model's own column names. The slug comes from `get_schema`'s `module_slug`
+(`SemSchemaTable.module_slug`, non-optional), NEVER the route param: the route is
+a catch-all and a parent-filtered view fetches ANOTHER entity's schema. A child
+relation's `id` is `<childTable>.<fkField>`; its `title` and the two `*_parent`
+labels are that FIELD's attributes and its singular/plural the child ENTITY's,
+keyed under the parent's module.
+
+**The lint rule exempts every literal inside a whitelisted call, and that is the
+whole reason metadata ids are spelled inline.** `t` is in the plugin's default
+callee list, so `t({ id: ['module', slug, 'entity', 'plural_label'], … })` costs no
+suppression; the same tuple built by a helper OUTSIDE a `t()` call is reported
+literal by literal in a component file. `moduleLabels(t, module)` in
+`contexts/AuthContext.tsx` exists because `getModuleDisplay` needs the pair; it
+builds both ids inside `t()`.
+
+**The scan's accepted argument forms are a WHITELIST, not a blacklist.** `t()` /
+`translate()` / `msg()` / `appError()` / `<Trans id>` take a string literal, a
+template with no expressions, an object literal with a literal `message` (and a
+literal `id` array for form 2, a literal `hint` for `appError`), or a bare
+reference (identifier, `a.b`, `a[0]`) whose `msg()` site is scanned elsewhere. A
+descriptor with `defaultMessage` is SKIPPED, not refused — its inventory is
+discovery's. Everything else — a template with expressions, a conditional, a
+concatenation, a call, a logical expression, a computed form-2 id, an id
+starting with `module` — FAILS the scan by name and line, and the wrappers
+(`(…)`, `as`, `!`, `satisfies`) are unwrapped first so a single pair of
+parentheses cannot smuggle a concatenation past the check. A message passed
+through a VARIABLE into `appError()` is refused too, which is why the three
+mutation hooks spell their template at the `throw`.
+
+**One flat file per language, and `en-US.json` is the index.** `{ locale, name,
+messages, obsolete }`, all maps flat, in `public/locales/` — there is no
+`src/locales` and no `labels` / `server` / `rule` / `contexts` section. `en-US.json`
+has the same shape with the SOURCE text as every value: the complete baseline a
+new language is started from. It is NEVER loaded as the source language's
+catalog (`store.ts` skips it): a recorded source would render in place of a
+model label that has since been reworded. `__SHIPPED_LOCALES__` — the language
+files present at build time, read off the folder by `vite.config.ts` and
+declared in `src/env.d.ts` — is what `availableLanguages()` lists; the files stay
+static assets, fetched one at a time. `TRANSLATION-GUIDE.md` lives in
+`scripts/i18n/`.
+
+**There is no glossary file, and a flat term map is not the way back to one.**
+`scripts/i18n/glossary.json` held eight English-to-German pairs and a catalog
+test warned when a translation of a message CONTAINING one of them did not
+contain its counterpart. It came out of `i18n-plan.md`, not from the owner, and
+it is removed. The defect is structural, so do not rebuild it: a map with no key
+scope carries no sense, so it cannot express that `Order` is `Bestellung` as an
+nwind entity and `Reihenfolge` in `order_column` — it can only hold words that
+have one meaning, which are the words that were never going to drift, while
+matching `Home` inside `Home Phone` and reporting a correct `Privattelefon` as
+drift. It also duplicated the catalog: a code string is keyed by its own English
+text, so a term that is itself a message already has its pair in the language
+file. The reviewed language file IS the terminology record, since every decision
+in it is attached to a key. **Nothing survives of it — not a JSON file, not a
+prose table, not eight words "for a human".** A prohibition with a blessed
+instance is one that gets argued around, and this one was, repeatedly: the eight
+pairs were kept as a table in `TRANSLATION-GUIDE.md` and every later session read
+that table as sanction to grow it. The table is gone. Drift between two
+renderings of one English source is found by a consistency report over the whole
+catalog.
+
+**A work file is WORK, and it is committed.** `i18n:translate` writes
+`public/locales/work-<locale>.json` BESIDE the language it is about — not in a
+dotfolder — and it is tracked like any other authored file. The tempting
+argument is that it regenerates, so ignore it; that is true only of an EMPTY
+one. A partly filled work file is somebody's half-finished translation, and
+regenerating hands back empty strings, so ignoring it loses that work the
+moment the device changes. Being in the repo must not mean being deployed:
+`public/` is copied into `dist/` wholesale and Vite has no per-file exclude, so
+`dropWorkFiles()` in `vite.config.ts` removes them in `writeBundle`. Nothing
+lists one as a language either — no BCP-47 tag matches `work-*.json`, which
+`i18nCatalogs.test.ts` pins, because loosening that regex would put a
+translator's file in the language switcher.
+
+**The same reasoning makes REBUILDING it non-destructive.** `buildWorkFile`
+takes `previous` — the file already on disk — and carries every filled
+`translation` forward; it used to write them all back as `''`, so rerunning
+`i18n:translate` mid-job silently destroyed everything filled since the last
+import. Entries imported in the meantime drop out and are reported as `landed`;
+a filled entry whose key has left the index is reported as `orphaned`, by key,
+because that is the one case with nowhere to put the text. `carriedOver` and
+`dropped` are the build's REPORT and are stripped before writing — the file's
+own schema is `additionalProperties: false`.
+
+**Managed languages are the ones a human REVIEWED, and the list is explicit.**
+`MANAGED_LANGUAGES` in `scripts/i18n/extract.mjs` (`de-DE` today). Every other
+language's work file carries `hints`: what each managed language already says
+for that key, because English underspecifies and a reviewed language has had to
+resolve it — `Order` is an nwind entity and a sort position in `order_column`,
+`Title` is a job title and a form of address. Hints are context: `import.mjs`
+never reads them, a language is never hinted with itself, and a language with no
+answer is omitted rather than offered as an empty string. A language joins the
+list by a deliberate edit AFTER review, never by being created
+(`i18n:translate --create`): a machine-filled language quoted as context to the
+next one propagates its mistakes and makes them look corroborated.
+
+**A check reads its expectation from the artifact, never from the file under
+check.** `validateWork` in `import.mjs` compared a translation's ICU
+placeholders against a `placeholders` array the WORK FILE carried — an
+expectation stored in the very file a translator edits. Emptying that array made
+a German that DROPPED `{label}` pass, which is the one case the check exists
+for, and `translate.mjs` additionally swallowed a non-compiling source into an
+empty array. Both sides are read off the text now, `placeholdersOf(entry.source)`
+against `placeholdersOf(translation)`, and the field is gone from the writer, the
+schema, the `.d.mts` and the guide. `i18nCatalogs.test.ts` had always compared
+the two texts directly for the shipped language files; the importer was the one
+place that did not. Anything derivable from `source` stays out of the work file
+for the same reason.
+
+**A model label or description containing a BRACE is an ICU template by
+accident. The APP survives it; the translation scripts do not.** Every metadata
+message goes through Lingui, so `{alias_code, source_domain, …}` in a description
+— a JSON shape written as documentation — parses as an argument named
+`alias_code` of type `source_domain`, and formatting one throws `TypeError:
+formatter is not a function`. `src/i18n/translate.ts` already guards both ends:
+`formattable()` rejects any argument type outside `plural`/`select`/
+`selectordinal`/`number`/`date`/`time` and the messages compiler falls back to
+the literal string, and `translate()` catches a render throw and shows the
+source. So the description renders correctly and nothing crashes — do not
+"fix" a crash that is not there.
+
+Two rules came out of it, and both are now enforced.
+
+**Model text is VERBATIM and its BRACES ARE STRIPPED, both decided by KEY.**
+`isVerbatimKey` (`src/i18n/errors.ts`) covers every `module.*` key alongside the
+plain-SQLSTATE ones, and `translate()` takes that branch before anything is
+compiled; for a `module.*` key it first runs the text through `withoutBraces()`,
+which deletes `{` and `}` and keeps what was between them. It is in
+`translate()` rather than in `metadataText` so it holds for every producer of a
+metadata key — the sidebar, breadcrumb and command palette spell their own
+`t({ id: ['module', …], defaultMessage })` inline. What makes it sound: NOTHING
+passes values to a metadata message, so a brace in one can never be a
+placeholder.
+
+Rendering safely was NOT enough, and that is the point. With the braces left in,
+the render was fine but the SOURCE handed to discovery still carried them, so
+they landed in `en-US.json`, then in the work file, then came back as an
+argument the importer demanded of the German. Strip at the one place model text
+becomes a message and every stage downstream is clean. A plain server sentence
+is the opposite case and keeps its braces: that is PostgreSQL's own text.
+`import.mjs` mirrors the verbatim predicate; keep the two in step.
+
+**COMPILING IS NOT BEING RENDERABLE, and the check belongs at GENERATE.** That
+gap is what let the bad message through: the string compiles, so
+`placeholdersOf` reported `['alias_code']` and the importer DEMANDED it of the
+German — rejecting a correct sentence without the braces and accepting one that
+copied the JSON literal in, pushing the translator toward keeping it.
+`unformattableArgument` (`extract.mjs`) mirrors `FORMAT_TYPES` from
+`src/i18n/translate.ts`; two copies of that set, so changing one means changing
+the other.
+
+`translate.mjs` runs it over every entry through `unrenderableSources` and
+EXITS NON-ZERO before writing, so a failed run leaves the work file untouched
+and nobody is handed a message the app can never show. Catching it in
+`import.mjs` was too late by a whole translation pass; the check stays there
+only as a backstop for input that never came from generate — `--file <path>`,
+or an operator's plain language file, which `workFromLanguageFile` converts to
+work shape. Verbatim keys are exempt in both, by definition.
+
+**Discovery is how the index is maintained, and the test suite is what runs it.**
+`translate()` and `translateVerbatim()` report every render (key + source) to the
+collector (`src/i18n/missing.ts`); Lingui's `missing` event covers `<Trans>`. The
+collector writes the index entry only when the index lacks the key or records a
+DIFFERENT source (that is how a reworded label is noticed), and the language's
+empty entry only when the language's file does not mention the key
+(`isKnownKey`, which keeps empties the flattener drops) — index first, one
+message per POST. It runs only where the target's mode DISCOVERS (`dev`,
+`stage`). `setup.browser.ts` points the target at the dev server and enables the
+collector before every test, flushes after it: `pnpm check` fills
+`public/locales/en-US.json`, and its diff is the discovery. Consequences: a test
+that renders a FIXTURE string — a probe sentence, a custom menu title — must
+`disableCollector()` first, or the string is shipped (`NavUser.test.tsx`,
+`i18n.test.tsx`, `translateMode.test.tsx` do; the scan prunes a leak, but do not
+rely on it); a `.json` write under `public/` triggers NO Vite reload (matched
+against no module — verified in Vite 7's `handleHMRUpdate`), which is what makes
+writing the served folder mid-test safe; and the node project cannot discover
+(no server), so a string only a node test renders is a scan finding.
+
+**`i18n:extract` is an optional tool you run, never a gate.** Not in `pnpm build`,
+`pnpm check` or a hook — the drift assertion that once made it mandatory is
+gone. Its job is PRUNING: a reworded or deleted code string leaves a key nothing
+at runtime can observe as gone, and the scan moves its translation to `obsolete`
+(`--prune` empties it). It never touches `module.*` — runtime owns that half —
+and it lists, without failing, code strings discovery has never seen (test
+gaps). `reconcileLanguage` keeps every `module.*` entry and every existing
+value verbatim. What it DOES prune: a runtime-discovered key that is not
+`module.*` — a server error's `23505.…` key, an operator's menu title — because it
+cannot tell those from a deleted code string; their translation lands in
+`obsolete` and the key is rediscovered on the next render. `i18n:status` reads
+the index and reports both kinds, code and model counted separately.
+
+**The translate target carries a MODE, and its default follows the server.**
+`VITE_TRANSLATE_MODE` is `dev` / `stage` / `prod` / `off`; unset, it is `dev`
+under Vite's dev server (`import.meta.env.DEV` — every `pnpm dev*` script,
+whatever `--mode` it passes) and `off` in every build, so `pnpm dev` translates
+and discovers with nothing configured and a deployment is silent until an
+operator says otherwise (the owner's rule; an `.env.development` file that set
+`dev` for one Vite mode only is gone). The test harness passes `dev` to
+`initConfig()` explicitly. `lib/config.ts` resolves
+mode and url through `resolveTranslateTarget()` (the diagnostics live in
+`src/i18n/translateTarget.ts` so `config.ts` gains no lint suppressions) and
+PUSHES `setTranslateTarget({ url, mode })`, the way every other configuration
+reaches `src/i18n`. One contract: `GET {base}/translations?locale=` answers the
+language's flat map, `POST {base}/translations` takes `{ locale, key,
+translation }`, the server owns the merge, an empty translation clears. `prod`'s
+base is `''` — a RELATIVE `/translations`, so the fetch interceptor supplies the
+API base and the bearer token; before login it answers 401 and the layer stands
+down, and `TranslationsPrefetch` re-activates once `get_userinfo` has settled,
+which is what loads the record. A definitive `PGRST205` / `42P01` / `PGRST202`
+marks the target absent and `canTranslate()` says no in `prod` — the test tenant
+is in that state today. In `dev` and `stage` the target's file IS the language
+(the static file is not read); in `prod` and `off` the shipped file is, with the
+record merged over it per key. `useTable` and `useCreateRecord` no longer take a
+`baseUrl`: the i18n layer owns its own calls.
+
+**Discovery's empty write can clear a translation another session saved after
+this one loaded the language.** The contract has no "record only" write, so two
+browsers on one `stage` copy can undo each other that way. Known and raised with
+the owner; do not paper over it in the client without a contract change.
+
+**The dev server's write semantics are the model for a database
+implementation.** `vite-plugins/i18nDevWriter.ts`: a non-empty translation is
+set; an empty one is kept as an empty entry for a key the index knows (that is
+work) and DROPPED for a key it does not (nothing to translate from); in the
+index itself an empty write drops the entry. That is what lets a test clean up a
+probe — clear it in the index first, then in the language. It writes the bytes
+`i18n:extract` would (`locale`, `name`, `messages`, `obsolete`, contents sorted by
+code unit), so a save arrives as a one-line diff and a following scan is a no-op.
+
+**`activateLocale` is a network round trip now, so the LAST call wins.** Two
+activations can overlap — a switch followed by another, a boot pass by the
+post-login pass, a test's switch by the setup's reset — and without the serial
+check in `index.ts` the one finishing last decided. `NavUser.test.tsx` failed
+that way once: a switch to German landed after the `afterEach` reset to English.
+
+**Every error reaches a screen in one shape, through ONE renderer.** The app
+throws `appError({ message, hint?, values?, details? })` (`src/lib/appError.ts`):
+an ICU template plus values, no translation performed — `error.message` IS the
+template, uninterpolated, the values on `cause`, so a test asserts
+`'{field} is required for update'` and `cause.values`. That is what lets a
+`queryFn`, a loader or the userinfo effect throw without a hook, and a language
+switch re-render an error already on screen (`AuthContext` no longer needs its
+`translate()` workaround). `renderError(error, t)` in `src/lib/apiErrors.ts` is
+the one display path (`ApiErrorDisplay`, `ErrorPage`, `ApiKeysCard`, the module
+dashboard, `ConfirmDeleteDialog`, `api-select`): an app envelope; a platform
+error whose `hint` parsed as a JSON object (PRESENCE marks it structured — `${…}`
+converted to ICU only then; the CLASS picks the key: the SQLSTATE on 90/99, a
+class-99 key scoped by `hint.entity`, else `hint.code`, else SQLSTATE plus
+constraint name, else the SQLSTATE, else the message); a plain PostgreSQL
+sentence looked up VERBATIM by `translateVerbatim()` under that key, never
+ICU-compiled; the foreign-key sentence with the model label. `details` /
+`detail` is text behind the toggle and never a key. `src/i18n/errors.ts` is the
+pure parser; measured facts it rests on: `${name}` must be quoted PER BRACE
+(`$'{'NOT_A_PARAM'}'`), because an ICU quote only opens directly before a brace
+— quoting a whole run leaves `'$` literal and the brace an argument; apostrophes
+are doubled; a missing or `null` value is filled with its own name
+(`fillPlaceholders`), since Lingui renders a missing simple argument as nothing,
+a missing plural as `NaN` and a null count as `0`. `appError` is in the lingui
+rule's `ignoreFunctions` — every literal in the call is exempt, `values:` ones
+included, so review those by eye.
+
+**Components use `useT()` and list `t` in their deps; everything outside React
+uses `translate()`** — a route's `head()`, `main.tsx`, the class components
+(`ErrorBoundary.tsx`, `form/InputJson.tsx`,
+`niko-table/core/data-table-error-boundary.tsx`, `i18n/TranslateModeBoundary.tsx`).
+The module function cannot re-render a component when the language changes, and
+three grid components are `React.memo`, so a `translate()` inside one would
+never update; ESLint bans the import under `components/**` with the class
+components as the exceptions. `useT()` needs no provider (it is
+`useSyncExternalStore` on the Lingui singleton's `change` event); only `<Trans>`
+does, which is what `src/test/render.tsx` is for. `useLocalizedMetadata()` in the
+`$table_name` route is THE choke point for entity metadata: `View`,
+`DataTableView`, `SchemaForm`, `DataFormPage`, `ConfirmDeleteDialog`,
+`ViewSkeleton`, `api-select` and `InputReference` all inherit that one prop, and
+`localizeMetadata()` (`src/i18n/metadata.ts`) applies translations AT RENDER —
+never in a loader, never by mutation — with `enum` VALUES kept as the database
+holds them and only `enum_labels` filled. The sidebar, the command palette, the
+breadcrumb, the module tiles and `View`'s PARENT schema read `tables`/`modules`
+directly, so each spells its own keys inline in `t()`.
+
+**`I18nProvider` renders `null` until a locale is active, and under the boot
+overlay that is a HANG, not an error.** So `activateLocale()` never throws and
+always ends with something active — a failed source logs and keeps what loaded —
+and `main.tsx` activates before `initConfig()` and again after it, inside the one
+promise chain whose `.catch` calls `hideAppLoader()`.
+
+**Language and formatting locale are TWO preferences.** `language` picks the
+catalog, `locale` drives every `Intl` call, date-fns and `localeCompare`. Each
+falls through its own chain — language: session → cache → operator default →
+browser placeholder → `en-US`; formatting locale: session → cache →
+`navigator.language` → `en-US` — so a cached German language with no cached
+format takes the browser's `de-CH` rather than inheriting `de-DE`. A language that
+is not available counts as absent (preview origins share one `localStorage`
+across tenants). **Lingui never receives the formatting locale**: its `locales`
+option feeds `Intl.PluralRules`, so an English UI with Russian formats would pick
+Russian plural categories. Formatting helpers take `useFormattingLocale()`, never
+the catalog language.
+
+**Boot passes never persist; only the switcher does.** A boot that saved what it
+resolved would overwrite a cached preference for a language that only becomes
+available after login. `activateLocale`'s `persist` is per field and
+three-valued: a string saves, `null` clears (that is "use browser default"), an
+omitted field leaves the key alone — which is what lets a language change avoid
+promoting a browser-derived formatting locale into a preference nobody chose.
+`activateLocale` uses the REPLACING `loadAndActivate`; a translate-mode save
+replaces Lingui's table with the catalog's own map (`useTranslationWriter`).
+
+**A switch needs `router.invalidate()`, never `location.reload()`.**
+`document.title` comes from the matched route's `head()`, which re-runs only on
+invalidation; a reload would throw away the session's client state to change a
+string. `src/i18n` cannot import the router, so the caller does it (`NavUser`
+through `useRouter()`).
+
+**Empty strings are dropped when the sources are merged.** Lingui treats `""` as a
+present translation, so a gap has to be ABSENT for the fallback to the source
+text to apply — and a `defaultMessage` of `''` is not translated at all
+(`translate()` answers `''` without minting a key).
+
+**Never build a sentence by concatenation or English morphology** — no
+`singularize()`, no `${x ? 's' : ''}`, no `.toLowerCase()` on a model label, no
+`` `${errorMessage}: ${response.statusText}` `` (the data layer did that once; the
+status is a VALUE of the template now). One ICU message per sentence, model
+labels inserted as given.
+
+**The Base UI submenu cannot be driven by userEvent's pointer.** userEvent moves
+its pointer in a single jump, which takes it out of the submenu trigger, and Base
+UI's safe-polygon hover logic closes the submenu — leaving the panel in the DOM
+with `data-closed` and `pointer-events: none` on its positioner, so the next
+click fails with "element has pointer-events: none", which reads like a CSS bug
+and is really a closed menu. Drive it by keyboard instead (typeahead to the
+trigger with its FIRST WORD — a space is "activate", not a search character —
+then `{ArrowRight}`, typeahead, `{Enter}`), which is what `NavUser.test.tsx`
+does. Do not reach for `pointerEventsCheck: 0`; the substitutions ratchet counts
+it.
+
+**Both Vitest projects activate a locale before the first test** (`setup.node.ts`
+exists for exactly this, `setup.browser.ts` does the same and also clears the two
+cache keys): `i18n._()` THROWS with no active locale, and pure code renders
+messages too — `resolveUserMenu`'s built-in titles are `msg()` descriptors, so
+`userMenu.test.ts` and `config.test.ts` compare them through `translate()`. A node
+test that needs a language other than English supplies it as a LAYER pushed
+onto `localeLayers` (`metadata.test.ts`, `apiErrors.test.ts`, `reverseIndex.test.ts`)
+— the real activation path over a fixture file, not a stub of the catalog.
+
+**`eslint-suppressions.json` is the migration ratchet and only shrinks**, but its
+counts are per file and per rule, so a same-file swap of one violation for
+another is invisible to it and has to be caught in review. `eslint-plugin-lingui`
+already whitelists `t` and `msg` as callees (verified in the rule's source);
+`translate`, `translateVerbatim` and `appError` are ours and are named in
+`ignoreFunctions`. Keep the `ignore` regexes NARROW — an over-broad one hides a
+real string forever and silently, while an unmigrated string lands in the
+baseline once and is visible there. **`react-hooks/exhaustive-deps` is an ERROR
+for `src/**` through the same baseline** (seven violations predated it), because
+`useT()` returns a new function per language: a `useMemo`/`useEffect` that omits
+`t` keeps rendering the previous language behind a memo, and as a warning among
+ninety the rule would never be read.
+
+**`ignoreFunctions` exempts the whole CALL, and for a curried call it walks in to
+the inner callee** — the rule takes a literal's nearest enclosing
+`CallExpression` and tests that. So `ignoreFunctions: ['createFileRoute']` would
+exempt every literal in `createFileRoute('/x')({ … })`, the entire route
+definition with its `head: () => ({ meta: [{ title: 'English' }] })` included,
+silently and forever. It is an entry-point whitelist, not an argument matcher:
+name a function there only when EVERY string anywhere inside its call is
+machinery. A single argument that is an identifier — a route path, a storage key
+— belongs in `ignore` as a regex instead (`^/[A-Za-z0-9_$./-]*$` is the one that
+covers the route paths, and it is narrow because a leading slash with no space in
+it is an address, never a sentence).
+
+**`no-unlocalized-strings` cannot see most attributes on an INTRINSIC element.**
+`isAllowedDOMAttr` in the plugin hard-codes the checked set to `placeholder`,
+`alt`, `aria-label` and `value` for a native tag (and skips SVG entirely); on a
+capitalized component every attribute is checked. So `<span title="Delete this">`
+is invisible to the rule while `<Button title="Delete this">` is not, and there
+is no option to widen it. A green run and an empty suppression count are
+therefore not proof that a file is fully migrated — `title`, `aria-description`,
+`summary` and `label` on plain HTML have to be found by reading. Today every
+`title=` in `src/` is on a component, so nothing is hiding; check when migrating
+a file that adds one.
+
+**The rule is blind to every string inside a `<Select>` — so the tag is
+aliased, and a lint rule keeps it that way.** `no-unlocalized-strings` hard-codes
+`['Trans', 'Plural', 'Select', 'SelectOrdinal']` as Lingui's own ICU components
+and marks EVERY `Literal` / `TemplateLiteral` / `JSXText` in the subtree of one
+as already visited (v0.15.0, `no-unlocalized-strings.js`). shadcn's `<Select>`
+has the same tag name, so a `SelectItem`'s label, a `SelectValue placeholder`
+and every attribute inside a select were invisible, and a green run over such a
+file proved nothing about it — measured with a fixture through the installed
+plugin, where a bare `<span>` beside them was reported and nothing inside the
+`<Select>` was.
+
+There is no option to rename what the rule considers an ICU component, so the
+disambiguation is at the call site: the four files that use it import
+`Select as SelectRoot` and a `no-restricted-syntax` entry in `eslint.config.js`
+rejects the JSX tag names `Select` / `Plural` / `SelectOrdinal` outright. It has
+to be a TAG-NAME ban — `no-restricted-imports` matches the imported name and
+would reject the alias too. With the alias in place the real rule sees the whole
+subtree, which is why `value` is in `ignoreNames`: a `<SelectItem value="asc">`
+is an identifier next to its `t()` label, and the plugin already exempts `value`
+on an intrinsic element for exactly that reason.
+
+`Trans` is deliberately NOT in that ban and needs no test: `TransProps` declares
+no `children`, so `<Trans id="…">text</Trans>` is a **tsc error** (TS2322,
+verified). Its message comes from `id`, which the scan reads.
+
+**What is left in `eslint-suppressions.json` is not language.** The residue is
+six families, none of which a catalog can hold: PostgREST query fragments and
+URL templates, identifiers and enum members (`'asc'`, `'default'`, a column
+name, an RPC name, a lucide icon id), CSS class and custom-property strings,
+`throw new Error` invariants and `console.warn` developer messages,
+**operator-facing boot diagnostics** (see below), and `src/components/ui/**`,
+which is CLI-owned and cannot be hand-edited at all. Read the number as
+"strings the rule cannot tell apart from text", not as "untranslated UI".
+
+**A boot diagnostic is not language; a boot INSTRUCTION is.** `lib/config.ts`
+and `lib/userMenu.ts` stay English because they are machine reports for the
+operator who wrote the `.env`: an HTTP status with the URL that produced it, a
+missing-field list, a stack trace, and validation messages that quote
+`VITE_UI_CUSTOMIZER`'s JSON keys verbatim. Translating those makes the operator
+map German back onto English keys. The line is CONTENT, not the `detail` slot it
+happens to land in — `lib/secureContext.ts` renders into the same `BootFailure`
+`detail` and IS translated, because it is a sentence telling a human what to do.
+
+**Two `ignores` beyond `src/charts/**`, both deliberate.** (1) *Tests and their
+helpers* (`**/*.{test,spec}.*`, `**/__tests__/**`, `src/test/**`): a test's strings
+are assertions, fixtures and query strings, and there are ~2600 of them against
+~1200 in product code — baselining them would bury the ratchet under entries
+that can never be migrated. (2) *`src/i18n/*.ts`*, the translation machinery
+itself, whose every string is a locale tag, a storage key, a code, a regex or
+an `Intl` option — which is also why `errors.ts`, `localeConfig.ts` and the
+translate target's diagnostics sit there rather than under `lib/`. Scoped to the
+TOP-LEVEL modules on purpose: `src/i18n/**` would also exempt
+`src/i18n/translateMode/`, which is ordinary UI with ordinary user-visible
+strings.
+
+**`dist-e2e-*` are in `globalIgnores`.** Playwright builds two extra bundles
+there; without the ignore ESLint parses ~3400 minified files on every run for no
+rules at all.
+
+**A file that exceeds its recorded suppression count reports ALL of that rule's
+violations, not the excess.** Two new `'date'` literals in `ApiKeysCard.tsx`
+turned the whole file into 42 errors, which reads as "the migration broke this
+file" and is really "two over the line". `--prune-suppressions` only LOWERS a
+count, so the fix is to get back under it — never to re-baseline. Budget a
+literal before adding one to a file that is still in the baseline; a set of
+field names belongs in `src/i18n/errors.ts` (`ERROR_TEXT_FIELDS`), not in a
+component.
+
+**Every calendar goes through `ui-ext/localized-calendar.tsx`, never
+`ui/calendar.tsx` directly.** react-day-picker renders month and weekday names
+from a date-fns LOCALE OBJECT (not a tag) and it cannot fetch one, so a bare
+`<Calendar>` is English whatever the user picked; and its accessible names ("Go
+to the Next Month", "Choose the Year", the day cell's whole date) are English
+constants inside the library, replaceable only through its `labels` prop. The
+wrapper supplies both and is what the two `ui-ext` pickers and the grid's filter
+calendars use.
+
+**`src/i18n/dateFnsLocale.ts` is an EXPLICIT registry of lazy imports, and it
+cannot be a computed specifier.** Vite resolves a dynamic `import()` at build
+time and follows a variable only inside a relative path, never inside a bare
+package id — `` import(`date-fns/locale/${code}`) `` builds and then 404s at
+runtime. Resolution is the full tag then its language subtag (`de-CH` → `de`); a
+tag outside the registry answers `undefined`, which date-fns and react-day-picker
+both read as "use the built-in default". Where a formatting locale TAG is enough,
+prefer `Intl` over date-fns: it needs no chunk and is right on the first render.
+
+**A `lib/` function that produces a sentence takes `t` as a PARAMETER.**
+`renderError(error, t, { label })` is the shape: importing `translate` there
+would render the current catalog but could not re-render the component holding
+the string, and the ESLint ban on `translate` under `components/**` is only
+enforced at the import site. A component passes its own `useT()` down.
+
+**Two sources, later wins, and NOTHING pulls its own configuration.**
+`src/i18n/store.ts` loads a language from the static file ← the target's record,
+merging what each answers. Configuration is PUSHED in (`setDeploymentLocales`
+from `applyUiCustomizer`, `setTranslateTarget` beside it) rather than pulled,
+because the FIRST boot pass activates a locale **before** `initConfig()` so
+`BootFailure` is translated — a pull would have to call `getConfig()`, which
+throws at that moment. The same rule is why `src/i18n` still imports no router.
+
+**A static language file is fetched with an ABSOLUTE url and its content-type
+is checked, and both are load-bearing.** `apiClient.ts` rewrites every `fetch`
+whose url starts with `/` onto the PostgREST base with a bearer token, so a
+relative `/locales/fr-FR.json` would be asked of the API; and a web server with a
+SPA fallback answers a MISSING file with the app's own HTML and a **200**, so
+`res.ok` alone hands `res.json()` a page of markup. A wrong `url` must read as "no
+such language", not as a parse error at boot. `docker/nginx.conf` serves
+`/locales/` with `try_files $uri =404` for the same reason. The target's record
+read applies the same content-type check.
+
+**Registration reuses `VITE_UI_CUSTOMIZER`; the translate target needed one new
+var** (`VITE_TRANSLATE_MODE`, registered at all seven points). Its parsing
+lives in `parseUiCustomizer`, which runs UNCONDITIONALLY — an operator on the
+`cloud` or `self_hosted` built-in menu must still be able to register a language,
+so `user.menu` is mandatory only for `custom`. `src/i18n/localeConfig.ts`
+validates the `locales` section and a malformed one BLOCKS BOOT, as does an
+unknown mode or `stage` with no url: a language silently missing from the menu,
+with nothing anywhere saying why, is far worse than a loud configuration screen.
+A language that lives only in a target's record has to be REGISTERED to be
+listed — the contract has no call that enumerates records.
+
+**A plain server sentence is looked up VERBATIM and never ICU-compiled.** A
+PostgreSQL message may legitimately contain braces, and running it through the
+compiler would throw or silently eat them. `translateVerbatim(key, text)` reads
+the catalog map directly; the editor and `import.mjs` skip the compile and
+placeholder checks for a SQLSTATE-shaped key outside class 90/99
+(`isVerbatimKey`). A React ERROR BOUNDARY's message is deliberately NOT routed
+through it: that is a JS exception, not server text.
+
+**The session preference is three-valued and the third state is the whole
+point.** `get_userinfo`'s `language` / `locale`: a string is a saved choice,
+`null` is "use the browser default" saved explicitly, and an ABSENT field is a
+platform that has not applied the migration. `sessionPreferenceFrom()` uses `in`,
+not a truthiness check, because collapsing the last two would wipe the local
+choice on every login against such a platform — which is every deployment today.
+The switcher mirrors its choice into the module-level session state as well as
+the cache: without that, a stale `get_userinfo` value would outrank the fresh
+choice on the next resolve. A reload discards that module state, which is why
+`NavUser.test.tsx`'s "boots from the cached keys alone" calls
+`clearSessionPreference()`, and why both test setups clear it in `afterEach`.
+
+**Nothing PROBES for a platform feature.** A definitive `PGRST205` / `42P01` on
+the record read marks the target absent, a definitive `PGRST202` disables the
+preference write-back for the rest of the session (module state, because the
+menu unmounts every time it closes). A bare 404 means neither — the tenant's
+serverless PostgREST answers one to the first request after an idle period, and
+the fetch interceptor retries it. The predicates live in `src/i18n/tenant.ts`
+and `src/i18n/translateTarget.ts`, so no component holds a platform string.
+
+**`get_schema` is on the QueryClient, and the router context carries it.** A
+language switch calls `router.invalidate()` so every route's `head()` re-runs
+and `document.title` follows; re-running the loader would refetch the schema for
+a change that is purely local. `ensureQueryData` with `staleTime: Infinity` and
+`rpcQueryKey()` — exported from `hooks/useRpc.ts` so the loader and the hook fill
+the SAME entry — makes it a cache hit. `head()` renders the title through
+`translate()` with the metadata's own `module_slug`, because it is not a
+component.
+
+**The lingui rule cannot tell an identifier from a sentence, and the answer is
+WHERE the string lives, not a wider `ignore`.** `src/i18n/*.ts` is already exempt
+as machinery, so a PostgREST code, an RPC name, a field-name list and a
+diagnostic belong there and call sites pass the constant. Widening `ignore` to
+cover `'description'` or `'title'` would hide a real string forever and
+silently.
+
+**A per-call `{ timeout }` LOWERS the project's `asyncUtilTimeout`.**
+`setup.browser.ts` configures 15s for the whole browser project; four `findByRole`
+calls around CodeMirror had `{ timeout: 5000 }` and failed the release gate at
+random while passing alone — four browser workers each mounting an editor is a
+real second or two of contention, and the budget was deciding, not the code.
+Removed; do not add one back.
+
+**Verified against the live test tenant, and still true:** `/translations`
+answers `PGRST205` (no record store), `set_user_preferences` is absent
+(`PGRST202`), `get_userinfo` returns no `language`/`locale`, and `get_schema`
+returns `module_slug` on every table block with children named `table.field`.
+`src/i18n/tenantTranslations.test.tsx` pins all four, and turns from "absent" to
+"a record" by itself when the endpoint lands.
+
+**Translate mode resolves the page through a reverse index RECORDED AT THE
+PRODUCER, never by wrapping `t()` or reading the DOM for meaning.** `translate()`
+and `translateVerbatim()` hand their rendered output plus its key to
+`src/i18n/reverseIndex.ts` while recording is on (one boolean check per call
+otherwise) — and every metadata label goes through `translate()`, so
+`localizeMetadata`'s walk records them too; a text node or an `aria-label` is
+then looked up AS RENDERED, values interpolated. Two consequences that are easy
+to break: a new producer of user-visible text has to render through `translate`
+or record itself, or its output is invisible to marking and Alt+click; and a
+memo that skips the walk skips the recording — `localizeMetadata` runs its walk
+whether or not anything changes. `activateLocale` clears the index, and
+switching the mode on calls `reactivateLocale()` so every `useT()` consumer
+re-renders and records; a component that reads `translate()` at module scope is
+never re-recorded, which is one more reason the `components/**` ban exists.
+
+**The panel measures against the index, loaded on demand.** `loadSourceIndex()`
+in `store.ts` reads `en-US` through the target in `dev`/`stage` and the static
+file otherwise, cached, re-read every time the sheet opens; the missing count is
+index keys without a translation plus what is on the page that the index has
+not caught up with. One list, one tab: code strings and model text are told apart
+by nothing but the key the list shows beside a source that differs from it.
+
+**Translate mode is ONE switch, and off means off.** The marks, the recording
+behind them and the scan exist only while the mode is on: `TranslateModeHost`
+mounts nothing otherwise, and `translate()` pays one boolean check. A separate
+"mark missing translations" switch once painted marks with the mode off, and the
+owner's rule is that none of the mode's overhead runs while it is off — do not
+bring a second switch back. Whether the one switch is offered at all is
+`canTranslate`: never under `off`, and in `prod` only once the record store has
+answered.
+
+**The marks are CSS Custom Highlights, and the DOM is not mutated for them.**
+Ranges over text nodes go into `CSS.highlights` under `semantius-i18n-missing`;
+attribute hosts (and the fallback where the API is missing) get
+`data-i18n-missing`, styled as an OUTLINE and nothing else: the focus ring in
+this design system is a box-shadow (`ring-*`), so an outline composes with it,
+while the box-shadow this first shipped with replaced the ring on every marked
+control — and the `border-radius` beside it squared every marked button,
+because the file is unlayered and an unlayered declaration beats any Tailwind
+utility (which is also what lets the mark show through `outline-none`). The scan
+walks `document.body`, because every Base UI popup is portaled beside `#root`,
+and prunes subtrees marked `data-i18n-ui` — translate mode's own dialog, panel
+and button. Anything that adds a scanned attribute (`aria-label`,
+`aria-description`, `placeholder`, `title`, `alt`) is in the observer's
+`attributeFilter`; `data-i18n-missing` deliberately is not, or the scan would
+observe itself.
+
+**A sentence built from a model label is ONE text node, and the label inside it
+has to be reached separately.** `t('Add {label}', { label })` renders "Supplier
+hinzufügen" — the message IS translated, so a lookup by rendered text says
+"nothing missing here" while the only untranslated part sits inside it. So
+`translate()` also hands its VALUES to the reverse index, and the highlighter
+marks the embedded value as a SUB-RANGE of the text node (an attribute host,
+having no text node, is outlined whole). The values are stored raw and resolved
+at scan time, never at record time: a component may render the sentence before
+the label it embeds, and a lookup then would be too early. A click resolves the
+embedded id first when the caret fell inside the segment and the surrounding
+sentence otherwise, offering both as candidates — a code string's candidate is
+labeled "Message", a keyed one by its key. Reported by the owner within a minute
+of using it — which is what a design keyed on whole rendered strings costs if
+the interpolated case is not handled.
+
+**Editing is Alt+click or right-click, and the editor and panel are MODAL.** A
+plain click in translate mode still opens the menu or follows the link the text
+sits on — otherwise the entries inside a submenu could never be reached to
+translate them. `ModalInert` makes `#root` inert for ANY `[role=dialog][data-open]`
+outside it, modal or not, so a "non-modal" panel would block the page exactly as
+a modal one does while announcing itself as something else; in-context editing
+is therefore done with the panel closed. In the source language under `dev` or
+`stage` the editor offers nothing: `en-US.json` is the index, and an override
+written there would misrecord the English; a `prod` record is where an `en-US`
+override lives.
+
+**There is ONE writer, one contract, and no fallback — a draft or a download is
+not a save.** `useTranslationWriter` calls `writeTranslation()` and applies the
+result at once: `addMessageEntry` into the catalog's own map, then Lingui's
+table REPLACED with that map. `reactivateLocale()` is wrong there: it re-folds
+the sources, which still hold the old value, so the cleared string comes straight
+back. Translate mode is NOT OFFERED where no target answers (`canTranslate`):
+the tenant record store exists nowhere yet, so `prod` shows no switch, and an
+edit made in production could never correct the repo anyway — `export.mjs` fills
+only EMPTY entries, so a wrong shipped translation stays wrong until a `dev`
+change goes through a PR.
+
+**A dependency reached only through a lazy chunk must be named in
+`optimizeDeps.include`.** Vite's crawler never sees `sonner` behind
+`import('@/i18n/translateMode')`, discovers it on first load and RELOADS the
+page; in the Vitest browser project that reload lands mid-test and leaves two
+copies of React in the module graph ("Invalid hook call"), which reads like a
+component bug. Vitest prints the fix in its own warning; `vite.config.ts`
+carries it.
 
 ### Routing Conventions
 
@@ -387,6 +1151,11 @@ Combine with `&`: `?select=id,name&status=eq.active&order=created_at.desc&limit=
 ### shadcn/ui
 
 - Always install via CLI: `npx shadcn@latest add <component> -y` — never create manually
+- **`shadcn add tabs` currently emits `import { cn } from "cn"`** (the repo's pinned 4.19
+  and 4.21 alike) and "installs" a bogus `cn@0.2.6` into `package.json` instead of resolving
+  `aliases.utils`. The output cannot be hand-fixed in `ui/`, so `ui-ext/tabs.tsx` carries the
+  registry markup with the import corrected and says why. Revert `package.json` and the
+  lockfile after any such run, and check the first lines of a freshly added `ui/` file.
 - Never modify files in `src/components/ui/` — they are CLI-managed and upgradable
 - Config: `components.json` (points to `src/global.css`)
 - To customize: use `className` props at the call site (e.g., `<SheetContent className="border-l-0">`) — never modify `src/components/ui/*`
@@ -533,7 +1302,7 @@ The image is **environment-agnostic**: the Vite bundle is compiled against place
 - **Placeholder guard is the linchpin:** `apps/web/public/config.js` ships `window.__ENV__` with all values as `__VITE_X__` placeholder tokens. `runtimeEnv()` treats any `__…__` token as absent. So in **dev / Vercel / Cloudflare** (where nothing rewrites `config.js`) the app falls back to `import.meta.env` and behaves exactly as before. Only the Docker entrypoint replaces the tokens. **Do not "simplify" this guard away** — it is what keeps the non-Docker builds unchanged.
 - **`config.js` is loaded by a plain, blocking `<script src="/config.js">` in `index.html` `<head>`** (before the deferred app module) so `window.__ENV__` exists at boot.
 - **`gen-config.sh` generates `config.js`** at container start, written to **`/usr/share/nginx/html/config.js`** by `docker/docker-entrypoint.sh`, installed as **`/docker-entrypoint.d/40-gen-config.sh`** — the nginx image's own entrypoint runs every `/docker-entrypoint.d/*.sh` before starting nginx, so nginx's ENTRYPOINT/CMD stay untouched. Precedence per key: **real env var > `docker/.env` file > OIDC discovery (OAuth endpoints only) > built-in default**. Keep its `CANONICAL_VARS` list in sync with `apps/web/public/config.js`.
-- **The image never proxies.** `docker/nginx.conf` is static serving + SPA fallback (`try_files $uri $uri/ /index.html`) + cache headers (`no-store` on `/config.js` and `/index.html`, immutable on `/assets/`) and stops there — the SPA must be pointed at an absolute `VITE_API_BASE_URL`. A same-origin `/api` prefix is **not** available; `runtimeEnv()`'s interceptor rewrites relative URLs onto `VITE_API_BASE_URL`, which is what makes an absolute value mandatory here.
+- **The image never proxies.** `docker/nginx.conf` is static serving + SPA fallback (`try_files $uri $uri/ /index.html`) + cache headers (`no-store` on `/config.js` and `/index.html`, immutable on `/assets/`) and stops there — the SPA must be pointed at an absolute `VITE_API_BASE_URL`. A same-origin `/api` prefix is **not** available; the fetch interceptor in `lib/apiClient.ts` (not `runtimeEnv()`, which is a pure accessor) rewrites relative URLs onto `VITE_API_BASE_URL`, which is what makes an absolute value mandatory here.
 - **OIDC discovery runs in the SPA, not in `gen-config.sh`.** Set **`VITE_OAUTH_CONFIG`** (a `.well-known/openid-configuration` URL, now a `VITE_`-prefixed passthrough var, formerly the Docker-only `OIDC_CONFIG`) and `initConfig()` in `lib/config.ts` fetches it at boot, filling any blank `VITE_OAUTH_*_ENDPOINT` + scope (explicit env values win). It runs only on the self-hosted path (when `VITE_API_BASE_URL` is set); the control-plane path builds endpoints from the tenant slug instead. A failed discovery fetch sets `_configError`, which `main.tsx` turns into a **blocking** boot screen (hard-fail). This keeps `gen-config.sh` a dependency-free env→JS emitter (**neither Dockerfile `apk add`s curl/jq**) and unifies discovery across dev/Vercel/Cloudflare/Docker. The interactive `apps/web/scripts/genconfig.js` still writes explicit endpoints into a build-time `.env` and is unaffected.
 - **`docker/.env` is a Docker-only file, NOT a Vite env file.** It is git-ignored (holds real values); only `docker/.env.example` is committed (and baked into the image as the default `/config/.env`). The bare-name `.env` needs its own `.gitignore` entry (`docker/.env`) because the repo's `.env.*` rule does not match a suffix-less `.env` — add one for any further sibling folder.
 - **The image builds with no secrets.** CI (`.github/workflows/docker-publish.yml`) pushes to `ghcr.io/semantius/semantius-app` on a version tag, publishing a **multi-arch manifest (`linux/amd64` + `linux/arm64`)** via `docker/build-push-action` `platforms:` + a `setup-qemu-action` step. The arm64 leg builds under QEMU emulation (the runner is amd64), so it is noticeably slower — expected, not a hang. `sem-schema` is consumed from source (its `exports` point at `src/index.ts`), so only `pnpm --filter=@semantius/frontend build` runs — no package pre-build. Build stage is `node:22-slim` (Debian/glibc) to avoid musl native-binary issues with the Tailwind v4 oxide / lightningcss binaries.
@@ -671,6 +1440,16 @@ agent-browser open "$PREVIEW_URL/#jwt=$TOKEN"
 # 3. confirm you're in: the URL should stay on the app (NOT redirect to app.semantius.com/oautherror)
 ```
 
+> 🔴 **A stale `loginInProgress` produces the SAME `oautherror` as a bad token.**
+> An expired `#jwt` (they last an hour) boots, fails `userinfo`, and starts a real login,
+> which leaves `SC_<mode>_loginInProgress` set in the preview origin's `localStorage`. Every
+> later open with a PERFECTLY GOOD `#jwt` then redirects to
+> `app.semantius.com/oautherror?error=invalid_redirect` anyway — indistinguishable from the
+> banner-pollution failure below, and it survives minting a fresh token. Mint a new token AND
+> clear the origin's storage: `agent-browser open "$URL/logout-success"` (a plain route that
+> needs no session) then `agent-browser eval 'localStorage.clear()'`, and only then open with
+> the fragment.
+
 > 🔴 **dotenvx banner pollution — the #1 cause of a bogus `oautherror`.** `dotenvx run` prints its `⟐ injecting env (N) from .env · dotenvx@x` banner (with ANSI color codes) to **stdout, not stderr** (verified, v1.58.0). So `TOKEN=$(dotenvx run -- node scripts/mint-token.mjs)` captures `<banner>\n<jwt>` even with `2>/dev/null`. That malformed `#jwt` makes `devUrlToken.ts` throw in `JSON.parse(atob(jwt.split('.')[1]))`, silently discard the token, and fall back to OAuth → `app.semantius.com/oautherror?error=invalid_redirect`. The error looks like an auth/redirect-URI problem but is really a polluted token. **Always** mint with `--quiet` **and** `grep -oE 'eyJ…\.…\.…'` to extract only the JWT, then validate it (above). Never pipe the raw `dotenvx run` stdout straight into the URL.
 
 If `mint-token.mjs` fails, **stop and fix that first** — do not fall back to a bare open. Most likely cause in a fresh sandbox: `DOTENV_PRIVATE_KEY` is not set, so `SEMANTIUS_API_KEY` can't be decrypted.
@@ -685,9 +1464,9 @@ If `mint-token.mjs` fails, **stop and fix that first** — do not fall back to a
 
 Keep at most one full-UI-login smoke test (against a registered domain) to prove the real OAuth integration still works.
 
-### Two Playwright projects, and why they cannot be one
+### Three Playwright projects, and why they cannot be one
 
-`playwright.config.ts` builds the app TWICE and starts two preview servers.
+`playwright.config.ts` builds the app THREE times and starts three preview servers.
 
 - **`chromium` (port 4173)** — the interactive login journey. It needs the OIDC
   test server, which accepts any `redirect_uri`, so the build is self-hosted with
@@ -695,6 +1474,18 @@ Keep at most one full-UI-login smoke test (against a registered domain) to prove
 - **`tenant` (port 4174, `dist-e2e-tenant`)** — production's shape: the
   control-plane path, the tenant's own PostgREST and OAuth endpoints, session
   seeded through `#jwt` with a token minted in-test from `SEMANTIUS_API_KEY`.
+
+- **`lan` (port 4175, `dist-e2e-lan`, served on `0.0.0.0` and addressed by the
+  machine's first non-internal IPv4)** — the only origin that is NOT a secure
+  context. `localhost` is secure by exemption, so nothing served from it can
+  show the boot gate that fires where `crypto.subtle` is withheld;
+  `e2e/non-secure-context.spec.ts` asserts `window.isSecureContext === false`
+  for real and then the configuration screen, overlay down, no redirect. The
+  project is defined only when such an address exists (a loopback-only sandbox
+  skips it). What it does NOT reach: `/login`'s own `useAuth().error` branch —
+  on that origin boot stops before any route mounts, so the three substitutions
+  in `routes/login.test.tsx` stay; closing them needs a failure that survives
+  the boot gate (blocked storage, offline), not a LAN origin.
 
 They cannot be merged. The transient-failure tests assert that a request which
 would otherwise have SUCCEEDED recovers, so they need a real API behind the app;
@@ -855,7 +1646,7 @@ non-secure LAN origin), not by writing better mocks.
 **The tenant's serverless PostgREST answers the first request after an idle period
 with a 404**, and the app treats that as terminal: it renders an error card and
 never retries. Any browser harness must warm the API from node first and retry the
-navigation, or a run turns into cells that were never measured. The admissibility
+navigation, or a run turns into views that were never measured. The admissibility
 gate has to recognize that error surface by name — otherwise it reports "0
 violations" for a page that only ever showed an error card.
 
@@ -875,16 +1666,76 @@ Always inspect API responses with `curl` before implementing — never assume re
 - Bad token → `"signature error"`
 - Missing table → `code: "42P01"`, `"relation \"public.x\" does not exist"`
 
+### Working in this checkout — environment quirks
+
+- **Line endings are settled by `.gitattributes` (`* text=auto eol=lf`), and that
+  is the end of the subject.** There is nothing to detect before writing to a
+  file and no per-file ending to preserve. What used to stand here was a
+  workaround — "read the file's existing line ending and write it back the same
+  way, and restore from a byte copy, not `git checkout --`" — and it named files
+  as CRLF-in-index that measurement showed were not (`git ls-files --eol` found
+  exactly one, `lib/compose-refs.ts`, while `View.tsx` and the `_app.*` routes
+  were plain `i/lf`). The repo had no `.gitattributes` at all, so normalization
+  depended on each contributor's local `core.autocrlf`. **A coping instruction
+  that every future session has to read is the wrong shape of answer to a
+  one-file fix — check whether the cause can be deleted before writing down how
+  to live with it.**
+- **`DataTableView.tsx` contains literal NUL bytes** (lines 640-641,
+  `join('<NUL>')` as a set-comparison separator, written as raw 0x00 rather than
+  a `\u0000` escape), which is why git classifies a `.tsx` file as binary and
+  why it is exempt from the normalization above.
+- **Two sessions may share this checkout.** Never `git commit` without pathspecs;
+  never stage with `-A`.
+- **A temporary file under `src/routes/` is picked up by the TanStack Router
+  plugin the moment a build starts** — it regenerates `routeTree.gen.ts` around it
+  and a concurrent `vite build` fails on the phantom route. Put scratch copies in
+  the scratchpad directory, never next to the file they copy.
+- **The `tests-ops` MCP connector cannot manage API keys from an agent session**:
+  its token expires and its key tools are blocked by the permission classifier.
+  Mint tokens with `scripts/mint-token.mjs` instead.
+- **`Retry-After` is invisible cross-origin unless the server exposes it.** It is
+  not a CORS-safelisted response header, and the API and identity provider are
+  cross-origin, so `headers.get('retry-after')` is null unless the response also
+  carries `Access-Control-Expose-Headers: Retry-After`. A test fixture that sends
+  the header without exposing it tests a browser that hides it.
+
+### Ideas already tried and rejected — do not re-propose
+
+A glossary, term list or fixed-terms table for translation, **in any form** —
+JSON, a catalog test, or a plain table in a document "for a human to read". It
+duplicates the catalog (a code string is keyed by its own English text, so the
+pair is already in the language file; model text is keyed too), it carries no key
+scope, and drift is caught exhaustively by a consistency report instead. This has
+been re-proposed and rejected six times in one session alone; if you are about to
+suggest it, you are repeating that.
+
+jsdom in any project; polyfilling a browser API to make a test pass; stubbing
+`window.location`; axe in jsdom; `useTsTypes` on `lingui/no-unlocalized-strings`
+(measured: it needs type-aware parsing — `parserOptions.projectService` — for
+every file ESLint touches, which took a `src` run from 32s to 53s, and bought
+48 of 702 violations, because the residue is `string`-typed query fragments and
+identifiers rather than string-literal unions); isolated component tests with
+invented props;
+`/form-playground` as a test surface; MSW with recorded fixtures; deleting
+Playwright; a pre-push hook; seeding `loginInProgress` to fake a failed token
+exchange; routing the test token through `#jwt` instead of `globalSetup`; a
+timer on the audit; a single-token audit run; a retry in react-query stacked on
+the transport's; a `Retry-After` clamp (the budget decides, see Transient
+Failures).
+
 ### Known Gotchas
 
 - **`pnpm check` does NOT typecheck.** Lint + both Vitest projects only; `tsc -b
   --noEmit` runs inside `pnpm build`. A type error in a test file passes `check`
   and fails the release.
-- **PostgREST reports "nothing matched" as SUCCESS.** A PATCH whose filter
-  matches no row answers `200 []` and a DELETE answers `204`, so `useUpdateRecord`
-  resolves with `undefined` and `useDeleteRecord` resolves at all — the UI says
-  "saved" for a record that is not there. Pinned in
-  `hooks/useTableMutations.test.tsx`; fixing it is a product decision.
+- **PostgREST reports "nothing matched" as SUCCESS, and the hooks translate.**
+  A PATCH whose filter matches no row answers `200 []`; a DELETE answers a
+  bodyless `204` unless `Prefer: return=representation` is sent, and then `200
+  []`. `useUpdateRecord` and `useDeleteRecord` both send the header and throw
+  "This <table> record no longer exists" (`cause: { status: 404, matched: 0 }`)
+  on an empty representation, so the UI never says "saved" or "deleted" for a
+  row that is not there. The server itself never sends a 404 for this — do not
+  assert one. Proven in `hooks/useTableMutations.test.tsx` against the tenant.
 - **Deleting a module cascades to its entities.** That is what makes the
   `_vitest_`-prefixed rows those tests create safe to clean up by module alone;
   it is asserted there and nowhere else.

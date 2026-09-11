@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { translate } from '@/i18n'
 import { initConfig, getConfig, getConfigError } from './config'
 import { SELF_HOSTED, clearRuntimeEnv, setRuntimeEnv } from '@/test/runtimeConfig'
 
@@ -43,9 +44,10 @@ describe('initConfig — secure-context precheck', () => {
     // assert that the stub was read. The RULE itself is a pure function, tested
     // in `secureContext.test.ts`.
     //
-    // UNCOVERED until that exists: that the precheck SHORT-CIRCUITS — records
-    // the error and resolves no endpoint, offering no login for a flow the
-    // browser cannot perform.
+    // That exists: `e2e/non-secure-context.spec.ts`, the `lan` Playwright
+    // project, serves the built app from the machine's own LAN address and
+    // asserts the short-circuit as a user sees it — the configuration error
+    // naming the origin, the boot overlay down, no redirect to a provider.
     setRuntimeEnv({ VITE_CONTROL_PLANE_ORG: UNKNOWN_ORG })
 
     await initConfig()
@@ -84,7 +86,9 @@ describe('initConfig — configurable user menu', () => {
     expect(getConfigError()).toBeNull()
     expect(getConfig().backendType).toBe('cloud')
     const menu = getConfig().uiCustomizer.user.menu
-    expect(menu.map((e) => e.title)).toEqual(['Settings', 'Profile', 'Platform'])
+    // Built-in titles are MessageDescriptors, so they are compared through
+    // translate() — under the suite's en-US activation that is the source text.
+    expect(menu.map((e) => translate(e.title))).toEqual(['Settings', 'Profile', 'Platform'])
     // 'Settings' is an IN-APP relative route, so it carries no {orgid} to
     // substitute — the tenant is already implied by the host. Substitution is
     // asserted on the entries that actually hold the placeholder: the absolute

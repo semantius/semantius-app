@@ -1,6 +1,19 @@
 import { useQuery, useMutation, type UseQueryResult, type UseMutationResult } from '@tanstack/react-query'
 import { useAuth } from '@/hooks/useAuth'
+import { appError } from '@/lib/appError'
 import { getApiConfig, callRpc } from '@/lib/apiClient'
+
+/**
+ * The react-query key for an RPC call.
+ *
+ * Exported because a ROUTE LOADER fills the very same cache entry through
+ * `queryClient.ensureQueryData` (see routes/_app.$moduleId.$table_name.tsx), and
+ * a key written out twice is a key that drifts — the loader would fetch
+ * `get_schema` alongside the hook rather than for it.
+ */
+export function rpcQueryKey(rpcName: string, params?: unknown): unknown[] {
+  return ['rpc', rpcName, params]
+}
 
 interface UseRpcOptions<TParams = Record<string, unknown>> {
   /**
@@ -43,10 +56,10 @@ export function useRpc<TResult = unknown, TParams = Record<string, unknown>>(
   const { params, enabled = true } = options
 
   return useQuery<TResult, Error>({
-    queryKey: ['rpc', rpcName, params],
+    queryKey: rpcQueryKey(rpcName, params),
     queryFn: async () => {
       if (!token) {
-        throw new Error('Authentication token is required')
+        throw appError({ message: 'Authentication token is required' })
       }
       return await callRpc<TResult, TParams>(rpcName, params || {} as TParams, token)
     },
@@ -56,6 +69,12 @@ export function useRpc<TResult = unknown, TParams = Record<string, unknown>>(
 
 /**
  * Generic hook for calling PostgREST RPC functions with mutations
+ *
+ * RETRY SEMANTICS. A `POST /rpc/…` is repeated by the fetch interceptor on a
+ * 425, 429, 502 or 503 — answers a server gives BEFORE running the function —
+ * and on a bare cold-start 404. It is NOT repeated on a 500, a 504 or a network
+ * error, where the function may already have run; a function with side effects
+ * therefore cannot be executed twice by the transport. See lib/retry.ts.
  * 
  * @param rpcName - Name of the RPC function
  * @returns UseMutationResult for calling the RPC function
@@ -84,7 +103,7 @@ export function useRpcMutation<TResult = unknown, TParams = Record<string, unkno
   return useMutation<TResult, Error, TParams>({
     mutationFn: async (params: TParams) => {
       if (!token) {
-        throw new Error('Authentication token is required')
+        throw appError({ message: 'Authentication token is required' })
       }
       return await callRpc<TResult, TParams>(rpcName, params, token)
     },

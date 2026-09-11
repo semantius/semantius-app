@@ -1,11 +1,22 @@
+/**
+ * Format a date for display inside the grid's own chrome (the filter menu's
+ * chosen-date button).
+ *
+ * `locale` is the FORMATTING locale and has to be passed in: this module is
+ * outside React, and the formatting locale is a preference of its own that a
+ * component reads with `useFormattingLocale()`. It was hard-coded to `en-US`,
+ * so a German user picking a date saw "November 1, 2026" written back at them.
+ * Omitting it falls back to the runtime default rather than to English.
+ */
 export function formatDate(
   date: Date | string | number | undefined,
   opts: Intl.DateTimeFormatOptions = {},
+  locale?: string,
 ) {
   if (!date) return ""
 
   try {
-    return new Intl.DateTimeFormat("en-US", {
+    return new Intl.DateTimeFormat(locale, {
       month: opts.month ?? "long",
       day: opts.day ?? "numeric",
       year: opts.year ?? "numeric",
@@ -17,26 +28,46 @@ export function formatDate(
 }
 
 /**
- * Format a value into a human-readable label.
- * Capitalizes first letter of each word and replaces hyphens/underscores with spaces.
+ * Turn an IDENTIFIER into display text: `first_name` → `First Name`.
+ *
+ * This is a typographic transform of a code identifier, not a translation, and
+ * that is the whole of what it may do. It is called with a column id
+ * (`table-view-menu`, `use-derived-column-title`) where the model supplied no
+ * title, and — via `use-generated-options` — with a raw column VALUE when a
+ * select filter has to invent its own option labels.
+ *
+ * It used to map "true"/"false" to "Yes"/"No". That was a translation of a data
+ * value hard-coded in English, and it was unreachable besides: a boolean column
+ * gets FILTER_VARIANTS.BOOLEAN, whose True/False labels are translated in
+ * `table-filter-menu`, the grid's boolean CELLS are translated in
+ * `DataTableView`, and only select/multi_select columns reach here. Removed
+ * rather than routed through t() — a function that title-cases an identifier
+ * has no business owning a word.
  *
  * @example
  * formatLabel("firstName") // "FirstName"
  * formatLabel("first-name") // "First Name"
  * formatLabel("first_name") // "First Name"
- * formatLabel("true") // "Yes"
- * formatLabel("false") // "No"
  */
 export function formatLabel(value: string): string {
-  // Handle boolean values
-  if (value === "true") return "Yes"
-  if (value === "false") return "No"
-
   return value
     .replace(/[-_]/g, " ")
     .split(" ")
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ")
+}
+
+/**
+ * The field name to put in a control's ACCESSIBLE label.
+ *
+ * A column with no `meta.label` used to interpolate `undefined` into the
+ * message, which ICU renders literally — a screen reader announcing "undefined
+ * filter value". The column id run through `formatLabel` is the same fallback
+ * the visible header uses (`use-derived-column-title`), so the accessible name
+ * and the header agree.
+ */
+export function fieldNameFor(label: string | undefined, columnId: string): string {
+  return label ?? formatLabel(columnId)
 }
 
 /**

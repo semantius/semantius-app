@@ -1,5 +1,6 @@
 import React from "react"
 import { cn } from "@/lib/utils"
+import { useT } from "@/i18n"
 import { useDataTable } from "./data-table-context"
 import {
   TableHeader,
@@ -705,6 +706,7 @@ export function DataTableLoading({
   colSpan,
   className,
 }: DataTableLoadingProps) {
+  const t = useT()
   const { columns } = useDataTable()
 
   return (
@@ -716,7 +718,7 @@ export function DataTableLoading({
         {children ?? (
           <div className="flex items-center justify-center gap-2">
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            <span className="text-sm text-muted-foreground">Loading...</span>
+            <span className="text-sm text-muted-foreground">{t("Loading...")}</span>
           </div>
         )}
       </TableCell>

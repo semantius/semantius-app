@@ -9,7 +9,8 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 import { useAuth } from '@/hooks/useAuth'
-import { getModuleDisplay } from '@/contexts/AuthContext'
+import { getModuleDisplay, moduleLabels } from '@/contexts/AuthContext'
+import { useT } from '@/i18n'
 
 interface EntityBreadcrumbProps {
   /** Module name (first URL segment, e.g. "crm") */
@@ -41,20 +42,23 @@ export function EntityBreadcrumb({
   parentRecordPath,
 }: EntityBreadcrumbProps) {
   const { rpcUserInfo } = useAuth()
+  // `t` is what makes the memo below follow a language switch: the module's
+  // name is a message keyed by its model path.
+  const t = useT()
 
   // Look up the module by slug and use displayName for breadcrumb label
   const { moduleLabel, moduleHomePath } = useMemo(() => {
     const moduleIdLower = moduleId.toLowerCase()
     const found = rpcUserInfo?.modules?.find((m) => m.module_slug.toLowerCase() === moduleIdLower)
     const label = found
-      ? getModuleDisplay(found).displayName
+      ? getModuleDisplay(found, moduleLabels(t, found)).displayName
       : moduleId
         .split('-')
         .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
         .join(' ')
     const homePath = found?.home_page || `/${moduleId}`
     return { moduleLabel: label, moduleHomePath: homePath }
-  }, [moduleId, rpcUserInfo?.modules])
+  }, [moduleId, rpcUserInfo?.modules, t])
 
   return (
     <Breadcrumb>

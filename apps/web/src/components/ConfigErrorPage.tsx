@@ -7,12 +7,23 @@ import {
   CardHeader,
 } from '@/components/ui/card'
 import { hideAppLoader } from '@/lib/appLoader'
+import { Trans } from '@lingui/react'
+import { useT } from '@/i18n'
+
+/**
+ * Shared by the two inline <code> spans in the numbered list. Named
+ * `…ClassName` on purpose: that is how `no-unlocalized-strings` is told a
+ * string is CSS classes rather than text (see the ignoreNames list).
+ */
+const codeClassName = 'text-xs bg-muted px-1 py-0.5 rounded'
 
 interface ConfigErrorPageProps {
   missingVars: string[]
 }
 
 export function ConfigErrorPage({ missingVars }: ConfigErrorPageProps) {
+  const t = useT()
+
   // Hide the index.html loading overlay — otherwise this error renders behind the
   // opaque overlay and the app looks like it's stuck on "Loading…" forever.
   useEffect(() => {
@@ -25,15 +36,13 @@ export function ConfigErrorPage({ missingVars }: ConfigErrorPageProps) {
         <CardHeader>
           <div className="flex items-center gap-2 text-destructive">
             <AlertTriangle className="h-6 w-6" />
-            <h1 data-slot="card-title" className="font-heading font-medium text-2xl">Configuration Error</h1>
+            <h1 data-slot="card-title" className="font-heading font-medium text-2xl">{t('Configuration Error')}</h1>
           </div>
-          <CardDescription>
-            OAuth configuration is missing or invalid
-          </CardDescription>
+          <CardDescription>{t('OAuth configuration is missing or invalid')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="rounded-lg bg-destructive/10 p-4 border border-destructive/20">
-            <p className="text-sm font-medium mb-2">Missing environment variables:</p>
+            <p className="text-sm font-medium mb-2">{t('Missing environment variables:')}</p>
             <ul className="list-disc list-inside text-sm space-y-1 text-muted-foreground">
               {missingVars.map((varName) => (
                 <li key={varName}>
@@ -44,22 +53,32 @@ export function ConfigErrorPage({ missingVars }: ConfigErrorPageProps) {
           </div>
 
           <div className="space-y-2">
-            <p className="text-sm font-medium">To fix this issue:</p>
+            <p className="text-sm font-medium">{t('To fix this issue:')}</p>
             <ol className="list-decimal list-inside text-sm space-y-2 text-muted-foreground">
+              {/* The file names and the command are inside the message, wrapped
+                  in tags whose rendering is decided here — a translator moves the
+                  <code> spans with the words and leaves the identifiers alone
+                  (TRANSLATION-GUIDE.md rule 5), and a translation can never
+                  inject markup because Lingui renders text, not HTML. */}
               <li>
-                Create a <code className="text-xs bg-muted px-1 py-0.5 rounded">.env</code> file
-                in your project root (or run <code className="text-xs bg-muted px-1 py-0.5 rounded">npm run genconfig</code>)
+                <Trans
+                  id="Create a <code>.env</code> file in your project root (or run <code>npm run genconfig</code>)"
+                  components={{ code: <code className={codeClassName} /> }}
+                />
               </li>
               <li>
-                Copy the contents from <code className="text-xs bg-muted px-1 py-0.5 rounded">.env.example</code>
+                <Trans
+                  id="Copy the contents from <code>.env.example</code>"
+                  components={{ code: <code className={codeClassName} /> }}
+                />
               </li>
-              <li>Replace the placeholder values with your actual OAuth provider settings</li>
-              <li>Restart the development server</li>
+              <li>{t('Replace the placeholder values with your actual OAuth provider settings')}</li>
+              <li>{t('Restart the development server')}</li>
             </ol>
           </div>
 
           <div className="rounded-lg bg-muted p-4">
-            <p className="text-sm font-medium mb-2">Example configuration:</p>
+            <p className="text-sm font-medium mb-2">{t('Example configuration:')}</p>
             <pre className="text-xs overflow-x-auto">
               <code>{`VITE_OAUTH_CLIENT_ID=your-actual-client-id
 VITE_OAUTH_AUTH_ENDPOINT=https://auth.example.com/oauth/authorize
@@ -80,8 +99,10 @@ VITE_SUPABASE_APIKEY=your-supabase-anon-key`}</code>
 
           <div className="text-xs text-muted-foreground border-t pt-4">
             <p>
-              <strong>Note:</strong> Do not commit your <code>.env</code> file to version control.
-              It should contain sensitive credentials and is already listed in <code>.gitignore</code>.
+              <Trans
+                id="<strong>Note:</strong> Do not commit your <code>.env</code> file to version control. It should contain sensitive credentials and is already listed in <code>.gitignore</code>."
+                components={{ strong: <strong />, code: <code /> }}
+              />
             </p>
           </div>
         </CardContent>

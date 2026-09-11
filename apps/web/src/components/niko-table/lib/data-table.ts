@@ -1,3 +1,4 @@
+import type { MessageDescriptor } from "@/i18n"
 import { dataTableConfig } from "../config/data-table"
 import { FILTER_OPERATORS, FILTER_VARIANTS, JOIN_OPERATORS } from "./constants"
 import type {
@@ -9,7 +10,7 @@ import type {
 export function getFilterOperators(filterVariant: FilterVariant) {
   const operatorMap: Record<
     FilterVariant,
-    { label: string; value: FilterOperator }[]
+    { label: MessageDescriptor; value: FilterOperator }[]
   > = {
     [FILTER_VARIANTS.TEXT]: dataTableConfig.textOperators,
     [FILTER_VARIANTS.NUMBER]: dataTableConfig.numericOperators,

@@ -16,6 +16,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import { enumLabel, useT } from '@/i18n'
+import type { JsonSchemaProperty } from '@/types/metadata'
 import type { FormControlProps } from './types'
 import { useFormContext } from './FormContext'
 import { FormLabel } from './FormLabel'
@@ -31,6 +33,7 @@ export function InputEnum({
   validators,
   schema,
 }: FormControlProps) {
+  const t = useT()
   const { form, formMode } = useFormContext()
   const [open, setOpen] = useState(false)
   // cmdk's Command.List spreads user props BEFORE writing its own generated
@@ -50,8 +53,11 @@ export function InputEnum({
   const disabled = inputMode === 'disabled'
   const hidden = inputMode === 'hidden'
 
-  // Get enum values from schema prop
+  // Get enum values from schema prop. `schema` is one localized property from
+  // the route's metadata, so its `enum_labels` (if the active language overrides
+  // any) is already filled — see src/i18n/labels.ts.
   const enumValues: string[] = (schema as any)?.enum || []
+  const labelFor = (value: string) => enumLabel(schema as JsonSchemaProperty | undefined, value)
   const showSearch = enumValues.length > 10
 
   return (
@@ -134,7 +140,9 @@ export function InputEnum({
                   }
                 >
                   <span className="truncate">
-                    {isDisabled ? (currentValue || '') : (currentValue || 'Select an option')}
+                    {isDisabled
+                      ? (currentValue ? labelFor(currentValue) : '')
+                      : (currentValue ? labelFor(currentValue) : t('Select an option'))}
                   </span>
                   {!isDisabled && <ChevronsUpDown className="ml-auto shrink-0 opacity-50" size={10} />}
                 </PopoverTrigger>
@@ -144,7 +152,7 @@ export function InputEnum({
                   // 2.5.8; the glyph stays 12px.
                   <button
                     type="button"
-                    aria-label="Clear selection"
+                    aria-label={t('Clear selection')}
                     className="absolute top-1/2 right-7 flex size-6 -translate-y-1/2 items-center justify-center rounded-sm opacity-0 transition-opacity focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring group-hover/combobox:opacity-100 group-focus-within/combobox:opacity-100 group-has-aria-expanded/combobox:opacity-100"
                     onPointerDown={(e) => {
                       e.preventDefault()
@@ -158,14 +166,19 @@ export function InputEnum({
               </div>
               <PopoverContent className="w-(--anchor-width) p-0" align="start">
                 <Command>
-                  {showSearch && <CommandInput placeholder="Search..." />}
+                  {showSearch && <CommandInput placeholder={t('Search...')} />}
                   <CommandList ref={listboxRef}>
-                    <CommandEmpty>No option found.</CommandEmpty>
+                    <CommandEmpty>{t('No option found.')}</CommandEmpty>
                     <CommandGroup>
                       {enumValues.map((option) => (
+                        // `value` stays the RAW enum value: it is what
+                        // onSelect hands back and what the form stores. The
+                        // translated label is the visible text and goes into
+                        // `keywords` so typing it still matches.
                         <CommandItem
                           key={option}
                           value={option}
+                          keywords={[labelFor(option)]}
                           onSelect={handleSelect}
                           className="cursor-pointer bg-transparent! hover:bg-accent!"
                         >
@@ -175,7 +188,7 @@ export function InputEnum({
                               currentValue === option ? "opacity-100" : "opacity-0"
                             )}
                           />
-                          {option}
+                          {labelFor(option)}
                         </CommandItem>
                       ))}
                     </CommandGroup>

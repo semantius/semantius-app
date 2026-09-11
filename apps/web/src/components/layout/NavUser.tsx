@@ -9,6 +9,25 @@ import { useTable } from '@/hooks/useTable'
 import { useAuth } from '@/hooks/useAuth'
 import { getConfig } from '@/lib/config'
 import { resolveMenuTarget, type UserMenuEntry } from '@/lib/userMenu'
+import {
+  activateLocale,
+  availableLocales,
+  languageDisplayName,
+  resolveInitialLocale,
+  resolvePlaceholderLocale,
+  SAVE_PREFERENCES_RPC,
+  savePreferencesParams,
+  isPreferenceRpcAbsent,
+  setSessionPreference,
+  type SavePreferencesParams,
+  useFormattingLocale,
+  useLanguage,
+  useT,
+  canTranslate,
+  setTranslateMode,
+  useTranslateModeFlags,
+} from '@/i18n'
+import { useRpcMutation } from '@/hooks/useRpc'
 
 import {
   Avatar,
@@ -17,11 +36,17 @@ import {
 } from '@/components/ui/avatar'
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
@@ -30,6 +55,22 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from '@/components/ui/sidebar'
+
+/**
+ * The radio value standing for "no saved language — follow the browser (or the
+ * operator's default)". Not a language code: `browser-default` is not a
+ * well-formed BCP-47 tag, so it can never collide with a real one.
+ */
+const BROWSER_DEFAULT = 'browser-default'
+
+/**
+ * Turned off for the rest of the session by a definitive "no such function".
+ *
+ * Module state rather than component state because the menu unmounts every time
+ * it closes, and re-asking a platform that has already said no — once per
+ * language switch, forever — is a request whose answer is known.
+ */
+let sessionWriteBackAvailable = true
 
 // Utility function to generate user initials
 function getUserInitials(name?: string): string {
@@ -54,6 +95,7 @@ export function NavUser({
 }) {
   const { isMobile } = useSidebar()
   const router = useRouter()
+  const t = useT()
   const userInitials = getUserInitials(user.name)
 
   // Account/admin entries are configuration, not code: VITE_BACKEND_TYPE picks a
@@ -87,6 +129,102 @@ export function NavUser({
     // parse as JSON (an org slug like "1002" would become %221002%22).
     router.history.push(entry.url)
   }
+
+  // ── Language and formatting ───────────────────────────────────────────────
+  //
+  // Two preferences, two submenus. `language` picks the catalog; `locale` drives
+  // every Intl call. The switcher is the ONLY thing that persists either — boot
+  // resolves and activates without saving, so a preference for a language that
+  // only becomes available after login survives the pre-login pass.
+  const language = useLanguage()
+  const formattingLocale = useFormattingLocale()
+  const locales = availableLocales()
+  // What choosing "Browser default" would give. It has to be resolved with the
+  // saved preference ignored, because once something IS saved the ordinary
+  // resolution answers with that instead.
+  const placeholder = resolvePlaceholderLocale()
+  const followsLanguage = formattingLocale === language
+  const savePreferences = useRpcMutation<unknown, SavePreferencesParams>(SAVE_PREFERENCES_RPC)
+
+  /**
+   * Activate a choice and re-run every route's `head()`.
+   *
+   * `router.invalidate()` and never `location.reload()`: the title of the page
+   * comes from the matched route's `head()`, which only re-runs when the router
+   * invalidates, and a reload would throw away the whole session's client state
+   * to change a string.
+   */
+  const apply = (next: Parameters<typeof activateLocale>[0], persist: Parameters<typeof activateLocale>[1]) => {
+    void activateLocale(next, persist).then(() => router.invalidate())
+    savePreference(persist?.persist)
+  }
+
+  /**
+   * Save the choice to the SESSION as well as the cache, so it follows the
+   * person to their next device.
+   *
+   * The platform may not have the RPC yet, and asking whether it does is not
+   * worth a round trip: a definitive PGRST202 ("no such function") turns the
+   * write-back off for the rest of the session and the cache carries the choice
+   * on its own, which is exactly what P1 shipped with. Any other failure is
+   * silent by design — the language HAS changed, and a toast saying the
+   * preference did not sync would be noise the user can do nothing about.
+   */
+  const savePreference = (persist: { language?: string | null; locale?: string | null } | undefined) => {
+    if (!persist) return
+    setSessionPreference(persist)
+    if (!sessionWriteBackAvailable) return
+    savePreferences.mutate(savePreferencesParams(persist), {
+      onError: (error: Error) => {
+        if (isPreferenceRpcAbsent(error)) sessionWriteBackAvailable = false
+      },
+    })
+  }
+
+  const chooseLanguage = (value: string) => {
+    const nextLanguage = value === BROWSER_DEFAULT ? placeholder.language : value
+    // "Same as language" follows the language; a formatting locale of its own
+    // does not, so its key is left untouched (an omitted field, not a null).
+    apply(
+      { language: nextLanguage, locale: followsLanguage ? nextLanguage : formattingLocale },
+      {
+        persist: {
+          language: value === BROWSER_DEFAULT ? null : value,
+          locale: followsLanguage ? nextLanguage : undefined,
+        },
+      },
+    )
+  }
+
+  const chooseFormat = (value: string) => {
+    const nextLocale = value === BROWSER_DEFAULT ? placeholder.locale : language
+    apply({ language, locale: nextLocale }, { persist: { locale: value === BROWSER_DEFAULT ? null : language } })
+  }
+
+  // Only `session` and `cache` are preferences; everything else is a
+  // placeholder, so the "Browser default" entry is the one that carries the
+  // checkmark until the user makes an explicit choice.
+  const languageSource = resolveInitialLocale().languageSource
+  const languageIsSaved = languageSource === 'session' || languageSource === 'cache'
+  const placeholderName = languageDisplayName(placeholder.language)
+  const browserLanguageLabel =
+    placeholder.languageSource === 'operator'
+      ? t('Default ({language})', { language: placeholderName })
+      : t('Browser default ({language})', { language: placeholderName })
+
+  // ── Translate mode ────────────────────────────────────────────────────────
+  //
+  // One switch at the foot of the Language submenu, for anyone who may
+  // translate (see canTranslate). The marks are part of the mode, not a
+  // switch of their own: with the mode off nothing on the page is marked.
+  // While it is on, the submenu's own label carries the count of what the
+  // active language still lacks.
+  const translateFlags = useTranslateModeFlags()
+  const mayTranslate = canTranslate(userPermissions)
+  const languageLabel =
+    translateFlags.enabled && translateFlags.missingCount > 0
+      ? t('Language ({count} missing)', { count: translateFlags.missingCount })
+      : t('Language')
 
   return (
     <SidebarMenu>
@@ -132,8 +270,12 @@ export function NavUser({
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              {menuEntries.map((entry) => {
-                const key = `${entry.title}:${entry.url}`
+              {menuEntries.map((entry, index) => {
+                // Keyed by position and url rather than by title: a built-in
+                // title is a MessageDescriptor, and a rendered one changes with
+                // the language, which would remount every item on a switch.
+                const key = `${index}:${entry.url}`
+                const title = t(entry.title)
                 const target = resolveMenuTarget(entry)
 
                 if (target === 'newtab') {
@@ -154,7 +296,7 @@ export function NavUser({
                         <a href={entry.url} target="_blank" rel="noopener noreferrer" />
                       }
                     >
-                      {entry.title}
+                      {title}
                     </DropdownMenuItem>
                   )
                 }
@@ -173,7 +315,7 @@ export function NavUser({
                         <a href={entry.url} />
                       }
                     >
-                      {entry.title}
+                      {title}
                     </DropdownMenuItem>
                   )
                 }
@@ -182,7 +324,7 @@ export function NavUser({
                 // to the native text-selection event and never fires on click.
                 return (
                   <DropdownMenuItem key={key} onClick={() => pushInApp(entry)}>
-                    {entry.title}
+                    {title}
                   </DropdownMenuItem>
                 )
               })}
@@ -195,10 +337,61 @@ export function NavUser({
                     />
                   }
                 >
-                  Manage Favorites
+                  {t('Manage Favorites')}
                 </DropdownMenuItem>
               )}
             </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>{languageLabel}</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuRadioGroup
+                  value={languageIsSaved ? language : BROWSER_DEFAULT}
+                  onValueChange={(value) => value && chooseLanguage(value)}
+                >
+                  <DropdownMenuRadioItem value={BROWSER_DEFAULT}>{browserLanguageLabel}</DropdownMenuRadioItem>
+                  <DropdownMenuSeparator />
+                  {locales.map((locale) => (
+                    <DropdownMenuRadioItem key={locale.code} value={locale.code}>
+                      {locale.name}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+                {mayTranslate && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuCheckboxItem
+                      checked={translateFlags.enabled}
+                      onCheckedChange={(checked) => setTranslateMode(checked)}
+                    >
+                      {t('Translate mode')}
+                    </DropdownMenuCheckboxItem>
+                  </>
+                )}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>{t('Number and date format')}</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                {/*
+                  The two cases that occur in practice. "Same as language" is
+                  stored as the concrete tag, so it is checked exactly when the
+                  formatting locale IS the language — which is also what makes
+                  it follow a language change.
+                */}
+                <DropdownMenuRadioGroup
+                  value={followsLanguage ? 'language' : BROWSER_DEFAULT}
+                  onValueChange={(value) => value && chooseFormat(value)}
+                >
+                  <DropdownMenuRadioItem value={BROWSER_DEFAULT}>
+                    {t('Browser default ({locale})', { locale: placeholder.locale })}
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="language">
+                    {t('Same as language ({locale})', { locale: language })}
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
             <DropdownMenuSeparator />
             {/*
               A plain <a>, not a TanStack <Link>: `/logout` is an in-app route,
@@ -211,7 +404,7 @@ export function NavUser({
             {/* eslint-disable-next-line jsx-a11y/anchor-has-content */}
             <DropdownMenuItem render={<a href="/logout" />}>
               <LogOut />
-              Log out
+              {t('Log out')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

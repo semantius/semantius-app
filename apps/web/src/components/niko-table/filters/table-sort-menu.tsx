@@ -30,7 +30,10 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import {
-  Select,
+  // Aliased on purpose: eslint-plugin-lingui treats a JSX element named
+  // `Select` as its own ICU component and goes blind inside it. See the
+  // no-restricted-syntax note in eslint.config.js.
+  Select as SelectRoot,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -45,6 +48,7 @@ import {
 } from "@/components/ui-ext/sortable"
 import { useKeyboardShortcut } from "../hooks"
 import { cn } from "@/lib/utils"
+import { useT } from "@/i18n"
 import { ChevronsUpDown, Grip } from "lucide-react"
 
 // Import sort labels from TableColumnHeader for consistency
@@ -69,6 +73,7 @@ function TableSortItem({
   onSortUpdate,
   onSortRemove,
 }: TableSortItemProps) {
+  const t = useT()
   const fieldListboxId = `${sortItemId}-field-listbox`
   const fieldTriggerId = `${sortItemId}-field-trigger`
   const directionListboxId = `${sortItemId}-direction-listbox`
@@ -147,9 +152,9 @@ function TableSortItem({
             className="w-(--anchor-width) origin-(--transform-origin) p-0"
           >
             <Command>
-              <CommandInput placeholder="Search fields..." />
+              <CommandInput placeholder={t("Search fields...")} />
               <CommandList>
-                <CommandEmpty>No fields found.</CommandEmpty>
+                <CommandEmpty>{t("No fields found.")}</CommandEmpty>
                 <CommandGroup>
                   {columns.map(column => (
                     <CommandItem
@@ -165,7 +170,7 @@ function TableSortItem({
             </Command>
           </PopoverContent>
         </Popover>
-        <Select
+        <SelectRoot
           open={showDirectionSelector}
           onOpenChange={setShowDirectionSelector}
           value={sort.desc ? "desc" : "asc"}
@@ -177,16 +182,16 @@ function TableSortItem({
             aria-controls={directionListboxId}
             className="h-8 w-24 rounded data-size:h-8"
           >
-            <SelectValue>{(v) => (v === "desc" ? labels.desc : labels.asc)}</SelectValue>
+            <SelectValue>{(v) => (v === "desc" ? t(labels.desc) : t(labels.asc))}</SelectValue>
           </SelectTrigger>
           <SelectContent
             id={directionListboxId}
             className="min-w-(--anchor-width) origin-(--transform-origin)"
           >
-            <SelectItem value="asc">{labels.asc}</SelectItem>
-            <SelectItem value="desc">{labels.desc}</SelectItem>
+            <SelectItem value="asc">{t(labels.asc)}</SelectItem>
+            <SelectItem value="desc">{t(labels.desc)}</SelectItem>
           </SelectContent>
-        </Select>
+        </SelectRoot>
         <Button
           aria-controls={sortItemId}
           variant="outline"
@@ -231,6 +236,7 @@ export function TableSortMenu<TData>({
   className,
   ...props
 }: TableSortMenuProps<TData>) {
+  const t = useT()
   // Expose table instance globally for TableSortItem variant detection
   // (This is a workaround for passing table to deeply nested TableSortItem)
   // @ts-expect-error: Assigning table instance to window for deep sort label access
@@ -377,7 +383,7 @@ export function TableSortMenu<TData>({
           }
         >
           <ArrowDownUp />
-          Sort
+          {t("Sort")}
           {sorting.length > 0 && (
             <Badge
               variant="secondary"
@@ -396,7 +402,7 @@ export function TableSortMenu<TData>({
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2">
               <h4 id={labelId} className="leading-none font-medium">
-                {sorting.length > 0 ? "Sort by" : "No sorting applied"}
+                {sorting.length > 0 ? t("Sort by") : t("No sorting applied")}
               </h4>
               {sorting.length > 1 && (
                 <Tooltip>
@@ -404,7 +410,7 @@ export function TableSortMenu<TData>({
                     render={<CircleHelp className="size-3.5 cursor-help text-muted-foreground" />}
                   />
                   <TooltipContent side="right">
-                    The order of fields determines sort priority
+                    {t("The order of fields determines sort priority")}
                   </TooltipContent>
                 </Tooltip>
               )}
@@ -417,8 +423,8 @@ export function TableSortMenu<TData>({
               )}
             >
               {sorting.length > 0
-                ? "Modify sorting to organize your rows."
-                : "Add sorting to organize your rows."}
+                ? t("Modify sorting to organize your rows.")
+                : t("Add sorting to organize your rows.")}
             </p>
           </div>
           {sorting.length > 0 && (
@@ -446,7 +452,7 @@ export function TableSortMenu<TData>({
               onClick={onSortAdd}
               disabled={columns.length === 0}
             >
-              Add sort
+              {t("Add sort")}
             </Button>
             {sorting.length > 0 && (
               <Button
@@ -455,7 +461,7 @@ export function TableSortMenu<TData>({
                 className="rounded"
                 onClick={onSortingReset}
               >
-                Reset sorting
+                {t("Reset sorting")}
               </Button>
             )}
           </div>

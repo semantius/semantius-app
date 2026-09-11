@@ -1,3 +1,4 @@
+import { useT } from '@/i18n'
 import { MAIN_CONTENT_ID } from './landmarks'
 
 /**
@@ -18,12 +19,14 @@ import { MAIN_CONTENT_ID } from './landmarks'
  * skipping to.
  */
 export function SkipLink() {
+  const t = useT()
+
   return (
     <a
       href={`#${MAIN_CONTENT_ID}`}
       className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:outline-2 focus:outline-offset-2 focus:outline-ring focus:shadow-lg"
     >
-      Skip to main content
+      {t('Skip to main content')}
     </a>
   )
 }

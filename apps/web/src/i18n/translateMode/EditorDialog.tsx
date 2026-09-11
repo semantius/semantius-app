@@ -1,0 +1,243 @@
+import { useId, useState } from 'react'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  SOURCE_LANGUAGE,
+  compileError,
+  currentTranslationOf,
+  isVerbatimKey,
+  placeholderDiff,
+  translateTarget,
+  useT,
+  type TranslationEntry,
+} from '@/i18n'
+import { useTranslationWriter } from './useTranslationWriter'
+
+/** What was clicked: one entry, or several when one text has several meanings. */
+export interface EditorRequest {
+  entries: TranslationEntry[]
+}
+
+export interface EditorDialogProps {
+  request: EditorRequest | null
+  language: string
+  onClose(): void
+}
+
+/**
+ * The in-context editor: source, key, the translation, and the placeholder
+ * check — for whatever was Alt+clicked or picked in the panel.
+ *
+ * A modal dialog rather than a popover anchored to the click: the page behind
+ * it is made inert by `ModalInert` and focus is managed for free, and a
+ * translator reads the source text here rather than on the page. Marked
+ * `data-i18n-ui` so the highlighter never scans its own strings.
+ */
+export function EditorDialog({ request, language, onClose }: EditorDialogProps) {
+  return (
+    <Dialog
+      open={request !== null}
+      onOpenChange={(open) => {
+        if (!open) onClose()
+      }}
+    >
+      <DialogContent data-i18n-ui="" className="sm:max-w-lg">
+        {request && (
+          <EditorForm
+            key={request.entries.map((entry) => entry.id).join(' ')}
+            entries={request.entries}
+            language={language}
+            onDone={onClose}
+          />
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function EditorForm({
+  entries,
+  language,
+  onDone,
+}: {
+  entries: TranslationEntry[]
+  language: string
+  onDone(): void
+}) {
+  const t = useT()
+  const [selected, setSelected] = useState(0)
+  const entry = entries[Math.min(selected, entries.length - 1)]
+  const isSource = language === SOURCE_LANGUAGE
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>{isSource ? t('Override wording') : t('Translate')}</DialogTitle>
+        {/* The key, where it is not the source text itself: a model path, an
+            error's code, a disambiguated code string. */}
+        <DialogDescription>{entry.id !== entry.source ? entry.id : t('Translate this text')}</DialogDescription>
+      </DialogHeader>
+      {entries.length > 1 && (
+        <div role="group" aria-label={t('This text has more than one meaning')} className="flex flex-wrap gap-2">
+          {entries.map((candidate, index) => (
+            <Button
+              key={candidate.id}
+              type="button"
+              size="sm"
+              variant={index === selected ? 'default' : 'outline'}
+              aria-pressed={index === selected}
+              onClick={() => setSelected(index)}
+            >
+              {candidate.id !== candidate.source ? candidate.id : t('Message')}
+            </Button>
+          ))}
+        </div>
+      )}
+      <EntryFields key={entry.id} entry={entry} language={language} onDone={onDone} />
+    </>
+  )
+}
+
+function EntryFields({
+  entry,
+  language,
+  onDone,
+}: {
+  entry: TranslationEntry
+  language: string
+  onDone(): void
+}) {
+  const t = useT()
+  const { save } = useTranslationWriter(language)
+  const current = currentTranslationOf(entry)
+  const [text, setText] = useState(current)
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const fieldId = useId()
+  const missingId = useId()
+  const extraId = useId()
+  const errorId = useId()
+  // Clearing writes an EMPTY translation, which is how the endpoint clears one:
+  // the entry stops overriding and the source text shows through again.
+  const canClear = Boolean(current)
+  const { mode } = translateTarget()
+  // In the source language there is nothing to translate; an OVERRIDE is a
+  // record the prod target keeps. In dev and stage the source language's file
+  // is the index — the record of what the English IS — and an edit there
+  // would misrecord it.
+  const overrideUnavailable = language === SOURCE_LANGUAGE && mode !== 'prod'
+
+  // A plain server sentence is stored verbatim; everything else is ICU and has
+  // to compile and keep its placeholders — the same two checks `import.mjs`
+  // applies.
+  const isIcu = !isVerbatimKey(entry.id)
+  const diff = isIcu && text.trim() ? placeholderDiff(entry.source, text.trim()) : null
+
+  const submit = async (translation: string) => {
+    setError(null)
+    if (translation && isIcu) {
+      const problem = compileError(translation)
+      if (problem) {
+        setError(t('This translation does not compile: {problem}', { problem }))
+        return
+      }
+    }
+    setBusy(true)
+    const ok = await save(entry.id, translation)
+    setBusy(false)
+    if (ok) onDone()
+  }
+
+  if (overrideUnavailable) {
+    return (
+      <>
+        <div className="flex flex-col gap-1">
+          <p className="text-xs text-muted-foreground">{t('Source')}</p>
+          <p className="font-medium whitespace-pre-wrap">{entry.source}</p>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          {t('English is the source language. Switch to the language you are translating.')}
+        </p>
+        <DialogFooter>
+          <DialogClose render={<Button type="button" variant="outline" />}>{t('Close')}</DialogClose>
+        </DialogFooter>
+      </>
+    )
+  }
+
+  return (
+    <form
+      className="flex flex-col gap-3"
+      onSubmit={(event) => {
+        event.preventDefault()
+        void submit(text.trim())
+      }}
+    >
+      <div className="flex flex-col gap-1">
+        <p className="text-xs text-muted-foreground">{t('Source')}</p>
+        <p className="font-medium whitespace-pre-wrap">{entry.source}</p>
+      </div>
+      <div className="flex flex-col gap-1">
+        <Label htmlFor={fieldId}>{t('Translation')}</Label>
+        <Textarea
+          id={fieldId}
+          value={text}
+          rows={3}
+          onChange={(event) => setText(event.target.value)}
+          aria-invalid={error !== null || Boolean(diff?.missing.length)}
+          // The field's own problems, reachable from the field: Save is
+          // disabled on a missing placeholder, so the reason has to be
+          // announced with it, not sit in an unrelated paragraph.
+          aria-describedby={
+            [diff?.missing.length ? missingId : '', diff?.extra.length ? extraId : '', error ? errorId : '']
+              .filter(Boolean)
+              .join(' ') || undefined
+          }
+        />
+      </div>
+      {diff && diff.missing.length > 0 && (
+        <p id={missingId} className="text-xs text-destructive">
+          {t('Missing placeholders: {list}', { list: diff.missing.map((name) => `{${name}}`).join(', ') })}
+        </p>
+      )}
+      {diff && diff.extra.length > 0 && (
+        <p id={extraId} className="text-xs text-destructive">
+          {t('Unexpected placeholders: {list}', { list: diff.extra.map((name) => `{${name}}`).join(', ') })}
+        </p>
+      )}
+      {error && (
+        <p id={errorId} role="alert" className="text-xs text-destructive">
+          {error}
+        </p>
+      )}
+      <p className="text-xs text-muted-foreground">
+        {mode === 'dev'
+          ? t('Saved into this checkout, as a change you can review and commit.')
+          : mode === 'stage'
+            ? t('Saved to the stage copy of this language.')
+            : t('Saved to this tenant, for every user.')}
+      </p>
+      <DialogFooter>
+        <DialogClose render={<Button type="button" variant="outline" />}>{t('Cancel')}</DialogClose>
+        {canClear && (
+          <Button type="button" variant="outline" disabled={busy} onClick={() => void submit('')}>
+            {t('Clear')}
+          </Button>
+        )}
+        <Button type="submit" disabled={busy || Boolean(diff?.missing.length)}>
+          {t('Save')}
+        </Button>
+      </DialogFooter>
+    </form>
+  )
+}

@@ -1,6 +1,7 @@
 import { KeyRound } from 'lucide-react'
 import { type ViewProps } from '@/types/metadata'
 import { type RowMenuItem } from '@/components/data-table-view/DataTableView'
+import { useT } from '@/i18n'
 import { View } from '../View'
 
 /**
@@ -9,12 +10,13 @@ import { View } from '../View'
  * agent (`is_agent`). The handler is a placeholder until the API-key infra lands.
  */
 export function Users(props: ViewProps) {
+  const t = useT()
   const getRowMenuItems = (record: Record<string, unknown>): RowMenuItem[] =>
     record.is_agent
       ? [
           {
             key: 'manage-api-keys',
-            label: 'Manage API keys',
+            label: t('Manage API keys'),
             icon: KeyRound,
             // Placeholder — real handler added once API-key infra exists.
             onClick: () => {},

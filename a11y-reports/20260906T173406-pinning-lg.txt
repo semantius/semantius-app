@@ -1,0 +1,21 @@
+Accessibility audit — https://main-20260906175709-semantius-app.ma532.workers.dev
+164/168 views measured, 4 cantTell
+
+   29  Not Evaluated
+   24  Supports
+    2  Partially Supports
+
+Failing criteria:
+  1.3.1 Info and Relationships (A) — Partially Supports: 14 finding(s) across 14 of 164 views.
+      module-home @ 320 / light: heading level jumps h1 -> h3 ("No Portlets")
+      module-home @ 390 / light: heading level jumps h1 -> h3 ("No Portlets")
+      module-home @ 640 / light: heading level jumps h1 -> h3 ("No Portlets")
+      module-home @ 768 / light: heading level jumps h1 -> h3 ("No Portlets")
+      … 10 more
+  1.4.3 Contrast (Minimum) (AA) — Partially Supports: 4 finding(s) across 4 of 164 views.
+      module-home @ 768 / light: color-contrast — Elements must meet minimum color contrast ratio thresholds
+      crm-home-detail @ 768 / light: color-contrast — Elements must meet minimum color contrast ratio thresholds
+      entity-record @ 1440 / light: color-contrast — Elements must meet minimum color contrast ratio thresholds
+      settings @ 1440 / light: color-contrast — Elements must meet minimum color contrast ratio thresholds
+
+29 criteria are Not Evaluated (not a pass): 1.1.1, 1.2.3, 1.3.2, 1.3.3, 2.1.2, 2.1.4, 2.3.1, 2.4.3, 2.5.1, 2.5.2, 2.5.4, 3.2.1, 3.2.2, 3.2.6, 3.3.1, 3.3.7, 1.2.4, 1.2.5, 1.4.5, 1.4.13, 2.4.5, 2.4.6, 2.5.7, 3.2.3, 3.2.4, 3.3.3, 3.3.4, 3.3.8, 4.1.3

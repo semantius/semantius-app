@@ -3,12 +3,14 @@ import { useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { ApiErrorDisplay } from '@/components/ApiErrorDisplay'
 import { hideAppLoader } from '@/lib/appLoader'
+import { useT } from '@/i18n'
 
 interface ProtectedRouteProps {
   children: ReactNode
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
+  const t = useT()
   const {
     token,
     loginInProgress,
@@ -47,13 +49,13 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
           {userInfoError && (
             <ApiErrorDisplay
               error={userInfoError}
-              title="Failed to fetch user information from OAuth provider"
+              title={t('Failed to fetch user information from OAuth provider')}
             />
           )}
           {rpcUserInfoError && (
             <ApiErrorDisplay
               error={rpcUserInfoError}
-              title="Failed to fetch user information from API"
+              title={t('Failed to fetch user information from API')}
             />
           )}
         </div>

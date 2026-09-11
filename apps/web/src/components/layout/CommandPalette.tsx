@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { useAuth } from '@/hooks/useAuth'
+import { moduleLabels } from '@/contexts/AuthContext'
+import { useT } from '@/i18n'
 import { getApiConfig, createApiHeaders } from '@/lib/apiClient'
 import {
   Command,
@@ -143,6 +145,7 @@ function moduleUrl(slug: string, homePage: string) {
 export function CommandPalette() {
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
+  const t = useT()
 
   const { data: entities, isLoading: entitiesLoading } = useCatalog<EntityRecord>(
     'entities',
@@ -197,7 +200,7 @@ export function CommandPalette() {
       {/* Substring-first + bigram-coverage fuzzy match over the combined
           title+description (see scoreMatch). */}
       <Command filter={scoreMatch}>
-        <CommandInput placeholder="Search apps and modules..." />
+        <CommandInput placeholder={t('Search apps and modules...')} />
         <CommandList className="max-h-[60vh]">
           {isLoading ? (
             // Loading skeleton — shown only before the first fetch resolves.
@@ -211,25 +214,38 @@ export function CommandPalette() {
             </div>
           ) : (
           <>
-          <CommandEmpty>No results found.</CommandEmpty>
+          <CommandEmpty>{t('No results found.')}</CommandEmpty>
 
-          <CommandGroup heading="Apps">
+          <CommandGroup heading={t('Apps')}>
             {entities?.map((entity) => {
               const slug = moduleSlugById.get(entity.module_id)
               // Skip entities whose module isn't loaded/known — we can't build a URL.
               if (!slug) return null
+              // The palette lists entities and modules straight from the model
+              // tables, so like the sidebar it renders its own labels as
+              // messages keyed by their model path.
+              const label = t({
+                id: ['module', slug, entity.table_name, 'entity', 'plural_label'],
+                defaultMessage: entity.plural_label,
+              })
+              const description = entity.description
+                ? t({ id: ['module', slug, entity.table_name, 'entity', 'description'], defaultMessage: entity.description })
+                : ''
               return (
                 <CommandItem
                   key={`entity-${entity.module_id}-${entity.table_name}`}
                   className="cursor-pointer"
-                  value={`${entity.plural_label} ${entity.description} ${entity.table_name}`}
+                  // The search value keeps the ENGLISH label alongside the
+                  // translated one: a user who knows the table by its model name
+                  // (or types the identifier) must still find it.
+                  value={`${label} ${entity.plural_label} ${description} ${entity.table_name}`}
                   onSelect={() => go(`/${slug}/${entity.table_name}`)}
                 >
                   <div className="flex flex-col">
-                    <span>{entity.plural_label}</span>
-                    {!!entity.description && (
+                    <span>{label}</span>
+                    {!!description && (
                       <span className="text-xs text-muted-foreground">
-                        {entity.description}
+                        {description}
                       </span>
                     )}
                   </div>
@@ -240,24 +256,29 @@ export function CommandPalette() {
 
           <CommandSeparator />
 
-          <CommandGroup heading="Modules">
-            {modules?.map((module) => (
-              <CommandItem
-                key={`module-${module.id}`}
-                className="cursor-pointer"
-                value={`${module.module_name} ${module.description} ${module.module_slug}`}
-                onSelect={() => go(moduleUrl(module.module_slug, module.home_page))}
-              >
-                <div className="flex flex-col">
-                  <span>{module.module_name}</span>
-                  {!!module.description && (
-                    <span className="text-xs text-muted-foreground">
-                      {module.description}
-                    </span>
-                  )}
-                </div>
-              </CommandItem>
-            ))}
+          <CommandGroup heading={t('Modules')}>
+            {modules?.map((module) => {
+              const labels = moduleLabels(t, module)
+              const name = labels.name || module.module_name
+              const description = labels.description ?? ''
+              return (
+                <CommandItem
+                  key={`module-${module.id}`}
+                  className="cursor-pointer"
+                  value={`${name} ${module.module_name} ${description} ${module.module_slug}`}
+                  onSelect={() => go(moduleUrl(module.module_slug, module.home_page))}
+                >
+                  <div className="flex flex-col">
+                    <span>{name}</span>
+                    {!!description && (
+                      <span className="text-xs text-muted-foreground">
+                        {description}
+                      </span>
+                    )}
+                  </div>
+                </CommandItem>
+              )
+            })}
           </CommandGroup>
           </>
           )}

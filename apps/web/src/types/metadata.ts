@@ -6,6 +6,14 @@ export interface JsonSchemaProperty {
   description?: string
   format?: string
   enum?: string[]
+  // Display labels for the enum values above, keyed by the STORED value. The one
+  // consumer-facing slot for translated model labels: `localizeMetadata` fills
+  // it from the active language's overrides at render time (src/i18n/labels.ts),
+  // and a future server-side label channel would fill the same slot with no call
+  // site changing. Read it through `enumLabel(property, value)`, which falls back
+  // to the raw value — the enum's own `value` strings are what the database
+  // holds and what filters and comparisons keep using.
+  enum_labels?: Record<string, string>
   default?: unknown
   minimum?: number
   maximum?: number
@@ -47,6 +55,11 @@ export interface SemSchemaTable {
   icon_url?: string
   description?: string
   module_id?: number
+  // The module's slug, as `get_schema` returns it beside `module_id`. It is
+  // what every metadata message key starts with (`module.<slug>.<table>…`,
+  // see src/i18n/catalog.ts) — never the route param, which is a catch-all
+  // and wrong for a parent-filtered view that fetches ANOTHER entity's schema.
+  module_slug: string
   view_permission?: string | null
   edit_permission?: string | null
   id_column: string

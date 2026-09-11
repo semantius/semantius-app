@@ -94,7 +94,7 @@ describe('SchemaForm', () => {
         // Email validation should fail
         expect(screen.getByText(/must match format "email"/i)).toBeInTheDocument()
         expect(emailInput).toHaveAttribute('aria-invalid', 'true')
-      }, { timeout: 5000 })
+      })
     })
 
     it('should submit successfully after fixing validation errors', async () => {

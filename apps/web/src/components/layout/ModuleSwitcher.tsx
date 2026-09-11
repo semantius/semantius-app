@@ -7,10 +7,11 @@ import { useParams } from '@tanstack/react-router'
 import { useModuleNavigate } from '@/hooks/useModuleNavigate'
 import { openCommandPalette } from './CommandPalette'
 import { PlatformShortcut } from '@/components/ui-ext/platform-shortcut'
-import { getModuleDisplay } from '@/contexts/AuthContext'
+import { getModuleDisplay, moduleLabels } from '@/contexts/AuthContext'
 import type { Module } from '@/contexts/AuthContext'
 import { useTable } from '@/hooks/useTable'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useT } from '@/i18n'
 
 import {
   DropdownMenu,
@@ -42,10 +43,15 @@ function useModules(): { modules: ModuleItem[]; loading: boolean } {
   const { data, isLoading } = useTable<Module>('modules', {
     query: 'order=module_name.asc',
   })
+  // Module names are model data like table labels are, so the active language
+  // may translate them; `getModuleDisplay` applies the translation inside its
+  // own three naming rules rather than on top of their result. `t` in the deps
+  // is what re-runs this on a language switch.
+  const t = useT()
 
   const modules = React.useMemo<ModuleItem[]>(() =>
     (data ?? []).map((module) => {
-      const { displayName, displayTitle } = getModuleDisplay(module)
+      const { displayName, displayTitle } = getModuleDisplay(module, moduleLabels(t, module))
       return {
         name: module.module_name,
         displayName,
@@ -57,7 +63,7 @@ function useModules(): { modules: ModuleItem[]; loading: boolean } {
         id: module.id,
         home_page: module.home_page,
       }
-    }), [data])
+    }), [data, t])
 
   return { modules, loading: isLoading }
 }
@@ -68,6 +74,7 @@ export function ModuleSwitcher({
   onModuleChange?: (moduleId: number | null, moduleSlug: string | null) => void
 }) {
   const { modules, loading } = useModules()
+  const t = useT()
   const params = useParams({ strict: false })
   const { moduleId } = params as { moduleId?: string }
   const navigateToModule = useModuleNavigate()
@@ -81,7 +88,14 @@ export function ModuleSwitcher({
       const match = modules.find(m => m.slug.toLowerCase() === lower)
       if (match) { setActiveModule(match); return }
     }
-    if (!activeModule) setActiveModule(modules[0])
+    // The functional updater reads the CURRENT value without depending on it,
+    // which is what keeps `activeModule` out of the dependency list.
+    // Putting it there is not idempotent, whatever it looks like: a module
+    // click sets `activeModule` optimistically and THEN navigates, and the
+    // router's params update asynchronously — so an effect that re-runs on
+    // `activeModule` matches the url the user is leaving and sets the module
+    // straight back, until the navigation lands.
+    setActiveModule((current) => current ?? modules[0])
   }, [moduleId, modules])
 
   React.useEffect(() => {
@@ -158,7 +172,7 @@ export function ModuleSwitcher({
               <div className="flex size-6 items-center justify-center rounded-md border">
                 <Search className="size-3.5 shrink-0" />
               </div>
-              Quick navigation
+              {t('Quick navigation')}
               <PlatformShortcut modifier="mod" keyLabel="K" className="ml-auto" />
             </DropdownMenuItem>
             <DropdownMenuSeparator />

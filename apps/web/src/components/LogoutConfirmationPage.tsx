@@ -4,8 +4,11 @@ import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card'
 import { CheckCircle, LogIn } from 'lucide-react'
 import { hideAppLoader } from '@/lib/appLoader'
+import { useT } from '@/i18n'
 
 export function LogoutConfirmationPage() {
+  const t = useT()
+
   useEffect(() => {
     hideAppLoader()
   }, [])
@@ -17,15 +20,15 @@ export function LogoutConfirmationPage() {
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/20">
             <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
           </div>
-          <h1 data-slot="card-title" className="font-heading font-medium text-2xl">Successfully Logged Out</h1>
+          <h1 data-slot="card-title" className="font-heading font-medium text-2xl">{t('Successfully Logged Out')}</h1>
           <CardDescription>
-            You have been successfully logged out of your account. Your session has been terminated securely.
+            {t('You have been successfully logged out of your account. Your session has been terminated securely.')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="text-center text-sm text-muted-foreground">
-            <p>Thank you for using Semantius UI.</p>
-            <p>We hope to see you again soon!</p>
+            <p>{t('Thank you for using Semantius UI.')}</p>
+            <p>{t('We hope to see you again soon!')}</p>
           </div>
           
           <div className="space-y-2">
@@ -39,13 +42,13 @@ export function LogoutConfirmationPage() {
           */}
             <Link to="/" className={buttonVariants({ size: 'lg', className: 'w-full' })}>
               <LogIn className="mr-2 h-4 w-4" />
-              Sign In Again
+              {t('Sign In Again')}
             </Link>
           </div>
           
           <div className="text-center">
             <p className="text-xs text-muted-foreground">
-              If you didn't intend to log out, click "Sign In Again" to return to the application.
+              {t('If you didn\'t intend to log out, click "Sign In Again" to return to the application.')}
             </p>
           </div>
         </CardContent>

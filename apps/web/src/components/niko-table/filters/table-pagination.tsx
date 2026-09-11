@@ -2,7 +2,10 @@ import React from "react"
 import { type Table } from "@tanstack/react-table"
 import { Button } from "@/components/ui/button"
 import {
-  Select,
+  // Aliased on purpose: eslint-plugin-lingui treats a JSX element named
+  // `Select` as its own ICU component and goes blind inside it. See the
+  // no-restricted-syntax note in eslint.config.js.
+  Select as SelectRoot,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -11,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useT } from "@/i18n"
 
 export interface TablePaginationProps<TData> {
   table: Table<TData>
@@ -64,6 +68,7 @@ export function TablePagination<TData>({
   onPreviousPage,
   onPaginationReady,
 }: TablePaginationProps<TData>) {
+  const t = useT()
   const { pageIndex, pageSize } = table.getState().pagination
 
   // Use totalCount if provided (server-side), otherwise use filtered row model (client-side)
@@ -117,16 +122,16 @@ export function TablePagination<TData>({
   return (
     <nav
       className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-2"
-      aria-label="Table pagination"
+      aria-label={t("Table pagination")}
     >
       <div className="flex items-center space-x-2">
         <span
           className="text-sm whitespace-nowrap text-muted-foreground"
           id="pagination-page-size-label"
         >
-          Items per page
+          {t("Items per page")}
         </span>
-        <Select
+        <SelectRoot
           value={`${Number(pageSize) === 0 ? defaultPageSize : Number(pageSize)}`}
           onValueChange={value => {
             const newPageSize = Number(value)
@@ -138,7 +143,7 @@ export function TablePagination<TData>({
           <SelectTrigger
             size="sm"
             className="w-16 focus:ring-0"
-            aria-label="Select page size"
+            aria-label={t("Select page size")}
             aria-labelledby="pagination-page-size-label"
           >
             <SelectValue />
@@ -150,7 +155,7 @@ export function TablePagination<TData>({
               </SelectItem>
             ))}
           </SelectContent>
-        </Select>
+        </SelectRoot>
       </div>
 
       <div
@@ -159,15 +164,22 @@ export function TablePagination<TData>({
         aria-live="polite"
         aria-atomic="true"
       >
+        {/* One ICU message per case rather than a range appended to a count:
+            the plural category is decided by the TOTAL, and a language with more
+            than two categories needs the whole sentence to place it. */}
         {totalRows === 0
-          ? "0 items"
-          : `${startItem}-${endItem} of ${totalRows} items`}
+          ? t("No items")
+          : t("{start}-{end} of {total, plural, one {# item} other {# items}}", {
+              start: startItem,
+              end: endItem,
+              total: totalRows,
+            })}
       </div>
 
       <div className="ml-auto flex items-center space-x-4">
         <div className="flex items-center space-x-2 text-sm text-muted-foreground">
           <label htmlFor="page-number-input" className="sr-only">
-            Page number
+            {t("Page number")}
           </label>
           <Input
             id="page-number-input"
@@ -199,10 +211,12 @@ export function TablePagination<TData>({
               width: `calc(${Math.max(String(totalPages).length, 1)}ch + 1.75rem)`,
             }}
             disabled={totalPages === 0 || isLoading || isFetching}
-            aria-label={`Page ${currentPage} of ${totalPages}`}
+            aria-label={t("Page {page} of {total}", { page: currentPage, total: totalPages })}
           />
           <span className="whitespace-nowrap" aria-hidden="true">
-            of {Math.max(1, totalPages)} pages
+            {t("of {count, plural, one {# page} other {# pages}}", {
+              count: Math.max(1, totalPages),
+            })}
           </span>
         </div>
 
@@ -217,8 +231,8 @@ export function TablePagination<TData>({
               onPreviousPage?.(newPageIndex)
             }}
             disabled={!canGoPrevious}
-            aria-label={`Go to previous page, page ${pageIndex}`}
-            title="Go to previous page"
+            aria-label={t("Go to previous page, page {page}", { page: pageIndex })}
+            title={t("Go to previous page")}
           >
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           </Button>
@@ -232,8 +246,8 @@ export function TablePagination<TData>({
               onNextPage?.(newPageIndex)
             }}
             disabled={!canGoNext}
-            aria-label={`Go to next page, page ${pageIndex + 2}`}
-            title="Go to next page"
+            aria-label={t("Go to next page, page {page}", { page: pageIndex + 2 })}
+            title={t("Go to next page")}
           >
             <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </Button>

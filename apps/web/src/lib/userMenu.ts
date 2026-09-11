@@ -9,6 +9,8 @@
  * it stays unit-testable; lib/config.ts does the env reading and calls in.
  */
 
+import { msg, type MessageDescriptor } from '@/i18n'
+
 export type BackendType = 'cloud' | 'self_hosted' | 'custom'
 
 /**
@@ -23,7 +25,14 @@ export type MenuTarget = 'default' | 'redirect' | 'newtab'
 export type NavigationMode = 'spa' | 'redirect' | 'newtab'
 
 export interface UserMenuEntry {
-  title: string
+  /**
+   * A `MessageDescriptor` for a built-in entry, so its English wording is
+   * extracted and translated like any other string; a plain string for an
+   * operator's entry from `VITE_UI_CUSTOMIZER`, whose wording this repo cannot
+   * know. Both are rendered with `t(entry.title)`, and an operator translates
+   * theirs through the deployment file's `messages` section.
+   */
+  title: string | MessageDescriptor
   url: string
   /** When set, the entry renders only if the user holds this permission. */
   permission?: string
@@ -58,10 +67,10 @@ export const BACKEND_TYPE_VALUES = BACKEND_TYPES.join(', ')
  */
 const BUILT_IN_MENUS: Record<'cloud' | 'self_hosted', UserMenuEntry[]> = {
   cloud: [
-    { title: 'Settings', url: '/settings' },
-    { title: 'Profile', url: 'https://app.semantius.com/settings?orgid={orgid}' },
+    { title: msg('Settings'), url: '/settings' },
+    { title: msg('Profile'), url: 'https://app.semantius.com/settings?orgid={orgid}' },
     {
-      title: 'Platform',
+      title: msg('Platform'),
       url: 'https://app.semantius.com/settings/organization?orgid={orgid}',
       permission: 'admin',
     },
@@ -69,8 +78,8 @@ const BUILT_IN_MENUS: Record<'cloud' | 'self_hosted', UserMenuEntry[]> = {
   // `/idp/*` is proxied to the identity provider, not served by the SPA — these
   // must leave the router (see UserMenuEntry.target).
   self_hosted: [
-    { title: 'Account', url: '/idp/account', target: 'redirect' },
-    { title: 'User Manager', url: '/idp/admin', permission: 'admin', target: 'redirect' },
+    { title: msg('Account'), url: '/idp/account', target: 'redirect' },
+    { title: msg('User Manager'), url: '/idp/admin', permission: 'admin', target: 'redirect' },
   ],
 }
 
@@ -102,35 +111,61 @@ export function resolveMenuTarget(entry: UserMenuEntry): NavigationMode {
 }
 
 /**
+ * Parse `VITE_UI_CUSTOMIZER` once, for every consumer of it.
+ *
+ * It is parsed UNCONDITIONALLY — not only under `VITE_BACKEND_TYPE=custom`,
+ * which is all the menu ever needed — because the same JSON now also carries
+ * `locales` (see src/i18n/localeConfig.ts), and an operator running the `cloud` or
+ * `self_hosted` built-in menu must still be able to register a language file.
+ * `user.menu` therefore stays mandatory only for `custom`; every other key is
+ * validated by whoever reads it.
+ *
+ * `{ value: null }` means "nothing configured", which is the normal case.
+ */
+export function parseUiCustomizer(
+  customizerJson: string | undefined,
+): { value: Record<string, unknown> | null } | { error: string } {
+  const raw = (customizerJson ?? '').trim()
+  if (!raw) return { value: null }
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch (err) {
+    return {
+      error: `VITE_UI_CUSTOMIZER is not valid JSON: ${err instanceof Error ? err.message : String(err)}`,
+    }
+  }
+  if (!isPlainObject(parsed)) {
+    return { error: 'VITE_UI_CUSTOMIZER must be a JSON object of the shape {"user":{"menu":[…]}}.' }
+  }
+  return { value: parsed }
+}
+
+/**
  * Resolve the menu for a backend type, substituting `{orgid}` with the org slug.
  * Returns `{ error }` (never throws) so config.ts can turn a bad customizer into
  * the same blocking boot screen a broken VITE_OAUTH_CONFIG produces.
+ *
+ * Takes the ALREADY-PARSED customizer (see parseUiCustomizer) rather than the
+ * raw string: one parse serves both this and the locale registration.
  */
 export function resolveUserMenu(
   backendType: BackendType,
-  customizerJson: string | undefined,
+  customizer: Record<string, unknown> | null,
   orgSlug: string | undefined,
 ): { menu: UserMenuEntry[] } | { error: string } {
   let source: UserMenuEntry[]
 
   if (backendType === 'custom') {
-    const raw = (customizerJson ?? '').trim()
-    if (!raw) {
+    if (!customizer) {
       return {
         error:
           'VITE_BACKEND_TYPE=custom requires VITE_UI_CUSTOMIZER to hold a JSON user-menu ' +
           'definition of the shape {"user":{"menu":[{"title":"…","url":"…"}]}}.',
       }
     }
-    let parsed: unknown
-    try {
-      parsed = JSON.parse(raw)
-    } catch (err) {
-      return {
-        error: `VITE_UI_CUSTOMIZER is not valid JSON: ${err instanceof Error ? err.message : String(err)}`,
-      }
-    }
-    const validated = validateCustomizer(parsed)
+    const validated = validateCustomizer(customizer)
     if ('error' in validated) return validated
     source = validated.menu
   } else {
@@ -142,10 +177,9 @@ export function resolveUserMenu(
   return { menu: source.map((entry) => ({ ...entry, url: entry.url.replaceAll('{orgid}', orgSlug ?? '') })) }
 }
 
-function validateCustomizer(parsed: unknown): { menu: UserMenuEntry[] } | { error: string } {
-  if (!isPlainObject(parsed)) {
-    return { error: 'VITE_UI_CUSTOMIZER must be a JSON object of the shape {"user":{"menu":[…]}}.' }
-  }
+// `parsed` is already known to be a plain object — parseUiCustomizer rejects
+// anything else, and the shape message lives there.
+function validateCustomizer(parsed: Record<string, unknown>): { menu: UserMenuEntry[] } | { error: string } {
   if (!isPlainObject(parsed.user)) {
     return { error: 'VITE_UI_CUSTOMIZER is missing the "user" object — expected {"user":{"menu":[…]}}.' }
   }
@@ -165,6 +199,8 @@ function validateCustomizer(parsed: unknown): { menu: UserMenuEntry[] } | { erro
 /** Describe what is wrong with one menu entry, or null when it is valid. */
 function entryProblem(entry: unknown): string | null {
   if (!isPlainObject(entry)) return 'expected an object with "title" and "url".'
+  // An operator's title is a plain string: only the built-ins carry a
+  // MessageDescriptor, and those never come through this validator.
   if (!isNonEmptyString(entry.title)) return '"title" must be a non-empty string.'
   if (!isNonEmptyString(entry.url)) return '"url" must be a non-empty string.'
   if (entry.permission !== undefined && typeof entry.permission !== 'string') {
