@@ -8,18 +8,18 @@
          otherwise the skeleton paints light and next-themes flips it to dark on
          hydration — exactly the white flash this overlay exists to prevent. -->
     <script>
-      ;(function () {
+      (function () {
         try {
-          var stored = localStorage.getItem('semantius-ui-theme')
+          var stored = localStorage.getItem("semantius-ui-theme");
           var dark =
-            stored === 'dark' ||
-            ((!stored || stored === 'system') &&
-              window.matchMedia('(prefers-color-scheme: dark)').matches)
+            stored === "dark" ||
+            ((!stored || stored === "system") &&
+              window.matchMedia("(prefers-color-scheme: dark)").matches);
           if (dark) {
-            document.documentElement.classList.add('dark')
-            document.documentElement.style.colorScheme = 'dark'
+            document.documentElement.classList.add("dark");
+            document.documentElement.style.colorScheme = "dark";
           } else {
-            document.documentElement.style.colorScheme = 'light'
+            document.documentElement.style.colorScheme = "light";
           }
         } catch (e) {
           /* private mode / storage blocked — fall through to the light skeleton */
@@ -31,8 +31,8 @@
         // exists yet here. src/i18n's activateLocale() sets the final value a
         // moment later, so the worst case is one paint announced as "en".
         try {
-          var lang = localStorage.getItem('semantius-ui-language')
-          if (lang) document.documentElement.lang = lang
+          var lang = localStorage.getItem("semantius-ui-language");
+          if (lang) document.documentElement.lang = lang;
         } catch (e) {
           /* storage blocked — the static lang="en" stands until the app boots */
         }
@@ -49,12 +49,12 @@
         // visually continuous: a fresh load of /login looks the same as
         // reaching it by client-side redirect from /, where the document was
         // parsed at / and already carries the shell.
-        var plain = ['/logout', '/logout-success', '/form-playground']
-        var path = window.location.pathname.replace(/\/+$/, '') || '/'
+        var plain = ["/logout", "/logout-success", "/form-playground"];
+        var path = window.location.pathname.replace(/\/+$/, "") || "/";
         if (plain.indexOf(path) !== -1) {
-          document.documentElement.classList.add('al-plain')
+          document.documentElement.classList.add("al-plain");
         }
-      })()
+      })();
     </script>
     <link rel="icon" type="image/svg+xml" href="/semantius-logo-square.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -118,6 +118,23 @@
       @keyframes al-pulse {
         50% {
           opacity: 0.5;
+        }
+      }
+      /* Progressive reveal: the shell chrome (sidebar frame, module switcher,
+         user row, header) paints at once, then the sidebar menu and the view's
+         blocks build up top to bottom, the grid one row at a time, over ~2.6s.
+         A boot that finishes sooner simply fades out mid-build.
+         The reveal sits on a WRAPPER, never on .al-skel itself: both animate
+         opacity, and two animations on one property do not compose — the later
+         one in the list replaces the earlier, which would drop the pulse. On a
+         wrapper the two multiply. Delays are per element via --al-d. */
+      .al-in {
+        animation: al-in 1200ms ease-out var(--al-d, 0ms) both;
+      }
+      @keyframes al-in {
+        from {
+          opacity: 0;
+          transform: translateY(0.25rem);
         }
       }
       .al-r-lg {
@@ -316,7 +333,8 @@
           transition: none;
         }
         .al-skel,
-        .al-spinner {
+        .al-spinner,
+        .al-in {
           animation: none;
         }
       }
@@ -341,9 +359,15 @@
           <div class="al-side-head">
             <!-- ModuleSwitcher loading row -->
             <div class="al-lg-row">
-              <div class="al-skel al-r-lg" style="width: 2rem; height: 2rem; flex: none"></div>
+              <div
+                class="al-skel al-r-lg"
+                style="width: 2rem; height: 2rem; flex: none"
+              ></div>
               <div class="al-lines">
-                <div class="al-skel" style="width: 6rem; height: 0.625rem"></div>
+                <div
+                  class="al-skel"
+                  style="width: 6rem; height: 0.625rem"
+                ></div>
                 <div class="al-skel" style="width: 4rem; height: 0.5rem"></div>
               </div>
             </div>
@@ -352,25 +376,52 @@
           <div class="al-side-body">
             <div class="al-group">
               <!-- "Apps" group label -->
-              <div class="al-group-label">
-                <div class="al-skel" style="width: 2.25rem; height: 0.5rem"></div>
+              <div class="al-group-label al-in" style="--al-d: 150ms">
+                <div
+                  class="al-skel"
+                  style="width: 2.25rem; height: 0.5rem"
+                ></div>
               </div>
               <div class="al-menu">
-                <div class="al-menu-item">
-                  <div class="al-skel al-r-xl" style="width: 1rem; height: 1rem; flex: none"></div>
-                  <div class="al-skel" style="height: 0.625rem; flex: 1 1 auto; max-width: 72%"></div>
+                <div class="al-menu-item al-in" style="--al-d: 300ms">
+                  <div
+                    class="al-skel al-r-xl"
+                    style="width: 1rem; height: 1rem; flex: none"
+                  ></div>
+                  <div
+                    class="al-skel"
+                    style="height: 0.625rem; flex: 1 1 auto; max-width: 72%"
+                  ></div>
                 </div>
-                <div class="al-menu-item">
-                  <div class="al-skel al-r-xl" style="width: 1rem; height: 1rem; flex: none"></div>
-                  <div class="al-skel" style="height: 0.625rem; flex: 1 1 auto; max-width: 55%"></div>
+                <div class="al-menu-item al-in" style="--al-d: 500ms">
+                  <div
+                    class="al-skel al-r-xl"
+                    style="width: 1rem; height: 1rem; flex: none"
+                  ></div>
+                  <div
+                    class="al-skel"
+                    style="height: 0.625rem; flex: 1 1 auto; max-width: 55%"
+                  ></div>
                 </div>
-                <div class="al-menu-item">
-                  <div class="al-skel al-r-xl" style="width: 1rem; height: 1rem; flex: none"></div>
-                  <div class="al-skel" style="height: 0.625rem; flex: 1 1 auto; max-width: 84%"></div>
+                <div class="al-menu-item al-in" style="--al-d: 700ms">
+                  <div
+                    class="al-skel al-r-xl"
+                    style="width: 1rem; height: 1rem; flex: none"
+                  ></div>
+                  <div
+                    class="al-skel"
+                    style="height: 0.625rem; flex: 1 1 auto; max-width: 84%"
+                  ></div>
                 </div>
-                <div class="al-menu-item">
-                  <div class="al-skel al-r-xl" style="width: 1rem; height: 1rem; flex: none"></div>
-                  <div class="al-skel" style="height: 0.625rem; flex: 1 1 auto; max-width: 63%"></div>
+                <div class="al-menu-item al-in" style="--al-d: 900ms">
+                  <div
+                    class="al-skel al-r-xl"
+                    style="width: 1rem; height: 1rem; flex: none"
+                  ></div>
+                  <div
+                    class="al-skel"
+                    style="height: 0.625rem; flex: 1 1 auto; max-width: 63%"
+                  ></div>
                 </div>
               </div>
             </div>
@@ -379,9 +430,15 @@
           <div class="al-side-foot">
             <!-- NavUser row -->
             <div class="al-lg-row">
-              <div class="al-skel al-r-lg" style="width: 2rem; height: 2rem; flex: none"></div>
+              <div
+                class="al-skel al-r-lg"
+                style="width: 2rem; height: 2rem; flex: none"
+              ></div>
               <div class="al-lines">
-                <div class="al-skel" style="width: 6rem; height: 0.625rem"></div>
+                <div
+                  class="al-skel"
+                  style="width: 6rem; height: 0.625rem"
+                ></div>
                 <div class="al-skel" style="width: 8rem; height: 0.5rem"></div>
               </div>
             </div>
@@ -398,23 +455,39 @@
           <!-- Mirrors components/ViewSkeleton.tsx -->
           <div class="al-content">
             <!-- Breadcrumb -->
-            <div class="al-row" style="gap: 0.5rem; height: 1.25rem">
+            <div class="al-row al-in" style="gap: 0.5rem; height: 1.25rem">
               <div class="al-skel" style="width: 4rem; height: 0.625rem"></div>
-              <div class="al-skel" style="width: 0.875rem; height: 0.875rem"></div>
+              <div
+                class="al-skel"
+                style="width: 0.875rem; height: 0.875rem"
+              ></div>
               <div class="al-skel" style="width: 6rem; height: 0.625rem"></div>
             </div>
 
             <!-- Title + description + primary action -->
-            <div class="al-row-top">
+            <div class="al-row-top al-in" style="--al-d: 150ms">
               <div class="al-stack-2">
-                <div class="al-line" style="height: 2.25rem"><div class="al-skel" style="width: 14rem; height: 1.375rem"></div></div>
-                <div class="al-line" style="height: 1.5rem"><div class="al-skel" style="width: 18rem; height: 0.75rem"></div></div>
+                <div class="al-line" style="height: 2.25rem">
+                  <div
+                    class="al-skel"
+                    style="width: 14rem; height: 1.375rem"
+                  ></div>
+                </div>
+                <div class="al-line" style="height: 1.5rem">
+                  <div
+                    class="al-skel"
+                    style="width: 18rem; height: 0.75rem"
+                  ></div>
+                </div>
               </div>
-              <div class="al-skel" style="width: 9rem; height: 2rem; flex: none"></div>
+              <div
+                class="al-skel"
+                style="width: 9rem; height: 2rem; flex: none"
+              ></div>
             </div>
 
             <!-- Toolbar: search + sort/filter/view -->
-            <div class="al-row-between">
+            <div class="al-row-between al-in" style="--al-d: 300ms">
               <div
                 class="al-skel"
                 style="width: 100%; max-width: 25rem; height: 2rem"
@@ -428,77 +501,239 @@
 
             <!-- Table -->
             <div class="al-table">
-              <div class="al-table-head">
-                <div class="al-skel" style="width: 10rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 3rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 14rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 10rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 8rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 6rem; height: 0.625rem"></div>
+              <div class="al-table-head al-in" style="--al-d: 450ms">
+                <div
+                  class="al-skel"
+                  style="width: 10rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 3rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 14rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 10rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 8rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 6rem; height: 0.625rem"
+                ></div>
               </div>
-              <div class="al-table-row">
-                <div class="al-skel" style="width: 10rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 3rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 14rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 10rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 8rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 6rem; height: 0.625rem"></div>
+              <div class="al-table-row al-in" style="--al-d: 600ms">
+                <div
+                  class="al-skel"
+                  style="width: 10rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 3rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 14rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 10rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 8rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 6rem; height: 0.625rem"
+                ></div>
               </div>
-              <div class="al-table-row">
-                <div class="al-skel" style="width: 10rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 3rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 14rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 10rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 8rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 6rem; height: 0.625rem"></div>
+              <div class="al-table-row al-in" style="--al-d: 820ms">
+                <div
+                  class="al-skel"
+                  style="width: 10rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 3rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 14rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 10rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 8rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 6rem; height: 0.625rem"
+                ></div>
               </div>
-              <div class="al-table-row">
-                <div class="al-skel" style="width: 10rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 3rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 14rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 10rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 8rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 6rem; height: 0.625rem"></div>
+              <div class="al-table-row al-in" style="--al-d: 1040ms">
+                <div
+                  class="al-skel"
+                  style="width: 10rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 3rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 14rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 10rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 8rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 6rem; height: 0.625rem"
+                ></div>
               </div>
-              <div class="al-table-row">
-                <div class="al-skel" style="width: 10rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 3rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 14rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 10rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 8rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 6rem; height: 0.625rem"></div>
+              <div class="al-table-row al-in" style="--al-d: 1260ms">
+                <div
+                  class="al-skel"
+                  style="width: 10rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 3rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 14rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 10rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 8rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 6rem; height: 0.625rem"
+                ></div>
               </div>
-              <div class="al-table-row">
-                <div class="al-skel" style="width: 10rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 3rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 14rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 10rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 8rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 6rem; height: 0.625rem"></div>
+              <div class="al-table-row al-in" style="--al-d: 1480ms">
+                <div
+                  class="al-skel"
+                  style="width: 10rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 3rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 14rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 10rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 8rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 6rem; height: 0.625rem"
+                ></div>
               </div>
-              <div class="al-table-row">
-                <div class="al-skel" style="width: 10rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 3rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 14rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 10rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 8rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 6rem; height: 0.625rem"></div>
+              <div class="al-table-row al-in" style="--al-d: 1700ms">
+                <div
+                  class="al-skel"
+                  style="width: 10rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 3rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 14rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 10rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 8rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 6rem; height: 0.625rem"
+                ></div>
               </div>
-              <div class="al-table-row">
-                <div class="al-skel" style="width: 10rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 3rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 14rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 10rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 8rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 6rem; height: 0.625rem"></div>
+              <div class="al-table-row al-in" style="--al-d: 1920ms">
+                <div
+                  class="al-skel"
+                  style="width: 10rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 3rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 14rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 10rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 8rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 6rem; height: 0.625rem"
+                ></div>
               </div>
-              <div class="al-table-row">
-                <div class="al-skel" style="width: 10rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 3rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 14rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 10rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 8rem; height: 0.625rem"></div>
-                <div class="al-skel" style="width: 6rem; height: 0.625rem"></div>
+              <div class="al-table-row al-in" style="--al-d: 2140ms">
+                <div
+                  class="al-skel"
+                  style="width: 10rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 3rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 14rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 10rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 8rem; height: 0.625rem"
+                ></div>
+                <div
+                  class="al-skel"
+                  style="width: 6rem; height: 0.625rem"
+                ></div>
               </div>
             </div>
           </div>
