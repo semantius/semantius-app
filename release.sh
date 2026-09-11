@@ -58,6 +58,33 @@ git fetch --quiet --tags origin
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 [ "$BRANCH" != "HEAD" ] || die "detached HEAD — check out a branch first"
 
+# Releases are cut from main. v0.2.6 was cut from feat/i18n after its PR had
+# already merged: the bump commit and the tag landed on the feature branch, and
+# main kept a package.json two versions behind until the branch was merged back
+# by hand. Warned, not refused. Printed here and again right before the prompt,
+# because `pnpm check`'s output scrolls this first one out of sight.
+RELEASE_BRANCH=main
+off_branch_warning() {
+  [ "$BRANCH" != "$RELEASE_BRANCH" ] || return 0
+  local on='' off='' line
+  if [ -t 2 ]; then on=$'\033[1;41;97m'; off=$'\033[0m'; fi
+  printf '\n' >&2
+  for line in \
+    '################################################################' \
+    '##' \
+    "##   WARNING: RELEASING FROM '$BRANCH', NOT FROM '$RELEASE_BRANCH'" \
+    '##' \
+    "##   The version bump and the tag land on '$BRANCH'." \
+    "##   '$RELEASE_BRANCH' keeps its old package.json until this branch" \
+    "##   is merged back." \
+    '##' \
+    '################################################################'; do
+    printf '%s%-64s%s\n' "$on" "$line" "$off" >&2
+  done
+  printf '\n' >&2
+}
+off_branch_warning
+
 git diff --quiet && git diff --cached --quiet \
   || die "uncommitted changes to tracked files — commit or stash first"
 
@@ -144,6 +171,8 @@ printf '\n  release    %s%s\n  commit     %s  %s\n  branch     %s (in sync with 
   "$(git rev-parse --short HEAD)" "$(git log -1 --format=%s)" \
   "$BRANCH" "$UPSTREAM" "${CURRENT:-?}" "$CORE" \
   "$CI" "${LATEST:-the first commit}" "$IMAGE_TAGS" "$VERSION"
+
+off_branch_warning
 
 if [ "$ASSUME_YES" -eq 0 ] && [ -t 0 ]; then
   read -r -p "proceed? [y/N] " reply
