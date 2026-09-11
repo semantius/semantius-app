@@ -761,16 +761,10 @@ text to apply — and a `defaultMessage` of `''` is not translated at all
 status is a VALUE of the template now). One ICU message per sentence, model
 labels inserted as given.
 
-**The Base UI submenu cannot be driven by userEvent's pointer.** userEvent moves
-its pointer in a single jump, which takes it out of the submenu trigger, and Base
-UI's safe-polygon hover logic closes the submenu — leaving the panel in the DOM
-with `data-closed` and `pointer-events: none` on its positioner, so the next
-click fails with "element has pointer-events: none", which reads like a CSS bug
-and is really a closed menu. Drive it by keyboard instead (typeahead to the
-trigger with its FIRST WORD — a space is "activate", not a search character —
-then `{ArrowRight}`, typeahead, `{Enter}`), which is what `NavUser.test.tsx`
-does. Do not reach for `pointerEventsCheck: 0`; the substitutions ratchet counts
-it.
+**Drive Base UI menus in tests with arrow keys — never the pointer, never
+typeahead.** Both lose on timing: userEvent's pointer jump closes a submenu, and
+typeahead forgets what was typed after 500ms. `arrowTo()` in `NavUser.test.tsx`
+is the pattern and says why.
 
 **Both Vitest projects activate a locale before the first test** (`setup.node.ts`
 exists for exactly this, `setup.browser.ts` does the same and also clears the two
