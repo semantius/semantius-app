@@ -177,7 +177,7 @@ describe('NavUser — configuration-driven menu', () => {
  * positions only a real mouse produces. The panel then sits in the DOM carrying
  * `data-closed` with `pointer-events: none` on its positioner, and the next click
  * fails with "element has pointer-events: none", which reads like a CSS bug and
- * is really a closed menu. Typeahead + ArrowRight + Enter is what a keyboard user
+ * is really a closed menu. ArrowDown + ArrowRight + Enter is what a keyboard user
  * does anyway, so this is coverage rather than a workaround — and it is the
  * interaction the pointer path cannot substitute for.
  *
@@ -196,23 +196,41 @@ describe('NavUser — the language switcher', () => {
   })
 
   /**
-   * Typeahead to the submenu whose label starts with `prefix`, then open it.
+   * ArrowDown through the focused menu until focus is on an item that `matches`.
    *
-   * A prefix rather than the whole label: a space would be read as "activate the
-   * highlighted item" instead of as another character to search for.
+   * NOT typeahead. Base UI's menu typeahead forgets what was typed after 500ms
+   * without a key (`TYPEAHEAD_RESET_MS`), so on a loaded machine a label typed a
+   * key at a time turns into several shorter searches: `Language` lands on
+   * whatever its last letters match, and no wait afterwards brings focus back.
+   * That failed the v0.2.6 release gate. Arrow keys have no clock — each press
+   * moves one item, and the loop waits for focus to move before the next.
+   */
+  async function arrowTo(ui: ReturnType<typeof userEvent.setup>, matches: (el: Element) => boolean) {
+    const menu = document.activeElement?.closest('[role="menu"]')
+    const items = menu?.querySelectorAll('[role^="menuitem"]').length ?? 0
+    // One full lap: the menu loops, so a miss after that is a real absence.
+    for (let i = 0; i < items && !(document.activeElement && matches(document.activeElement)); i++) {
+      const before = document.activeElement
+      await ui.keyboard('{ArrowDown}')
+      await waitFor(() => expect(document.activeElement).not.toBe(before))
+    }
+    expect(document.activeElement && matches(document.activeElement)).toBe(true)
+  }
+
+  /**
+   * Move to the submenu trigger whose label starts with `prefix`, then open it.
    *
    * Every step waits for FOCUS, not for the DOM. Base UI moves focus into a menu
-   * a moment after the menu mounts, so keys typed in between go to whatever held
-   * focus before — the trigger, or the parent menu — and are lost or search the
-   * wrong list. On a loaded CI runner that race was lost: the menu stood open
-   * and the submenu never did.
+   * a moment after the menu mounts, so keys pressed in between go to whatever
+   * held focus before — the trigger, or the parent menu — and are lost or move
+   * through the wrong list. On a loaded CI runner that race was lost: the menu
+   * stood open and the submenu never did.
    */
   async function openSubmenu(ui: ReturnType<typeof userEvent.setup>, prefix: string) {
     const trigger = await screen.findByRole('menuitem', { name: new RegExp(`^${prefix}`) })
     const menu = trigger.closest<HTMLElement>('[role="menu"]')
     await waitFor(() => expect(menu).toContainElement(document.activeElement as HTMLElement | null))
-    await ui.keyboard(prefix)
-    await waitFor(() => expect(trigger).toHaveFocus())
+    await arrowTo(ui, (el) => el === trigger)
     await ui.keyboard('{ArrowRight}')
     await waitFor(() => {
       const focusedMenu = document.activeElement?.closest('[role="menu"]')
@@ -221,10 +239,9 @@ describe('NavUser — the language switcher', () => {
     })
   }
 
-  /** Typeahead to a radio entry inside the open submenu and choose it. */
+  /** Move to the entry inside the open submenu whose label starts with `prefix`, and choose it. */
   async function chooseEntry(ui: ReturnType<typeof userEvent.setup>, prefix: string) {
-    await ui.keyboard(prefix)
-    await waitFor(() => expect(document.activeElement?.textContent?.trim() ?? '').toMatch(new RegExp(`^${prefix}`)))
+    await arrowTo(ui, (el) => (el.textContent?.trim() ?? '').startsWith(prefix))
     await ui.keyboard('{Enter}')
   }
 
@@ -326,7 +343,7 @@ describe('NavUser — the language switcher', () => {
     )
     await openSubmenu(ui, 'Zahlen')
     // Wait for an entry that exists ONLY in the format submenu before the
-    // typeahead below. Both submenus carry a "Browserstandard …" entry, so on a
+    // keys below. Both submenus carry a "Browserstandard …" entry, so on a
     // loaded machine a submenu that has not opened yet sends the next keystrokes
     // to the LANGUAGE list, which chooses its browser default instead — the
     // language becomes en-US and the assertion reads a stale-looking locale.
