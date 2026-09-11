@@ -75,8 +75,10 @@ async function openMenu() {
   // there on the first tick.
   const trigger = await waitFor(() => screen.getByRole('button', { name: /Wei Chen/i }))
   await ui.click(trigger)
-  // The popup mounts in a portal a tick after the click.
+  // The popup mounts in a portal a tick after the click, and takes focus a
+  // moment after that; a test that types next needs the second, not the first.
   await waitFor(() => expect(screen.getByText('Log out')).toBeInTheDocument())
+  await waitFor(() => expect(document.activeElement?.closest('[role="menu"]')).toBeTruthy())
   return { ui, router }
 }
 
@@ -198,15 +200,31 @@ describe('NavUser — the language switcher', () => {
    *
    * A prefix rather than the whole label: a space would be read as "activate the
    * highlighted item" instead of as another character to search for.
+   *
+   * Every step waits for FOCUS, not for the DOM. Base UI moves focus into a menu
+   * a moment after the menu mounts, so keys typed in between go to whatever held
+   * focus before — the trigger, or the parent menu — and are lost or search the
+   * wrong list. On a loaded CI runner that race was lost: the menu stood open
+   * and the submenu never did.
    */
   async function openSubmenu(ui: ReturnType<typeof userEvent.setup>, prefix: string) {
+    const trigger = await screen.findByRole('menuitem', { name: new RegExp(`^${prefix}`) })
+    const menu = trigger.closest<HTMLElement>('[role="menu"]')
+    await waitFor(() => expect(menu).toContainElement(document.activeElement as HTMLElement | null))
     await ui.keyboard(prefix)
+    await waitFor(() => expect(trigger).toHaveFocus())
     await ui.keyboard('{ArrowRight}')
+    await waitFor(() => {
+      const focusedMenu = document.activeElement?.closest('[role="menu"]')
+      expect(focusedMenu).toBeTruthy()
+      expect(focusedMenu).not.toBe(menu)
+    })
   }
 
   /** Typeahead to a radio entry inside the open submenu and choose it. */
   async function chooseEntry(ui: ReturnType<typeof userEvent.setup>, prefix: string) {
     await ui.keyboard(prefix)
+    await waitFor(() => expect(document.activeElement?.textContent?.trim() ?? '').toMatch(new RegExp(`^${prefix}`)))
     await ui.keyboard('{Enter}')
   }
 
