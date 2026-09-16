@@ -11,10 +11,7 @@ export default function CodeMirrorJson(props: CodeMirrorFieldProps) {
   const theme = useEditorTheme()
   const safeValue = typeof value === 'string' ? value : String(value ?? '')
   return (
-    <div
-      className={readOnly ? 'opacity-60' : ''}
-      tabIndex={readOnly ? -1 : undefined}
-    >
+    <div>
       <CodeMirror
         value={safeValue}
         height="200px"

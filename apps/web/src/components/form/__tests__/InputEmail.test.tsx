@@ -11,9 +11,38 @@ describe('InputEmail', () => {
     return !EMAIL.test(value) ? 'must match format "email"' : undefined
   }
 
-  it('should render email input type', () => {
+  it('renders a text input with the email keyboard, not type=email', () => {
     const { container } = renderControl(<InputEmail name="email" />)
-    expect(container.querySelector('input')).toHaveAttribute('type', 'email')
+    const input = container.querySelector('input')
+    expect(input).toHaveAttribute('type', 'text')
+    expect(input).toHaveAttribute('inputmode', 'email')
+  })
+
+  // This control serves `idn-email` as well as `email`. The `typeMismatch`
+  // assertion is what holds the type down: under `type="email"` the HTML spec's
+  // ASCII-only email regex rejects a non-ASCII local part, and this test fails.
+  // (Chromium's punycode rewrite of an IDN DOMAIN is deliberately not asserted —
+  // it fires on genuine editing, not on the value-setter path userEvent drives,
+  // so such a test would pass under `type="email"` and could never fail.)
+  it('accepts a non-ASCII local part', async () => {
+    const user = userEvent.setup()
+    renderControl(<InputEmail name="email" label="Email" />)
+
+    const input = screen.getByLabelText(/email/i) as HTMLInputElement
+    await user.type(input, 'jörg@müller.de')
+
+    expect(input.value).toBe('jörg@müller.de')
+    expect(input.validity.typeMismatch).toBe(false)
+  })
+
+  it('round-trips an IDN domain, in either spelling', async () => {
+    const user = userEvent.setup()
+    renderControl(<InputEmail name="email" label="Email" />)
+
+    const input = screen.getByLabelText(/email/i) as HTMLInputElement
+    await user.type(input, 'user@xn--mller-kva.de')
+
+    expect(input.value).toBe('user@xn--mller-kva.de')
   })
 
   it('is named by its label', () => {

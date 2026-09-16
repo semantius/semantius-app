@@ -11,10 +11,7 @@ export default function CodeMirrorHtml(props: CodeMirrorFieldProps) {
   const { value, onChange, onBlur, disabled, readOnly } = props
   const theme = useEditorTheme()
   return (
-    <div 
-      className={readOnly ? 'opacity-60' : ''}
-      tabIndex={readOnly ? -1 : undefined}
-    >
+    <div>
       <CodeMirror
         value={value}
         height="200px"

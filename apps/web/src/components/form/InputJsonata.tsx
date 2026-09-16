@@ -5,6 +5,7 @@ import { FormLabel } from './FormLabel'
 import { FormDescription } from './FormDescription'
 import { FormError } from './FormError'
 import { describedBy, labelledBy } from './fieldAria'
+import { codeMirrorSurfaceClassName } from './codeMirrorField'
 import { useT } from '@/i18n'
 
 // Lazy load CodeMirror
@@ -43,9 +44,17 @@ export function InputJsonata({
       {(field: any) => (
         <div className="pt-2 space-y-1">
           <FormLabel htmlFor={name} label={label} required={required} error={!!field.state.meta.errors?.[0]} />
-          <div className={`border rounded-md overflow-hidden ${field.state.meta.errors?.[0] ? 'border-destructive' : 'border-input-border'}`}>
+          <div
+            data-field-surface=""
+            className={codeMirrorSurfaceClassName({
+              invalid: !!field.state.meta.errors?.[0],
+              readOnly: readonly,
+              disabled,
+            })}
+          >
             <Suspense fallback={<div className="p-4 text-muted-foreground">{t('Loading editor...')}</div>}>
               <CodeMirrorEditor
+                id={name}
                 value={field.state.value || ''}
                 onChange={field.handleChange}
                 onBlur={field.handleBlur}

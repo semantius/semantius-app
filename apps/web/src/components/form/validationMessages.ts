@@ -23,6 +23,13 @@ import type { TranslateFn } from '@/i18n'
  *    "<keyword>" bestehen'. Our two custom keywords — sem-schema's `inputMode`
  *    and `precision` — are exactly that case, so their messages have to be
  *    written AFTER the localizer has run, never before.
+ *  - **It rewrites the ones it DOES recognize too, and that costs us.**
+ *    sem-schema reports a bad `json` or `jsonlogic` value as a `format` error,
+ *    which `ajv-i18n` knows and replaces with its own generic sentence — turning
+ *    `unknown operator "vra" at /` into "muss dem Format 'jsonlogic'
+ *    entsprechen", which says nothing a person could act on. Those messages name
+ *    an operator and a path, so they are not catalog keys and are shown as the
+ *    package writes them: captured before the localizer runs and put back after.
  *
  * It mutates the array in place, which is Ajv's own convention for a localizer.
  */
@@ -33,12 +40,35 @@ export function localizeValidationErrors(
 ): void {
   if (!errors || errors.length === 0) return
 
+  // Captured BEFORE the localizer: it overwrites in place.
+  const structural = new Map<ErrorObject, string | undefined>()
+  for (const error of errors) {
+    if (isStructuredDataError(error)) structural.set(error, error.message)
+  }
+
   localizerFor(language)?.(errors)
+
+  for (const [error, message] of structural) error.message = message
 
   for (const error of errors) {
     const custom = customKeywordMessage(error, t)
     if (custom !== undefined) error.message = custom
   }
+}
+
+/**
+ * A `json` / `jsonlogic` issue from sem-schema, as opposed to Ajv's own
+ * "must match format" for, say, a malformed email.
+ *
+ * Both arrive as `keyword: 'format'`; the discriminator is `params.path`, which
+ * only sem-schema's json keywords attach. Tested for PRESENCE, not truth: the
+ * path of a top-level issue is the empty string, and that message — "unknown
+ * operator" with no sub-path — is the most common one there is.
+ */
+function isStructuredDataError(error: ErrorObject): boolean {
+  if (error.keyword !== 'format') return false
+  const params = (error.params ?? {}) as Record<string, unknown>
+  return 'path' in params
 }
 
 type Localize = (errors?: null | ErrorObject[]) => void

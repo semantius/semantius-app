@@ -2,11 +2,11 @@ import { Fragment, type ReactNode } from 'react'
 import { useForm } from '@tanstack/react-form'
 import jsonLogic, { type RulesLogic } from 'json-logic-js'
 import { validateData } from 'sem-schema'
-import { controls } from './controls'
+import { assertSupportedFormats, resolveControl } from './resolveControl'
+import { formatType, isFormatName } from '@/lib/formats'
 import { Button } from '@/components/ui/button'
 import { StickyContainer } from '@/components/ui-ext/sticky-container'
 import type { SchemaObject } from 'ajv'
-import { InputText } from './InputText'
 import { FormProvider } from './FormContext'
 import { localizeValidationErrors } from './validationMessages'
 import { useLanguage, useT, type TranslateFn } from '@/i18n'
@@ -94,38 +94,7 @@ function generateDefaultValue(schema: SchemaObject): Record<string, any> {
       if ('default' in propSchema) {
         defaults[key] = (propSchema as any).default
       } else {
-        // Generate default based on type.
-        //
-        // get_schema emits json (and some other) columns with a *union* `type`
-        // array, e.g. ["object","array","string","number","integer","boolean","null"].
-        // A bare `type === 'object'` comparison never matches an array, so such a
-        // field would fall through and seed `undefined` — which InputJson renders as a
-        // completely BLANK CodeMirror editor. This is masked only while get_schema
-        // also supplies an explicit `default`; the moment it doesn't (older/cached
-        // metadata, or any json field the author left without a default) the editor
-        // shows nothing. Normalize the union to its first non-null member, and always
-        // seed valid empty JSON for `format: 'json'` so the editor is never blank.
-        const format = (propSchema as any).format
-        const rawType = (propSchema as any).type
-        const type = Array.isArray(rawType)
-          ? rawType.find((t) => t !== 'null')
-          : (rawType || (format ? 'string' : undefined))
-
-        if (format === 'json') {
-          defaults[key] = {}
-        } else if (type === 'boolean') {
-          defaults[key] = false
-        } else if (format === 'reference' || format === 'parent') {
-          defaults[key] = null
-        } else if (type === 'number' || type === 'integer') {
-          defaults[key] = undefined
-        } else if (type === 'string') {
-          defaults[key] = ''
-        } else if (type === 'array') {
-          defaults[key] = []
-        } else if (type === 'object') {
-          defaults[key] = {}
-        }
+        defaults[key] = defaultValueForFormat((propSchema as any).format)
       }
     }
   }
@@ -182,8 +151,32 @@ function validateField(
     ...(isRequired ? { required: [fieldName] } : {})
   }
 
-  const tempData = { [fieldName]: value }
-  const result = validateData(tempData, tempSchema)
+  // `object` and `array` are edited in the JSON editor, which hands back a
+  // STRING. sem-schema parses `json` and `jsonlogic` itself, but for these two
+  // it type-checks what it is given — so an unparseable string must stay a
+  // string and fail as a type error, while a parseable one has to be a real
+  // value before it is checked against the schema.
+  const format = (fieldSchema as any).format
+  let checked = value
+  if ((format === 'object' || format === 'array') && typeof value === 'string') {
+    try {
+      checked = JSON.parse(value)
+    } catch {
+      checked = value
+    }
+  }
+
+  const tempData = { [fieldName]: checked }
+  // sem-schema compiles the schema, and a schema the platform sent can be
+  // one Ajv refuses (an unknown keyword, a broken pattern). That is a
+  // form-level schema error, never an unhandled rejection inside a validator
+  // that TanStack Form will not catch.
+  let result: ReturnType<typeof validateData>
+  try {
+    result = validateData(tempData, tempSchema)
+  } catch (err) {
+    return err instanceof Error ? err.message : t('Validation error')
+  }
 
   if (!result.valid && result.errors) {
     localizeValidationErrors(result.errors, language, t)
@@ -199,22 +192,46 @@ function validateField(
 
 
 /**
- * Maps a field's format/type to its default display width for form renderers.
+ * The value a field starts at when the schema gives it no `default`.
  *
- * - multiline, json, html, jsonata → 'w' (wide)
- * - number, integer (without a format) → 's' (small)
- * - everything else → 'm' (medium)
+ * Derived from the CATALOG's type for the format, not from the property's own
+ * `type`. `get_schema` emits the JSON family with a union type array
+ * (`["object","array","string","number","integer","boolean","null"]`), and a bare
+ * `type === 'object'` comparison never matches an array — such a field fell
+ * through to `undefined`, which InputJson renders as a completely BLANK editor.
+ * The catalog collapses that union for us.
  *
- * Format takes priority over type — e.g. a number with format "reference" gets 'm', not 's'.
+ * A foreign key starts null, not 0: it is empty, and `undefined` would drop it
+ * from form state entirely.
  */
-function getDefaultWidthForForm(format?: string, type?: string): 's' | 'm' | 'w' {
-  if (format === 'multiline' || format === 'json' || format === 'html' || format === 'jsonata') {
-    return 'w'
+export function defaultValueForFormat(format: unknown): unknown {
+  if (!isFormatName(format)) return undefined
+  if (format === 'reference' || format === 'parent') return null
+  switch (formatType(format)) {
+    case 'boolean':
+      return false
+    case 'object':
+      return {}
+    case 'array':
+      return []
+    case 'string':
+      return ''
+    // A number field left empty is absent, not 0.
+    default:
+      return undefined
   }
-  if (!format && (type === 'number' || type === 'integer')) {
-    return 's'
-  }
-  return 'm'
+}
+
+/**
+ * A field's default display width.
+ *
+ * The buckets live on the registry entry (`controls.ts`), so the form and the
+ * grid read one list instead of keeping two that drift — they already had.
+ * `resolveControl` always answers here, because `assertSupportedFormats` has
+ * thrown for anything it would not.
+ */
+function getDefaultWidthForForm(format?: string): 's' | 'm' | 'w' {
+  return resolveControl({ format })?.width ?? 'm'
 }
 
 /**
@@ -237,6 +254,11 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
   // The Ajv message localizer is keyed by language, not by the formatting
   // locale: a validation message is prose, so it follows the catalog.
   const language = useLanguage()
+
+  // Before anything else, including the default values below: a field whose
+  // format the registry cannot serve throws here, so the form neither renders
+  // nor submits. The throw reaches the router's defaultErrorComponent.
+  assertSupportedFormats(schema)
 
   // Merge schema defaults under initialValue so explicit values win
   // but defaults fill gaps (e.g. parent FK pre-filled, other fields blank).
@@ -278,22 +300,20 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
           continue
         }
         
-        // Reference and parent fields (foreign keys) set null when cleared; treat as undefined (absent) to avoid AJV type errors
         const format = (propSchema as any).format
         const fieldValue = value[key]
-        // PostgREST rejects empty strings for typed columns (date/time/numeric/etc.).
-        // Optional fields default to '' for type:string but should be sent as null when empty.
-        const isTypedStringFormat = format === 'date' || format === 'date-time' || format === 'time'
-        if (format === 'json' && typeof fieldValue === 'string') {
-          // InputJson/CodeMirror always hand back a *string*. A json column expects a
-          // real JSON value (object/array/etc.), so parse before it reaches the write
-          // payload — otherwise an edited `[]` is sent as the literal string `"[]"` and
-          // the DB rejects it (e.g. an `..._is_array` check constraint). Empty → null;
-          // invalid JSON is left as-is so schema/DB validation surfaces the error
-          // rather than silently dropping the user's input.
+        const entry = resolveControl({ format })
+
+        if (entry?.emptyValue === 'default' && typeof fieldValue === 'string') {
+          // The JSON family (json, jsonlogic, object, array). The editor always
+          // hands back a *string*; the column wants a real JSON value, so an
+          // edited `[]` must not be sent as the literal string `"[]"`. An empty
+          // editor saves the property's schema `default` — and `null` when it has
+          // none. Invalid JSON is left as the string so schema/DB validation
+          // surfaces it rather than silently dropping what the user typed.
           const trimmed = fieldValue.trim()
           if (trimmed === '') {
-            cleanedValue[key] = null
+            cleanedValue[key] = 'default' in (propSchema as any) ? (propSchema as any).default : null
           } else {
             try {
               cleanedValue[key] = JSON.parse(trimmed)
@@ -301,9 +321,13 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
               cleanedValue[key] = fieldValue
             }
           }
-        } else if (isTypedStringFormat && fieldValue === '') {
+        } else if (entry?.emptyValue === 'null' && fieldValue === '') {
+          // A typed column (date/time/uuid/bytea) rejects an empty string, and an
+          // optional `type: string` field defaults to `''`.
           cleanedValue[key] = null
         } else {
+          // A cleared foreign key is null; send it as absent so AJV does not see
+          // a null where the schema says integer.
           cleanedValue[key] = ((format === 'reference' || format === 'parent') && fieldValue === null) ? undefined : fieldValue
         }
       }
@@ -512,8 +536,14 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
             }
           }, 100)
         }}
+        // View mode flattens every field surface. `[data-field-surface]` is the
+        // marker the non-`<input>` controls carry — the enum and reference
+        // triggers, the date-time trigger, the four CodeMirror wrappers — because
+        // this list could only ever name the elements someone remembered to add,
+        // and those four kept their boxes while the text fields beside them lost
+        // theirs. New picker-style controls get the attribute, not a new selector.
         className={formMode === 'view'
-          ? "space-y-4 [&_[data-slot=input]]:border-transparent [&_[data-slot=input]]:shadow-none [&_[data-slot=combobox-trigger]]:border-transparent [&_[data-slot=combobox-trigger]]:shadow-none [&_textarea]:border-transparent [&_textarea]:shadow-none [&_.cm-editor]:border-transparent [&_input::placeholder]:text-transparent [&_textarea::placeholder]:text-transparent"
+          ? "space-y-4 [&_[data-slot=input]]:border-transparent [&_[data-slot=input]]:shadow-none [&_[data-slot=combobox-trigger]]:border-transparent [&_[data-slot=combobox-trigger]]:shadow-none [&_[data-field-surface]]:border-transparent [&_[data-field-surface]]:shadow-none [&_[data-field-surface]]:ring-0 [&_[data-slot=input-group]]:border-transparent [&_[data-slot=input-group]]:shadow-none [&_textarea]:border-transparent [&_textarea]:shadow-none [&_.cm-editor]:border-transparent [&_input::placeholder]:text-transparent [&_textarea::placeholder]:text-transparent"
           : "space-y-4"
         }
       >
@@ -617,9 +647,12 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
                 inputMode = 'readonly'
               }
 
-              // Use format if available, otherwise check for enum, otherwise use type as format
-              const controlKey = format || (hasEnum ? 'enum' : type) as string
-              const ControlComponent = controls[controlKey] || InputText
+              // Strict: assertSupportedFormats() ran at the top of this render,
+              // so an unresolvable format threw before anything was drawn. There
+              // is deliberately no fallback control — rendering a text box over
+              // an int32 or an enum is how the wrong editor used to reach the
+              // user, who then saved through it.
+              const ControlComponent = resolveControl({ format })!.control
 
               // Skip validation for readonly, disabled, and hidden fields
               const shouldValidate = inputMode === 'default' || inputMode === 'required'
@@ -627,7 +660,7 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
               // Determine width: explicit width from schema (excluding 'default'), or computed from format/type
               const schemaWidth = (propSchema as any).width
               const effectiveWidth = (!schemaWidth || schemaWidth === 'default')
-                ? getDefaultWidthForForm(format as string | undefined, type as string | undefined)
+                ? getDefaultWidthForForm(format as string | undefined)
                 : schemaWidth
               const widthClasses = getWidthClasses(effectiveWidth)
 

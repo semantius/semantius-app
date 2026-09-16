@@ -5,10 +5,11 @@ Custom JSON Schema vocabulary (SemSchema) with additional validation features fo
 ## Features
 
 ### Custom Formats
-- **`json`**: Validates parseable JSON strings
+- **`json`**: Validates JSON text (must parse) and parsed JSON values (must be real JSON at any depth — no `undefined`, `NaN`, `Infinity`, functions, `BigInt`, class instances or circular references)
 - **`html`**: Validates HTML markup (requires HTML tags)
 - **`text`**: Single-line text string (UI hint — renders as a text input)
 - **`multiline`**: Multi-line text string (UI hint — renders as a textarea)
+- **`jsonlogic`**: A JsonLogic rule stored as JSON, validated statically against the Semantius backend's operators (see [JsonLogic](#jsonlogic))
 
 ### Standard Formats
 SemSchema also supports all standard JSON Schema formats via `ajv-formats`:
@@ -69,8 +70,38 @@ SemSchema uses the **`inputMode: "required"`** keyword that serves BOTH UI and v
   - Example: `precision: 2` allows 99.99 but rejects 99.999
 
 ### Type Inference
-- When `format` is provided without `type`, defaults to `type: "string"`
-- Allows schemas like `{ "format": "json" }` without explicit type declaration
+- When `format` is provided without `type`, the type is the format's `jsonType` in [src/vocabulary.json](src/vocabulary.json) — the type the Semantius backend maps the format to
+- E.g. `html`, `date`, `enum` → `string`; `int32`, `reference` → `integer`; `double` → `number`; `object` → `object`; `json` and `jsonlogic` → every JSON type (`object`, `array`, `string`, `number`, `integer`, `boolean`, `null`)
+- Allows schemas like `{ "format": "json" }` or `{ "format": "int32" }` without explicit type declaration
+
+### JSON values and AJV
+
+AJV only passes strings to format validators; objects, arrays and other non-string values skip them. `json` and `jsonlogic` values are usually objects, so for these two formats `preprocessSchema` attaches an internal keyword that validates the value whatever its type. Schema authors only write the format. Errors are reported as `format` errors (`params.format` is the format name, `params.path` the JSON pointer inside the value), with a message that says what is wrong and where, e.g. `NaN is not valid JSON at /a/1` or `must be valid JSON: <parser message>`.
+
+### JsonLogic
+
+`format: "jsonlogic"` validates [JsonLogic](https://jsonlogic.com/) rules without running them. The operator set is the one the Semantius backend implements in `evaluate_json_logic()`: the 35 standard operators plus the Semantius extensions `let`, `set_record`, `has_permission`, `require_permission`, `value_changed`, `concat`, `is_match`, `throw_error`, `is_raci_actor` and `has_consultation`.
+
+**Accepted values**
+- A rule, stored as JSON: `{ "==": [{ "var": "status" }, "open"] }`
+- JSON text of a rule, as an editor hands it back: `'{"==": [{"var": "status"}, "open"]}'`
+- Computed-field entries: `[{ "name": "total", "jsonlogic": <rule> }]`
+- Validation-rule entries: `[{ "code": "99001", "message": "...", "jsonlogic": <rule> }]`
+- `{}`, `""` and a missing value mean "no rule"
+
+**What is rejected**
+- Everything the `json` format rejects (invalid JSON text, values that are not real JSON)
+- Unknown operators, with a suggestion for close matches (`"="` → did you mean `"=="`?)
+- Objects with more than one key: they are not operations but literal values that are always truthy
+- Wrong argument counts, including legal-but-misleading ones (`>=` with a third argument, which the backend ignores)
+- Invalid literal arguments: `var` paths, `let`/`set_record` names (must be literal strings), permission names, `throw_error` codes and parameters, RACI letters
+- Unknown `$` variables (the backend provides `$today`, `$now`, `$user_id`, `$old`, `$mode`; names bound by `let`/`set_record` are allowed)
+- Inside the logic of `map`, `filter`, `all`, `none`, `some` and `reduce`, which the backend evaluates against each array item (`{current, accumulator}` for `reduce`): any `$` variable, and names bound by a `let`/`set_record` outside the operator. Item fields and names bound inside the logic are allowed
+- Entries without `name` (computed fields) or `code`/`message` (validation rules), and codes outside class 99 (class 90 for `source_module: "platform"`)
+
+**Errors** are reported as `format` errors with `params.format: "jsonlogic"` (see [JSON values and AJV](#json-values-and-ajv)), e.g. `unknown operator "vra" (did you mean "var"?) at /0/jsonlogic/+/1`.
+
+**Keeping in sync with the backend**: the operator table and the `$` variable list in [src/jsonlogic/operators.ts](src/jsonlogic/operators.ts) are maintained by hand. `src/__tests__/jsonlogic-backend-sync.test.ts` reads the backend's migrations and fails when the operators differ from `evaluate_json_logic()`, when the `$` variables differ from those in `build_record_logic_trigger()`, or when a rule shipped in the migrations no longer validates. It looks for the semantius repository in `SEMANTIUS_BACKEND_DIR`, or next to this repository (`../semantius`). Without a checkout the suite is skipped; set `SEMANTIUS_BACKEND_REQUIRED=1` to make that a failure.
 
 ## Installation
 
@@ -95,7 +126,7 @@ const schema = {
       inputMode: 'required'  // Shows asterisk + validates non-empty
     },
     config: { 
-      format: 'json'  // Type: string inferred
+      format: 'json'  // Type inferred: any JSON value, or JSON text
     },
     price: { 
       type: 'number', 
@@ -160,9 +191,12 @@ sem-schema/
 ├── src/
 │   ├── formats/           # Custom format validators (internal)
 │   ├── keywords/          # Custom keyword validators (internal)
+│   ├── json/              # JSON value validation shared by json and jsonlogic (internal)
+│   ├── jsonlogic/         # JsonLogic operator table and static validator (internal)
 │   ├── __tests__/
 │   │   ├── vocabulary.test.ts      # Vocabulary definition tests
-│   │   └── data-validation.test.ts # Data validation tests
+│   │   ├── data-validation.test.ts # Data validation tests
+│   │   └── jsonlogic-backend-sync.test.ts # JsonLogic operators vs. the semantius backend
 │   ├── api.ts             # Public API
 │   ├── validator.ts       # Validator creation (internal)
 │   ├── utils.ts           # Utilities (internal)
@@ -181,6 +215,7 @@ pnpm test:watch    # Run tests in watch mode
 The test suite includes:
 - **Vocabulary Definition Tests**: Verify schemas with custom keywords can be compiled
 - **Data Validation Tests**: Verify data correctly validates against schemas
+- **JsonLogic Backend Sync Tests**: Verify the JsonLogic operators and `$` variables match the semantius backend (skipped without a semantius checkout, see [JsonLogic](#jsonlogic))
 
 ## Extending SemSchema
 
@@ -188,37 +223,27 @@ SemSchema is designed to be extensible. You can add custom formats and keywords 
 
 ### Supported Formats
 
-**Custom SemSchema formats (4):**
-- `json`, `html`, `text`, `multiline`
+The formats are defined once, in `properties.format.oneOf` of [src/vocabulary.json](src/vocabulary.json): one entry per format with its name (`const`), the JSON type it implies when a schema has no `type` (`jsonType`) and a description. Schema validation, type inference and the meta-schema all read that list; do not list formats anywhere else. It must match the formats the Semantius backend accepts (`valid_format` and `format_to_json_type`).
 
-**Standard JSON Schema formats from ajv-formats (24):**
-- **Date/time:** `date`, `time`, `date-time`, `duration`
-- **URI:** `uri`, `uri-reference`, `uri-template`, `url`
-- **Email/Network:** `email`, `hostname`, `ipv4`, `ipv6`
-- **Other:** `regex`, `uuid`, `json-pointer`, `json-pointer-uri-fragment`, `relative-json-pointer`, `byte`, `binary`, `int32`, `int64`, `float`, `double`, `password`
+For the GUI and the backend, the same list is written to [formats.json](formats.json) (`{ "<format>": { "type", "description" } }`, importable as `sem-schema/formats.json`). It is generated: never edit it by hand, run `pnpm generate:formats` after changing formats in `vocabulary.json`. A test fails when `formats.json` is out of date.
 
-The complete list is maintained in `KNOWN_FORMATS` in [src/utils.ts](src/utils.ts).
+The JSON type names `string`, `number`, `integer`, `boolean`, `object` and `array` are formats too; when a schema also gives `type`, it must be compatible with the format. `null` is not a format: a field that can only hold `null` holds no data.
+
+`email`, `hostname`, `uri` and `uri-reference` are not restricted to ASCII: each accepts Unicode and validates exactly like `idn-email`, `idn-hostname`, `iri` and `iri-reference` (e.g. `jörg@müller.de`, `müller.de`, `https://müller.de/straße`). Values are mapped to their ASCII wire form (punycode, percent-encoding) and then checked with the strict ajv-formats validators ([src/formats/internationalized.ts](src/formats/internationalized.ts)).
 
 ### Adding a Custom Format
 
 Follow these steps to add a new custom format (e.g., `phone`):
 
-#### Step 1: Add to KNOWN_FORMATS
+#### Step 1: Add to vocabulary.json
 
-Edit `src/utils.ts` and add your format to the set:
+Add an entry to `properties.format.oneOf` in `src/vocabulary.json`:
 
-```typescript
-const KNOWN_FORMATS = new Set([
-  // Custom SemSchema formats
-  'json',
-  'html',
-  'text',
-  'multiline',
-  'phone', // ← Add your format here
-  // Standard JSON Schema formats (from ajv-formats)
-  // ...
-]);
+```json
+{ "const": "phone", "jsonType": "string", "description": "Phone number, E.164 (+12025551234)" }
 ```
+
+Then regenerate `formats.json`: `pnpm generate:formats`
 
 #### Step 2: Create format validator
 
@@ -417,7 +442,7 @@ Always add comprehensive tests:
 ## Vocabulary Definition
 
 The vocabulary includes:
-- Custom formats: `json`, `html`, `text`, `multiline`
+- Custom formats: `json`, `html`, `text`, `multiline`, `code`, `jsonata`, `jsonlogic`, `reference`, `parent`
 - Standard formats: All formats from `ajv-formats` (email, date, uri, uuid, etc.)
 - Custom keywords: `required` (property-level), `precision`
 

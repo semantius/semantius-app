@@ -44,7 +44,11 @@ export function InputUriReference({
               <Input
                 id={name}
                 name={readonly ? undefined : name}
+                // A relative reference (/path, #top) is what this format carries and
+                // what type="url" rejects, so the type stays text; inputMode still
+                // gives the URL keyboard.
                 type="text"
+                inputMode="url"
                 value={field.state.value || ''}
                 onChange={(e) => field.handleChange(e.target.value)}
                 onBlur={field.handleBlur}

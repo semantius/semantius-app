@@ -15,9 +15,26 @@ describe('InputUri', () => {
     }
   }
 
-  it('should render uri input', () => {
+  it('renders a text input with the URL keyboard, not type=url', () => {
     const { container } = renderControl(<InputUri name="uri" />)
-    expect(container.querySelector('input')).toHaveAttribute('type', 'url')
+    const input = container.querySelector('input')
+    expect(input).toHaveAttribute('type', 'text')
+    expect(input).toHaveAttribute('inputmode', 'url')
+  })
+
+  // This control serves `iri` as well as `uri`. `type="url"` accepts an IRI
+  // unchanged, so the type is text for a different reason: native constraint
+  // validation would run alongside sem-schema's and a natively :invalid field
+  // blocks View.tsx's native `form={FORM_ID}` submit with a browser bubble.
+  it('accepts an IRI with non-ASCII in host and path', async () => {
+    const user = userEvent.setup()
+    renderControl(<InputUri name="uri" label="Website" />)
+
+    const input = screen.getByLabelText(/website/i) as HTMLInputElement
+    await user.type(input, 'https://müller.de/straße')
+
+    expect(input.value).toBe('https://müller.de/straße')
+    expect(input.validity.typeMismatch).toBe(false)
   })
 
   it('is named by its label', () => {

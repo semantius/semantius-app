@@ -5,7 +5,10 @@ import { FormLabel } from './FormLabel'
 import { FormDescription } from './FormDescription'
 import { FormError } from './FormError'
 import { describedBy, labelledBy } from './fieldAria'
+import { codeMirrorSurfaceClassName } from './codeMirrorField'
+import { Textarea } from '@/components/ui/textarea'
 import { useT } from '@/i18n'
+import { formatType, isFormatName } from '@/lib/formats'
 
 // Lazy load CodeMirror
 const CodeMirrorEditor = lazy(() => import('./CodeMirrorJson'))
@@ -14,6 +17,8 @@ const CodeMirrorEditor = lazy(() => import('./CodeMirrorJson'))
 // crash on malformed value). Keeps the field editable instead of taking down
 // the whole form.
 interface JsonEditorBoundaryProps {
+  /** The field id, for the fallback textarea the label points at. */
+  id?: string
   value: string
   onChange: (value: string) => void
   onBlur: () => void
@@ -35,9 +40,12 @@ class JsonEditorBoundary extends Component<JsonEditorBoundaryProps, { hasError: 
   render() {
     if (this.state.hasError) {
       const { value, onChange, onBlur, disabled, readOnly } = this.props
+      // The registry Textarea, so the fallback carries the same surface tokens
+      // as everything else on the form rather than an unstyled control.
       return (
-        <textarea
-          className="w-full min-h-50 p-2 font-mono text-sm outline-none"
+        <Textarea
+          id={this.props.id}
+          className="min-h-50 rounded-none border-0 bg-transparent font-mono shadow-none focus-visible:ring-0"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onBlur={onBlur}
@@ -97,6 +105,8 @@ export function InputJson({
         // older, default-less schema cached for a whole session — the editor must
         // never be empty. get_schema may give the default as a real object/array OR
         // as a JSON string (e.g. "[]"); accept either, else fall back to "{}".
+        const rawFormat = (schema as { format?: unknown } | undefined)?.format
+        const formatType_ = isFormatName(rawFormat) ? formatType(rawFormat) : undefined
         const schemaDefault = (schema as { default?: unknown } | undefined)?.default
         let defaultString: string
         if (typeof schemaDefault === 'string') {
@@ -108,7 +118,10 @@ export function InputJson({
             defaultString = '{}'
           }
         } else {
-          defaultString = '{}'
+          // An `array` field's empty value is `[]`, not `{}` — seeding an object
+          // into an array column produces a type error on the first save of a
+          // field the user never touched.
+          defaultString = formatType_ === 'array' ? '[]' : '{}'
         }
 
         // Ensure value is a string (prettify if it's an object). Always coerce
@@ -130,9 +143,17 @@ export function InputJson({
         return (
           <div className="pt-2 space-y-1">
             <FormLabel htmlFor={name} label={label} required={required} error={!!field.state.meta.errors?.[0]} />
-            <div className={`border rounded-md overflow-hidden ${field.state.meta.errors?.[0] ? 'border-destructive' : 'border-input-border'}`}>
+            <div
+              data-field-surface=""
+              className={codeMirrorSurfaceClassName({
+                invalid: !!field.state.meta.errors?.[0],
+                readOnly: readonly,
+                disabled,
+              })}
+            >
               <Suspense fallback={<div className="p-4 text-muted-foreground">{t('Loading editor...')}</div>}>
                 <JsonEditorBoundary
+                  id={name}
                   value={stringValue}
                   onChange={field.handleChange}
                   onBlur={field.handleBlur}
@@ -143,6 +164,7 @@ export function InputJson({
                   aria-invalid={!!field.state.meta.errors?.[0]}
                 >
                   <CodeMirrorEditor
+                    id={name}
                     value={stringValue}
                     onChange={field.handleChange}
                     onBlur={field.handleBlur}

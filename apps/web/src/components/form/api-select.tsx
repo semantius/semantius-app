@@ -9,6 +9,7 @@ import { useT } from "@/i18n";
 import { appError } from "@/lib/appError";
 import { renderError } from "@/lib/apiErrors";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Command,
   CommandEmpty,
@@ -325,6 +326,7 @@ export function APISelect<T>({
               aria-labelledby={ariaLabelledBy ? `${ariaLabelledBy} ${triggerId}` : undefined}
               aria-describedby={ariaDescribedBy}
               aria-invalid={ariaInvalid}
+              data-field-surface=""
               className={cn(
                 "w-full cursor-pointer justify-between font-normal pl-3",
                 // Reserve the gutter the overlaid clear button occupies.
@@ -340,8 +342,11 @@ export function APISelect<T>({
             {selectedOption ? (
               <div className={itemClassName}>{renderItem(selectedOption)}</div>
             ) : initialLoading ? (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
+              // role="status" so the wait is announced. Without it a screen
+              // reader user hears the trigger's name and then silence until the
+              // record arrives, with nothing saying anything is happening.
+              <div role="status" className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
                 <span>{t("Loading...")}</span>
               </div>
             ) : (
@@ -384,14 +389,20 @@ export function APISelect<T>({
               }}
             />
             {loading && options.length > 0 && (
-              <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center">
-                <Loader2 className="h-4 w-4 animate-spin" />
+              <div
+                role="status"
+                aria-label={t("Loading...")}
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center"
+              >
+                <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
               </div>
             )}
           </div>
           <CommandList ref={listboxRef}>
             {error && (
-              <div className="p-4 text-destructive text-center">
+              // role="alert": the list is already open and focus is in the
+              // search box, so nothing would otherwise move the user to this.
+              <div role="alert" className="p-4 text-destructive text-center">
                 {error}
               </div>
             )}
@@ -412,7 +423,11 @@ export function APISelect<T>({
                     key={getRecordId(option)}
                     value={getRecordId(option)}
                     onSelect={handleSelect}
-                    className="cursor-pointer bg-transparent! hover:bg-accent!"
+                    // No background override here: cmdk sets `data-selected` on
+                    // the item the keyboard is on, and `bg-transparent!` beat its
+                    // `data-selected:bg-muted`, so arrowing through the list moved
+                    // an invisible cursor (WCAG 2.4.7).
+                    className="cursor-pointer"
                   >
                     {/* Left-aligned check with reserved space (opacity toggle) — matches the
                         InputEnum dropdown so enum and reference selects look identical. A
@@ -436,20 +451,29 @@ export function APISelect<T>({
   );
 }
 
+/**
+ * The wait state for the options list.
+ *
+ * Outside the `CommandGroup`, not inside it: a `CommandItem` is an
+ * `option`/`menuitem` to cmdk and to the accessibility tree, so three skeleton
+ * rows announced themselves as three selectable results that do not exist, and
+ * arrow-down landed on them. It is a plain `role="status"` region instead, and
+ * the bars are `<Skeleton>` so they use the `--skeleton` token rather than
+ * `bg-muted`, which is a 1.09:1 contrast against the surface — invisible.
+ */
 function DefaultLoadingSkeleton() {
+  const t = useT();
   return (
-    <CommandGroup>
+    <div role="status" aria-label={t("Loading...")} className="p-2">
       {[1, 2, 3].map((i) => (
-        <CommandItem key={i} disabled>
-          <div className="flex items-center gap-2 w-full">
-            <div className="h-6 w-6 rounded-full animate-pulse bg-muted" />
-            <div className="flex flex-col flex-1 gap-1">
-              <div className="h-4 w-24 animate-pulse bg-muted rounded" />
-              <div className="h-3 w-16 animate-pulse bg-muted rounded" />
-            </div>
+        <div key={i} className="flex items-center gap-2 w-full px-2 py-1.5">
+          <Skeleton className="h-6 w-6 rounded-full" />
+          <div className="flex flex-col flex-1 gap-1">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-2.5 w-16" />
           </div>
-        </CommandItem>
+        </div>
       ))}
-    </CommandGroup>
+    </div>
   );
 }

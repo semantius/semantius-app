@@ -38,26 +38,31 @@ describe('ViewSkeleton', () => {
   it('derives the column count from metadata, applying the grid skip rules', () => {
     const metadata: EntityMetadata = {
       properties: {
-        id: { type: 'integer' },
-        name: { type: 'string' },
-        status: { type: 'string' },
+        id: { type: 'integer', format: 'int32' },
+        name: { type: 'string', format: 'text' },
+        status: { type: 'string', format: 'text' },
         // Skipped, exactly as the real grid skips them.
-        _label: { type: 'string', ctype: '_label' },
-        owner_id_label: { type: 'string', ctype: 'fk_label' },
-        created_at: { type: 'string' },
-        notes: { type: 'string', format: 'markdown' },
+        _label: { type: 'string', format: 'text', ctype: '_label' },
+        owner_id_label: { type: 'string', format: 'text', ctype: 'fk_label' },
+        created_at: { type: 'string', format: 'date-time' },
+        // Skipped because the registry entry says `gridColumn: false`, which is
+        // the same list the grid itself reads. (This fixture used `markdown`,
+        // which is not a catalog format at all — the old skip list named it and
+        // nothing could ever have produced it.)
+        notes: { type: 'string', format: 'html' },
       },
     }
 
     const { container } = render(<ViewSkeleton metadata={metadata} />)
 
-    // 3 kept columns × (1 header row + 8 body rows).
+    // 3 kept columns (id, name, status) × (1 header + 8 body rows).
+    // created_at is skipped by the audit-column rule, not the format rule.
     expect(skeletons(container)).toHaveLength(3 * 9 + TRIM_SKELETONS)
   })
 
   it('caps the column count so a wide entity does not overflow the row', () => {
     const properties: EntityMetadata['properties'] = {}
-    for (let i = 0; i < 30; i++) properties[`col_${i}`] = { type: 'string' }
+    for (let i = 0; i < 30; i++) properties[`col_${i}`] = { type: 'string', format: 'text' }
 
     const { container } = render(<ViewSkeleton metadata={{ properties }} />)
 

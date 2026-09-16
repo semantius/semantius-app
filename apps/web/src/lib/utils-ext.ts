@@ -26,3 +26,16 @@ export function interpolate(template: string, obj: Record<string, unknown>): str
  */
 export const inputSurfaceClassName =
   "bg-input/50 hover:bg-input/50 aria-expanded:bg-input/50 dark:hover:bg-input/50 border-input-border"
+
+/**
+ * The classes `ui/input-group.tsx` gives an `<InputGroupButton size="icon-xs">`.
+ *
+ * That file builds them with a local `inputGroupButtonVariants` cva it does not
+ * export, and it is CLI-owned so it cannot be made to. A control whose inline-end
+ * addon has to be a real `<a href>` rather than a button — `InputUrl`, where the
+ * addon navigates — therefore cannot reuse the component and needs the same
+ * classes here, composed with `buttonVariants({ variant: 'ghost' })` at the call
+ * site. Keep in sync with the `icon-xs` variant in `ui/input-group.tsx`.
+ */
+export const inputGroupIconButtonClassName =
+  "flex items-center gap-2 text-sm shadow-none size-6 rounded-xl p-0 has-[>svg]:p-0 [&>svg:not([class*='size-'])]:size-3.5"

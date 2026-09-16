@@ -119,11 +119,11 @@ export function DateTimePicker({
                 // invalid state is carried visually here and announced through
                 // the error text referenced by aria-describedby. The time <input>
                 // below is a real textbox and does take aria-invalid.
+                data-field-surface=""
                 className={cn(
                   "w-full justify-start text-left font-normal",
                   inputSurfaceClassName,
                   !date && "text-muted-foreground",
-                  readOnly && "opacity-60",
                   ariaInvalid && "border-destructive ring-3 ring-destructive/20"
                 )}
                 disabled={disabled || readOnly}

@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { type EntityMetadata, type TableMetadata } from '@/types/metadata'
 import { cn } from '@/lib/utils'
 import { formatNumberForDisplay, resolvePrecision } from '@/lib/number-format'
+import { resolveControl } from '@/components/form/resolveControl'
 import { formatDateForDisplay, isDateFormat } from '@/lib/date-format'
 import { enumLabel, useFormattingLocale, useT, type TranslateFn } from '@/i18n'
 import { useTable } from '@/hooks/useTable'
@@ -147,22 +148,19 @@ function getFilterVariant(property: {
 }
 
 // Default display width for a property in the grid.
-// - boolean → 's' (fits a toggle/checkbox column)
-// - multiline, json, html, jsonata → 'w' (wide)
-// - number, integer (without a format) → 's'
-// - everything else → 'm'
-function getDefaultWidthForGrid(format?: string, type?: string): 's' | 'm' | 'w' {
-  if (type === 'boolean') return 's'
-  if (format === 'multiline' || format === 'json' || format === 'html' || format === 'jsonata') return 'w'
-  if (!format && (type === 'number' || type === 'integer')) return 's'
-  return 'm'
+// The buckets come from the registry entry (components/form/controls.ts), the
+// same list the form reads. This used to be a second copy, and the two had
+// already drifted: the form gave `w` to json/html/jsonata and the grid gave the
+// same, but neither knew about jsonlogic, object or array.
+function getDefaultWidthForGrid(format?: string): 's' | 'm' | 'w' {
+  return resolveControl({ format })?.width ?? 'm'
 }
 
 // Returns the width bucket ('s' | 'm' | 'w') for a metadata property.
 // Explicit property.width takes precedence; falls back to getDefaultWidthForGrid.
 function getWidthBucket(property: { width?: string; format?: string; type?: string | string[] }): 's' | 'm' | 'w' {
   if (property.width === 's' || property.width === 'm' || property.width === 'w') return property.width
-  return getDefaultWidthForGrid(property.format, Array.isArray(property.type) ? property.type[0] : property.type)
+  return getDefaultWidthForGrid(property.format)
 }
 
 // Fixed pixel widths for sticky-left-pinned columns, keyed by width bucket.
@@ -722,8 +720,11 @@ export function DataTableView({
       if (property.ctype === 'fk_label' || property.ctype === '_label') continue
       if (key.includes('[[Prototype]]')) continue
 
-      // Rich-text and structured-data fields are too large to be useful in a grid cell.
-      if (property.format === 'json' || property.format === 'markdown' || property.format === 'html') continue
+      // Rich-text and structured-data fields are too large to be useful in a
+      // grid cell. Which ones those are is `gridColumn` on the registry entry,
+      // so the grid and the skeleton below it cannot disagree. (`markdown` used
+      // to be listed here and is not a catalog format at all.)
+      if (resolveControl({ format: property.format })?.gridColumn === false) continue
 
       const variant = getFilterVariant(property)
       // Numeric columns are right-aligned (cells via text-right below, header via

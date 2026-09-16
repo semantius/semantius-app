@@ -33,7 +33,21 @@ export function InputEmail({
               <Input
                 id={name}
                 name={readonly ? undefined : name}
-                type="email"
+                // type="text", not type="email": this control serves idn-email as
+                // well as email, and the HTML spec's email regex is ASCII-only, so
+                // type="email" marks a non-ASCII local part (jörg@müller.de)
+                // typeMismatch — which blocks View.tsx's native form={FORM_ID}
+                // submit and paints the invalid state. inputMode keeps the email
+                // soft keyboard.
+                //
+                // Chromium ALSO punycodes an IDN domain on genuine editing
+                // (user@müller.de becomes user@xn--mller-kva.de, silently). That
+                // one is not asserted below: it fires on real editing and on
+                // execCommand, never on the value-setter path userEvent drives, so
+                // a test for it here would pass under type="email" too. The
+                // typeMismatch test is the one that fails if this type changes.
+                type="text"
+                inputMode="email"
                 value={field.state.value || ''}
                 onChange={(e) => field.handleChange(e.target.value)}
                 onBlur={field.handleBlur}

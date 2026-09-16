@@ -31,7 +31,7 @@
   },
   "src/components/data-table-view/DataTableView.tsx": {
     "lingui/no-unlocalized-strings": {
-      "count": 55
+      "count": 52
     }
   },
   "src/components/form/CodeMirrorCode.tsx": {
@@ -59,147 +59,42 @@
       "count": 1
     }
   },
-  "src/components/form/InputBoolean.tsx": {
-    "lingui/no-unlocalized-strings": {
-      "count": 1
-    }
-  },
-  "src/components/form/InputCode.tsx": {
-    "lingui/no-unlocalized-strings": {
-      "count": 1
-    }
-  },
   "src/components/form/InputDate.tsx": {
-    "lingui/no-unlocalized-strings": {
-      "count": 2
-    }
-  },
-  "src/components/form/InputDateTime.tsx": {
     "lingui/no-unlocalized-strings": {
       "count": 1
     }
   },
   "src/components/form/InputDuration.tsx": {
     "lingui/no-unlocalized-strings": {
-      "count": 2
-    }
-  },
-  "src/components/form/InputEmail.tsx": {
-    "lingui/no-unlocalized-strings": {
-      "count": 1
-    }
-  },
-  "src/components/form/InputEnum.tsx": {
-    "lingui/no-unlocalized-strings": {
-      "count": 1
-    }
-  },
-  "src/components/form/InputHostname.tsx": {
-    "lingui/no-unlocalized-strings": {
-      "count": 1
-    }
-  },
-  "src/components/form/InputHtml.tsx": {
-    "lingui/no-unlocalized-strings": {
-      "count": 1
-    }
-  },
-  "src/components/form/InputIdnEmail.tsx": {
-    "lingui/no-unlocalized-strings": {
-      "count": 2
-    }
-  },
-  "src/components/form/InputIdnHostname.tsx": {
-    "lingui/no-unlocalized-strings": {
-      "count": 2
-    }
-  },
-  "src/components/form/InputIpv4.tsx": {
-    "lingui/no-unlocalized-strings": {
-      "count": 1
-    }
-  },
-  "src/components/form/InputIpv6.tsx": {
-    "lingui/no-unlocalized-strings": {
-      "count": 1
-    }
-  },
-  "src/components/form/InputIri.tsx": {
-    "lingui/no-unlocalized-strings": {
-      "count": 2
-    }
-  },
-  "src/components/form/InputIriReference.tsx": {
-    "lingui/no-unlocalized-strings": {
-      "count": 2
-    }
-  },
-  "src/components/form/InputJson.tsx": {
-    "lingui/no-unlocalized-strings": {
-      "count": 1
-    }
-  },
-  "src/components/form/InputJsonPointer.tsx": {
-    "lingui/no-unlocalized-strings": {
-      "count": 1
-    }
-  },
-  "src/components/form/InputJsonata.tsx": {
-    "lingui/no-unlocalized-strings": {
-      "count": 1
-    }
-  },
-  "src/components/form/InputNumber.tsx": {
-    "lingui/no-unlocalized-strings": {
       "count": 1
     }
   },
   "src/components/form/InputReference.tsx": {
     "lingui/no-unlocalized-strings": {
-      "count": 8
+      "count": 7
     }
   },
   "src/components/form/InputRegex.tsx": {
     "lingui/no-unlocalized-strings": {
-      "count": 2
+      "count": 1
     }
   },
   "src/components/form/InputRelativeJsonPointer.tsx": {
-    "lingui/no-unlocalized-strings": {
-      "count": 2
-    }
-  },
-  "src/components/form/InputText.tsx": {
-    "lingui/no-unlocalized-strings": {
-      "count": 1
-    }
-  },
-  "src/components/form/InputTextarea.tsx": {
-    "lingui/no-unlocalized-strings": {
-      "count": 1
-    }
-  },
-  "src/components/form/InputTime.tsx": {
     "lingui/no-unlocalized-strings": {
       "count": 1
     }
   },
   "src/components/form/InputUri.tsx": {
     "lingui/no-unlocalized-strings": {
-      "count": 2
+      "count": 1
     }
   },
   "src/components/form/InputUriReference.tsx": {
     "lingui/no-unlocalized-strings": {
-      "count": 2
+      "count": 1
     }
   },
   "src/components/form/InputUriTemplate.tsx": {
-    "lingui/no-unlocalized-strings": {
-      "count": 2
-    }
-  },
-  "src/components/form/InputUuid.tsx": {
     "lingui/no-unlocalized-strings": {
       "count": 1
     }
@@ -211,12 +106,12 @@
   },
   "src/components/form/SchemaForm.tsx": {
     "lingui/no-unlocalized-strings": {
-      "count": 25
+      "count": 17
     }
   },
   "src/components/form/api-select.tsx": {
     "lingui/no-unlocalized-strings": {
-      "count": 4
+      "count": 3
     }
   },
   "src/components/form/codeMirrorField.ts": {
@@ -299,7 +194,7 @@
   },
   "src/components/niko-table/core/data-table-structure.tsx": {
     "lingui/no-unlocalized-strings": {
-      "count": 21
+      "count": 18
     }
   },
   "src/components/niko-table/filters/table-column-sort.tsx": {
@@ -309,12 +204,7 @@
   },
   "src/components/niko-table/filters/table-filter-menu.tsx": {
     "lingui/no-unlocalized-strings": {
-      "count": 15
-    }
-  },
-  "src/components/niko-table/filters/table-range-filter.tsx": {
-    "lingui/no-unlocalized-strings": {
-      "count": 2
+      "count": 14
     }
   },
   "src/components/niko-table/filters/table-sort-menu.tsx": {
@@ -374,7 +264,7 @@
   },
   "src/components/ui-ext/number-input.tsx": {
     "lingui/no-unlocalized-strings": {
-      "count": 3
+      "count": 1
     }
   },
   "src/components/ui-ext/platform-shortcut.tsx": {

@@ -1,4 +1,5 @@
 import { useT } from '@/i18n'
+import { isFormatName, isNumericFormat } from '@/lib/formats'
 import type { FormControlProps } from './types'
 import { useFormContext } from './FormContext'
 import { FormLabel } from './FormLabel'
@@ -25,6 +26,7 @@ export function InputReference({
   const hidden = inputMode === 'hidden'
 
   // Get reference-specific config from schema prop
+  const format = (schema as any)?.format
   const fieldType = (schema as any)?.type
   let searchUrl = (schema as any)?.searchUrl
   let idUrl = (schema as any)?.idUrl
@@ -55,8 +57,17 @@ export function InputReference({
 
   // console.log('InputReference derived props', {     fieldType,    searchUrl,   idUrl,    getRecords,    getRecordId,    renderItem,    placeholder  })
 
-  // Convert the numeric form value to a string for APISelect, and back on change
-  const isNumeric = fieldType === 'integer' || fieldType === 'number'
+  // Convert the numeric form value to a string for APISelect, and back on change.
+  //
+  // The property's own `type` is not enough: `get_schema` emits a nullable
+  // reference as the UNION `["integer","null"]`, and `fieldType === 'integer'`
+  // is false for an array — so those fields quietly submitted the foreign key as
+  // a string. Take the type from the catalog, which has one answer per format,
+  // and fall back to the property only for a schema with no format (the
+  // playground).
+  const isNumeric = isFormatName(format)
+    ? isNumericFormat(format)
+    : fieldType === 'integer' || fieldType === 'number'
 
   function toSelectValue(formValue: any): string {
     if (formValue === undefined || formValue === null || formValue === '') return ''

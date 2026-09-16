@@ -9,7 +9,7 @@ describe('SchemaForm', () => {
     type: 'object',
     properties: {
       name: {
-        type: 'string',
+        type: 'string', format: 'text',
         title: 'Name',
         inputMode: 'required',
         description: 'Your full name',
@@ -21,7 +21,7 @@ describe('SchemaForm', () => {
         inputMode: 'required',
       },
       age: {
-        type: 'integer',
+        type: 'integer', format: 'int32',
         title: 'Age',
       },
     },
@@ -193,7 +193,7 @@ describe('SchemaForm', () => {
       const schemaWithDefaults: SchemaObject = {
         type: 'object',
         properties: {
-          name: { type: 'string', default: 'Default Name' },
+          name: { type: 'string', format: 'text', default: 'Default Name' },
         },
       }
 
@@ -206,7 +206,7 @@ describe('SchemaForm', () => {
       const schemaWithDefaults: SchemaObject = {
         type: 'object',
         properties: {
-          name: { type: 'string', default: 'Default Name' },
+          name: { type: 'string', format: 'text', default: 'Default Name' },
         },
       }
 
@@ -226,8 +226,11 @@ describe('SchemaForm', () => {
     it('should use EmailInput for email format', () => {
       render(<SchemaForm schema={basicSchema} />)
 
+      // InputEmail is type="text" with inputMode="email" — it serves idn-email
+      // too, and type="email" rejects a non-ASCII local part. See its own test.
       const emailInput = screen.getByLabelText(/email/i)
-      expect(emailInput).toHaveAttribute('type', 'email')
+      expect(emailInput).toHaveAttribute('type', 'text')
+      expect(emailInput).toHaveAttribute('inputmode', 'email')
     })
 
     it('should use NumberInput for integer type', () => {
@@ -313,7 +316,7 @@ describe('SchemaForm', () => {
       const schemaWithReadonly: SchemaObject = {
         type: 'object',
         properties: {
-          name: { type: 'string', title: 'Name', inputMode: 'readonly' },
+          name: { type: 'string', format: 'text', title: 'Name', inputMode: 'readonly' },
           email: { type: 'string', format: 'email', title: 'Email' },
         },
       }
@@ -357,7 +360,7 @@ describe('SchemaForm', () => {
       const schemaWithDisabled: SchemaObject = {
         type: 'object',
         properties: {
-          name: { type: 'string', title: 'Name', inputMode: 'required' },
+          name: { type: 'string', format: 'text', title: 'Name', inputMode: 'required' },
           email: { type: 'string', format: 'email', title: 'Email', inputMode: 'disabled' },
         },
       }
@@ -404,7 +407,7 @@ describe('SchemaForm', () => {
       const schemaWithReadonly: SchemaObject = {
         type: 'object',
         properties: {
-          name: { type: 'string', title: 'Name', inputMode: 'readonly' },
+          name: { type: 'string', format: 'text', title: 'Name', inputMode: 'readonly' },
           email: { type: 'string', format: 'email', title: 'Email' },
         },
       }
@@ -424,7 +427,7 @@ describe('SchemaForm', () => {
       const schemaWithReadonly: SchemaObject = {
         type: 'object',
         properties: {
-          name: { type: 'string', title: 'Name', inputMode: 'readonly' },
+          name: { type: 'string', format: 'text', title: 'Name', inputMode: 'readonly' },
           email: { type: 'string', format: 'email', title: 'Email' },
         },
       }
@@ -444,7 +447,7 @@ describe('SchemaForm', () => {
       
       render(
         <SchemaForm 
-          schema={{ type: 'object', properties: { name: { type: 'string', title: 'Name', inputMode: 'readonly' }}}}
+          schema={{ type: 'object', properties: { name: { type: 'string', format: 'text', title: 'Name', inputMode: 'readonly' }}}}
           initialValue={initialData}
         />
       )
@@ -463,7 +466,7 @@ describe('SchemaForm', () => {
         type: 'object',
         properties: {
           name: { 
-            type: 'string', 
+            type: 'string', format: 'text', 
             title: 'Name', 
             inputMode: 'readonly',
             minLength: 5, // Validation rule that would normally fail for empty value
@@ -511,13 +514,13 @@ describe('SchemaForm', () => {
         type: 'object',
         properties: {
           requiredReadonly: { 
-            type: 'string', 
+            type: 'string', format: 'text', 
             title: 'Required Readonly', 
             inputMode: 'readonly',
             minLength: 1, // Would fail for empty string
           },
           normalField: { 
-            type: 'string', 
+            type: 'string', format: 'text', 
             title: 'Normal Field',
             inputMode: 'required',
           },
@@ -552,10 +555,10 @@ describe('SchemaForm', () => {
       const schemaWithReadonly: SchemaObject = {
         type: 'object',
         properties: {
-          id: { type: 'string', title: 'ID', inputMode: 'readonly' },
-          name: { type: 'string', title: 'Name', inputMode: 'required' },
+          id: { type: 'string', format: 'text', title: 'ID', inputMode: 'readonly' },
+          name: { type: 'string', format: 'text', title: 'Name', inputMode: 'required' },
           email: { type: 'string', format: 'email', title: 'Email' },
-          status: { type: 'string', title: 'Status', inputMode: 'readonly' },
+          status: { type: 'string', format: 'text', title: 'Status', inputMode: 'readonly' },
         },
       }
 
@@ -574,8 +577,8 @@ describe('SchemaForm', () => {
       const schemaWithReadonly: SchemaObject = {
         type: 'object',
         properties: {
-          id: { type: 'string', title: 'ID', inputMode: 'readonly' },
-          name: { type: 'string', title: 'Name' },
+          id: { type: 'string', format: 'text', title: 'ID', inputMode: 'readonly' },
+          name: { type: 'string', format: 'text', title: 'Name' },
         },
       }
 
@@ -619,7 +622,7 @@ describe('SchemaForm', () => {
       const schemaWithRequired: SchemaObject = {
         type: 'object',
         properties: {
-          name: { type: 'string', title: 'Name' },
+          name: { type: 'string', format: 'text', title: 'Name' },
           email: { type: 'string', format: 'email', title: 'Email' },
         },
         required: ['name'], // Object-level required (no inputMode on property)
@@ -650,7 +653,7 @@ describe('SchemaForm', () => {
       const schemaWithRequired: SchemaObject = {
         type: 'object',
         properties: {
-          name: { type: 'string', title: 'Name' },
+          name: { type: 'string', format: 'text', title: 'Name' },
           email: { type: 'string', format: 'email', title: 'Email' },
         },
         required: ['name'], // name must exist in data
@@ -685,7 +688,7 @@ describe('SchemaForm', () => {
       const schema: SchemaObject = {
         type: 'object',
         properties: {
-          name: { type: 'string', title: 'Name', inputMode: 'required' }, // UI required (non-empty)
+          name: { type: 'string', format: 'text', title: 'Name', inputMode: 'required' }, // UI required (non-empty)
           email: { type: 'string', format: 'email', title: 'Email' }, // No UI marker
         },
         required: ['email'], // email must exist in data (but can be empty)
@@ -717,9 +720,9 @@ describe('SchemaForm', () => {
       const schema: SchemaObject = {
         type: 'object',
         properties: {
-          name: { type: 'string', title: 'Name', inputMode: 'required' },
+          name: { type: 'string', format: 'text', title: 'Name', inputMode: 'required' },
           email: { type: 'string', format: 'email', title: 'Email' }, // Optional
-          age: { type: 'integer', title: 'Age' }, // Optional
+          age: { type: 'integer', format: 'int32', title: 'Age' }, // Optional
         },
       }
 
@@ -750,7 +753,7 @@ describe('SchemaForm', () => {
       const invalidSchema: SchemaObject = {
         type: 'object',
         properties: {
-          name: { type: 'string', title: 'Name' },
+          name: { type: 'string', format: 'text', title: 'Name' },
         },
         required: 'invalid_format' as any, // Should be array, not string
       }
@@ -778,7 +781,7 @@ describe('SchemaForm', () => {
       const schema: SchemaObject = {
         type: 'object',
         properties: {
-          name: { type: 'string', title: 'Name', inputMode: 'required' },
+          name: { type: 'string', format: 'text', title: 'Name', inputMode: 'required' },
         },
         required: ['name', 'nonExistent'], // 'nonExistent' is not in properties
       }
@@ -814,24 +817,24 @@ describe('SchemaForm', () => {
         type: 'object',
         properties: {
           name: {
-            type: 'string',
+            type: 'string', format: 'text',
             title: 'Name',
             inputMode: 'required',
           },
           id: {
-            type: 'integer',
+            type: 'integer', format: 'int32',
             title: 'ID',
             inputMode: 'readonly',
             default: 123,
           },
           created_at: {
-            type: 'string',
+            type: 'string', format: 'text',
             title: 'Created At',
             inputMode: 'disabled',
             default: '2025-01-01',
           },
           updated_at: {
-            type: 'string',
+            type: 'string', format: 'text',
             title: 'Updated At',
             inputMode: 'disabled',
             default: '2025-01-02',
@@ -881,11 +884,11 @@ describe('SchemaForm', () => {
       const schema: SchemaObject = {
         type: 'object',
         properties: {
-          name: { type: 'string', title: 'Name', inputMode: 'required' },
-          module_id: { type: 'integer', title: 'Module', inputMode: 'default' },
+          name: { type: 'string', format: 'text', title: 'Name', inputMode: 'required' },
+          module_id: { type: 'integer', format: 'int32', title: 'Module', inputMode: 'default' },
           // FK label companion — composed label of the referenced row
           module_id_label: {
-            type: 'string',
+            type: 'string', format: 'text',
             title: 'Module',
             ctype: 'fk_label',
             inputMode: 'readonly',
@@ -893,7 +896,7 @@ describe('SchemaForm', () => {
           },
           // Row-level composed label
           _label: {
-            type: 'string',
+            type: 'string', format: 'text',
             title: 'Entity',
             ctype: '_label',
             inputMode: 'readonly',

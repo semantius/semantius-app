@@ -1,3 +1,4 @@
+import { format, parseISO } from 'date-fns'
 import { DatePicker } from '@/components/ui-ext/date-picker'
 import type { FormControlProps } from './types'
 import { useFormContext } from './FormContext'
@@ -31,11 +32,15 @@ export function InputDate({
           if (hidden) return hiddenInput
         }
         
-        // Convert string to Date if needed, validate the date is valid
+        // A calendar date has no time zone, and the Date constructor gives it
+        // one: `new Date('2024-03-15')` is UTC midnight, which `toISOString()`
+        // then reads back as the 14th anywhere west of Greenwich. `parseISO`
+        // builds a LOCAL midnight and `format` reads the local parts, so the
+        // day the user picked is the day that is stored.
         const parseDateValue = (val: any): Date | undefined => {
           if (!val) return undefined
           if (typeof val !== 'string') return val
-          const date = new Date(val)
+          const date = parseISO(val)
           return Number.isNaN(date.getTime()) ? undefined : date
         }
         
@@ -44,7 +49,7 @@ export function InputDate({
         const handleDateChange = (date: Date | undefined) => {
           // Convert Date to ISO string for form data, only if valid
           if (date && !Number.isNaN(date.getTime())) {
-            field.handleChange(date.toISOString().split('T')[0])
+            field.handleChange(format(date, 'yyyy-MM-dd'))
           } else {
             field.handleChange(undefined)
           }

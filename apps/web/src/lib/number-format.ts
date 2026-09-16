@@ -72,3 +72,27 @@ export function formatNumberForDisplay(
     maximumFractionDigits: precision ?? 20,
   }).format(num)
 }
+
+/**
+ * A file size for display: "834 kB", "4,7 MB".
+ *
+ * `Intl`'s own `unit` style, so the number, the separator and the unit all
+ * follow the formatting locale and none of it is a translatable string. The
+ * unit is chosen by magnitude against the SI decimal steps `Intl` knows
+ * (`byte`, `kilobyte`, `megabyte`), which is what a file manager shows and what
+ * the user compares an upload limit against.
+ */
+export function formatByteSize(bytes: number, locale?: string): string {
+  const steps: { unit: 'byte' | 'kilobyte' | 'megabyte'; scale: number }[] = [
+    { unit: 'megabyte', scale: 1_000_000 },
+    { unit: 'kilobyte', scale: 1_000 },
+    { unit: 'byte', scale: 1 },
+  ]
+  const step = steps.find((s) => Math.abs(bytes) >= s.scale) ?? steps[steps.length - 1]
+  return new Intl.NumberFormat(locale, {
+    style: 'unit',
+    unit: step.unit,
+    unitDisplay: 'short',
+    maximumFractionDigits: step.scale === 1 ? 0 : 1,
+  }).format(bytes / step.scale)
+}

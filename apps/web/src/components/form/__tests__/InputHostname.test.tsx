@@ -18,6 +18,18 @@ describe('InputHostname', () => {
     expect(input).toHaveAttribute('placeholder', 'example.com')
   })
 
+  // This control serves `idn-hostname` as well as `hostname`: both spellings of
+  // the same name reach the field unchanged.
+  it.each(['müller.de', 'xn--mller-kva.de'])('round-trips the host %s', async (value) => {
+    const user = userEvent.setup()
+    renderControl(<InputHostname name="hostname" label="Server name" />)
+
+    const input = screen.getByLabelText(/server name/i) as HTMLInputElement
+    await user.type(input, value)
+
+    expect(input.value).toBe(value)
+  })
+
   it('is named by its label', () => {
     renderControl(<InputHostname name="hostname" label="Server Hostname" />)
     expect(screen.getByRole('textbox', { name: 'Server Hostname' })).toBeInTheDocument()

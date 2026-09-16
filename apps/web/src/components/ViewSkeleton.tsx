@@ -1,6 +1,7 @@
 import { Skeleton } from '@/components/ui/skeleton'
 import { useT } from '@/i18n'
 import type { EntityMetadata } from '@/types/metadata'
+import { resolveControl } from '@/components/form/resolveControl'
 
 /**
  * Loading placeholder for the dynamic entity views — the route's
@@ -128,12 +129,9 @@ function skeletonColumns(metadata?: EntityMetadata): readonly string[] {
   for (const [key, property] of Object.entries(properties)) {
     if (key.startsWith('_') || key.endsWith('_at')) continue
     if (property.ctype === 'fk_label' || property.ctype === '_label') continue
-    if (
-      property.format === 'json' ||
-      property.format === 'markdown' ||
-      property.format === 'html'
-    )
-      continue
+    // Same rule as the grid itself, read from the same place, so the skeleton
+    // cannot count a different number of columns than the table that replaces it.
+    if (resolveControl({ format: property.format })?.gridColumn === false) continue
     count++
   }
 

@@ -2,7 +2,12 @@ import { format } from "date-fns"
 import { CalendarIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@/components/ui/input-group"
 import { LocalizedCalendar } from "@/components/ui-ext/localized-calendar"
 import { useT } from "@/i18n"
 import { useDateFnsLocale } from "@/i18n/dateFnsLocale"
@@ -11,7 +16,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { Input } from "@/components/ui/input"
 
 interface DatePickerProps {
   date?: Date
@@ -50,9 +54,13 @@ export function DatePicker({
   // stays English until this resolves — see src/i18n/dateFnsLocale.ts.
   const locale = useDateFnsLocale()
 
+  // An InputGroup rather than an absolutely-positioned button over a padded
+  // input: the group is the same surface every other control uses, it sizes the
+  // gutter itself instead of a hand-tuned `pr-10`, and the focus ring wraps the
+  // field and its button as one thing.
   return (
-    <div className={cn("relative flex gap-2 max-w-[280px]", className)}>
-      <Input
+    <InputGroup className={cn("max-w-[280px]", className)}>
+      <InputGroupInput
         id={id}
         value={date ? format(date, "PPP", { locale }) : ""}
         placeholder={placeholder ?? t("Pick a date")}
@@ -60,20 +68,15 @@ export function DatePicker({
         readOnly
         aria-describedby={ariaDescribedBy}
         aria-invalid={ariaInvalid}
-        className="pr-10"
       />
+      <InputGroupAddon align="inline-end">
       <Popover>
         <PopoverTrigger
           render={
-            <Button
-              variant="ghost"
+            <InputGroupButton
+              size="icon-xs"
               disabled={disabled || readOnly}
               type="button"
-              tabIndex={readOnly ? -1 : undefined}
-              className={cn(
-                "absolute top-1/2 right-2 size-6 -translate-y-1/2",
-                readOnly && "opacity-60"
-              )}
             />
           }
         >
@@ -96,6 +99,7 @@ export function DatePicker({
           />
         </PopoverContent>
       </Popover>
-    </div>
+      </InputGroupAddon>
+    </InputGroup>
   )
 }

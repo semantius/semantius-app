@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useMemo } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
 import { json } from '@codemirror/lang-json'
 import { SchemaForm, type FormMode } from '@/components/form'
+import { defaultValueForFormat } from './SchemaForm'
 import type { SchemaObject } from 'ajv'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { validateSchema } from 'sem-schema'
@@ -18,7 +19,12 @@ import { Label } from '@/components/ui/label'
 import { useT } from '@/i18n'
 
 /**
- * Generate default values from schema
+ * Generate default values from schema.
+ *
+ * This file used to keep its own copy of the derivation, and the copy had
+ * drifted: it knew `reference` but not `parent`, and it seeded `{}` for a
+ * `type: 'object'` but nothing at all for the union type `get_schema` emits for
+ * a json column. It reads the same function SchemaForm does now.
  */
 function generateDefaultValue(schema: SchemaObject): Record<string, any> {
   const defaults: Record<string, any> = {}
@@ -27,26 +33,13 @@ function generateDefaultValue(schema: SchemaObject): Record<string, any> {
     for (const [key, propSchema] of Object.entries(schema.properties)) {
       if (typeof propSchema !== 'object' || propSchema === null) continue
 
-      // Check if default value is provided
       if ('default' in propSchema) {
         defaults[key] = (propSchema as any).default
       } else {
-        // Generate default based on type
-        const type = (propSchema as any).type || ((propSchema as any).format ? 'string' : undefined)
-        const format = (propSchema as any).format
-        
-        if (type === 'boolean') {
-          defaults[key] = false
-        } else if (format === 'reference') {
-          defaults[key] = null
-        } else if (type === 'string') {
-          defaults[key] = ''
-        } else if (type === 'array') {
-          defaults[key] = []
-        } else if (type === 'object') {
-          defaults[key] = {}
-        }
-        // For number/integer (non-reference), omit from defaults (undefined values are not included in JSON output)
+        const value = defaultValueForFormat((propSchema as any).format)
+        // undefined is not seeded: an empty number field is absent, and
+        // assigning undefined would put the key in the submitted JSON.
+        if (value !== undefined) defaults[key] = value
       }
     }
   }
@@ -59,6 +52,7 @@ const defaultSchema = `{
   "properties": {
     "name": {
       "type": "string",
+      "format": "text",
       "title": "Name",
       "inputMode": "required"
     },
@@ -69,7 +63,7 @@ const defaultSchema = `{
     },
     "age": {
       "type": "number",
-      "precision": 0,
+      "format": "int32",
       "title": "Age"
     }
   },

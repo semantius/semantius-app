@@ -2,9 +2,37 @@
  * Tests for SemSchema vocabulary definition
  * These tests verify that the custom vocabulary is properly defined and works
  */
+import { execFileSync } from 'child_process';
+import * as path from 'path';
 import { validateSchema } from '../api';
+import vocabulary from '../vocabulary.json';
 
 describe('Vocabulary Definition Tests', () => {
+  describe('Schema Validity - Format list in vocabulary.json', () => {
+    const formats = vocabulary.properties.format.oneOf;
+
+    it('should list every format once', () => {
+      const names = formats.map((entry) => entry.const);
+      expect(names.filter((name, index) => names.indexOf(name) !== index)).toEqual([]);
+    });
+
+    it('should match the generated formats.json (regenerate with pnpm generate:formats)', () => {
+      const script = path.resolve(__dirname, '../../scripts/generate-formats.js');
+      expect(() => execFileSync(process.execPath, [script, '--check'], { stdio: 'pipe' })).not.toThrow();
+    });
+
+    it.each(formats.map((entry) => entry.const))('should accept schema with format: "%s" and register it with AJV', (format) => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+      try {
+        const result = validateSchema({ format });
+        expect(result.errors).toBeNull();
+        expect(warn).not.toHaveBeenCalled();
+      } finally {
+        warn.mockRestore();
+      }
+    });
+  });
+
   describe('Schema Validity - Custom formats', () => {
     it('should accept schema with format: json', () => {
       const schema = { type: 'string', format: 'json' };
@@ -29,6 +57,13 @@ describe('Vocabulary Definition Tests', () => {
 
     it('should accept schema with format: multiline', () => {
       const schema = { type: 'string', format: 'multiline' };
+      const result = validateSchema(schema);
+      expect(result.valid).toBe(true);
+      expect(result.errors).toBeNull();
+    });
+
+    it('should accept schema with format: jsonlogic', () => {
+      const schema = { type: ['object', 'array', 'string', 'number', 'integer', 'boolean', 'null'], format: 'jsonlogic' };
       const result = validateSchema(schema);
       expect(result.valid).toBe(true);
       expect(result.errors).toBeNull();
@@ -90,6 +125,13 @@ describe('Vocabulary Definition Tests', () => {
   describe('Schema Validity - Type inference', () => {
     it('should accept schema with only format property (type inferred)', () => {
       const schema = { format: 'json' };
+      const result = validateSchema(schema);
+      expect(result.valid).toBe(true);
+      expect(result.errors).toBeNull();
+    });
+
+    it('should accept schema with only format: jsonlogic (every JSON type inferred)', () => {
+      const schema = { format: 'jsonlogic' };
       const result = validateSchema(schema);
       expect(result.valid).toBe(true);
       expect(result.errors).toBeNull();
@@ -267,6 +309,15 @@ describe('Vocabulary Definition Tests', () => {
       expect(result.errors).toBeDefined();
       expect(result.errors?.[0]?.message).toContain('Unknown format "unknownFormat"');
       expect(result.errors?.[0]?.schemaPath).toBe('#/items');
+    });
+
+    it('should reject schema with unknown format in additionalProperties', () => {
+      const schema = {
+        type: 'object',
+        additionalProperties: { type: 'string', format: 'emailx' }
+      };
+      const result = validateSchema(schema);
+      expect(result.valid).toBe(false);
     });
   });
 
@@ -1139,6 +1190,69 @@ describe('Vocabulary Definition Tests', () => {
 
     it('should accept schema with format: "string" and type: "string"', () => {
       const schema = { type: 'string', format: 'string' };
+      const result = validateSchema(schema);
+      expect(result.valid).toBe(true);
+      expect(result.errors).toBeNull();
+    });
+
+    it.each([
+      ['object', 'object'],
+      ['array', 'array'],
+    ])('should accept schema with format: "%s" and type: "%s"', (format, type) => {
+      const result = validateSchema({ type, format });
+      expect(result.valid).toBe(true);
+      expect(result.errors).toBeNull();
+    });
+
+    it.each([{}, { type: 'null' }])('should reject format: "null", which can hold no data (%j)', (schema) => {
+      const result = validateSchema({ ...schema, format: 'null' });
+      expect(result.valid).toBe(false);
+      expect(result.errors?.[0]?.message).toContain('Unknown format "null"');
+    });
+
+    it.each(['object', 'array'])('should accept schema with format: "%s" and no type', (format) => {
+      const result = validateSchema({ format });
+      expect(result.valid).toBe(true);
+      expect(result.errors).toBeNull();
+    });
+
+    it('should reject schema with format: "object" and type: "string"', () => {
+      const schema = { type: 'string', format: 'object' };
+      const result = validateSchema(schema);
+      expect(result.valid).toBe(false);
+      expect(result.errors?.[0]?.message).toContain('Format "object" is not compatible with type "string"');
+    });
+
+    it('should reject schema with format: "array" and type: "object"', () => {
+      const schema = { type: 'object', format: 'array' };
+      const result = validateSchema(schema);
+      expect(result.valid).toBe(false);
+      expect(result.errors?.[0]?.message).toContain('Format "array" is not compatible with type "object"');
+    });
+  });
+
+  describe('Schema Validity - enum format', () => {
+    it('should accept schema with format: "enum"', () => {
+      const result = validateSchema({ type: 'string', format: 'enum', enum: ['a', 'b'] });
+      expect(result.valid).toBe(true);
+      expect(result.errors).toBeNull();
+    });
+
+    it('should accept schema with format: "enum" and no type', () => {
+      const result = validateSchema({ format: 'enum', enum: ['a', 'b'] });
+      expect(result.valid).toBe(true);
+      expect(result.errors).toBeNull();
+    });
+
+    it('should accept object schema with enum, object and array formatted properties', () => {
+      const schema = {
+        type: 'object',
+        properties: {
+          status: { type: 'string', format: 'enum', enum: ['active', 'inactive'] },
+          settings: { type: 'object', format: 'object' },
+          tags: { type: 'array', format: 'array' }
+        }
+      };
       const result = validateSchema(schema);
       expect(result.valid).toBe(true);
       expect(result.errors).toBeNull();

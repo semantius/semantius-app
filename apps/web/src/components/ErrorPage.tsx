@@ -1,9 +1,11 @@
+import { useEffect } from 'react'
 import { Link } from '@tanstack/react-router'
 import { AlertCircle, Home } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { useT } from '@/i18n'
 import { renderError } from '@/lib/apiErrors'
 import { ErrorDetails } from '@/components/ErrorDetails'
+import { hideAppLoader } from '@/lib/appLoader'
 import {
   Card,
   CardContent,
@@ -19,6 +21,19 @@ interface ErrorPageProps {
 
 export function ErrorPage({ error, reset }: ErrorPageProps) {
   const t = useT()
+
+  // The boot overlay's hang invariant (CONTEXT-MEMORY): every path that stops
+  // making progress has to take it down, and an error page is one.
+  //
+  // It matters most for a THROW during render. React unwinds the whole subtree
+  // before its effects commit, so a route component that hides the overlay in
+  // its own `useEffect` — /form-playground does — never runs it, and this page
+  // renders underneath a spinner that swallows every click. Nothing else on the
+  // route-error path calls it. `hideAppLoader` is idempotent, so the routes
+  // that already hid it pay nothing.
+  useEffect(() => {
+    hideAppLoader()
+  }, [])
 
   return (
     <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">

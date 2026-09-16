@@ -13,7 +13,59 @@
   "type": ["object", "boolean"],
   "properties": {
     "format": {
-      "type": "string"
+      "description": "The formats SemSchema knows. This is the one list of formats: validation, type inference and the Semantius backend all follow it. jsonType is the JSON type a format implies when a schema gives no type.",
+      "type": "string",
+      "oneOf": [
+        { "const": "json", "jsonType": ["object", "array", "string", "number", "integer", "boolean", "null"], "description": "JSON value, or JSON text that parses to one" },
+        { "const": "html", "jsonType": "string", "description": "HTML markup; must contain at least one tag" },
+        { "const": "text", "jsonType": "string", "description": "Single-line text; no format check" },
+        { "const": "multiline", "jsonType": "string", "description": "Multi-line text; no format check" },
+        { "const": "code", "jsonType": "string", "description": "Source code; no format check" },
+        { "const": "jsonata", "jsonType": "string", "description": "JSONata expression; no format check" },
+        { "const": "jsonlogic", "jsonType": ["object", "array", "string", "number", "integer", "boolean", "null"], "description": "JsonLogic rule, checked against the operators of the Semantius backend" },
+        { "const": "reference", "jsonType": "integer", "description": "Key of a record in another entity" },
+        { "const": "parent", "jsonType": "integer", "description": "Key of the record that owns this one" },
+        { "const": "enum", "jsonType": "string", "description": "One of the values listed in enum" },
+
+        { "const": "date", "jsonType": "string", "description": "Full date, RFC 3339 (2026-09-15)" },
+        { "const": "time", "jsonType": "string", "description": "Time of day, RFC 3339 (14:30:00Z)" },
+        { "const": "date-time", "jsonType": "string", "description": "Date and time, RFC 3339 (2026-09-15T14:30:00Z)" },
+        { "const": "duration", "jsonType": "string", "description": "Duration, ISO 8601 (P3DT4H)" },
+
+        { "const": "uri", "jsonType": "string", "description": "Absolute URI, RFC 3986; Unicode allowed as in an IRI (https://müller.de/straße); validates the same as iri" },
+        { "const": "uri-reference", "jsonType": "string", "description": "URI or relative reference, RFC 3986; Unicode allowed as in an IRI (/straße, #top); validates the same as iri-reference" },
+        { "const": "iri", "jsonType": "string", "description": "Absolute IRI, RFC 3987 (https://müller.de/straße); validates the same as uri" },
+        { "const": "iri-reference", "jsonType": "string", "description": "IRI or relative reference, RFC 3987 (/straße, #top); validates the same as uri-reference" },
+        { "const": "uri-template", "jsonType": "string", "description": "URI template, RFC 6570 (/users/{id})" },
+        { "const": "url", "jsonType": "string", "description": "URL with an http, https or ftp scheme" },
+
+        { "const": "email", "jsonType": "string", "description": "Email address, RFC 5321; Unicode allowed as in RFC 6531 (jörg@müller.de); validates the same as idn-email" },
+        { "const": "idn-email", "jsonType": "string", "description": "Internationalized email address, RFC 6531 (jörg@müller.de); validates the same as email" },
+        { "const": "hostname", "jsonType": "string", "description": "Host name, RFC 1123; Unicode allowed as in RFC 5890 (müller.de, xn--mller-kva.de); validates the same as idn-hostname" },
+        { "const": "idn-hostname", "jsonType": "string", "description": "Internationalized host name, RFC 5890 (müller.de, xn--mller-kva.de); validates the same as hostname" },
+        { "const": "ipv4", "jsonType": "string", "description": "IPv4 address" },
+        { "const": "ipv6", "jsonType": "string", "description": "IPv6 address" },
+
+        { "const": "regex", "jsonType": "string", "description": "Regular expression" },
+        { "const": "uuid", "jsonType": "string", "description": "UUID, RFC 4122" },
+        { "const": "json-pointer", "jsonType": "string", "description": "JSON Pointer, RFC 6901 (/a/0)" },
+        { "const": "json-pointer-uri-fragment", "jsonType": "string", "description": "JSON Pointer as a URI fragment (#/a/0)" },
+        { "const": "relative-json-pointer", "jsonType": "string", "description": "Relative JSON Pointer (1/a)" },
+        { "const": "byte", "jsonType": "string", "description": "Base64-encoded data" },
+        { "const": "binary", "jsonType": "string", "description": "Binary data; no format check" },
+        { "const": "password", "jsonType": "string", "description": "Password; no format check" },
+        { "const": "int32", "jsonType": "integer", "description": "Signed 32-bit integer" },
+        { "const": "int64", "jsonType": "integer", "description": "Signed 64-bit integer" },
+        { "const": "float", "jsonType": "number", "description": "Single-precision floating-point number" },
+        { "const": "double", "jsonType": "number", "description": "Double-precision floating-point number" },
+
+        { "const": "string", "jsonType": "string", "description": "Any string" },
+        { "const": "number", "jsonType": "number", "description": "Any number" },
+        { "const": "integer", "jsonType": "integer", "description": "Any integer" },
+        { "const": "boolean", "jsonType": "boolean", "description": "true or false" },
+        { "const": "object", "jsonType": "object", "description": "Any JSON object" },
+        { "const": "array", "jsonType": "array", "description": "Any JSON array" }
+      ]
     },
     "inputMode": {
       "description": "Determines the interaction state of a form field. When set to 'required', validates that values are not null/undefined/empty and shows asterisk in UI.",

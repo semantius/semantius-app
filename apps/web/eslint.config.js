@@ -275,6 +275,20 @@ export default defineConfig([
             // The format examples the input controls show as placeholders.
             '^[0-9]{1,3}([.][0-9]{1,3}){3}$',
             '^[0-9a-fA-F]{0,4}(:[0-9a-fA-F]{0,4}){2,7}$',
+            // A URL scheme with its colon, as `URL.protocol` reports it —
+            // InputUrl matches a value's protocol against a set of these to
+            // decide whether it is worth offering a link for.
+            '^[a-z][a-z0-9+.-]*:$',
+            // A UTC designator, or a zero seconds component: InputTime writes
+            // `HH:mm:ssZ` and assembles both halves from these.
+            '^(Z|:[0-9]{2})$',
+            // An Intl unit identifier ('megabyte', 'kilobyte', 'byte'), which
+            // names a unit to `Intl.NumberFormat` — the displayed text comes
+            // from the locale, never from this string.
+            '^(byte|kilobyte|megabyte)$',
+            // A PostgreSQL escape prefix: bytea's hex output format is `\x`
+            // followed by the digits.
+            '^\\\\[a-z]$',
           ],
           ignoreNames: [
             'className',
@@ -317,6 +331,27 @@ export default defineConfig([
             'align',
             'data-slot',
             'data-testid',
+            // Two enum unions share this name and neither is language. On an
+            // element it is the HTML `inputmode` hint (`email`, `url`, `numeric`
+            // …) that picks a soft keyboard; as a prop and object key it is
+            // sem-schema's own `inputMode` (`default`, `required`, `readonly`,
+            // `hidden`, `disabled`), which is why every form control carried a
+            // suppression for its `inputMode = 'default'` parameter default.
+            // Both are identifiers the way `type` and `variant` above are, and
+            // both are typed unions, so a sentence cannot appear here.
+            'inputMode',
+            // The field-width bucket ('s' | 'm' | 'w') and the empty-value rule
+            // ('null' | 'default') on a format registry entry, plus the catalog
+            // format name itself — three typed unions of identifiers, the same
+            // category as `type` and `variant` above. A format name is checked
+            // against sem-schema's formats.json, so it cannot be a sentence.
+            'width',
+            'emptyValue',
+            'format',
+            // HTML enum attributes on a text field, like `type` above: the
+            // values are 'on' / 'off' / 'none' / 'characters' / 'words'.
+            'autoCapitalize',
+            'autoCorrect',
             { regex: { pattern: '^data-' } },
             { regex: { pattern: '^aria-(?!label$|description$|placeholder$|roledescription$|valuetext$)' } },
           ],

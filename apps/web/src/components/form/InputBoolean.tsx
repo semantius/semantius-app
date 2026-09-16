@@ -37,16 +37,17 @@ export function InputBoolean({
       {(field: any) => (
         <div className="pt-2 space-y-1">
           <FormLabel htmlFor={name} label={label} required={false} error={!!field.state.meta.errors?.[0]} />
-          <div className="flex items-start space-x-2">
+          <div className="flex items-start gap-2">
             <Checkbox
               id={name}
               name={name}
               checked={field.state.value || false}
               onCheckedChange={field.handleChange}
               onBlur={field.handleBlur}
+              // `disabled` already removes it from the tab order and applies
+              // `disabled:opacity-50` — the extra tabIndex and opacity-60 were a
+              // second, slightly different dimming of the same state.
               disabled={disabled || readonly}
-              tabIndex={readonly ? -1 : undefined}
-              className={readonly ? 'opacity-60' : ''}
               aria-invalid={!!field.state.meta.errors?.[0]}
               aria-describedby={describedBy(name, { description, error: field.state.meta.errors?.[0], formMode })}
             />

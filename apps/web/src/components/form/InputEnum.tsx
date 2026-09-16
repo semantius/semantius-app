@@ -128,6 +128,7 @@ export function InputEnum({
                       aria-invalid={!!field.state.meta.errors?.[0] || undefined}
                       aria-describedby={describedBy(name, { description, error: field.state.meta.errors?.[0], formMode })}
                       disabled={isDisabled}
+                      data-field-surface=""
                       className={cn(
                         "w-full cursor-pointer justify-between font-normal pl-3",
                         // Reserve the gutter the overlaid clear button occupies.
@@ -180,7 +181,11 @@ export function InputEnum({
                           value={option}
                           keywords={[labelFor(option)]}
                           onSelect={handleSelect}
-                          className="cursor-pointer bg-transparent! hover:bg-accent!"
+                          // No background override here: cmdk sets `data-selected` on the item the
+                          // keyboard is on, and `bg-transparent!` beat its
+                          // `data-selected:bg-muted`, so arrowing through the list moved
+                          // an invisible cursor (WCAG 2.4.7).
+                          className="cursor-pointer"
                         >
                           <Check
                             className={cn(
