@@ -15,7 +15,6 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     token,
     loginInProgress,
     isAuthReady,
-    userInfoError,
     rpcUserInfoError,
     userInfoLoading,
     rpcUserInfoLoading
@@ -26,7 +25,13 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   // transiently clears loginInProgress before setting the token, so this component
   // would see !token && !loginInProgress and trigger a second OAuth redirect.
 
-  const hasErrors = !userInfoLoading && !rpcUserInfoLoading && (userInfoError || rpcUserInfoError)
+  // Only the API's answer decides. A failed OAuth userinfo call is cosmetic:
+  // that endpoint belongs to the ISSUER and may legitimately refuse a token
+  // minted for the API (Entra ID advertises Microsoft Graph's, which does), and
+  // everything the app shows about the user — name, e-mail, roles, permissions,
+  // modules — comes from /rpc/get_userinfo, which is fetched either way.
+  // Blocking on it turned a working sign-in into an error page.
+  const hasErrors = !rpcUserInfoLoading && !!rpcUserInfoError
   const isReady = token && isAuthReady && !userInfoLoading && !rpcUserInfoLoading && !hasErrors
 
   // Hide the HTML loading overlay once we have a final state (ready, error, or no token)
@@ -46,12 +51,6 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     return (
       <div className="flex items-center justify-center min-h-screen p-4">
         <div className="max-w-2xl w-full space-y-4">
-          {userInfoError && (
-            <ApiErrorDisplay
-              error={userInfoError}
-              title={t('Failed to fetch user information from OAuth provider')}
-            />
-          )}
           {rpcUserInfoError && (
             <ApiErrorDisplay
               error={rpcUserInfoError}

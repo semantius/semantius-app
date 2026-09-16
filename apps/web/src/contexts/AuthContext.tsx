@@ -99,6 +99,15 @@ export function moduleLabels(
 
 export interface RpcUserInfo {
   modules?: Module[]
+  /**
+   * The user record itself. Named here, rather than left to the index
+   * signature, because the chrome reads them: with no OAuth userinfo endpoint —
+   * the normal case, since an issuer hosts one for its OWN audience — this is
+   * where the signed-in user's name and e-mail come from. `get_userinfo` writes
+   * them from the token's claims when the record is created.
+   */
+  display_name?: string
+  email?: string
   [key: string]: unknown
 }
 
@@ -350,8 +359,16 @@ function RouterContextUpdater({
               return true
             })
             .catch((error) => {
-              console.error('Error fetching OAuth user info:', error)
-              authErrors.push(error)
+              // NOT pushed to authErrors, and not fatal. This endpoint is the
+              // ISSUER's, and a refusal from it says nothing about whether our
+              // API accepts the token — an issuer that hosts userinfo for a
+              // different audience (Entra ID points at Microsoft Graph) rejects
+              // every token we hold, and treating that as "the token was
+              // rejected" would burn a redundant re-login on every sign-in and
+              // then block the app. The name and e-mail come from
+              // /rpc/get_userinfo, which is fetched regardless; the call below
+              // is the one that judges the token.
+              console.warn('OAuth userinfo unavailable — using the API user record instead:', error)
               setUserInfoError(error instanceof Error ? error : appError({ message: 'Unknown error' }))
               setUserInfo(null)
               return false

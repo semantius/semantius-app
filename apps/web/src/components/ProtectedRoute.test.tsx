@@ -1,7 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import { ProtectedRoute } from './ProtectedRoute'
-import { AppHarness, bootApp, bootAppSignedOut, bootAppWithFailingUserinfo } from '@/test/appHarness'
+import {
+  AppHarness,
+  bootApp,
+  bootAppSignedOut,
+  bootAppWithFailingApi,
+  bootAppWithFailingUserinfo,
+} from '@/test/appHarness'
 import { installBootOverlay, removeBootOverlay } from '@/test/bootOverlay'
 
 /**
@@ -107,7 +113,14 @@ describe('ProtectedRoute', () => {
     expect(window.location.href).toBe(before)
   })
 
-  it('shows the provider’s failure instead of the app, and does not hang', async () => {
+  it('renders the app when the provider’s userinfo endpoint fails', async () => {
+    // The endpoint belongs to the ISSUER, and an issuer may host it for a
+    // different audience than the API's token — Entra ID advertises Microsoft
+    // Graph's, which answers 401 for every token this app holds. So a failure
+    // there is cosmetic: name, e-mail, roles, permissions and modules all come
+    // from /rpc/get_userinfo, which is fetched either way. This used to render
+    // an error page instead of the app, which is what made such an issuer look
+    // like a broken sign-in.
     await bootAppWithFailingUserinfo()
 
     render(
@@ -118,12 +131,29 @@ describe('ProtectedRoute', () => {
       </AppHarness>,
     )
 
-    // A real 404 from a real host, surfaced by the real ApiErrorDisplay.
+    // A real 404 from a real host — and the app comes up regardless.
+    await waitFor(() => expect(screen.getByText('Protected Content')).toBeInTheDocument(), NETWORK)
+    expect(
+      screen.queryByText('Failed to fetch user information from OAuth provider'),
+    ).not.toBeInTheDocument()
+    await waitFor(() => expect(document.getElementById('app-loader')?.hidden).toBe(true))
+  })
+
+  it('still shows the API’s failure instead of the app', async () => {
+    // The counterpart: when /rpc/get_userinfo fails there IS no user record, so
+    // the app has nothing to render and says so rather than hanging.
+    await bootAppWithFailingApi()
+
+    render(
+      <AppHarness>
+        <ProtectedRoute>
+          <div>Protected Content</div>
+        </ProtectedRoute>
+      </AppHarness>,
+    )
+
     await waitFor(
-      () =>
-        expect(
-          screen.getByText('Failed to fetch user information from OAuth provider'),
-        ).toBeInTheDocument(),
+      () => expect(screen.getByText('Failed to fetch user information from API')).toBeInTheDocument(),
       NETWORK,
     )
     expect(screen.queryByText('Protected Content')).not.toBeInTheDocument()

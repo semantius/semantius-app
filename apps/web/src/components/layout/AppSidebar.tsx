@@ -17,7 +17,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useT } from '@/i18n'
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { userInfo } = useAuth()
+  const { userInfo, rpcUserInfo } = useAuth()
   const t = useT()
 
   const [selectedModuleId, setSelectedModuleId] = React.useState<number | null>(null)
@@ -28,9 +28,24 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     setSelectedModuleSlug(moduleSlug)
   }, [])
 
+  // The API's user record is the floor: /rpc/get_userinfo is fetched on every
+  // sign-in for roles and modules anyway, and it holds the same name and e-mail,
+  // written from the token's claims when the record was created. The OAuth
+  // userinfo endpoint is optional — many issuers host it for a different
+  // audience and refuse our token (Entra ID points at Microsoft Graph) — so it
+  // is an overlay when configured and working, never the only source. Field by
+  // field, so a source that lacks one does not blank out the other's value.
   const userData = {
-    name: userInfo?.name || userInfo?.preferred_username || t('User'),
-    email: userInfo?.email || '',
+    name:
+      userInfo?.name ||
+      userInfo?.preferred_username ||
+      rpcUserInfo?.display_name ||
+      rpcUserInfo?.email ||
+      t('User'),
+    email: userInfo?.email || rpcUserInfo?.email || '',
+    // Only userinfo carries one, and note that some issuers return a URL that
+    // itself needs a bearer token (Graph's /me/photo/$value), which an <img>
+    // cannot send — such a value renders as a broken image, not a photo.
     avatar: userInfo?.picture || '',
   }
 

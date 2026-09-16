@@ -43,10 +43,10 @@ export function NavApps({
   const navigate = useNavigate()
   const t = useT()
 
-  // Fetch tables filtered by module_id
-  // Only fetch when we have a valid module_id
-  // Note: tables table doesn't have table_id, primary key is likely id
-  const { data: tables, isLoading, error } = useTable('tables', {
+  // Fetch the module's entities. NOT 'tables': that was a backward-compatibility
+  // view over `entities` and it has been dropped, so asking for it answers
+  // PGRST205 and this whole group renders as an error card.
+  const { data: tables, isLoading, error } = useTable('entities', {
     query: moduleId ? `module_id=eq.${moduleId}&is_child=not.is.true&select=table_name,plural_label,icon_url,singular_label` : '',
     enabled: !!moduleId,
   })

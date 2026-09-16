@@ -106,6 +106,28 @@ export async function bootAppSignedOut(env: Record<string, string> = {}): Promis
  * config is rebuilt from what it returned, with one endpoint changed — so this
  * is the real deployment's configuration minus one working URL.
  */
+export async function bootAppWithFailingApi(): Promise<void> {
+  const org = inject('orgSlug')
+  setRuntimeEnv({ VITE_CONTROL_PLANE_ORG: org })
+  const cloud = await initConfig()
+
+  setRuntimeEnv({
+    VITE_CONTROL_PLANE_URL: SELF_HOSTED,
+    VITE_CONTROL_PLANE_ORG: org,
+    VITE_TRANSLATE_MODE: 'dev',
+    // The counterpart of the userinfo case below, and the one that still has to
+    // stop the app: /rpc/get_userinfo is where the user record, the roles, the
+    // permissions and the modules come from, so without it there is nothing to
+    // render. Same trick — a real host answering 404 — for the same reason.
+    VITE_API_BASE_URL: `https://${org}.semantius.cloud/api-does-not-exist`,
+    VITE_OAUTH_CLIENT_ID: cloud.oauthClientId,
+    VITE_OAUTH_AUTH_ENDPOINT: cloud.oauthAuthEndpoint,
+    VITE_OAUTH_TOKEN_ENDPOINT: cloud.oauthTokenEndpoint,
+  })
+  await initConfig()
+  seedSession()
+}
+
 export async function bootAppWithFailingUserinfo(): Promise<void> {
   const org = inject('orgSlug')
   setRuntimeEnv({ VITE_CONTROL_PLANE_ORG: org })

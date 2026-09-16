@@ -85,13 +85,14 @@ function CustomersComponent() {
     return params.join('&')
   }
   
-  // Fetch table metadata from the tables table first
-  const { data: tableMetadata, isLoading: isLoadingMetadata } = useTable('tables', {
-    query: 'select=label,description,edit_permission&table_name=eq.customers&limit=1',
+  // Fetch the entity's metadata first. `label` was a column of the dropped
+  // `tables` view; on `entities` the heading text is `plural_label`.
+  const { data: tableMetadata, isLoading: isLoadingMetadata } = useTable('entities', {
+    query: 'select=plural_label,description,edit_permission&table_name=eq.customers&limit=1',
   })
   
   // Extract metadata fields
-  const metadata = tableMetadata?.[0] as { label?: string; description?: string; edit_permission?: string } | undefined
+  const metadata = tableMetadata?.[0] as { plural_label?: string; description?: string; edit_permission?: string } | undefined
   console.log()
   // Check if user can edit - call hook unconditionally, then check if permission is required
   const hasEditPermission = useUserHasPermission(metadata?.edit_permission || '')
@@ -359,7 +360,7 @@ function CustomersComponent() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
-            {metadata?.label || t('Customers')}
+            {metadata?.plural_label || t('Customers')}
           </h1>
           <p className="text-muted-foreground">
             {metadata?.description || t('Manage customer information and orders')}

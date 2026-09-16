@@ -307,7 +307,16 @@ async function applyOidcDiscovery(cfg: AppConfig, rawScope: string): Promise<voi
   // Fill only the blanks — an explicit VITE_OAUTH_* value already in cfg wins.
   if (!cfg.oauthAuthEndpoint) cfg.oauthAuthEndpoint = doc.authorization_endpoint ?? ''
   if (!cfg.oauthTokenEndpoint) cfg.oauthTokenEndpoint = doc.token_endpoint ?? ''
-  if (!cfg.oauthUserinfoEndpoint) cfg.oauthUserinfoEndpoint = doc.userinfo_endpoint || undefined
+  // userinfo_endpoint is deliberately NOT taken from the document. An issuer
+  // advertises it for tokens issued to ITSELF, and ours are issued for the API:
+  // Entra ID advertises Microsoft Graph's endpoint, which answers
+  // `401 InvalidAuthenticationToken — Invalid audience` for a token minted for
+  // anything else, and one token cannot span two resources. The claims we want
+  // are in the id token and in /rpc/get_userinfo anyway — Microsoft's own
+  // documentation says the id token is a superset of what the call returns.
+  // Set VITE_OAUTH_USERINFO_ENDPOINT explicitly for an issuer whose endpoint
+  // does accept the API's token; then it is used, and its failure stays
+  // cosmetic (see AuthContext).
   if (!cfg.oauthLogoutEndpoint) cfg.oauthLogoutEndpoint = doc.end_session_endpoint || undefined
   if (!rawScope) cfg.oauthScope = deriveScope(doc.scopes_supported)
 }
