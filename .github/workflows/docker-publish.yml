@@ -170,20 +170,38 @@ jobs:
           # `value=` rather than the ref, so a dispatched rehearsal derives the
           # same tag set from its input that a tag derives from itself.
           #
-          # `{{major}}.{{minor}}`, `{{major}}` and `latest` are all skipped for
-          # a pre-release: 0.2.0-rc.1 must not become `0.2`, and it must
-          # certainly not become `latest`. `{{major}}` is additionally skipped
-          # by the action itself while the major version is zero.
+          # `{{major}}.{{minor}}` and `{{major}}` are skipped for a pre-release:
+          # `0.2` names the released 0.2 line, and 0.2.0-rc.1 is not in it yet.
+          # `{{major}}` is additionally skipped by the action itself while the
+          # major version is zero. `latest` is NOT in that list — see the flavor
+          # block below, which gives it to every published tag including a
+          # pre-release, because a pre-release of a higher version is a higher
+          # version.
           tags: |
             type=semver,pattern={{version}},value=${{ needs.guard.outputs.tag }}
             type=semver,pattern={{major}}.{{minor}},value=${{ needs.guard.outputs.tag }}
             type=semver,pattern={{major}},value=${{ needs.guard.outputs.tag }}
             type=sha,prefix=sha-,format=short
-          # Replaces an unconditional `type=raw,value=latest`, which would have
-          # handed `latest` to a release candidate — and, on a manual run with
-          # no tag at all, to whatever branch was dispatched.
+          # `latest` means the LATEST version, prereleases included: semver
+          # orders 0.4.0 < 0.5.0-beta < 0.5.0, so a beta of 0.5.0 is newer than
+          # 0.4.0 and `latest` pointing at 0.4.0 would be pointing backwards.
+          # This is deliberately NOT docker/metadata-action's default opinion
+          # ("pre-release … only extend {{version}} … not yet fit for public
+          # consumption"), which is why it is spelled out rather than left to
+          # `latest=auto`.
+          #
+          # The action only ever sees the ref being built — it cannot compare
+          # against tags already published — so this is "the tag being pushed
+          # takes latest", which equals "highest version" only while releases
+          # are cut in ascending order. A backport cut after a higher tag
+          # (v0.2.10 landing after v0.3.0) would move `latest` BACKWARDS. If
+          # that ever becomes a real workflow, latest has to be resolved by
+          # querying the registry instead of derived here.
+          #
+          # Still never `type=raw,value=latest`: on a manual dispatch there is
+          # no tag, and that would hand `latest` to whatever branch was run.
           flavor: |
-            latest=${{ needs.guard.outputs.prerelease == 'false' }}
+            latest=${{ needs.guard.outputs.publish == 'true' }}
 
       - name: Log in to GitHub Container Registry
         if: needs.guard.outputs.publish == 'true'
