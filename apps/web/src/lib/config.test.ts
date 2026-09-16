@@ -161,9 +161,32 @@ describe('initConfig — OIDC discovery (self-hosted)', () => {
     const doc = await (await fetch(DISCOVERY)).json()
     expect(getConfig().oauthAuthEndpoint).toBe(doc.authorization_endpoint)
     expect(getConfig().oauthTokenEndpoint).toBe(doc.token_endpoint)
-    expect(getConfig().oauthUserinfoEndpoint).toBe(doc.userinfo_endpoint)
+    // userinfo is the ONE endpoint discovery does not fill, deliberately: an
+    // issuer advertises the endpoint for tokens issued to ITSELF, and ours are
+    // issued for the API. Entra ID advertises Microsoft Graph's, which answers
+    // 401 "Invalid audience" for a token minted for anything else. The document
+    // here does publish one, so this asserts it is IGNORED, not that it is absent.
+    expect(doc.userinfo_endpoint).toBeTruthy()
+    expect(getConfig().oauthUserinfoEndpoint).toBeUndefined()
     // scopes_supported drives the scope when VITE_OAUTH_SCOPE is blank.
     expect(getConfig().oauthScope).toContain('openid')
+  })
+
+  it('uses an explicit VITE_OAUTH_USERINFO_ENDPOINT, which discovery never overrides', async () => {
+    // The escape hatch the comment in applyOidcDiscovery points at: an issuer
+    // whose endpoint DOES accept the API's token is configured by hand, and the
+    // discovery document must not win over it.
+    const explicit = 'https://example.test/whoami'
+    setRuntimeEnv({
+      VITE_CONTROL_PLANE_URL: SELF_HOSTED,
+      VITE_OAUTH_CONFIG: DISCOVERY,
+      VITE_OAUTH_USERINFO_ENDPOINT: explicit,
+    })
+
+    await initConfig()
+
+    expect(getConfigError()).toBeNull()
+    expect(getConfig().oauthUserinfoEndpoint).toBe(explicit)
   })
 
   it('fetches a RELATIVE VITE_OAUTH_CONFIG as an absolute URL on this origin', async () => {
