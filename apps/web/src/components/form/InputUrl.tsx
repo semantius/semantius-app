@@ -74,7 +74,6 @@ export function InputUrl({
                           "open in new tab" work on, and what a test can read off
                           the DOM. The addon focuses the input on click, so the
                           link has to stop the event reaching it. */}
-                      {/* eslint-disable-next-line jsx-a11y/anchor-has-content -- content is the icon below; the rule cannot see through the icon-only child */}
                       <a
                         href={href}
                         target="_blank"

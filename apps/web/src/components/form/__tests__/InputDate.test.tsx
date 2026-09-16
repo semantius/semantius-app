@@ -70,3 +70,23 @@ describe('InputDate', () => {
     expect(screen.getByDisplayValue(/Jan/)).toBeInTheDocument()
   })
 })
+
+describe('calendar dates are not shifted by the time zone', () => {
+  it('shows the stored day, not the day before it', () => {
+    // `new Date('2024-03-15')` is UTC midnight, and reading it back through
+    // `toISOString()` gives the 14th anywhere west of Greenwich. parseISO builds
+    // a LOCAL midnight instead, so the day survives the round trip. The test
+    // runs in the machine's own zone; in UTC it passes either way, which is
+    // exactly how the bug shipped.
+    renderControl(<InputDate name="due" label="Due" />, { defaultValues: { due: '2024-03-15' } })
+    expect(screen.getByRole('textbox', { name: /due/i })).toHaveValue('March 15th, 2024')
+  })
+
+  it.each(['2024-01-01', '2024-12-31', '2024-02-29'])('round-trips %s', (value) => {
+    const { container } = renderControl(<InputDate name="due" label="Due" inputMode="readonly" />, {
+      defaultValues: { due: value },
+    })
+    // The hidden input carries the value the form will submit.
+    expect((container.querySelector('input[type="hidden"]') as HTMLInputElement).value).toBe(value)
+  })
+})

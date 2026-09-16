@@ -106,7 +106,6 @@ export function FileInput({
 
       <InputGroupAddon align="inline-end">
         {href && (
-          // eslint-disable-next-line jsx-a11y/anchor-has-content -- content is the icon and the sr-only span below
           <a
             href={href}
             download={downloadName}

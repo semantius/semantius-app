@@ -71,6 +71,8 @@ function StandaloneFormView({
   const labelColumn = metadata.table?.label_column || ''
   const postSaveTargetRef = useRef<string | null>(null)
   const FORM_ID = 'standalone-record-form'
+  // The record is shown, not edited: no permission to edit and an existing row.
+  const isViewOnly = !!recordId && !canEdit
 
   // Fetch just the label column value for the breadcrumb display name
   const { data: labelData } = useTable(metadata.table?.table_name || '', {
@@ -134,9 +136,18 @@ function StandaloneFormView({
             {children.map((child) => (
               <Button
                 key={child.id}
-                type="submit"
-                form={FORM_ID}
+                // In view mode there is nothing to save, and SchemaForm throws on
+                // a view-mode submit on purpose — so the button navigates rather
+                // than submitting. Editable modes keep the save-then-go behavior,
+                // which is what `onBeforeSubmit` reads `data-child-id` for.
+                type={isViewOnly ? 'button' : 'submit'}
+                form={isViewOnly ? undefined : FORM_ID}
                 data-child-id={child.id}
+                onClick={
+                  isViewOnly && recordId
+                    ? () => router.history.push(buildChildNavUrl(moduleId, child.id, recordId))
+                    : undefined
+                }
               >
                 {child.plural_label_parent || child.plural_label}...
               </Button>
@@ -358,14 +369,21 @@ export function View({ moduleId: _moduleId, table_name: _table_name, recordId: _
 
   const OVERLAY_FORM_ID = 'overlay-record-form'
 
+  // Same rule as the standalone view: nothing to save in view mode, so go.
+  const overlayIsViewOnly = !isCreateMode && !canEdit
   const childButtons = !isCreateMode && children.length > 0 && (
     <div className="flex gap-2 flex-wrap justify-end">
       {children.map((child) => (
         <Button
           key={child.id}
-          type="submit"
-          form={OVERLAY_FORM_ID}
+          type={overlayIsViewOnly ? 'button' : 'submit'}
+          form={overlayIsViewOnly ? undefined : OVERLAY_FORM_ID}
           data-child-id={child.id}
+          onClick={
+            overlayIsViewOnly && recordId
+              ? () => router.history.push(buildChildNavUrl(module_name, child.id, recordId))
+              : undefined
+          }
         >
           {child.plural_label_parent || child.plural_label}...
         </Button>

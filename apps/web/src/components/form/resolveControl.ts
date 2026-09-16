@@ -56,7 +56,9 @@ function offendersIn(schema: Record<string, unknown>): Offender[] {
     offenders.push({
       field,
       label: typeof property.title === 'string' && property.title ? property.title : field,
-      format: typeof property.format === 'string' ? property.format : undefined,
+      // An EMPTY format is "no format", not an unsupported one: there is no
+      // name to put in the message, and the model simply left the field blank.
+      format: typeof property.format === 'string' && property.format !== '' ? property.format : undefined,
     })
   }
   return offenders

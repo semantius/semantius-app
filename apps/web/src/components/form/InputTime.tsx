@@ -19,12 +19,12 @@ import { describedBy } from './fieldAria'
  */
 const OFFSET = /(Z|[+-]\d{2}:?\d{2})$/
 
-function displayValue(value: unknown): string {
+export function displayValue(value: unknown): string {
   if (typeof value !== 'string' || value === '') return ''
   return value.replace(OFFSET, '')
 }
 
-function withOffset(value: string): string {
+export function withOffset(value: string): string {
   if (value === '') return ''
   const withSeconds = value.length === 5 ? `${value}:00` : value
   return OFFSET.test(withSeconds) ? withSeconds : `${withSeconds}Z`

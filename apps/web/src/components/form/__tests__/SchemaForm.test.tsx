@@ -1,3 +1,4 @@
+import { Component, type ReactNode } from 'react'
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -938,3 +939,197 @@ describe('SchemaForm', () => {
   })
 })
 
+
+/**
+ * A field the registry cannot serve stops the form dead.
+ *
+ * The old rule (`controls[format || type] || InputText`) turned an unknown or
+ * absent format into a text box, so an int32 got a free-text editor and an enum
+ * lost its picker — and the user then saved through it. `assertSupportedFormats`
+ * runs at the top of render, so nothing is drawn and nothing can be submitted.
+ */
+describe('strict format resolution', () => {
+  /**
+   * A real error boundary, so the throw is observed the way the router's
+   * `defaultErrorComponent` observes it. React logs a caught error to
+   * console.error; the spy silences that one line and is restored, never
+   * reassigned.
+   */
+  class Boundary extends Component<{ children: ReactNode }, { message?: string }> {
+    state: { message?: string } = {}
+    static getDerivedStateFromError(error: Error) {
+      return { message: error.message }
+    }
+    render() {
+      if (this.state.message) return <p data-testid="boundary">{this.state.message}</p>
+      return this.props.children
+    }
+  }
+
+  function renderCaught(schema: SchemaObject, onSubmit = vi.fn()) {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      render(
+        <Boundary>
+          <SchemaForm schema={schema} onSubmit={onSubmit} />
+        </Boundary>,
+      )
+    } finally {
+      spy.mockRestore()
+    }
+    return onSubmit
+  }
+
+  const withProperty = (property: Record<string, unknown>): SchemaObject => ({
+    type: 'object',
+    properties: { ship_via: { title: 'Shipper', ...property } },
+  })
+
+  it('throws for a field with no format', () => {
+    renderCaught(withProperty({ type: 'integer' }))
+    expect(screen.getByTestId('boundary')).toHaveTextContent('{label} ({field}) has no format.')
+  })
+
+  it('throws for an empty format', () => {
+    renderCaught(withProperty({ type: 'string', format: '' }))
+    expect(screen.getByTestId('boundary')).toHaveTextContent('{label} ({field}) has no format.')
+  })
+
+  it('throws for a format outside the catalog', () => {
+    renderCaught(withProperty({ type: 'string', format: 'markdown' }))
+    expect(screen.getByTestId('boundary')).toHaveTextContent(
+      '{label} ({field}) has the format "{format}", which is not supported.',
+    )
+  })
+
+  it('renders no field and never submits', async () => {
+    const onSubmit = renderCaught(withProperty({ type: 'integer' }))
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /save|submit/i })).not.toBeInTheDocument()
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+
+  it('throws in view mode too', () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      render(
+        <Boundary>
+          <SchemaForm schema={withProperty({ type: 'integer' })} formMode="view" />
+        </Boundary>,
+      )
+    } finally {
+      spy.mockRestore()
+    }
+    expect(screen.getByTestId('boundary')).toHaveTextContent('has no format')
+  })
+
+  it('does not throw for the synthetic label companions', () => {
+    render(
+      <SchemaForm
+        schema={{
+          type: 'object',
+          properties: {
+            name: { type: 'string', format: 'text', title: 'Name' },
+            _label: { type: 'string', ctype: '_label' },
+            owner_id_label: { type: 'string', ctype: 'fk_label' },
+          },
+        }}
+      />,
+    )
+    expect(screen.getByLabelText(/name/i)).toBeInTheDocument()
+  })
+})
+
+describe('structured data saves parsed values', () => {
+  // The union type get_schema really sends for the JSON family — verified
+  // against the tenant, where `fields.input_type_rule` (jsonlogic) and
+  // `fields.enum_values` (json) both carry it. It is what lets the editor's
+  // STRING reach the validator: sem-schema parses the text for these two
+  // formats, so a narrower `type: 'object'` would reject the editor's own
+  // output before the format keyword ever ran.
+  const JSON_UNION = ['object', 'array', 'string', 'number', 'integer', 'boolean', 'null']
+  const schema: SchemaObject = {
+    type: 'object',
+    properties: {
+      rule: { type: JSON_UNION, format: 'jsonlogic', title: 'Rule' },
+      // `array` is declared `type: 'array'` by the catalog, NOT the union — so
+      // this one exercises validateField's parse-before-validate branch: the
+      // editor hands back a string, and without the parse it fails "must be
+      // array" before the schema is ever consulted.
+      tags: { type: 'array', format: 'array', title: 'Tags', default: [] },
+    },
+  }
+
+  it('sends an object, not the editor text', async () => {
+    const onSubmit = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <SchemaForm
+        schema={schema}
+        onSubmit={onSubmit}
+        initialValue={{ rule: '{"==":[1,1]}', tags: '["a"]' }}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: /save|submit/i }))
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({ rule: { '==': [1, 1] }, tags: ['a'] })
+  })
+
+  it('saves the property default when the editor is emptied', async () => {
+    const onSubmit = vi.fn()
+    const user = userEvent.setup()
+    render(<SchemaForm schema={schema} onSubmit={onSubmit} initialValue={{ rule: '', tags: '' }} />)
+
+    await user.click(screen.getByRole('button', { name: /save|submit/i }))
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+    // `tags` declares `default: []`; `rule` declares none, so it is null.
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({ rule: null, tags: [] })
+  })
+})
+
+describe('jsonlogic errors reach the editor', () => {
+  const JSON_UNION = ['object', 'array', 'string', 'number', 'integer', 'boolean', 'null']
+  const schema: SchemaObject = {
+    type: 'object',
+    properties: { rule: { type: JSON_UNION, format: 'jsonlogic', title: 'Rule' } },
+  }
+
+  it('shows the package’s own message and refuses to save', async () => {
+    const onSubmit = vi.fn()
+    const user = userEvent.setup()
+    render(<SchemaForm schema={schema} onSubmit={onSubmit} initialValue={{ rule: '{"vra":[1]}' }} />)
+
+    await user.click(screen.getByRole('button', { name: /save|submit/i }))
+
+    // sem-schema names the operator and suggests the fix. That message cannot be
+    // a catalog key — it carries the operator and a path — so it is shown as the
+    // package writes it, which is why validationMessages captures it before
+    // ajv-i18n overwrites every `format` error with a generic sentence.
+    await waitFor(() => expect(screen.getByText(/unknown operator "vra"/)).toBeInTheDocument())
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+
+  it('saves a valid rule as an object', async () => {
+    const onSubmit = vi.fn()
+    const user = userEvent.setup()
+    render(<SchemaForm schema={schema} onSubmit={onSubmit} initialValue={{ rule: '{"var":"x"}' }} />)
+
+    await user.click(screen.getByRole('button', { name: /save|submit/i }))
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({ rule: { var: 'x' } })
+  })
+
+  it.each(['', '{}'])('accepts %p', async (value) => {
+    const onSubmit = vi.fn()
+    const user = userEvent.setup()
+    render(<SchemaForm schema={schema} onSubmit={onSubmit} initialValue={{ rule: value }} />)
+
+    await user.click(screen.getByRole('button', { name: /save|submit/i }))
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+  })
+})

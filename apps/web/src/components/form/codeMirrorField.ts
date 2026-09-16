@@ -81,7 +81,7 @@ export function codeMirrorSurfaceClassName(opts: {
     'has-[.cm-focused]:border-ring has-[.cm-focused]:ring-3 has-[.cm-focused]:ring-ring/30',
     // The @uiw light and dark themes each paint .cm-editor and .cm-gutters, so
     // without this the editor is an opaque island of a slightly different color
-    // inside a field-coloured box. A descendant variant is (0,2,0) and beats
+    // inside a field-colored box. A descendant variant is (0,2,0) and beats
     // their single-class rules. Syntax colors are untouched.
     '[&_.cm-editor]:bg-transparent [&_.cm-gutters]:bg-transparent [&_.cm-gutters]:border-none',
     '[&_.cm-activeLine]:bg-transparent [&_.cm-activeLineGutter]:bg-transparent',
