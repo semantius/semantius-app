@@ -52,8 +52,13 @@ jobs:
       version: ${{ steps.derive.outputs.version }}
       prerelease: ${{ steps.derive.outputs.prerelease }}
       publish: ${{ steps.derive.outputs.publish }}
+      latest: ${{ steps.derive.outputs.latest }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Every tag, not just this ref: whether this version is the newest is
+          # decided by comparing it against all the others (see below).
+          fetch-depth: 0
 
       - name: Derive and check the version
         id: derive
@@ -99,14 +104,32 @@ jobs:
             *) prerelease=false ;;
           esac
 
+          # Does this version outrank every tag already in the repository?
+          #
+          # `latest` means the LATEST version, pre-releases included: semver orders
+          # 0.4.0 < 0.5.0-beta.1 < 0.5.0, so a beta of 0.5.0 is newer than 0.4.0
+          # and must take it. But "newest" cannot be read off the ref alone —
+          # cutting the backport v0.4.1 AFTER v0.5.0-beta.1 would then drag
+          # `latest` backwards onto it. It is decided by comparison instead,
+          # against the full tag list the checkout above fetches.
+          #
+          # The comparator is tested first, here, because a silent mis-sort
+          # mislabels a published image and nothing downstream would notice.
+          node --test .github/scripts/latest-tag.test.mjs
+          latest=false
+          if [ "$publish" = "true" ] && [ "$(node .github/scripts/latest-tag.mjs "$version")" = "true" ]; then
+            latest=true
+          fi
+
           {
             echo "tag=$tag"
             echo "version=$version"
             echo "prerelease=$prerelease"
             echo "publish=$publish"
+            echo "latest=$latest"
           } >> "$GITHUB_OUTPUT"
 
-          echo "\`$tag\` — version \`$version\`, prerelease \`$prerelease\`, publish \`$publish\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`$tag\` — version \`$version\`, prerelease \`$prerelease\`, publish \`$publish\`, latest \`$latest\`" >> "$GITHUB_STEP_SUMMARY"
 
   # -------------------------------------------------------------------------
   # Lint + unit tests. The steps live in checks.yml so that enabling them on
@@ -201,7 +224,7 @@ jobs:
           # Still never `type=raw,value=latest`: on a manual dispatch there is
           # no tag, and that would hand `latest` to whatever branch was run.
           flavor: |
-            latest=${{ needs.guard.outputs.publish == 'true' }}
+            latest=${{ needs.guard.outputs.latest }}
 
       - name: Log in to GitHub Container Registry
         if: needs.guard.outputs.publish == 'true'
