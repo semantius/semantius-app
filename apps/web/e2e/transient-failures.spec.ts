@@ -46,7 +46,13 @@ const GET_SCHEMA = /\/rpc\/get_schema(\?|$)/
 /** A table the tenant has, reached through the route whose loader is get_schema. */
 const TABLE_PATH = '/nwind/customers'
 
-/** The two terminal cards this whole file exists to keep off the screen. */
+/**
+ * The two cards this whole file exists to keep off the screen.
+ *
+ * `PROVIDER_CARD` is no longer reachable at all: a failing OAuth userinfo
+ * endpoint is non-fatal by design (AuthContext says why), so this text is now
+ * asserted ABSENT everywhere it appears rather than expected anywhere.
+ */
 const PROVIDER_CARD = 'Failed to fetch user information from OAuth provider'
 const API_CARD = 'Failed to fetch user information from API'
 
@@ -149,10 +155,17 @@ test.describe('a transient failure never reaches the user', () => {
     expect(attempts.total).toBeGreaterThan(2)
   })
 
-  test('a failure that keeps happening IS shown, with the boot overlay down', async ({ page }) => {
-    // The other half of the contract, and the reason the retry has to be
-    // bounded: an endpoint that is really gone must still produce an error the
-    // user can see and act on, not an infinite spinner.
+  test('a userinfo endpoint that is really gone does not block the app', async ({ page }) => {
+    // The OAuth userinfo endpoint belongs to the ISSUER, and a refusal from it
+    // says nothing about whether OUR api accepts the token: an issuer that
+    // hosts userinfo for a different audience (Entra ID points at Microsoft
+    // Graph) rejects every token we hold. So a persistent failure here is
+    // deliberately NOT terminal — the name and e-mail come from
+    // /rpc/get_userinfo instead, and the app carries on.
+    //
+    // The "keeps failing IS shown" half of the contract is still covered, on
+    // the endpoint where a failure really is fatal: see the get_schema test
+    // below, which asserts an error card AND a retry that works.
     let served = 0
     await page.route(USERINFO, async (route: Route) => {
       served += 1
@@ -165,12 +178,16 @@ test.describe('a transient failure never reaches the user', () => {
 
     await signIn(page)
 
-    await expect(page.getByText(PROVIDER_CARD)).toBeVisible({ timeout: 60_000 })
+    // Past the ProtectedRoute gate, with the chrome rendered.
+    await expect(page.getByRole('button', { name: /Northwind/i })).toBeVisible({ timeout: 60_000 })
+    await expect(page.getByText(PROVIDER_CARD)).toHaveCount(0)
     await expect
       .poll(() =>
         page.evaluate(() => document.getElementById('app-loader')?.hasAttribute('hidden') ?? true),
       )
       .toBe(true)
+    // The injection really happened — otherwise this test proves nothing.
+    expect(served).toBeGreaterThan(0)
     // Bounded: it gave up rather than hammering the endpoint forever.
     expect(served).toBeLessThanOrEqual(MAX_ATTEMPTS)
   })
