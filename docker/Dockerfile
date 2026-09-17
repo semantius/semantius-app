@@ -21,6 +21,12 @@ WORKDIR /app
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY apps/web/package.json apps/web/package.json
 COPY packages/sem-schema/package.json packages/sem-schema/package.json
+# …and the patch files, because `pnpm.patchedDependencies` in package.json
+# points at them BY PATH and pnpm resolves them during install. Without this the
+# install fails here and nowhere else — a plain checkout has the whole repo, so
+# it reproduces only inside the image build. Adding a patch and not this line
+# is what broke the v0.2.10 publish.
+COPY patches patches
 RUN pnpm install --frozen-lockfile
 
 # Copy sources and build. sem-schema is consumed from source by Vite, so only
