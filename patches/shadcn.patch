@@ -1,0 +1,45 @@
+diff --git a/dist/tailwind.css b/dist/tailwind.css
+index 7807c58eb94de8b764b9b6b7b5d8cde6d012b17f..f16c311f8a00c52c9d3051ae6f2b60a8b163fd57 100644
+--- a/dist/tailwind.css
++++ b/dist/tailwind.css
+@@ -85,14 +85,32 @@
+   }
+ }
+ 
+-@utility no-scrollbar {
+-  -ms-overflow-style: none;
+-  scrollbar-width: none;
+-
+-  &::-webkit-scrollbar {
+-    display: none;
+-  }
+-}
++/* PATCHED (semantius-app): the `no-scrollbar` utility is removed.
++
++   Upstream ships it on CommandList, SidebarContent and Combobox, which hides the
++   scrollbar on a list that still scrolls and puts no other cue in its place — the
++   list just looks like it ends. See shadcn-ui/ui#9527 and the two PRs that would
++   remove it upstream (#9534, #9611), both open and unmerged.
++
++   It has to be deleted HERE rather than overridden from our own CSS. An override
++   can undo `scrollbar-width: none`, but cancelling
++   `::-webkit-scrollbar { display: none }` means writing our own rule for that
++   pseudo-element — and in Blink and WebKit the mere PRESENCE of an author rule on
++   `::-webkit-scrollbar` switches the element from overlay scrollbars to custom
++   ones. That is a different non-default, not the OS default. Redefining the
++   `@utility` does not work either: Tailwind MERGES a second definition into the
++   same rule instead of replacing it (measured, not assumed).
++
++   Dropping the `@import "shadcn/tailwind.css"` line would remove the class too,
++   but that file also carries nine `@custom-variant` definitions (data-open,
++   data-closed, data-checked, data-unchecked, data-selected, data-disabled,
++   data-active, data-horizontal, data-vertical) used ~99 times across src/, and
++   data-checked's selector is not equivalent to Tailwind's built-in. The import
++   stays; only this one utility goes.
++
++   Guarded by apps/web/src/test/shadcnNoScrollbar.test.ts, which compiles the real
++   CSS and fails if the rule reappears. If shadcn merges the upstream fix this
++   patch stops applying, loudly, and can be deleted. */
+ 
+ /* scroll-fade */
+ @property --scroll-fade-t {

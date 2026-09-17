@@ -8,6 +8,11 @@ overrides:
   '@codemirror/state': 6.6.0
   '@lezer/common': 1.5.2
 
+patchedDependencies:
+  shadcn:
+    hash: 8e0834cdc49dd7e4b2bb9f39219a1943e51ddda9207ca73155dbe7522be47019
+    path: patches/shadcn.patch
+
 importers:
 
   .:
@@ -163,7 +168,7 @@ importers:
         version: link:../../packages/sem-schema
       shadcn:
         specifier: ^4.19.1
-        version: 4.19.1(typescript@5.9.3)
+        version: 4.19.1(patch_hash=8e0834cdc49dd7e4b2bb9f39219a1943e51ddda9207ca73155dbe7522be47019)(typescript@5.9.3)
       sonner:
         specifier: ^2.0.8
         version: 2.0.8(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -12721,7 +12726,7 @@ snapshots:
 
   setprototypeof@1.2.0: {}
 
-  shadcn@4.19.1(typescript@5.9.3):
+  shadcn@4.19.1(patch_hash=8e0834cdc49dd7e4b2bb9f39219a1943e51ddda9207ca73155dbe7522be47019)(typescript@5.9.3):
     dependencies:
       '@babel/core': 7.29.7
       '@babel/parser': 7.29.8
