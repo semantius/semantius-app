@@ -217,6 +217,7 @@ export function DataTableProvider<TData>({
         isLoading: state.isLoading,
         setIsLoading,
       }) as DataTableContextProps<TData>,
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- tableStateKey is deliberate: consumers must re-render when filter, sort or selection changes
     [table, columns, state.isLoading, setIsLoading, tableStateKey],
   )
 

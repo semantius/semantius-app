@@ -51,15 +51,13 @@ pnpm --filter @semantius/frontend exec vitest run src/test/tokenContrast.test.ts
 #    JavaScript approximation of it.
 pnpm --filter @semantius/frontend exec vitest run --project browser
 
-# 3. Static a11y lint. Frozen violations live in eslint-suppressions.json; a NEW
-#    one fails the gate. `--prune-suppressions` lowers the ceiling as they are fixed.
-#    The current count is 3 suppressed there PLUS 6 documented inline with
+# 3. Static a11y lint. Any violation fails the gate. There are nine accepted
+#    defects: 3 in shadcn's CLI-owned src/components/ui/ (turned off for that
+#    folder in eslint.config.js) PLUS 6 documented inline with
 #    `eslint-disable-next-line` (two niko-table composite widgets, one deliberate
 #    autofocus, and three `anchor-has-content` on NavUser links whose content
-#    arrives through Base UI's `render` merge, which the rule cannot follow) —
-#    nine accepted defects, not three.
+#    arrives through Base UI's `render` merge, which the rule cannot follow).
 pnpm --filter @semantius/frontend lint
-pnpm --filter @semantius/frontend exec eslint . --prune-suppressions
 
 # 4. The real login journey, in a real browser, against the test OIDC server.
 #    This is what makes the rest of the suite's `#jwt` session-seeding honest.

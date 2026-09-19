@@ -459,8 +459,7 @@ export function EntityView({ moduleId: _moduleId, table_name: _table_name, recor
   const overlaySingular = metadata.table?.singular_label || t('Record')
   const overlayTitle = isCreateMode
     ? t('New {label}', { label: overlaySingular })
-    : // eslint-disable-next-line lingui/no-single-variables-to-translate -- the word order is the translation, see above
-      t('{label} {key}', { label: overlaySingular, key: recordId || '' })
+    : t('{label} {key}', { label: overlaySingular, key: recordId || '' })
 
   return (
     <div className="space-y-6">
