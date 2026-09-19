@@ -59,7 +59,7 @@ viewport and both themes.
 nowhere in `apps/web/src`. A heading level cannot be fixed in CSS; it needs an
 upstream report, a version bump (0.9.0 is current on npm; whether it changes
 this is unchecked), or a wrapper. The issue text is drafted in
-`a11y-fix-plan.md` § 4.4 and not yet filed.
+`a11y-fix-plan.md` and not yet filed.
 
 **The drizzle-cube dashboard is excluded from the claim's scope but not from the
 user's experience.** `/nwind` is a route people open. Scoping it out bounds the
