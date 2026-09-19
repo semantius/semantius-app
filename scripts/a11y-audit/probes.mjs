@@ -335,7 +335,7 @@ export const FOCUS_OBSCURED = `(() => {${HELPERS}
   // those produced 42 of one run's 54 findings — every one a control no Tab
   // press reaches. So with a modal dialog open, only its subtree is measured.
   // The page-behind exposure itself is a separate (screen-reader) defect,
-  // recorded in a11y-fix-plan.md § 4.3h; it is not this criterion.
+  // fixed by components/a11y/ModalInert.tsx; it is not this criterion.
   const scope = __openModalDialog() || document
   const focusables = Array.from(
     scope.querySelectorAll('a[href],button,input,select,textarea,[tabindex]:not([tabindex="-1"])')
