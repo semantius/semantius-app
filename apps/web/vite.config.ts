@@ -220,6 +220,10 @@ export default defineConfig(({ mode }) => ({
       'drizzle-cube/client/utils',
       'react-resizable-panels',
       '@base-ui/react/select',
+      // Reached through DataTableView → ui-ext/sortable (radix-ui's Slot). The
+      // entity-view tests were the first browser tests to mount the full grid,
+      // and their first run discovered it mid-run and reloaded.
+      'radix-ui',
     ],
   },
   test: {

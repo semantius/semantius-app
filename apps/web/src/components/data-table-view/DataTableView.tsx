@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useContext } from 'react'
+import { Fragment, useState, useEffect, useCallback, useMemo, useContext } from 'react'
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { type EntityMetadata, type TableMetadata } from '@/types/metadata'
 import { cn } from '@/lib/utils'
@@ -102,6 +102,23 @@ export interface RowMenuItem {
   destructive?: boolean
 }
 
+/** What `renderDeleteConfirmation` receives: the row and the grid's delete flow. */
+export interface DeleteConfirmationProps {
+  /** The row being deleted. Never null while the slot renders. */
+  record: RecordType
+  /** The row's label-column value; `''` when the row has no name of its own. */
+  displayName: string
+  /** The model's singular label ("Module"). */
+  entityType: string
+  isOpen: boolean
+  setIsOpen: (open: boolean) => void
+  isPending: boolean
+  error?: Error | null
+  /** Runs the grid's mutation, refetch and toast; closes on success, stays open on error. */
+  handleConfirm: () => void
+  handleCancel: () => void
+}
+
 export interface DataTableViewProps {
   metadata: EntityMetadata
   onRowClick?: (record: RecordType) => void
@@ -131,6 +148,20 @@ export interface DataTableViewProps {
   excludeColumns?: string[]
   /** Optional per-row extra "..." menu entries, computed from the row record. */
   getRowMenuItems?: (record: RecordType) => RowMenuItem[]
+  /**
+   * Replaces the delete confirmation dialog. A fresh element is mounted each time
+   * Delete is chosen (keyed per open) and stays mounted through its closing
+   * transition, so its local state starts clean on every open with no reset code.
+   *
+   * Return a component defined at module scope. A component defined inside this
+   * function is a new type on every grid render, and React would remount it —
+   * back to its first step — whenever the grid re-renders, which includes the
+   * refetch on window focus.
+   *
+   * It must call `handleConfirm` to delete and `handleCancel` to close; the grid
+   * keeps the mutation, refetch and toast.
+   */
+  renderDeleteConfirmation?: (props: DeleteConfirmationProps) => React.ReactNode
 }
 
 // Helper to map metadata property type to niko-table filter variant
@@ -329,6 +360,7 @@ export function DataTableView({
   emptyIcon: _emptyIcon,
   excludeColumns = [],
   getRowMenuItems,
+  renderDeleteConfirmation,
 }: DataTableViewProps) {
   const tableMetadata = metadata.table as TableMetadata | undefined
 
@@ -560,6 +592,10 @@ export function DataTableView({
   const effectiveCanEdit = canEdit && (tableMetadata?.edit_permission ? hasEditPermission : true)
 
   const deleteConfirm = useConfirmDelete(tableName, refetch, primaryKeyColumn, tableMetadata?.singular_label)
+  // The columns memo depends on this one stable function, never on the whole
+  // `deleteConfirm` object, which is new every render: rebuilding the columns
+  // remounts every cell (see useConfirmDelete).
+  const { showConfirmation } = deleteConfirm
 
   const updateOrder = useUpdateRecord<RecordType>(tableName, primaryKeyColumn)
 
@@ -952,14 +988,15 @@ export function DataTableView({
                   className="text-destructive focus:text-destructive focus:bg-destructive/10"
                   onClick={e => {
                     e.stopPropagation()
-                    deleteConfirm.showConfirmation(
+                    showConfirmation(
                       recordId as string | number,
                       // Empty, not a stand-in phrase: ConfirmDeleteDialog and
                       // the delete toast each have their own sentence for a
                       // record with no name, because "this record" pushed into
                       // "{label} {name} deleted" reads as nonsense once the
                       // sentence inflects.
-                      displayValue != null ? String(displayValue) : ''
+                      displayValue != null ? String(displayValue) : '',
+                      record,
                     )
                   }}
                 >
@@ -1001,7 +1038,7 @@ export function DataTableView({
     // `editRoute` is NOT here: the memo does not read it (the row menu
     // navigates through `onEdit`), and exhaustive-deps reports an unused
     // dependency as an error like any other.
-  }, [metadata, excludeColumns, effectiveCanEdit, onEdit, onEditModal, deleteConfirm, primaryKeyColumn, displayColumn, leftPinnedKeys, dndEnabled, getRowMenuItems, getRowHref, rowHrefPreservesSearch, t, formattingLocale])
+  }, [metadata, excludeColumns, effectiveCanEdit, onEdit, onEditModal, showConfirmation, primaryKeyColumn, displayColumn, leftPinnedKeys, dndEnabled, getRowMenuItems, getRowHref, rowHrefPreservesSearch, t, formattingLocale])
 
   // Sticky pinning state: the label column (+ anything left of it, when in
   // position 1 or 2) on the left, and the row-actions column on the right.
@@ -1032,6 +1069,8 @@ export function DataTableView({
   const isConstrained = columns.length <= 5
 
   const tableData = useMemo(() => optimisticData ?? data ?? [], [optimisticData, data])
+
+  const entityType = metadata.table?.singular_label || metadata.title || t('Record')
 
   // Show empty state when first page is empty with no active search/filters
   if (!isLoading && tableData.length === 0 && pagination.pageIndex === 0 && !searchText && extFilters.length === 0) {
@@ -1142,10 +1181,30 @@ export function DataTableView({
         </DataTableRoot>
       </div>
 
-      <ConfirmDeleteDialog
-        {...deleteConfirm}
-        entityType={metadata.table?.singular_label || metadata.title || t('Record')}
-      />
+      {/*
+        The custom dialog is keyed per open and is never unmounted to close it:
+        the hook keeps the record through the close, so Base UI runs its closing
+        transition. That transition is what lets ModalInert take `inert` off
+        #root before focus returns to the row's menu button — unmounting instead
+        queues the focus call while #root is still inert, and focus is lost.
+      */}
+      {renderDeleteConfirmation && deleteConfirm.record ? (
+        <Fragment key={deleteConfirm.openCount}>
+          {renderDeleteConfirmation({
+            record: deleteConfirm.record,
+            displayName: deleteConfirm.displayName,
+            entityType,
+            isOpen: deleteConfirm.isOpen,
+            setIsOpen: deleteConfirm.setIsOpen,
+            isPending: deleteConfirm.isPending,
+            error: deleteConfirm.error,
+            handleConfirm: deleteConfirm.handleConfirm,
+            handleCancel: deleteConfirm.handleCancel,
+          })}
+        </Fragment>
+      ) : (
+        <ConfirmDeleteDialog {...deleteConfirm} entityType={entityType} />
+      )}
     </>
   )
 }

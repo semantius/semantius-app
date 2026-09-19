@@ -342,7 +342,7 @@
   },
   "src/components/views/EntityView.tsx": {
     "lingui/no-unlocalized-strings": {
-      "count": 28
+      "count": 26
     }
   },
   "src/contexts/AuthContext.tsx": {

@@ -70,9 +70,9 @@ the `_app.xcustomers.*` demo routes over any module whose slug is `xcustomers`.
 - **The parent filter** (`?_pf=<table>.<column>&_pv=<id>`): the grid is filtered to
   one parent record, and the parent's own schema is fetched separately
   (`useRpc('get_schema')`) for the breadcrumb's parent label and to read the parent
-  record's name for the heading. That schema
-  never passes through `useLocalizedMetadata`, so its label is translated inline,
-  keyed by the parent's own `module_slug`.
+  record's name for the heading. That schema never passes through
+  `useLocalizedMetadata`, so its label is translated inline, keyed by the parent's
+  own `module_slug`.
 - **Child-relation buttons** in the form header: in an editable form they submit
   the form and then navigate to the child table filtered to this record; in a
   view-only form they navigate directly.
@@ -95,21 +95,47 @@ delete flow to `DataTableView`; the form to `DataFormPage` → `SchemaForm`.
 | Callback | Signature | Consumed by | When absent |
 | --- | --- | --- | --- |
 | `getRowMenuItems` | `(record) => RowMenuItem[]` | `DataTableView`'s row "..." menu; the items are appended before Delete | no extra items |
+| `renderDeleteConfirmation` | `(props: DeleteConfirmationProps) => ReactNode` | `DataTableView`; replaces the delete confirmation dialog, while the grid keeps the mutation, refetch and toast | the generic `ConfirmDeleteDialog` |
+
+**`renderDeleteConfirmation`** receives `DeleteConfirmationProps` (exported from
+`DataTableView.tsx`): the row's `record`, its `displayName` (`''` when the row has
+no name), the model's `entityType`, and the grid's delete flow — `isOpen`,
+`setIsOpen`, `isPending`, `error`, `handleConfirm`, `handleCancel`. The dialog calls
+`handleConfirm` to delete (it closes on success and stays open to show an error)
+and `handleCancel` to close. Two rules:
+
+- **A fresh element per Delete.** The grid mounts a new one each time Delete is
+  chosen (it is keyed per open), so the dialog's local state — a step, a typed
+  value — starts clean every time with no reset code. It is NOT unmounted to
+  close it: it stays mounted through Base UI's closing transition, which is what
+  lets `ModalInert` take `inert` off `#root` before focus goes back to the row's
+  menu button.
+- **Return a component defined at module scope**, as
+  `(p) => <ConfirmDeleteModuleDialog {...p} />` does. A component defined inside
+  the render function is a new type on every grid render, and React remounts it —
+  back to its first step — whenever the grid re-renders, which includes the
+  refetch on window focus.
 
 ## Adding an override
 
-Worked example: `admin/Users.tsx` adds a "Manage API keys" row-menu entry to agent
-users.
+Worked example: `admin/Modules.tsx`. Deleting a module cascades to every entity in
+it, their database tables and their permissions, so its delete asks for the
+module's slug to be typed first. The override is one prop:
 
 ```tsx
-export function Users(props: EntityViewProps) {
-  const t = useT()
-  const getRowMenuItems = (record: Record<string, unknown>): RowMenuItem[] =>
-    record.is_agent ? [{ key: 'manage-api-keys', label: t('Manage API keys'), icon: KeyRound, onClick: () => {} }] : []
-
-  return <EntityView {...props} getRowMenuItems={getRowMenuItems} />
+export function Modules(props: EntityViewProps) {
+  return (
+    <EntityView
+      {...props}
+      renderDeleteConfirmation={(p) => <ConfirmDeleteModuleDialog {...p} />}
+    />
+  )
 }
 ```
+
+`admin/ConfirmDeleteModuleDialog.tsx` is the dialog: step 1 is the warning, step 2
+the typed slug, and it calls the `handleConfirm` it was given. `admin/Users.tsx` is
+the `getRowMenuItems` example: a "Manage API keys" row-menu entry for agent users.
 
 Rules:
 
@@ -121,6 +147,12 @@ Rules:
 4. Use `useT()`. `translate()` is banned under `components/**`, because it cannot
    re-render a component when the language changes.
 5. A new file has no entry in `eslint-suppressions.json`, so it must lint clean.
+6. **Keep a callback the grid's columns depend on stable** — `getRowMenuItems`
+   today — with `useCallback` or a module-scope function. The grid builds its
+   columns in a memo, every cell is rendered from a column function, and a new
+   identity remounts every cell: keyboard focus on a row's "..." button is lost,
+   and a closing dialog has nothing to return focus to. `EntityView` memoizes its
+   own grid props (`onEdit`, `getRowHref`, `excludeColumns`) for the same reason.
 
 ## Testing
 
@@ -130,14 +162,22 @@ suite on a new substitution.
 
 - **Render through the app's providers:** `bootApp()` and `renderInApp()` from
   `src/test/appHarness.tsx`. At pathname `/`, `EntityView` is in plain list mode.
-- **Create rows out of band**, never through the code under test: the `modules`
-  fixture in `src/hooks/useTableMutations.test.tsx` writes `_vitest_`-prefixed rows
-  with a raw request and deletes them by that prefix in `afterEach`, so a test that
-  throws still cleans up.
+- **Create rows out of band**, never through the code under test:
+  `src/test/moduleFixture.ts` writes `_vitest_`-prefixed `modules` rows with a raw
+  request (`moduleFixture()`, `db()`), and `deleteVitestModules()` in `afterEach`
+  deletes the whole prefix, so a test that throws still cleans up.
+- **Wait for the permission** before opening a row menu: `useUserHasPermission`
+  answers false until `get_userinfo` lands, so wait for a control gated on the same
+  permission ("Add Module") first.
 - **Drive Base UI menus with arrow keys**, never pointer clicks on items and never
-  typeahead: see `arrowTo()` in `src/components/layout/NavUser.test.tsx`.
+  typeahead: `chooseRowMenuItem()` and `arrowTo()` in `src/test/menu.ts`.
 - **Disable the i18n collector** (`disableCollector()`) in any test that renders
   fixture data, or the fixture's text is recorded into `en-US.json`.
+
+The tests: `EntityView.test.tsx` (the generic delete dialog, unchanged),
+`admin/Modules.test.tsx` (the override end to end: typed slug, delete, focus
+return, a fresh dialog per Delete) and `admin/ConfirmDeleteModuleDialog.test.tsx`
+(the dialog's own rules, with its props supplied by hand).
 
 ## Files here that are not live
 

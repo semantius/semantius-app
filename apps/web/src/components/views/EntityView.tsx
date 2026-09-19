@@ -1,10 +1,10 @@
 import { useNavigate, useRouter, useRouterState, useSearch, Link } from '@tanstack/react-router'
-import { useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { type EntityViewProps, type ChildRelation } from "@/types/metadata"
 import { useTable } from '@/hooks/useTable'
 import { useRpc } from '@/hooks/useRpc'
 import { useUserHasPermission } from '@/hooks/useUserPermissions'
-import { DataTableView, type RowMenuItem } from '@/components/data-table-view/DataTableView'
+import { DataTableView, type DeleteConfirmationProps, type RowMenuItem } from '@/components/data-table-view/DataTableView'
 import { EntityBreadcrumb } from '@/components/EntityBreadcrumb'
 import { BookmarkIcon } from '@/components/ui-ext/bookmark-icon'
 import {
@@ -30,6 +30,8 @@ type RecordType = Record<string, unknown>
 export interface EntityViewCustomization {
   /** Extra entries for the row "..." menu, appended before Delete. */
   getRowMenuItems?: (record: RecordType) => RowMenuItem[]
+  /** Replaces the delete confirmation dialog; see `DeleteConfirmationProps`. */
+  renderDeleteConfirmation?: (props: DeleteConfirmationProps) => React.ReactNode
 }
 
 /** Minimal shape of a get_schema response needed for parent breadcrumb */
@@ -178,7 +180,7 @@ function StandaloneFormView({
   )
 }
 
-export function EntityView({ moduleId: _moduleId, table_name: _table_name, recordId: _recordId, metadata, getRowMenuItems }: EntityViewProps & EntityViewCustomization) {
+export function EntityView({ moduleId: _moduleId, table_name: _table_name, recordId: _recordId, metadata, getRowMenuItems, renderDeleteConfirmation }: EntityViewProps & EntityViewCustomization) {
   const t = useT()
   const navigate = useNavigate()
   const router = useRouter()
@@ -260,17 +262,23 @@ export function EntityView({ moduleId: _moduleId, table_name: _table_name, recor
     : undefined
   const parentRecordPath = refTable && _pv ? `/${module_name}/${refTable}/${_pv}/view` : undefined
 
-   
-  const navigatePreservingSearch = (opts: Record<string, unknown>) => {
+  // The navigation helpers and the grid props below are MEMOIZED, and have to
+  // be. This component re-renders on every router-state change (it reads
+  // `useRouterState()` whole), and the grid builds its columns in a memo keyed
+  // on `onEdit`, `onEditModal`, `getRowHref` and `excludeColumns`. Every cell is
+  // rendered from a column function, so a new identity for any of them remounted
+  // every cell — the row's "..." button included, which dropped keyboard focus
+  // mid-interaction and left a closing dialog nothing to return focus to.
+  const navigatePreservingSearch = useCallback((opts: Record<string, unknown>) => {
     ;(navigate as any)({ ...opts, search: (prev: Record<string, unknown>) => prev })
-  }
+  }, [navigate])
 
   /**
    * Single navigation function for all record interactions.
    * mode 'new'  → create form  (page: /new,       overlay: /create)
    * mode 'open' → view/edit form (page: /$id/view, overlay: /$id)
    */
-  const navigateForEditMode = (mode: 'new' | 'open', record?: RecordType) => {
+  const navigateForEditMode = useCallback((mode: 'new' | 'open', record?: RecordType) => {
     if (mode === 'new') {
       if (effectiveEditMode === 'page') {
         // Preserve _pf/_pv so the create form can pre-fill parent field
@@ -289,7 +297,25 @@ export function EntityView({ moduleId: _moduleId, table_name: _table_name, recor
         })
       }
     }
-  }
+  }, [navigate, navigatePreservingSearch, effectiveEditMode, view_name, idColumn])
+
+  const openRecord = useCallback((record: RecordType) => navigateForEditMode('open', record), [navigateForEditMode])
+
+  // Same destinations navigateForEditMode('open') computes, expressed as an href
+  // so the record's name in the grid is a real link. A row that only has an
+  // onClick is unreachable by keyboard (2.1.1).
+  const getRowHref = useCallback(
+    (record: RecordType) => {
+      const id = String(record[idColumn])
+      return effectiveEditMode === 'page' ? `${view_name}/${id}/view` : `${view_name}/${id}`
+    },
+    [idColumn, effectiveEditMode, view_name],
+  )
+
+  const excludeColumns = useMemo(
+    () => ['created_at', 'updated_at', ...(pfColumn ? [pfColumn] : [])],
+    [pfColumn],
+  )
 
   // Standalone mode detection: /module/entity/id/view or /module/entity/new
   const standaloneViewMatch = pathname.match(new RegExp(`^${escapedViewName}/([^/]+)/view$`))
@@ -486,18 +512,10 @@ export function EntityView({ moduleId: _moduleId, table_name: _table_name, recor
 
       <DataTableView
         metadata={metadata}
-        onRowClick={(record) => navigateForEditMode('open', record)}
-        onEdit={(record) => navigateForEditMode('open', record)}
-        onEditModal={(record) => navigateForEditMode('open', record)}
-        // Same destinations navigateForEditMode('open') computes, expressed as an
-        // href so the record's name in the grid is a real link. A row that only
-        // has an onClick is unreachable by keyboard (2.1.1).
-        getRowHref={(record) => {
-          const id = String(record[idColumn])
-          return effectiveEditMode === 'page'
-            ? `${view_name}/${id}/view`
-            : `${view_name}/${id}`
-        }}
+        onRowClick={openRecord}
+        onEdit={openRecord}
+        onEditModal={openRecord}
+        getRowHref={getRowHref}
         rowHrefPreservesSearch={effectiveEditMode !== 'page'}
         editRoute={editRoute}
         canEdit={canEdit}
@@ -510,8 +528,9 @@ export function EntityView({ moduleId: _moduleId, table_name: _table_name, recor
             : t('No records found')
         }
         emptyIcon={<Users className="h-12 w-12 mb-2" />}
-        excludeColumns={['created_at', 'updated_at', ...(pfColumn ? [pfColumn] : [])]}
+        excludeColumns={excludeColumns}
         getRowMenuItems={getRowMenuItems}
+        renderDeleteConfirmation={renderDeleteConfirmation}
       />
 
       {/* Sheet for viewing/editing record. Wide (~900px, two-column form) on large

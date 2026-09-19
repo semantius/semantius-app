@@ -5,6 +5,7 @@ import { NavUser } from './NavUser'
 import { SidebarProvider } from '@/components/ui/sidebar'
 import { bootApp, renderInApp } from '@/test/appHarness'
 import { disableCollector } from '@/i18n/missing'
+import { arrowTo } from '@/test/menu'
 import type { UserMenuEntry } from '@/lib/userMenu'
 import {
   LANGUAGE_CACHE_KEY,
@@ -194,28 +195,6 @@ describe('NavUser — the language switcher', () => {
     // way an operator's are, and must not be discovered into the shipped index.
     disableCollector()
   })
-
-  /**
-   * ArrowDown through the focused menu until focus is on an item that `matches`.
-   *
-   * NOT typeahead. Base UI's menu typeahead forgets what was typed after 500ms
-   * without a key (`TYPEAHEAD_RESET_MS`), so on a loaded machine a label typed a
-   * key at a time turns into several shorter searches: `Language` lands on
-   * whatever its last letters match, and no wait afterwards brings focus back.
-   * That failed the v0.2.6 release gate. Arrow keys have no clock — each press
-   * moves one item, and the loop waits for focus to move before the next.
-   */
-  async function arrowTo(ui: ReturnType<typeof userEvent.setup>, matches: (el: Element) => boolean) {
-    const menu = document.activeElement?.closest('[role="menu"]')
-    const items = menu?.querySelectorAll('[role^="menuitem"]').length ?? 0
-    // One full lap: the menu loops, so a miss after that is a real absence.
-    for (let i = 0; i < items && !(document.activeElement && matches(document.activeElement)); i++) {
-      const before = document.activeElement
-      await ui.keyboard('{ArrowDown}')
-      await waitFor(() => expect(document.activeElement).not.toBe(before))
-    }
-    expect(document.activeElement && matches(document.activeElement)).toBe(true)
-  }
 
   /**
    * Move to the submenu trigger whose label starts with `prefix`, then open it.

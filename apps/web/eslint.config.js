@@ -349,9 +349,11 @@ export default defineConfig([
             'emptyValue',
             'format',
             // HTML enum attributes on a text field, like `type` above: the
-            // values are 'on' / 'off' / 'none' / 'characters' / 'words'.
+            // values are 'on' / 'off' / 'none' / 'characters' / 'words', and for
+            // `autoComplete` an autofill token ('off', 'email', 'new-password').
             'autoCapitalize',
             'autoCorrect',
+            'autoComplete',
             { regex: { pattern: '^data-' } },
             { regex: { pattern: '^aria-(?!label$|description$|placeholder$|roledescription$|valuetext$)' } },
           ],
