@@ -55,7 +55,7 @@ export function InputUrl({
                     name={readonly ? undefined : name}
                     // Not `type="url"`: native constraint validation would run
                     // alongside sem-schema's, and a natively :invalid field blocks
-                    // View.tsx's native `form={FORM_ID}` submit with a browser
+                    // EntityView.tsx's native `form={FORM_ID}` submit with a browser
                     // bubble instead of the app's own error. `inputMode` still
                     // gives the URL soft keyboard.
                     type="text"

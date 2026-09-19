@@ -23,7 +23,7 @@ The open-source UI of [Semantius](https://github.com/semantius/semantius) — th
 │   │   │   ├── charts/             # Custom chart plugins (drizzle-cube)
 │   │   │   ├── components/         # UI components, layout, forms, tables
 │   │   │   │   ├── ui-ext/         # Hand-written components on shadcn primitives
-│   │   │   │   └── views/          # Per-table view overrides (generic View.tsx fallback)
+│   │   │   │   └── views/          # Entity views: EntityView.tsx + per-table overrides (see src/components/views/README.md)
 │   │   │   ├── contexts/           # Auth context
 │   │   │   ├── hooks/              # Data fetching, auth, permissions
 │   │   │   ├── routes/             # TanStack Router file-based routes

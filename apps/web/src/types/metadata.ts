@@ -115,7 +115,7 @@ export interface EntityMetadata {
   }>
 }
 
-export interface ViewProps {
+export interface EntityViewProps {
   moduleId: string
   table_name: string
   recordId: string

@@ -15,7 +15,6 @@ import {
 // TANSTACK REACT-TABLE MODULE AUGMENTATION
 // ============================================================================
 declare module "@tanstack/react-table" {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   interface ColumnMeta<TData extends RowData, TValue> {
     // Display
     label?: string
@@ -47,7 +46,6 @@ declare module "@tanstack/react-table" {
     expandedContent?: (row: TData) => React.ReactNode
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   interface TableMeta<TData extends RowData> {
     joinOperator?: JoinOperator
     hasIndividualJoinOperators?: boolean

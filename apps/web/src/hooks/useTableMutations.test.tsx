@@ -1,10 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 import { useCreateRecord, useUpdateRecord, useDeleteRecord } from './useTableMutations'
-import { getApiConfig } from '@/lib/apiClient'
 import { appWrapper, bootApp } from '@/test/appHarness'
 import { disableCollector } from '@/i18n/missing'
-import { testToken } from '@/test/session'
+import { PREFIX, db, deleteVitestModules, moduleFixture as sharedModuleFixture } from '@/test/moduleFixture'
 
 /**
  * The three mutation hooks against the real tenant.
@@ -37,37 +36,10 @@ import { testToken } from '@/test/session'
  */
 
 const TABLE = 'modules'
-/** Every row this file writes carries it, and cleanup deletes by it. */
-const PREFIX = '_vitest_'
 
+/** The shared fixture (`src/test/moduleFixture.ts`), labeled with this file. */
 function moduleFixture() {
-  const slug = `vitest_${crypto.randomUUID().slice(0, 8)}`
-  return {
-    module_name: `${PREFIX}${slug}`,
-    description: 'written by useTableMutations.test.tsx',
-    module_type: 'domain',
-    module_slug: slug,
-    view_permission: 'admin',
-    home_page: `/${slug}`,
-  }
-}
-
-/**
- * A request to the tenant that does NOT go through the hooks — arrange a row,
- * read one back, clean up. Sharing the code under test between the action and
- * the check is how a broken write passes its own test.
- */
-async function db(path: string, init: RequestInit = {}): Promise<Response> {
-  const { baseUrl } = getApiConfig()
-  return fetch(`${baseUrl}${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${testToken()}`,
-      'Content-Type': 'application/json',
-      Prefer: 'return=representation',
-      ...(init.headers ?? {}),
-    },
-  })
+  return sharedModuleFixture('useTableMutations.test.tsx')
 }
 
 async function createModule(): Promise<Record<string, unknown>> {
@@ -98,9 +70,8 @@ describe('useTableMutations', () => {
   })
 
   afterEach(async () => {
-    // `like` with `*` is PostgREST's wildcard. Unconditional, so a test that
-    // threw before its own cleanup still gets one.
-    await db(`/${TABLE}?module_name=like.${PREFIX}*`, { method: 'DELETE' })
+    // Unconditional, so a test that threw before its own cleanup still gets one.
+    await deleteVitestModules()
   })
 
   describe('useCreateRecord', () => {

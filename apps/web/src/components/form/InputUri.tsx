@@ -46,7 +46,7 @@ export function InputUri({
                 name={readonly ? undefined : name}
                 // type="text" keeps the browser's own URL constraint validation out
                 // of a form that renders sem-schema's errors: a natively :invalid
-                // field blocks View.tsx's native form={FORM_ID} submit with a
+                // field blocks EntityView.tsx's native form={FORM_ID} submit with a
                 // browser bubble instead. inputMode still gives the URL keyboard.
                 type="text"
                 inputMode="url"

@@ -64,7 +64,6 @@ export function FormHarness({
 }
 
 /** `render()` a control inside the harness. Returns what `render()` returns. */
-/* eslint-disable-next-line react-refresh/only-export-components */
 export function renderControl(ui: ReactElement, options: HarnessOptions = {}) {
   return render(<FormHarness {...options}>{ui}</FormHarness>)
 }

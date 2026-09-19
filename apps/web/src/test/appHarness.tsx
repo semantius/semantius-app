@@ -1,11 +1,3 @@
-/*
- * A test harness is never mounted by the dev server, so Fast Refresh has no
- * opinion worth acting on here — and splitting `bootApp()` out into a second
- * file to satisfy the rule would separate the setup from the providers it
- * exists to set up. The form harness suppresses the same rule for the same
- * reason, per export.
- */
-/* eslint-disable react-refresh/only-export-components */
 import { type ReactElement, type ReactNode, useState } from 'react'
 import { render } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'

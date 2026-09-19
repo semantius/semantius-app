@@ -301,7 +301,8 @@ function CustomersComponent() {
                         // because a placeholder slotted into
                         // "{label} {name} deleted" reads as nonsense once the
                         // sentence inflects.
-                        String(customer.customer_name || customer.email || customer.company || '')
+                        String(customer.customer_name || customer.email || customer.company || ''),
+                        customer,
                       )
                     }}
                   >

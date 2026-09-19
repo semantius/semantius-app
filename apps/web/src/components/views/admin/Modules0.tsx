@@ -1,7 +1,7 @@
-import { type EntityMetadata, type ViewProps } from "@/types/metadata"
+import { type EntityMetadata, type EntityViewProps } from "@/types/metadata"
 import { useT } from "@/i18n"
 
-export function View({ moduleId, table_name, recordId, metadata }: ViewProps) {
+export function View({ moduleId, table_name, recordId, metadata }: EntityViewProps) {
   const t = useT()
 
   return (

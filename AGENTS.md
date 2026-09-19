@@ -137,11 +137,15 @@ All verification screenshots **must** be saved to the `screenshots/` folder at t
 Filename format: `YYYYMMDDHHMMSS-<short-title>.png`
 Example: `20240315143022-checkout-flow.png`
 
+Screenshots cover every user-visible state the change introduces or alters: each step of a multi-step flow, each state that carries the logic (a disabled and an enabled control), the result after the action, and, when the change overrides shared behavior, the unchanged default. List those states before capturing, and take one screenshot per state. A single screenshot is enough only when the change has a single visible state.
+
 When referencing a screenshot in task results or comments, always include:
 
 - The filename/path
 - A short description of what the screenshot shows
 - A confidence score (0–100%) reflecting how well the screenshot demonstrates that the task requirements have been met
+
+Score only what the screenshots show. Anything verified by script, eval or tests does not raise the score; list it separately as "verified without screenshot". If required states are missing, the score cannot exceed the share of states shown.
 
 Example result comment:
 
@@ -223,7 +227,7 @@ Before calling `report_progress`, confirm all of the following are true:
 - `workplace/approve-pr.sh` exited 0 in this session (this is the first check — stop here if not done).
 - You have run `cat .preview-url.md` and have the full Cloudflare URL in hand.
 - The full preview URL is pasted as a bare URL in the PR description (not hidden behind link text).
-- At least one screenshot was taken from the Cloudflare preview URL (not localhost).
+- Every user-visible state the change introduces or alters has a screenshot taken from the Cloudflare preview URL (not localhost) — see Screenshots.
 - That screenshot is saved under `screenshots/` with the correct filename format.
 - That screenshot is embedded in the PR description using an absolute `raw.githubusercontent.com` URL pointing to this repo and the current branch.
 - The PR description includes the `CONTEXT-MEMORY.md` section with update status and a reason.

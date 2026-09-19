@@ -208,7 +208,6 @@ export function serializeFiltersForUrl<TData>(
   filters: ExtendedColumnFilter<TData>[],
 ): FilterWithoutId<TData>[] {
   return filters.map(filter => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { filterId, ...filterWithoutId } = filter
     return filterWithoutId
   })
