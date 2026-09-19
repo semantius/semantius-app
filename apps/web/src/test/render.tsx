@@ -16,12 +16,6 @@
  * the first test and resets to it afterwards, so a test that wants another
  * language activates it and lets the reset undo it.
  */
-/*
- * A test helper is never mounted by the dev server, so Fast Refresh has no
- * opinion worth acting on here — and the `export *` below is what makes this a
- * one-line swap for '@testing-library/react' at a call site.
- */
-/* eslint-disable react-refresh/only-export-components */
 import type { ReactElement } from 'react'
 import { render as rtlRender, type RenderOptions } from '@testing-library/react'
 import { I18nProvider } from '@lingui/react'

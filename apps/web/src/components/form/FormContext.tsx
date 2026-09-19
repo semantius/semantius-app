@@ -25,7 +25,6 @@ export const FormProvider = FormContext.Provider
  * 
  * @throws Error if used outside of SchemaForm
  */
-/* eslint-disable-next-line react-refresh/only-export-components */
 export function useFormContext(): FormContextValue {
   const context = useContext(FormContext)
   if (!context) {

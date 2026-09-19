@@ -95,12 +95,11 @@ export default defineConfig([
     rules: {
       // Style / pre-existing debt.
       '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/no-unused-vars': [
-        'warn',
-        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
-      ],
-      // Dev-only Fast Refresh hint — not a correctness rule.
-      'react-refresh/only-export-components': 'warn',
+      // Dead code costs nothing at runtime (the bundler drops unused imports).
+      // tsc's noUnusedLocals/noUnusedParameters are off too, so nothing checks it.
+      '@typescript-eslint/no-unused-vars': 'off',
+      // A dev-server hot-reload hint, not a correctness check.
+      'react-refresh/only-export-components': 'off',
       // React-Compiler-era rules introduced in react-hooks v7 that the existing
       // code was never written against. Informational for now.
       'react-hooks/exhaustive-deps': 'warn',

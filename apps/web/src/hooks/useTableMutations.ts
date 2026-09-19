@@ -151,7 +151,6 @@ export function useUpdateRecord<T extends Record<string, unknown>>(
       }
 
       // Create a copy without the ID field for the update payload
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { [idField]: _, ...updateData } = data
 
       const url = `${apiBaseUrl}/${tableName}?${idField}=eq.${id}`

@@ -301,7 +301,6 @@ function parseFiltersFromURL(filtersParam: string | undefined): ExtendedColumnFi
 // Serialize filters for URL (strip filterId to keep URLs short)
 function serializeFiltersForURL(filters: ExtendedColumnFilter<RecordType>[]): string | undefined {
   if (filters.length === 0) return undefined
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   return JSON.stringify(filters.map(({ filterId: _id, ...rest }) => rest))
 }
 
