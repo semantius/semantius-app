@@ -7,9 +7,7 @@ import type { SchemaObject } from 'ajv'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { validateSchema } from 'sem-schema'
 import {
-  // Aliased: eslint-plugin-lingui is blind inside a JSX element literally
-  // named `Select`. See the note in eslint.config.js's no-restricted-syntax.
-  Select as SelectRoot,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -217,7 +215,7 @@ export function FormPlayground({ initialSchema }: FormPlaygroundProps) {
                   <Label htmlFor="playground-form-mode" className="text-xs">
                     {t('Mode:')}
                   </Label>
-                  <SelectRoot value={formMode} onValueChange={(value) => setFormMode(value as FormMode)}>
+                  <Select value={formMode} onValueChange={(value) => setFormMode(value as FormMode)}>
                     <SelectTrigger id="playground-form-mode" className="w-[120px] h-8">
                       {/* Base UI renders the raw VALUE unless a children fn maps
                           it, so the trigger needs the same labels as the items. */}
@@ -228,7 +226,7 @@ export function FormPlayground({ initialSchema }: FormPlaygroundProps) {
                       <SelectItem value="create">{t('Create')}</SelectItem>
                       <SelectItem value="view">{t('View')}</SelectItem>
                     </SelectContent>
-                  </SelectRoot>
+                  </Select>
                 </div>
               </div>
             </div>

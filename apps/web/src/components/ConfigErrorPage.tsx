@@ -10,11 +10,7 @@ import { hideAppLoader } from '@/lib/appLoader'
 import { Trans } from '@lingui/react'
 import { useT } from '@/i18n'
 
-/**
- * Shared by the two inline <code> spans in the numbered list. Named
- * `…ClassName` on purpose: that is how `no-unlocalized-strings` is told a
- * string is CSS classes rather than text (see the ignoreNames list).
- */
+/** Shared by the two inline <code> spans in the numbered list. */
 const codeClassName = 'text-xs bg-muted px-1 py-0.5 rounded'
 
 interface ConfigErrorPageProps {

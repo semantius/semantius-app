@@ -6,11 +6,6 @@
  * Everything about HOW — the RPC name, its argument names, the code that
  * means "this platform has not applied the migration" — lives here, and
  * `NavUser.tsx` and `TranslationsPrefetch.tsx` hold none of it.
- *
- * That split is not tidiness. Every string below is an identifier or an error
- * code, and this directory is where the lint rule already expects those; the
- * same strings inside a component would be indistinguishable from
- * untranslated UI text.
  */
 
 import type { SessionPreference } from './resolveLocale'

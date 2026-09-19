@@ -146,7 +146,7 @@ Rules:
    Never fork the grid or the form.
 4. Use `useT()`. `translate()` is banned under `components/**`, because it cannot
    re-render a component when the language changes.
-5. A new file has no entry in `eslint-suppressions.json`, so it must lint clean.
+5. It must lint clean: plain text between JSX tags goes through `t()` or `<Trans>`.
 6. **Keep a callback the grid's columns depend on stable** — `getRowMenuItems`
    today — with `useCallback` or a module-scope function. The grid builds its
    columns in a memo, every cell is rendered from a column function, and a new
