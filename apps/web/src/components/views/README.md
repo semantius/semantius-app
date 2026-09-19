@@ -165,7 +165,9 @@ suite on a new substitution.
 - **Create rows out of band**, never through the code under test:
   `src/test/moduleFixture.ts` writes `_vitest_`-prefixed `modules` rows with a raw
   request (`moduleFixture()`, `db()`), and `deleteVitestModules()` in `afterEach`
-  deletes the whole prefix, so a test that throws still cleans up.
+  deletes this file run's rows, so a test that throws still cleans up. It never
+  deletes another file's rows: test files run in parallel, and doing so made
+  their fixtures vanish mid-test.
 - **Wait for the permission** before opening a row menu: `useUserHasPermission`
   answers false until `get_userinfo` lands, so wait for a control gated on the same
   permission ("Add Module") first.

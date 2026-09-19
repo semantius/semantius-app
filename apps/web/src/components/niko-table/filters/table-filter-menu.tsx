@@ -800,6 +800,15 @@ function useSyncFiltersWithTable<TData>(
   }, [filters, filterLogic, table, isControlled])
 }
 
+/**
+ * Select options computed outside the column definitions (generated from the
+ * rows, merged with the column's own list), keyed by column id. A column with
+ * no entry falls back to `columnDef.meta.options`.
+ */
+const ColumnOptionsContext = React.createContext<
+  Record<string, Option[]> | undefined
+>(undefined)
+
 interface TableFilterMenuProps<TData> extends React.ComponentProps<
   typeof PopoverContent
 > {
@@ -808,12 +817,14 @@ interface TableFilterMenuProps<TData> extends React.ComponentProps<
   onFiltersChange?: (filters: ExtendedColumnFilter<TData>[] | null) => void
   joinOperator?: JoinOperator
   onJoinOperatorChange?: (operator: JoinOperator) => void
+  optionsByColumn?: Record<string, Option[]>
 }
 
 export function TableFilterMenu<TData>({
   table,
   filters: controlledFilters,
   onFiltersChange: controlledOnFiltersChange,
+  optionsByColumn,
   // Legacy properties ignored: joinOperator, onJoinOperatorChange - now uses individual joinOperators
   ...props
 }: Omit<
@@ -963,7 +974,7 @@ export function TableFilterMenu<TData>({
     [filters, onFiltersChange],
   )
 
-  return (
+  const menu = (
     <Sortable
       value={filters}
       onValueChange={handleFiltersReorder}
@@ -1058,6 +1069,12 @@ export function TableFilterMenu<TData>({
         </div>
       </SortableOverlay>
     </Sortable>
+  )
+
+  return (
+    <ColumnOptionsContext.Provider value={optionsByColumn}>
+      {menu}
+    </ColumnOptionsContext.Provider>
   )
 }
 
@@ -1347,6 +1364,9 @@ function FilterFacetedSelect<TData>({
   setShowValueSelector,
 }: FilterInputProps<TData>) {
   const t = useT()
+  const options =
+    React.useContext(ColumnOptionsContext)?.[String(filter.id)] ??
+    columnMeta?.options
   const fieldName = fieldNameFor(columnMeta?.label, String(filter.id))
   const inputListboxId = `${inputId}-listbox`
   const multiple = filter.variant === FILTER_VARIANTS.MULTI_SELECT
@@ -1398,7 +1418,7 @@ function FilterFacetedSelect<TData>({
         }
       >
         <FacetedBadgeList
-          options={columnMeta?.options}
+          options={options}
           placeholder={
             columnMeta?.placeholder ??
             (multiple ? t("Select options...") : t("Select an option..."))
@@ -1416,7 +1436,7 @@ function FilterFacetedSelect<TData>({
         <FacetedList>
           <FacetedEmpty>{t("No options found.")}</FacetedEmpty>
           <FacetedGroup>
-            {columnMeta?.options?.map((option: Option) => (
+            {options?.map((option: Option) => (
               <FacetedItem key={option.value} value={option.value}>
                 {option.icon && <option.icon />}
                 <span>{option.label}</span>

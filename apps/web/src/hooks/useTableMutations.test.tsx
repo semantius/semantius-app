@@ -28,9 +28,9 @@ import { PREFIX, db, deleteVitestModules, moduleFixture as sharedModuleFixture }
  * under test.
  *
  * WRITES AND CLEANUP. These tests create rows in the shared test tenant. Every
- * one is a `modules` row named `_vitest_…`, and `afterEach` deletes the whole
- * prefix — so a crashed run leaves at most one generation of rows behind, and
- * the next run removes them. Deleting a module cascades to its entities
+ * one is a `modules` row named `_vitest_…`, and `afterEach` deletes this file
+ * run's rows (see `src/test/moduleFixture.ts`); a crashed run's rows are swept
+ * once they are an hour old. Deleting a module cascades to its entities
  * (verified by the last test here, which is the only assertion of that claim
  * anywhere in the repo), so nothing else needs a teardown of its own.
  */

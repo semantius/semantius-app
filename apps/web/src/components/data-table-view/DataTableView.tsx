@@ -68,9 +68,13 @@ function RowDragHandle() {
   const t = useT()
   const ctx = useContext(RowDragContext)
   if (!ctx) return null
+  // Destructured so that only the ref callback is passed to `ref`: react-hooks/refs
+  // treats whatever reaches `ref` as a ref, and `ctx.attributes` then counts as a
+  // ref read during render.
+  const { setActivatorNodeRef, attributes, listeners } = ctx
   return (
     <button
-      ref={ctx.setActivatorNodeRef}
+      ref={setActivatorNodeRef}
       type="button"
       aria-label={t('Drag to reorder')}
       className={cn(
@@ -78,8 +82,8 @@ function RowDragHandle() {
         'cursor-grab touch-none rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring',
         'active:cursor-grabbing',
       )}
-      {...ctx.attributes}
-      {...ctx.listeners}
+      {...attributes}
+      {...listeners}
     >
       <GripVertical className="h-4 w-4" />
     </button>

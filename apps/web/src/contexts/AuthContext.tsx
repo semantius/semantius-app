@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useLayoutEffect, useContext, useState, useRef, createContext, useMemo } from 'react'
+import { type ReactNode, useEffect, useLayoutEffect, useContext, useState, useRef, useEffectEvent, createContext, useMemo } from 'react'
 import { AuthProvider, AuthContext as OAuthContext } from 'react-oauth2-code-pkce'
 import type { IAuthContext } from 'react-oauth2-code-pkce'
 import { ConfigErrorPage } from '@/components/ConfigErrorPage'
@@ -267,8 +267,7 @@ function RouterContextUpdater({
   const fetchedTokenRef = useRef<string | null>(null)
   // Latest logIn() without making it an effect dependency (the OAuth lib
   // recreates the function each render). Used by the token self-heal below.
-  const logInRef = useRef(oauthContext.logIn)
-  logInRef.current = oauthContext.logIn
+  const logInLatest = useEffectEvent(() => oauthContext.logIn())
 
   useLayoutEffect(() => {
     setInterceptorToken(token || null)
@@ -443,7 +442,7 @@ function RouterContextUpdater({
         setRpcUserInfoError(null)
         // logIn() clearStorage()s the SC_<mode>_ token keys and redirects to the
         // OAuth authorize endpoint — i.e. clear + retry, in a single call.
-        logInRef.current()
+        logInLatest()
         return
       }
       if (action === 'reset-guard') {

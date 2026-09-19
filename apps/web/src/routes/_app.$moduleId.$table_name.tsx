@@ -130,6 +130,7 @@ function RouteComponent() {
           page/sort), so pagination/sort/filter WITHIN a table keep the instance
           and its smooth keep-previous behavior. The lazy component is cached and
           already resolved, so the remount does not re-trigger Suspense. */}
+      {/* eslint-disable-next-line react-hooks/static-components -- Component comes from the module-level lazyComponentCache, so it is the same component on every render */}
       <Component key={table_name} table_name={table_name} metadata={metadata} moduleId={moduleId} recordId={key} />
     </Suspense>
   )

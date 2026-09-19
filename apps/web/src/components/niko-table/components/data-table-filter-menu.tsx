@@ -7,7 +7,7 @@ import type { Option } from "../types"
 
 type BaseTableFilterMenuProps<TData> = Omit<
   React.ComponentProps<typeof TableFilterMenu<TData>>,
-  "table"
+  "table" | "optionsByColumn"
 >
 
 interface AutoOptionProps {
@@ -81,45 +81,48 @@ export function DataTableFilterMenu<TData>({
     limitPerColumn,
   })
 
-  // Apply generated options according to mergeStrategy.
-  // We mutate columnDef.meta.options safely inside memo to avoid extra renders.
-  React.useMemo(() => {
-    if (!autoOptions) return
-    table.getAllColumns().forEach(column => {
-      const meta = (column.columnDef.meta ||= {})
+  // Merge generated options with each column's own list according to
+  // mergeStrategy. The result is handed to the menu, never written into
+  // columnDef.meta: useGeneratedOptions reads meta.options as the column's
+  // static list, so writing generated options back there turned one render's
+  // generated values into the static list for every render after it.
+  const optionsByColumn = React.useMemo(() => {
+    const result: Record<string, Option[]> = {}
+    if (!autoOptions) return result
+    for (const column of table.getAllColumns()) {
+      const meta = column.columnDef.meta ?? {}
       const variant = meta.variant ?? FILTER_VARIANTS.TEXT
       if (
         variant !== FILTER_VARIANTS.SELECT &&
         variant !== FILTER_VARIANTS.MULTI_SELECT
       )
-        return
+        continue
       const gen = generatedOptions[column.id]
-      if (!gen || gen.length === 0) return
+      if (!gen || gen.length === 0) continue
 
-      if (!meta.options) {
-        meta.options = gen
-        return
-      }
-
-      if (mergeStrategy === "replace") {
-        meta.options = gen
-        return
-      }
-
-      if (mergeStrategy === "augment") {
+      if (!meta.options || mergeStrategy === "replace") {
+        result[column.id] = gen
+      } else if (mergeStrategy === "augment") {
         const countMap = new Map(gen.map(o => [o.value, o.count]))
-        meta.options = meta.options.map((opt: Option) => ({
+        result[column.id] = meta.options.map((opt: Option) => ({
           ...opt,
           count: showCounts
             ? (countMap.get(opt.value) ?? opt.count)
             : undefined,
         }))
       }
-      // preserve: do nothing
-    })
+      // preserve: the column's own list stands
+    }
+    return result
   }, [autoOptions, generatedOptions, mergeStrategy, showCounts, table])
 
-  return <TableFilterMenu<TData> table={table} {...props} />
+  return (
+    <TableFilterMenu<TData>
+      table={table}
+      optionsByColumn={optionsByColumn}
+      {...props}
+    />
+  )
 }
 
 /**

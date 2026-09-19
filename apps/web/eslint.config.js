@@ -12,6 +12,10 @@ export default defineConfig([
   // builds for its tenant and LAN projects — 3400 minified files that ESLint
   // would otherwise parse on every run for no rules at all, which is minutes.
   globalIgnores(['dist', 'dist-e2e-*']),
+  // An eslint-disable comment for a rule that is off, or for a line that no
+  // longer breaks it, is left alone rather than reported. The comments stay as
+  // documentation of intent (an `any` that is deliberate, for example).
+  { linterOptions: { reportUnusedDisableDirectives: 'off' } },
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
