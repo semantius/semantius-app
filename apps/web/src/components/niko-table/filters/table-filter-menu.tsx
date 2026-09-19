@@ -68,10 +68,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import {
-  // Aliased on purpose: eslint-plugin-lingui treats a JSX element named
-  // `Select` as its own ICU component and goes blind inside it. See the
-  // no-restricted-syntax note in eslint.config.js.
-  Select as SelectRoot,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -1322,7 +1319,7 @@ function FilterBooleanSelect<TData>({
   const inputListboxId = `${inputId}-listbox`
 
   return (
-    <SelectRoot
+    <Select
       open={showValueSelector}
       onOpenChange={setShowValueSelector}
       value={filter.value}
@@ -1347,7 +1344,7 @@ function FilterBooleanSelect<TData>({
         <SelectItem value="true">{t("True")}</SelectItem>
         <SelectItem value="false">{t("False")}</SelectItem>
       </SelectContent>
-    </SelectRoot>
+    </Select>
   )
 }
 FilterBooleanSelect.displayName = "FilterBooleanSelect"
@@ -1667,7 +1664,7 @@ function FilterJoinOperator<TData>({
 
   return (
     <div className="min-w-[72px] text-center">
-      <SelectRoot
+      <Select
         value={filter.joinOperator || JOIN_OPERATORS.AND}
         onValueChange={(value) => {
           if (value !== null) onFilterUpdate(filter.filterId, { joinOperator: value as JoinOperator })
@@ -1695,7 +1692,7 @@ function FilterJoinOperator<TData>({
             </SelectItem>
           ))}
         </SelectContent>
-      </SelectRoot>
+      </Select>
     </div>
   )
 }
@@ -1820,7 +1817,7 @@ function FilterOperatorSelector<TData>({
   }
 
   return (
-    <SelectRoot
+    <Select
       open={showOperatorSelector}
       onOpenChange={setShowOperatorSelector}
       value={filter.operator}
@@ -1867,7 +1864,7 @@ function FilterOperatorSelector<TData>({
           </SelectItem>
         ))}
       </SelectContent>
-    </SelectRoot>
+    </Select>
   )
 }
 FilterOperatorSelector.displayName = "FilterOperatorSelector"

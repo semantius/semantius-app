@@ -499,28 +499,18 @@ managers grab Alt+drag), which is harmless but worth knowing.
 
 ### Enforcement
 
-`lingui/no-unlocalized-strings` is an error for `apps/web/src`, with three
-exclusions: `src/charts/**` (our drizzle-cube chart override, which renders
-inside a third-party product with its own i18n), test files and their helpers
-(a test's strings are assertions and fixtures, never anything on a screen), and
-`src/i18n/*.ts` (locale tags, storage keys and `Intl` options — machinery). The
-strings that had not been migrated when the rule was turned on are recorded once
-in `apps/web/eslint-suppressions.json`; each phase migrates files and runs
-`npx eslint --prune-suppressions`, so the counts only fall and a partially
-migrated file is still enforced for anything new.
+`i18next/no-literal-string` ([eslint-plugin-i18next](https://github.com/edvardchen/eslint-plugin-i18next),
+which works with any i18n library despite its name) is an error for
+`apps/web/src/**/*.tsx` in its default `jsx-text-only` mode: plain text between
+JSX tags must go through `t()` or `<Trans>`. It checks nothing else, so it needs
+no ignore lists. Attributes such as `placeholder` or `aria-label`, and strings
+outside JSX such as a toast message, are not linted. Excluded: `src/charts/**`
+(our drizzle-cube chart override, which renders inside a third-party product with
+its own i18n), `src/components/ui/**` (shadcn CLI output) and tests.
 
-`react-hooks/exhaustive-deps` is an error for `apps/web/src` through the same
-baseline: `useT()` returns a new function per language, so `t` belongs in the
-dependencies of any `useMemo`, `useEffect` or `useCallback` that calls it.
-
-The rule has two blind spots worth knowing. On a plain HTML tag it only checks
-the `placeholder`, `alt`, `aria-label` and `value` attributes, so a `title=` on a
-`<span>` is invisible to it (on a component, every attribute is checked). And it
-treats a JSX element named `Select`, `Plural` or `SelectOrdinal` as one of
-Lingui's own ICU components and skips **every** string inside it — which shadcn's
-`<Select>` collides with head-on. That one is closed rather than documented: those
-tag names are banned by `no-restricted-syntax`, so the select is imported as
-`Select as SelectRoot` and the rule sees the whole subtree again.
+`react-hooks/exhaustive-deps` is an error for `apps/web/src`: `useT()` returns a
+new function per language, so `t` belongs in the dependencies of any `useMemo`,
+`useEffect` or `useCallback` that calls it.
 
 ### Validation messages
 
