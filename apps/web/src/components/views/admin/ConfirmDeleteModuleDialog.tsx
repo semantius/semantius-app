@@ -45,11 +45,13 @@ export function ConfirmDeleteModuleDialog({
   const [step, setStep] = useState<1 | 2>(1)
   const [typed, setTyped] = useState('')
 
+  // EXACT, character for character: no trimming, no case folding. A stray space
+  // is not the slug, and a check that forgives it is not a typed confirmation.
   // The model requires no field of `modules`, so the slug can be empty. An empty
   // slug must not turn the check into "type nothing": it fails closed, and such
   // a module (unroutable anyway) is deleted through the API instead.
   const slug = String(record.module_slug ?? '')
-  const matches = slug !== '' && typed.trim() === slug
+  const matches = slug !== '' && typed === slug
 
   const confirm = () => {
     if (matches && !isPending) handleConfirm()

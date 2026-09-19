@@ -86,6 +86,22 @@ describe('ConfirmDeleteModuleDialog', () => {
     expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled()
   })
 
+  it('keeps Delete disabled for the slug with a space before or after it', async () => {
+    const p = props()
+    const { ui, input } = await atStep2(p)
+
+    await ui.keyboard('sales_pipeline ')
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled()
+    await ui.keyboard('{Enter}')
+    expect(p.handleConfirm).not.toHaveBeenCalled()
+
+    await ui.clear(input)
+    await ui.keyboard(' sales_pipeline')
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled()
+    await ui.keyboard('{Enter}')
+    expect(p.handleConfirm).not.toHaveBeenCalled()
+  })
+
   it('enables Delete for the exact slug, and deletes once on click', async () => {
     const p = props()
     const { ui } = await atStep2(p)
