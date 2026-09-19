@@ -86,17 +86,17 @@ describe('ConfirmDeleteModuleDialog', () => {
     expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled()
   })
 
-  it('keeps Delete disabled for the slug with a space before or after it', async () => {
+  it('ignores a space before or after the slug, and nothing else', async () => {
     const p = props()
     const { ui, input } = await atStep2(p)
 
-    await ui.keyboard('sales_pipeline ')
-    expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled()
-    await ui.keyboard('{Enter}')
-    expect(p.handleConfirm).not.toHaveBeenCalled()
+    // A copied slug can carry a trailing space; it still confirms.
+    await ui.keyboard(' sales_pipeline ')
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled()
 
+    // A space INSIDE is a different string.
     await ui.clear(input)
-    await ui.keyboard(' sales_pipeline')
+    await ui.keyboard('sales _pipeline')
     expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled()
     await ui.keyboard('{Enter}')
     expect(p.handleConfirm).not.toHaveBeenCalled()
