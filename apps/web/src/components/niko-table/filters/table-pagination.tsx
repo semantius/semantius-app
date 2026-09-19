@@ -2,10 +2,7 @@ import React from "react"
 import { type Table } from "@tanstack/react-table"
 import { Button } from "@/components/ui/button"
 import {
-  // Aliased on purpose: eslint-plugin-lingui treats a JSX element named
-  // `Select` as its own ICU component and goes blind inside it. See the
-  // no-restricted-syntax note in eslint.config.js.
-  Select as SelectRoot,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -131,7 +128,7 @@ export function TablePagination<TData>({
         >
           {t("Items per page")}
         </span>
-        <SelectRoot
+        <Select
           value={`${Number(pageSize) === 0 ? defaultPageSize : Number(pageSize)}`}
           onValueChange={value => {
             const newPageSize = Number(value)
@@ -155,7 +152,7 @@ export function TablePagination<TData>({
               </SelectItem>
             ))}
           </SelectContent>
-        </SelectRoot>
+        </Select>
       </div>
 
       <div

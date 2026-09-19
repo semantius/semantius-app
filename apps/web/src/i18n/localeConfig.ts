@@ -24,11 +24,8 @@
  * wrote the `.env`, quoting the JSON keys verbatim (see CONTEXT-MEMORY, "A boot
  * diagnostic is not language").
  *
- * It lives under `src/i18n/` rather than beside `lib/userMenu.ts` for that last
- * reason: the lingui rule exempts the top-level modules of this directory
- * precisely because every string in them is a locale tag, a JSON key or an
- * operator diagnostic — which is all this file holds — and it is i18n machinery
- * either way.
+ * It lives under `src/i18n/` rather than beside `lib/userMenu.ts` because it is
+ * i18n machinery.
  */
 
 /** One language an operator has registered, with its file resolved. */

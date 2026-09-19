@@ -23,7 +23,7 @@ Four layers, as `ACCESSIBILITY.md` describes them, all confirmed to exist and, w
 | --- | --- | --- |
 | Token contrast test (`apps/web/src/test/tokenContrast.test.ts`) | The palette clears 4.5:1 / 3:1 on every surface a control can sit on, both themes, with the `theme-a11y.css` override imported last | Passes (run here) |
 | Component tests in Chromium (Vitest `browser` project) | Each form control's computed accessible name and description | Not run here; plan §6.5 records five green runs and one red on the tenant's bad minute |
-| Lint (`eslint-plugin-jsx-a11y`) | Static ARIA and markup defects; 3 frozen in `eslint-suppressions.json`, 6 documented inline | Passes, zero `jsx-a11y` warnings (run here) |
+| Lint (`eslint-plugin-jsx-a11y`) | Static ARIA and markup defects; 3 in shadcn's `ui/` turned off in `eslint.config.js`, 6 documented inline | Passes, zero `jsx-a11y` warnings (run here) |
 | Route audit (`scripts/a11y-audit/`) against a deployed preview | axe-core plus custom probes: placeholder contrast, focus indicator, focus-not-obscured, reflow on descendants, skip-link target, heading jumps, title uniqueness | Cited run `20260906T173406-pinning-lg` inspected in full |
 
 ## What was verified as true

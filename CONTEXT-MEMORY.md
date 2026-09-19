@@ -444,14 +444,6 @@ relation's `id` is `<childTable>.<fkField>`; its `title` and the two `*_parent`
 labels are that FIELD's attributes and its singular/plural the child ENTITY's,
 keyed under the parent's module.
 
-**The lint rule exempts every literal inside a whitelisted call, and that is the
-whole reason metadata ids are spelled inline.** `t` is in the plugin's default
-callee list, so `t({ id: ['module', slug, 'entity', 'plural_label'], … })` costs no
-suppression; the same tuple built by a helper OUTSIDE a `t()` call is reported
-literal by literal in a component file. `moduleLabels(t, module)` in
-`contexts/AuthContext.tsx` exists because `getModuleDisplay` needs the pair; it
-builds both ids inside `t()`.
-
 **The scan's accepted argument forms are a WHITELIST, not a blacklist.** `t()` /
 `translate()` / `msg()` / `appError()` / `<Trans id>` take a string literal, a
 template with no expressions, an object literal with a literal `message` (and a
@@ -636,8 +628,7 @@ and discovers with nothing configured and a deployment is silent until an
 operator says otherwise (the owner's rule; an `.env.development` file that set
 `dev` for one Vite mode only is gone). The test harness passes `dev` to
 `initConfig()` explicitly. `lib/config.ts` resolves
-mode and url through `resolveTranslateTarget()` (the diagnostics live in
-`src/i18n/translateTarget.ts` so `config.ts` gains no lint suppressions) and
+mode and url through `resolveTranslateTarget()` and
 PUSHES `setTranslateTarget({ url, mode })`, the way every other configuration
 reaches `src/i18n`. One contract: `GET {base}/translations?locale=` answers the
 language's flat map, `POST {base}/translations` takes `{ locale, key,
@@ -694,9 +685,7 @@ pure parser; measured facts it rests on: `${name}` must be quoted PER BRACE
 — quoting a whole run leaves `'$` literal and the brace an argument; apostrophes
 are doubled; a missing or `null` value is filled with its own name
 (`fillPlaceholders`), since Lingui renders a missing simple argument as nothing,
-a missing plural as `NaN` and a null count as `0`. `appError` is in the lingui
-rule's `ignoreFunctions` — every literal in the call is exempt, `values:` ones
-included, so review those by eye.
+a missing plural as `NaN` and a null count as `0`.
 
 **Components use `useT()` and list `t` in their deps; everything outside React
 uses `translate()`** — a route's `head()`, `main.tsx`, the class components
@@ -775,75 +764,13 @@ test that needs a language other than English supplies it as a LAYER pushed
 onto `localeLayers` (`metadata.test.ts`, `apiErrors.test.ts`, `reverseIndex.test.ts`)
 — the real activation path over a fixture file, not a stub of the catalog.
 
-**`eslint-suppressions.json` is the migration ratchet and only shrinks**, but its
-counts are per file and per rule, so a same-file swap of one violation for
-another is invisible to it and has to be caught in review. `eslint-plugin-lingui`
-already whitelists `t` and `msg` as callees (verified in the rule's source);
-`translate`, `translateVerbatim` and `appError` are ours and are named in
-`ignoreFunctions`. Keep the `ignore` regexes NARROW — an over-broad one hides a
-real string forever and silently, while an unmigrated string lands in the
-baseline once and is visible there. **`react-hooks/exhaustive-deps` is an ERROR
-for `src/**` through the same baseline** (seven violations predated it), because
-`useT()` returns a new function per language: a `useMemo`/`useEffect` that omits
-`t` keeps rendering the previous language behind a memo, and as a warning among
-ninety the rule would never be read.
-
-**`ignoreFunctions` exempts the whole CALL, and for a curried call it walks in to
-the inner callee** — the rule takes a literal's nearest enclosing
-`CallExpression` and tests that. So `ignoreFunctions: ['createFileRoute']` would
-exempt every literal in `createFileRoute('/x')({ … })`, the entire route
-definition with its `head: () => ({ meta: [{ title: 'English' }] })` included,
-silently and forever. It is an entry-point whitelist, not an argument matcher:
-name a function there only when EVERY string anywhere inside its call is
-machinery. A single argument that is an identifier — a route path, a storage key
-— belongs in `ignore` as a regex instead (`^/[A-Za-z0-9_$./-]*$` is the one that
-covers the route paths, and it is narrow because a leading slash with no space in
-it is an address, never a sentence).
-
-**`no-unlocalized-strings` cannot see most attributes on an INTRINSIC element.**
-`isAllowedDOMAttr` in the plugin hard-codes the checked set to `placeholder`,
-`alt`, `aria-label` and `value` for a native tag (and skips SVG entirely); on a
-capitalized component every attribute is checked. So `<span title="Delete this">`
-is invisible to the rule while `<Button title="Delete this">` is not, and there
-is no option to widen it. A green run and an empty suppression count are
-therefore not proof that a file is fully migrated — `title`, `aria-description`,
-`summary` and `label` on plain HTML have to be found by reading. Today every
-`title=` in `src/` is on a component, so nothing is hiding; check when migrating
-a file that adds one.
-
-**The rule is blind to every string inside a `<Select>` — so the tag is
-aliased, and a lint rule keeps it that way.** `no-unlocalized-strings` hard-codes
-`['Trans', 'Plural', 'Select', 'SelectOrdinal']` as Lingui's own ICU components
-and marks EVERY `Literal` / `TemplateLiteral` / `JSXText` in the subtree of one
-as already visited (v0.15.0, `no-unlocalized-strings.js`). shadcn's `<Select>`
-has the same tag name, so a `SelectItem`'s label, a `SelectValue placeholder`
-and every attribute inside a select were invisible, and a green run over such a
-file proved nothing about it — measured with a fixture through the installed
-plugin, where a bare `<span>` beside them was reported and nothing inside the
-`<Select>` was.
-
-There is no option to rename what the rule considers an ICU component, so the
-disambiguation is at the call site: the four files that use it import
-`Select as SelectRoot` and a `no-restricted-syntax` entry in `eslint.config.js`
-rejects the JSX tag names `Select` / `Plural` / `SelectOrdinal` outright. It has
-to be a TAG-NAME ban — `no-restricted-imports` matches the imported name and
-would reject the alias too. With the alias in place the real rule sees the whole
-subtree, which is why `value` is in `ignoreNames`: a `<SelectItem value="asc">`
-is an identifier next to its `t()` label, and the plugin already exempts `value`
-on an intrinsic element for exactly that reason.
-
-`Trans` is deliberately NOT in that ban and needs no test: `TransProps` declares
-no `children`, so `<Trans id="…">text</Trans>` is a **tsc error** (TS2322,
-verified). Its message comes from `id`, which the scan reads.
-
-**What is left in `eslint-suppressions.json` is not language.** The residue is
-six families, none of which a catalog can hold: PostgREST query fragments and
-URL templates, identifiers and enum members (`'asc'`, `'default'`, a column
-name, an RPC name, a lucide icon id), CSS class and custom-property strings,
-`throw new Error` invariants and `console.warn` developer messages,
-**operator-facing boot diagnostics** (see below), and `src/components/ui/**`,
-which is CLI-owned and cannot be hand-edited at all. Read the number as
-"strings the rule cannot tell apart from text", not as "untranslated UI".
+**Untranslated-text lint: `eslint-plugin-i18next`, default `jsx-text-only` mode,
+over `src/**/*.tsx`.** Do not replace it with `eslint-plugin-lingui`'s
+`no-unlocalized-strings` because the app uses Lingui, and do not switch it to
+`jsx-only` or `all`. Both check strings that are not text: every literal in a
+file, or every literal nested under JSX including `.map()` callbacks. Measured
+here they flagged about 550 and 28 strings with only a handful of real ones.
+Attributes and strings outside JSX are deliberately not linted.
 
 **A boot diagnostic is not language; a boot INSTRUCTION is.** `lib/config.ts`
 and `lib/userMenu.ts` stay English because they are machine reports for the
@@ -854,30 +781,9 @@ map German back onto English keys. The line is CONTENT, not the `detail` slot it
 happens to land in — `lib/secureContext.ts` renders into the same `BootFailure`
 `detail` and IS translated, because it is a sentence telling a human what to do.
 
-**Two `ignores` beyond `src/charts/**`, both deliberate.** (1) *Tests and their
-helpers* (`**/*.{test,spec}.*`, `**/__tests__/**`, `src/test/**`): a test's strings
-are assertions, fixtures and query strings, and there are ~2600 of them against
-~1200 in product code — baselining them would bury the ratchet under entries
-that can never be migrated. (2) *`src/i18n/*.ts`*, the translation machinery
-itself, whose every string is a locale tag, a storage key, a code, a regex or
-an `Intl` option — which is also why `errors.ts`, `localeConfig.ts` and the
-translate target's diagnostics sit there rather than under `lib/`. Scoped to the
-TOP-LEVEL modules on purpose: `src/i18n/**` would also exempt
-`src/i18n/translateMode/`, which is ordinary UI with ordinary user-visible
-strings.
-
 **`dist-e2e-*` are in `globalIgnores`.** Playwright builds two extra bundles
 there; without the ignore ESLint parses ~3400 minified files on every run for no
 rules at all.
-
-**A file that exceeds its recorded suppression count reports ALL of that rule's
-violations, not the excess.** Two new `'date'` literals in `ApiKeysCard.tsx`
-turned the whole file into 42 errors, which reads as "the migration broke this
-file" and is really "two over the line". `--prune-suppressions` only LOWERS a
-count, so the fix is to get back under it — never to re-baseline. Budget a
-literal before adding one to a file that is still in the baseline; a set of
-field names belongs in `src/i18n/errors.ts` (`ERROR_TEXT_FIELDS`), not in a
-component.
 
 **Every calendar goes through `ui-ext/localized-calendar.tsx`, never
 `ui/calendar.tsx` directly.** react-day-picker renders month and weekday names
@@ -968,13 +874,6 @@ a change that is purely local. `ensureQueryData` with `staleTime: Infinity` and
 the SAME entry — makes it a cache hit. `head()` renders the title through
 `translate()` with the metadata's own `module_slug`, because it is not a
 component.
-
-**The lingui rule cannot tell an identifier from a sentence, and the answer is
-WHERE the string lives, not a wider `ignore`.** `src/i18n/*.ts` is already exempt
-as machinery, so a PostgREST code, an RPC name, a field-name list and a
-diagnostic belong there and call sites pass the constant. Widening `ignore` to
-cover `'description'` or `'title'` would hide a real string forever and
-silently.
 
 **A per-call `{ timeout }` LOWERS the project's `asyncUtilTimeout`.**
 `setup.browser.ts` configures 15s for the whole browser project; four `findByRole`
@@ -1698,11 +1597,7 @@ been re-proposed and rejected six times in one session alone; if you are about t
 suggest it, you are repeating that.
 
 jsdom in any project; polyfilling a browser API to make a test pass; stubbing
-`window.location`; axe in jsdom; `useTsTypes` on `lingui/no-unlocalized-strings`
-(measured: it needs type-aware parsing — `parserOptions.projectService` — for
-every file ESLint touches, which took a `src` run from 32s to 53s, and bought
-48 of 702 violations, because the residue is `string`-typed query fragments and
-identifiers rather than string-literal unions); isolated component tests with
+`window.location`; axe in jsdom; isolated component tests with
 invented props;
 `/form-playground` as a test surface; MSW with recorded fixtures; deleting
 Playwright; a pre-push hook; seeding `loginInProgress` to fake a failed token
