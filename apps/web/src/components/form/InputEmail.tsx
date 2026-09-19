@@ -36,7 +36,7 @@ export function InputEmail({
                 // type="text", not type="email": this control serves idn-email as
                 // well as email, and the HTML spec's email regex is ASCII-only, so
                 // type="email" marks a non-ASCII local part (jörg@müller.de)
-                // typeMismatch — which blocks View.tsx's native form={FORM_ID}
+                // typeMismatch — which blocks EntityView.tsx's native form={FORM_ID}
                 // submit and paints the invalid state. inputMode keeps the email
                 // soft keyboard.
                 //

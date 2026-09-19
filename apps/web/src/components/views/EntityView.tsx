@@ -1,6 +1,6 @@
 import { useNavigate, useRouter, useRouterState, useSearch, Link } from '@tanstack/react-router'
 import { useRef, useState } from 'react'
-import { type ViewProps, type ChildRelation } from "@/types/metadata"
+import { type EntityViewProps, type ChildRelation } from "@/types/metadata"
 import { useTable } from '@/hooks/useTable'
 import { useRpc } from '@/hooks/useRpc'
 import { useUserHasPermission } from '@/hooks/useUserPermissions'
@@ -20,6 +20,17 @@ import { DataFormPage } from '@/components/data-table-view/DataFormPage'
 import { useT } from '@/i18n'
 
 type RecordType = Record<string, unknown>
+
+/**
+ * What a per-table override may customize, beyond the route contract
+ * (`EntityViewProps`). Every member is optional and absent means the generic
+ * behavior. `views/README.md` lists each one with the child that consumes it —
+ * add the row there when adding a member here.
+ */
+export interface EntityViewCustomization {
+  /** Extra entries for the row "..." menu, appended before Delete. */
+  getRowMenuItems?: (record: RecordType) => RowMenuItem[]
+}
 
 /** Minimal shape of a get_schema response needed for parent breadcrumb */
 interface ParentEntitySchema {
@@ -52,7 +63,7 @@ function StandaloneFormView({
   parentRecordLabel,
   parentRecordPath,
 }: {
-  metadata: ViewProps['metadata']
+  metadata: EntityViewProps['metadata']
   recordId: string | null
   moduleId: string
   viewName: string
@@ -167,7 +178,7 @@ function StandaloneFormView({
   )
 }
 
-export function View({ moduleId: _moduleId, table_name: _table_name, recordId: _recordId, metadata, getRowMenuItems }: ViewProps & { getRowMenuItems?: (record: Record<string, unknown>) => RowMenuItem[] }) {
+export function EntityView({ moduleId: _moduleId, table_name: _table_name, recordId: _recordId, metadata, getRowMenuItems }: EntityViewProps & EntityViewCustomization) {
   const t = useT()
   const navigate = useNavigate()
   const router = useRouter()

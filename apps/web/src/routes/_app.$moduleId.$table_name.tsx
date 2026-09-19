@@ -82,7 +82,7 @@ function RouteComponent() {
   const t = useT()
   const { moduleId, table_name, key } = useParams({ strict: false })
   const { metadata: rawMetadata } = Route.useLoaderData()
-  // THE choke point for model-label overrides. Everything downstream — View,
+  // THE choke point for model-label overrides. Everything downstream — EntityView,
   // DataTableView, SchemaForm, DataFormPage, ConfirmDeleteDialog, ViewSkeleton,
   // api-select, InputReference — takes its labels from this one `metadata` prop,
   // so translating here translates all of them. It is applied at RENDER, never
@@ -96,7 +96,7 @@ function RouteComponent() {
     
     const componentName = table_name.charAt(0).toUpperCase() + table_name.slice(1)
     const specificComponentPath = `../components/views/${moduleId}/${componentName}.tsx`
-    const genericComponentPath = '../components/views/View.tsx'
+    const genericComponentPath = '../components/views/EntityView.tsx'
     
     const componentPath = specificComponentPath in viewComponents 
       ? specificComponentPath 
@@ -107,7 +107,7 @@ function RouteComponent() {
         componentPath,
         lazy(() => 
           viewComponents[componentPath]().then(m => ({ 
-            default: m[componentName] || m.View || m.default 
+            default: m[componentName] || m.EntityView || m.default 
           }))
         )
       )
@@ -123,7 +123,7 @@ function RouteComponent() {
   return (
     <Suspense fallback={<ViewSkeleton metadata={metadata} />}>
       {/* key on table_name remounts the view when switching tables. Without it
-          the SAME generic View instance is reused across tables (same route,
+          the SAME generic EntityView instance is reused across tables (same route,
           changed params), so its internal state and useTable's keep-previous
           placeholder data bleed across tables — showing the previous table's
           rows/row-count until the new query resolves. The key is table_name (not

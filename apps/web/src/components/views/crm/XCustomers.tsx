@@ -1,2 +1,2 @@
-export { View } from '../View'
+export { EntityView } from '../EntityView'
 

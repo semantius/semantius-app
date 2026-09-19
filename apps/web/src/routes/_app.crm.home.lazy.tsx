@@ -36,7 +36,7 @@ function RouteComponent() {
 
       <Sheet open={isDetailOpen} onOpenChange={(open) => !open && handleCloseSidebar()}>
         {/* data-[side=right]: is required on BOTH width classes, not decorative
-            — see the note on SheetContent in View.tsx. The vendored sheet ships
+            — see the note on SheetContent in EntityView.tsx. The vendored sheet ships
             `data-[side=right]:w-3/4` and `data-[side=right]:sm:max-w-sm`; a bare
             `w-full` or `sm:max-w-md` here is a different tailwind-merge group
             key, so both survive and the modifier version out-specifies the bare

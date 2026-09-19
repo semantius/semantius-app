@@ -6,7 +6,7 @@ import { resolveControl } from '@/components/form/resolveControl'
 /**
  * Loading placeholder for the dynamic entity views — the route's
  * `pendingComponent` and the Suspense fallback in _app.$moduleId.$table_name.
- * Mirrors the real View layout (breadcrumb, title + description with an action
+ * Mirrors the real EntityView layout (breadcrumb, title + description with an action
  * button, the search/sort/filter/view toolbar, and a header-plus-rows table) so
  * the page doesn't visibly jump when the actual content swaps in.
  *
@@ -34,7 +34,7 @@ export function ViewSkeleton({ metadata }: { metadata?: EntityMetadata }) {
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-2">
           {metadata ? (
-            /* Same classes as the real heading in views/View.tsx. */
+            /* Same classes as the real heading in views/EntityView.tsx. */
             <h1 className="text-3xl font-bold tracking-tight">
               {metadata.table?.plural_label || t('Records')}
             </h1>

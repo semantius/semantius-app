@@ -708,13 +708,13 @@ never update; ESLint bans the import under `components/**` with the class
 components as the exceptions. `useT()` needs no provider (it is
 `useSyncExternalStore` on the Lingui singleton's `change` event); only `<Trans>`
 does, which is what `src/test/render.tsx` is for. `useLocalizedMetadata()` in the
-`$table_name` route is THE choke point for entity metadata: `View`,
+`$table_name` route is THE choke point for entity metadata: `EntityView`,
 `DataTableView`, `SchemaForm`, `DataFormPage`, `ConfirmDeleteDialog`,
 `ViewSkeleton`, `api-select` and `InputReference` all inherit that one prop, and
 `localizeMetadata()` (`src/i18n/metadata.ts`) applies translations AT RENDER —
 never in a loader, never by mutation — with `enum` VALUES kept as the database
 holds them and only `enum_labels` filled. The sidebar, the command palette, the
-breadcrumb, the module tiles and `View`'s PARENT schema read `tables`/`modules`
+breadcrumb, the module tiles and `EntityView`'s PARENT schema read `tables`/`modules`
 directly, so each spells its own keys inline in `t()`.
 
 **`I18nProvider` renders `null` until a locale is active, and under the boot
@@ -1095,12 +1095,6 @@ Custom chart overrides live in `src/charts/`. The `customCharts` array is passed
 **Key constraint:** drizzle-cube v0.4.x does **not** export `ChartProps` or `useTranslation` from the public API. `ChartProps` must be defined locally (matching the interface in `drizzle-cube/client` types). Utility functions (`formatAxisValue`, `hasTimeDimensionForPivot`, `pivotTableData`, etc.) are available from `drizzle-cube/client/utils`.
 
 To scaffold a new chart from a built-in: `pnpm exec drizzle-cube charts init --from <type> -o ./src/charts` (run from `apps/web`). Note: in v0.4.x the CLI may only generate `index.ts` without the component/config files — create them manually based on the built-in source.
-
-### Dynamic View Component Resolution
-
-The route `_app.$moduleId.$table_name.tsx` loads view components dynamically via `import.meta.glob('../components/views/**/*.{tsx,jsx}')`. It checks for a **specific** component first at `views/{moduleId}/{TableName}.tsx`, then falls back to the **generic** `views/View.tsx`. When fixing behavior in `View.tsx`, always check if specific overrides exist in subdirectories (e.g., `views/crm/Customers.tsx`, `views/crm/Regions.tsx`) — those files are loaded instead of the generic one. Specific overrides should re-export from `View.tsx` (`export { View } from '../View'`) unless they genuinely need custom behavior.
-
-**Customizing without forking View:** a specific override can render `<View {...props} />` and pass *extra* optional props that `View` forwards to `DataTableView` — the override does not have to reimplement the grid. `View`'s route contract stays `ViewProps` (`moduleId`/`table_name`/`recordId`/`metadata`); extra props are added to `View`'s local signature only (`ViewProps & { ... }`) so the generic path is unaffected. Example: `views/admin/Users.tsx` passes `getRowMenuItems(record) => RowMenuItem[]` to add per-row entries to the row "..." menu (returns extra `DropdownMenuItem`s appended before Delete in `DataTableView`'s actions column; empty array = unchanged menu). Reach for this pattern for per-view menu/behavior tweaks rather than editing `View`/`DataTableView` conditionally on table name.
 
 ### TanStack Router Search Param Serialization
 

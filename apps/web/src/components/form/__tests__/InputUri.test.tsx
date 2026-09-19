@@ -25,7 +25,7 @@ describe('InputUri', () => {
   // This control serves `iri` as well as `uri`. `type="url"` accepts an IRI
   // unchanged, so the type is text for a different reason: native constraint
   // validation would run alongside sem-schema's and a natively :invalid field
-  // blocks View.tsx's native `form={FORM_ID}` submit with a browser bubble.
+  // blocks EntityView.tsx's native `form={FORM_ID}` submit with a browser bubble.
   it('accepts an IRI with non-ASCII in host and path', async () => {
     const user = userEvent.setup()
     renderControl(<InputUri name="uri" label="Website" />)
