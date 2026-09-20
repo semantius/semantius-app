@@ -1,5 +1,5 @@
 import { useFormContext } from './FormContext'
-import { descriptionId } from './fieldAria'
+import { descriptionId, isLongFieldDescription } from './fieldAria'
 
 interface FormDescriptionProps {
   /** Field name — the id namespace shared with FormLabel/FormError. */
@@ -17,6 +17,11 @@ interface FormDescriptionProps {
  * The spacer exists to keep grid rows the same height whether or not a field has
  * help text — it is not content, so it is hidden from assistive tech rather than
  * announced as a blank line.
+ *
+ * Long descriptions stay in this element (visually hidden) even though the
+ * sighted copy moves into the label-adjacent popover. Putting the id on the
+ * popup instead would dangle `aria-describedby` whenever the popup is closed,
+ * which is the `aria-valid-attr-value` failure `describedBy()` exists to prevent.
  */
 export function FormDescription({ name, description, error }: FormDescriptionProps) {
   const { formMode } = useFormContext()
@@ -27,8 +32,13 @@ export function FormDescription({ name, description, error }: FormDescriptionPro
     return <p aria-hidden="true" className="text-[0.8rem] text-muted-foreground">{' '}</p>
   }
 
+  const isLong = isLongFieldDescription(description)
+
   return (
-    <p id={descriptionId(name)} className="text-[0.8rem] text-muted-foreground">
+    <p
+      id={descriptionId(name)}
+      className={isLong ? 'sr-only' : 'text-[0.8rem] text-muted-foreground'}
+    >
       {description}
     </p>
   )

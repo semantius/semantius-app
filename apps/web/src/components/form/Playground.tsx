@@ -52,12 +52,14 @@ const defaultSchema = `{
       "type": "string",
       "format": "text",
       "title": "Name",
+      "description": "The display name shown on records, invoices, and exported reports throughout the workspace.",
       "inputMode": "required"
     },
     "email": {
       "type": "string",
       "format": "email",
-      "title": "Email"
+      "title": "Email",
+      "description": "Work address"
     },
     "age": {
       "type": "number",

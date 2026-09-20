@@ -33,7 +33,7 @@ export function InputJsonPointerUriFragment({
             )}
             {!hidden && (
               <div className="pt-2 space-y-1">
-                <FormLabel htmlFor={name} label={label} required={required} error={!!error} />
+                <FormLabel htmlFor={name} label={label} description={description} required={required} error={!!error} />
                 <Input
                   id={name}
                   name={readonly ? undefined : name}

@@ -40,7 +40,7 @@ export function InputUriTemplate({
           {(hidden || readonly) && <input type="hidden" name={name} value={field.state.value || ''} />}
           {!hidden && (
             <div className="pt-2 space-y-1">
-              <FormLabel htmlFor={name} label={label} required={required} error={!!field.state.meta.errors?.[0]} />
+              <FormLabel htmlFor={name} label={label} description={description} required={required} error={!!field.state.meta.errors?.[0]} />
               <Input
                 id={name}
                 name={readonly ? undefined : name}

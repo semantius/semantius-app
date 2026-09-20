@@ -36,7 +36,7 @@ export function InputBoolean({
     <form.Field name={name} validators={validators}>
       {(field: any) => (
         <div className="pt-2 space-y-1">
-          <FormLabel htmlFor={name} label={label} required={false} error={!!field.state.meta.errors?.[0]} />
+          <FormLabel htmlFor={name} label={label} description={description} required={false} error={!!field.state.meta.errors?.[0]} />
           <div className="flex items-start gap-2">
             <Checkbox
               id={name}

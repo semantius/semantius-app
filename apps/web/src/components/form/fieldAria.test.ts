@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { describedBy, descriptionId, errorId, labelId, labelledBy } from './fieldAria'
+import {
+  describedBy,
+  descriptionId,
+  errorId,
+  isLongFieldDescription,
+  labelId,
+  labelledBy,
+  LONG_DESCRIPTION_CHAR_LIMIT,
+  LONG_DESCRIPTION_WORD_LIMIT,
+} from './fieldAria'
 
 /**
  * `fieldAria` is the contract all 29 form controls depend on, and every one of
@@ -73,6 +82,27 @@ describe('labelledBy', () => {
   it('is undefined when there is no label, rather than dangling', () => {
     expect(labelledBy('email')).toBeUndefined()
     expect(labelledBy('email', '')).toBeUndefined()
+  })
+})
+
+describe('isLongFieldDescription', () => {
+  it('keeps six words and 40 characters inline', () => {
+    expect(isLongFieldDescription('one two three four five six')).toBe(false)
+    expect(isLongFieldDescription('a'.repeat(LONG_DESCRIPTION_CHAR_LIMIT))).toBe(false)
+  })
+
+  it('collapses more than six words', () => {
+    expect(isLongFieldDescription('one two three four five six seven')).toBe(true)
+    expect(LONG_DESCRIPTION_WORD_LIMIT).toBe(6)
+  })
+
+  it('collapses more than 40 characters even in one word', () => {
+    expect(isLongFieldDescription('a'.repeat(LONG_DESCRIPTION_CHAR_LIMIT + 1))).toBe(true)
+  })
+
+  it('treats missing or empty text as short — there is nothing to disclose', () => {
+    expect(isLongFieldDescription()).toBe(false)
+    expect(isLongFieldDescription('')).toBe(false)
   })
 })
 
