@@ -125,7 +125,7 @@ describe('InputText', () => {
     // Two words, 41 characters — over the sample snippet's "40" and under the
     // six-word rule. A 480px column holds this on one line, so it stays inline.
     disableCollector()
-    const hint = 'Supercalifragilisticexpialidocious extra'
+    const hint = 'Internationalization configuration helper'
     render(
       <div style={{ width: 480 }}>
         <FormHarness>

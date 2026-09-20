@@ -34,7 +34,7 @@ describe('descriptionOverflowsField', () => {
   })
 
   it('does not use forty characters as the threshold', () => {
-    const fortyPlus = 'Supercalifragilisticexpialidocious extra'
+    const fortyPlus = 'Internationalization configuration helper'
     expect(fortyPlus.length).toBeGreaterThan(40)
     expect(descriptionOverflowsField(fortyPlus, field(400))).toBe(false)
     expect(descriptionOverflowsField(fortyPlus, field(40))).toBe(true)
