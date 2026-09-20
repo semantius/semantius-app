@@ -95,7 +95,7 @@ function FieldHintPopover({ label, description }: { label: string; description: 
         <CircleHelp aria-hidden="true" />
       </PopoverTrigger>
       <PopoverContent
-        side="top"
+        side="bottom"
         align="start"
         sideOffset={8}
         initialFocus={false}
