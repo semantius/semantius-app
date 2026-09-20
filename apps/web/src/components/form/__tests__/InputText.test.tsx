@@ -151,6 +151,7 @@ describe('InputText', () => {
     await waitFor(() => {
       expect(screen.getAllByText(LONG_HINT).length).toBe(2)
     })
+    expect(document.querySelector('[data-slot="popover-arrow"]')).toBeTruthy()
     expect(input).toHaveAccessibleDescription(LONG_HINT)
   })
 

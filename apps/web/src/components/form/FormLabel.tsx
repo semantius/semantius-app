@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import {
   Popover,
+  PopoverArrow,
   PopoverContent,
   PopoverDescription,
   PopoverTrigger,
@@ -47,9 +48,9 @@ export function FormLabel({ htmlFor, label, description, required, error }: Form
   if (!label && !showHint) return null
 
   return (
-    <div ref={hostRef} className="flex min-h-5 items-center gap-1.5">
+    <div ref={hostRef} className="flex min-h-5 items-center gap-0.5">
       {label && (
-        <Label id={labelId(htmlFor)} htmlFor={htmlFor} className={error ? 'text-destructive' : ''}>
+        <Label id={labelId(htmlFor)} htmlFor={htmlFor} className={error ? 'w-fit text-destructive' : 'w-fit'}>
           <span>
             {label}
             {required && (
@@ -87,7 +88,7 @@ function FieldHintPopover({ label, description }: { label: string; description: 
             variant="ghost"
             size="icon-xs"
             aria-label={t('Extended documentation guide for {label}', { label })}
-            className="text-muted-foreground"
+            className="-ml-1 text-muted-foreground"
           />
         }
       >
@@ -96,11 +97,14 @@ function FieldHintPopover({ label, description }: { label: string; description: 
       <PopoverContent
         side="top"
         align="center"
-        sideOffset={6}
+        sideOffset={8}
         initialFocus={false}
-        className="max-h-60 overflow-y-auto"
+        className="w-auto max-w-72 gap-2 p-3"
       >
-        <PopoverDescription>{description}</PopoverDescription>
+        <PopoverDescription className="max-h-60 overflow-y-auto">
+          {description}
+        </PopoverDescription>
+        <PopoverArrow />
       </PopoverContent>
     </Popover>
   )
