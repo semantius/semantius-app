@@ -1,6 +1,5 @@
 import { Link } from '@tanstack/react-router'
 import { PanelLeft } from 'lucide-react'
-import { ThemeToggle } from '@/components/ThemeToggle'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { useT } from '@/i18n'
 
@@ -20,12 +19,6 @@ export function Header() {
           </div>
           <span className="font-bold">{t('Semantius UI')}</span>
         </Link>
-      </div>
-
-      <div className="flex-1" />
-
-      <div className="flex items-center gap-2">
-        <ThemeToggle />
       </div>
     </div>
   )
