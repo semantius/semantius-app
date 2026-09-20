@@ -96,7 +96,7 @@ function FieldHintPopover({ label, description }: { label: string; description: 
       </PopoverTrigger>
       <PopoverContent
         side="top"
-        align="center"
+        align="start"
         sideOffset={8}
         initialFocus={false}
         className="w-auto max-w-72 gap-2 p-3"
