@@ -25,6 +25,10 @@
  *   edit permission. `formMode` is therefore part of the contract, not an
  *   optional extra: this function and `FormDescription` must agree on exactly
  *   when the description element exists.
+ * - Long descriptions still mount this same description element (`sr-only`)
+ *   when the sighted copy is in the label-adjacent popover. The id must not
+ *   move onto the popup: a closed popup is not in the tree, and that is the
+ *   dangling-id failure this module exists to prevent.
  */
 
 import type { FormContextValue } from './FormContext'

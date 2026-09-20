@@ -1,5 +1,10 @@
+import { useRef } from 'react'
 import { useFormContext } from './FormContext'
 import { descriptionId } from './fieldAria'
+import {
+  FIELD_DESCRIPTION_CLASS,
+  useCollapsesFieldDescription,
+} from './fieldDescriptionLayout'
 
 interface FormDescriptionProps {
   /** Field name — the id namespace shared with FormLabel/FormError. */
@@ -17,18 +22,30 @@ interface FormDescriptionProps {
  * The spacer exists to keep grid rows the same height whether or not a field has
  * help text — it is not content, so it is hidden from assistive tech rather than
  * announced as a blank line.
+ *
+ * Descriptions that would wrap stay in this element (visually hidden) even
+ * though the sighted copy moves into the label-adjacent popover. Putting the id
+ * on the popup instead would dangle `aria-describedby` whenever the popup is
+ * closed, which is the `aria-valid-attr-value` failure `describedBy()` exists
+ * to prevent.
  */
 export function FormDescription({ name, description, error }: FormDescriptionProps) {
   const { formMode } = useFormContext()
+  const hostRef = useRef<HTMLParagraphElement>(null)
+  const collapse = useCollapsesFieldDescription(description, hostRef)
   if (formMode === 'view') return null
   if (!description && error) return null
 
   if (!description) {
-    return <p aria-hidden="true" className="text-[0.8rem] text-muted-foreground">{' '}</p>
+    return <p aria-hidden="true" className={FIELD_DESCRIPTION_CLASS}>{' '}</p>
   }
 
   return (
-    <p id={descriptionId(name)} className="text-[0.8rem] text-muted-foreground">
+    <p
+      ref={hostRef}
+      id={descriptionId(name)}
+      className={collapse ? 'sr-only' : FIELD_DESCRIPTION_CLASS}
+    >
       {description}
     </p>
   )
