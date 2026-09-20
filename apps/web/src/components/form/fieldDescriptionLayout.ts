@@ -28,10 +28,14 @@ export function exceedsWordLimit(description?: string): boolean {
  * field; otherwise the `pt-2` control wrapper. Walking to that ancestor keeps
  * FormLabel and FormDescription (which may sit in a nested flex) agreeing on
  * the same width.
+ *
+ * Match the SchemaForm width classes by token, not `[class*="span-"]` — that
+ * substring also hits `row-span-2` / `col-span-*` on layout ancestors and
+ * would measure the card instead of the field.
  */
 export function fieldColumnElement(el: HTMLElement): HTMLElement {
   return (
-    el.closest('[class*="span-"]') ??
+    el.closest('.span-1, .span-2, .span-4, .span-8') ??
     el.closest('.pt-2') ??
     el.parentElement ??
     el
@@ -65,10 +69,10 @@ export function useCollapsesFieldDescription(
   const [byWidth, setByWidth] = useState(false)
 
   useLayoutEffect(() => {
-    if (!description || byWords) {
-      setByWidth(false)
-      return
-    }
+    // Word-count collapse does not need a measurement. Empty text is not a
+    // collapse either — `Boolean(description)` below ignores a stale width
+    // from the previous value, so this effect must not reset state.
+    if (!description || byWords) return
     const host = hostRef.current
     if (!host) return
     const column = fieldColumnElement(host)
@@ -82,5 +86,5 @@ export function useCollapsesFieldDescription(
     return () => observer.disconnect()
   }, [description, byWords, hostRef])
 
-  return byWords || byWidth
+  return Boolean(description) && (byWords || byWidth)
 }

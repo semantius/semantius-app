@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { screen, waitFor, render } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { disableCollector } from '@/i18n/missing'
 import { InputText } from '../InputText'
 import { FormHarness, renderControl } from './harness'
 
@@ -115,6 +116,25 @@ describe('InputText', () => {
       </div>,
     )
     expect(screen.getByText('Work address')).not.toHaveClass('sr-only')
+    expect(
+      screen.queryByRole('button', { name: 'Extended documentation guide for Username' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('does not treat forty characters as a collapse quota on a wide field', () => {
+    // Two words, 41 characters — over the sample snippet's "40" and under the
+    // six-word rule. A 480px column holds this on one line, so it stays inline.
+    disableCollector()
+    const hint = 'Supercalifragilisticexpialidocious extra'
+    render(
+      <div style={{ width: 480 }}>
+        <FormHarness>
+          <InputText name="testField" label="Username" description={hint} />
+        </FormHarness>
+      </div>,
+    )
+    expect(hint.length).toBeGreaterThan(40)
+    expect(screen.getByText(hint)).not.toHaveClass('sr-only')
     expect(
       screen.queryByRole('button', { name: 'Extended documentation guide for Username' }),
     ).not.toBeInTheDocument()
