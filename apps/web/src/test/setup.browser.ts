@@ -71,6 +71,11 @@ afterEach(async () => {
   // alone" resolve `languageSource: 'session'`.
   localStorage.removeItem(LANGUAGE_CACHE_KEY)
   localStorage.removeItem(LOCALE_CACHE_KEY)
+  // next-themes writes the same way, and a leaked preference (or a leftover
+  // `.dark` class) would paint every later test in the wrong theme.
+  localStorage.removeItem('semantius-ui-theme')
+  document.documentElement.classList.remove('dark')
+  document.documentElement.style.removeProperty('color-scheme')
   clearSessionPreference()
   // Translate mode's switch persists in localStorage too, and a leaked one
   // would mount the translate-mode chunk under every later AppLayout render.
