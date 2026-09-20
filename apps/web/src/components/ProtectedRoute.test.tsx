@@ -76,7 +76,7 @@ describe('ProtectedRoute', () => {
   it('renders nothing when there is no session, and still takes the overlay down', async () => {
     await bootAppSignedOut()
 
-    const { container } = render(
+    render(
       <AppHarness>
         <ProtectedRoute>
           <div>Protected Content</div>
@@ -84,7 +84,11 @@ describe('ProtectedRoute', () => {
       </AppHarness>,
     )
 
-    expect(container).toBeEmptyDOMElement()
+    // ProtectedRoute itself returns null. The harness now includes
+    // ThemeProvider (same as main.tsx), and next-themes injects a blocking
+    // <script> into the container — that is not the route, and is not a
+    // hang. The children must stay unmounted.
+    expect(screen.queryByText('Protected Content')).not.toBeInTheDocument()
     // The hang invariant: a terminal state that leaves the overlay up is an
     // infinite spinner with no way to say what went wrong.
     await waitFor(() => expect(document.getElementById('app-loader')?.hidden).toBe(true))
