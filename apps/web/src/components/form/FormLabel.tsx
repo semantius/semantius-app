@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { CircleHelp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -9,7 +10,8 @@ import {
 } from '@/components/ui/popover'
 import { useT } from '@/i18n'
 import { useFormContext } from './FormContext'
-import { isLongFieldDescription, labelId } from './fieldAria'
+import { useCollapsesFieldDescription } from './fieldDescriptionLayout'
+import { labelId } from './fieldAria'
 
 interface FormLabelProps {
   htmlFor: string
@@ -27,21 +29,25 @@ interface FormLabelProps {
  * CodeMirror content div). Emitting it unconditionally means a control can pick
  * whichever mechanism fits without the label having to know which one it is.
  *
- * Long descriptions (see `isLongFieldDescription`) render a help-circle button
- * as a SIBLING of the `<label>`, never inside it: a button inside a label would
- * both toggle the popover and activate the control. The popover is visual only;
- * `aria-describedby` still points at FormDescription, which stays mounted so a
- * screen reader hears the text on control focus whether or not the popup is open.
+ * Descriptions that would wrap under the control (more than six words, or a
+ * one-line width greater than the live field column) render a help-circle
+ * button as a SIBLING of the `<label>`, never inside it: a button inside a
+ * label would both toggle the popover and activate the control. The popover is
+ * visual only; `aria-describedby` still points at FormDescription, which stays
+ * mounted so a screen reader hears the text on control focus whether or not
+ * the popup is open.
  */
 export function FormLabel({ htmlFor, label, description, required, error }: FormLabelProps) {
   const t = useT()
   const { formMode } = useFormContext()
-  const showHint = formMode !== 'view' && isLongFieldDescription(description)
+  const hostRef = useRef<HTMLDivElement>(null)
+  const collapse = useCollapsesFieldDescription(description, hostRef)
+  const showHint = formMode !== 'view' && collapse && !!description
 
   if (!label && !showHint) return null
 
   return (
-    <div className="flex min-h-5 items-center gap-1.5">
+    <div ref={hostRef} className="flex min-h-5 items-center gap-1.5">
       {label && (
         <Label id={labelId(htmlFor)} htmlFor={htmlFor} className={error ? 'text-destructive' : ''}>
           <span>

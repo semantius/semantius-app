@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, render } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { InputText } from '../InputText'
-import { renderControl } from './harness'
+import { FormHarness, renderControl } from './harness'
 
 const LONG_HINT =
   'This description is deliberately longer than six words so the field collapses it.'
@@ -85,6 +85,39 @@ describe('InputText', () => {
       screen.getByRole('button', { name: 'Extended documentation guide for Username' }),
     ).toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: 'Username' })).toHaveAccessibleDescription(LONG_HINT)
+  })
+
+  it('collapses a short-word description that does not fit the field column', async () => {
+    render(
+      <div style={{ width: 48 }}>
+        <FormHarness>
+          <InputText name="testField" label="Username" description="Work address" />
+        </FormHarness>
+      </div>,
+    )
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: 'Extended documentation guide for Username' }),
+      ).toBeInTheDocument()
+    })
+    expect(screen.getByText('Work address')).toHaveClass('sr-only')
+    expect(screen.getByRole('textbox', { name: 'Username' })).toHaveAccessibleDescription(
+      'Work address',
+    )
+  })
+
+  it('keeps the same short description inline when the field is wide enough', () => {
+    render(
+      <div style={{ width: 480 }}>
+        <FormHarness>
+          <InputText name="testField" label="Username" description="Work address" />
+        </FormHarness>
+      </div>,
+    )
+    expect(screen.getByText('Work address')).not.toHaveClass('sr-only')
+    expect(
+      screen.queryByRole('button', { name: 'Extended documentation guide for Username' }),
+    ).not.toBeInTheDocument()
   })
 
   it('opens the long description on click and still describes the input while closed', async () => {

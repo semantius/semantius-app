@@ -35,23 +35,6 @@ import type { FormContextValue } from './FormContext'
 
 type FormMode = FormContextValue['formMode']
 
-/**
- * Visual treatment for field help text.
- *
- * More than 6 words OR more than 40 characters collapses the description into a
- * label-adjacent popover instead of a wrapping block below the control. The
- * description element still mounts (see FormDescription) so `aria-describedby`
- * never dangles when the popover is closed.
- */
-export const LONG_DESCRIPTION_WORD_LIMIT = 6
-export const LONG_DESCRIPTION_CHAR_LIMIT = 40
-
-export function isLongFieldDescription(description?: string): boolean {
-  if (!description) return false
-  const wordCount = description.trim().split(/\s+/).length
-  return wordCount > LONG_DESCRIPTION_WORD_LIMIT || description.length > LONG_DESCRIPTION_CHAR_LIMIT
-}
-
 export function descriptionId(name: string): string {
   return `${name}-description`
 }

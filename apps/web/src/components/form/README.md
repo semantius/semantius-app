@@ -56,9 +56,9 @@ interface FormControlProps {
 - **FormLabel** — renders label with optional required indicator; returns `null` when label is falsy.
   Always emits `id={name}-label` as well as `htmlFor`, so a control that cannot be
   named by a `<label for>` can point `aria-labelledby` at it. Pass `description` so a
-  long hint (more than 6 words or 40 characters) becomes a help-circle popover to the
-  right of the label, not a wrapping block under the control. The trigger is a sibling
-  of the `<label>`, never inside it.
+  hint that would wrap — more than 6 words, or a one-line width greater than the
+  live field column — becomes a help-circle popover to the right of the label.
+  The trigger is a sibling of the `<label>`, never inside it.
 - **FormDescription** — renders muted description text; returns `null` in view mode.
   Emits `id={name}-description` when there IS a description; the `&nbsp;` spacer it
   renders otherwise is `aria-hidden`. Long hints stay in this element as `sr-only`
@@ -66,8 +66,9 @@ interface FormControlProps {
 - **FormError** — renders the validation message in destructive color; returns `null`
   when there is no error. Carries `role="alert"` and `id={name}-error`.
 - **CodeMirrorJson / CodeMirrorHtml / CodeMirrorCode / CodeMirrorJsonata** — CodeMirror wrappers for editor-based controls
-- **fieldAria.ts** — `describedBy()`, `labelledBy()`, `descriptionId()`, `errorId()`,
-  `isLongFieldDescription()`.
+- **fieldAria.ts** — `describedBy()`, `labelledBy()`, `descriptionId()`, `errorId()`.
+- **fieldDescriptionLayout.ts** — `exceedsWordLimit()`, `useCollapsesFieldDescription()`.
+  The wrap threshold is the field column's live width, not a fixed character count.
 
 These components handle null/empty checks internally — callers do not need conditional rendering.
 
