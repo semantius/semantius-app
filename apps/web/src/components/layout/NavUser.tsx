@@ -28,7 +28,7 @@ import {
   useTranslateModeFlags,
 } from '@/i18n'
 import { useRpcMutation } from '@/hooks/useRpc'
-
+import { useTheme } from '@/components/ThemeProvider'
 import {
   Avatar,
   AvatarFallback,
@@ -226,6 +226,16 @@ export function NavUser({
       ? t('Language ({count} missing)', { count: translateFlags.missingCount })
       : t('Language')
 
+  // ── Theme ─────────────────────────────────────────────────────────────────
+  //
+  // Three choices, one default. `system` is what next-themes boots with
+  // (`defaultTheme="system"` in main.tsx, mirrored by the index.html script),
+  // so this radio is checked until the user picks Light or Dark. The stored
+  // value is the PREFERENCE, not the resolved light/dark — that still follows
+  // prefers-color-scheme while System is selected.
+  const { theme, setTheme } = useTheme()
+  const themeChoice = theme === 'light' || theme === 'dark' ? theme : 'system'
+
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -389,6 +399,19 @@ export function NavUser({
                   <DropdownMenuRadioItem value="language">
                     {t('Same as language ({locale})', { locale: language })}
                   </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>{t('Theme')}</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuRadioGroup
+                  value={themeChoice}
+                  onValueChange={(value) => value && setTheme(value)}
+                >
+                  <DropdownMenuRadioItem value="system">{t('System')}</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="light">{t('Light')}</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="dark">{t('Dark')}</DropdownMenuRadioItem>
                 </DropdownMenuRadioGroup>
               </DropdownMenuSubContent>
             </DropdownMenuSub>

@@ -83,6 +83,34 @@ async function openMenu() {
   return { ui, router }
 }
 
+/**
+ * Move to the submenu trigger whose label starts with `prefix`, then open it.
+ *
+ * Every step waits for FOCUS, not for the DOM. Base UI moves focus into a menu
+ * a moment after the menu mounts, so keys pressed in between go to whatever
+ * held focus before — the trigger, or the parent menu — and are lost or move
+ * through the wrong list. On a loaded CI runner that race was lost: the menu
+ * stood open and the submenu never did.
+ */
+async function openSubmenu(ui: ReturnType<typeof userEvent.setup>, prefix: string) {
+  const trigger = await screen.findByRole('menuitem', { name: new RegExp(`^${prefix}`) })
+  const menu = trigger.closest<HTMLElement>('[role="menu"]')
+  await waitFor(() => expect(menu).toContainElement(document.activeElement as HTMLElement | null))
+  await arrowTo(ui, (el) => el === trigger)
+  await ui.keyboard('{ArrowRight}')
+  await waitFor(() => {
+    const focusedMenu = document.activeElement?.closest('[role="menu"]')
+    expect(focusedMenu).toBeTruthy()
+    expect(focusedMenu).not.toBe(menu)
+  })
+}
+
+/** Move to the entry inside the open submenu whose label starts with `prefix`, and choose it. */
+async function chooseEntry(ui: ReturnType<typeof userEvent.setup>, prefix: string) {
+  await arrowTo(ui, (el) => (el.textContent?.trim() ?? '').startsWith(prefix))
+  await ui.keyboard('{Enter}')
+}
+
 describe('NavUser — configuration-driven menu', () => {
   beforeEach(async () => {
     // The real configuration channel: VITE_UI_CUSTOMIZER is a JSON string that
@@ -195,34 +223,6 @@ describe('NavUser — the language switcher', () => {
     // way an operator's are, and must not be discovered into the shipped index.
     disableCollector()
   })
-
-  /**
-   * Move to the submenu trigger whose label starts with `prefix`, then open it.
-   *
-   * Every step waits for FOCUS, not for the DOM. Base UI moves focus into a menu
-   * a moment after the menu mounts, so keys pressed in between go to whatever
-   * held focus before — the trigger, or the parent menu — and are lost or move
-   * through the wrong list. On a loaded CI runner that race was lost: the menu
-   * stood open and the submenu never did.
-   */
-  async function openSubmenu(ui: ReturnType<typeof userEvent.setup>, prefix: string) {
-    const trigger = await screen.findByRole('menuitem', { name: new RegExp(`^${prefix}`) })
-    const menu = trigger.closest<HTMLElement>('[role="menu"]')
-    await waitFor(() => expect(menu).toContainElement(document.activeElement as HTMLElement | null))
-    await arrowTo(ui, (el) => el === trigger)
-    await ui.keyboard('{ArrowRight}')
-    await waitFor(() => {
-      const focusedMenu = document.activeElement?.closest('[role="menu"]')
-      expect(focusedMenu).toBeTruthy()
-      expect(focusedMenu).not.toBe(menu)
-    })
-  }
-
-  /** Move to the entry inside the open submenu whose label starts with `prefix`, and choose it. */
-  async function chooseEntry(ui: ReturnType<typeof userEvent.setup>, prefix: string) {
-    await arrowTo(ui, (el) => (el.textContent?.trim() ?? '').startsWith(prefix))
-    await ui.keyboard('{Enter}')
-  }
 
   it('checks "Browser default" while nothing has been chosen', async () => {
     const { ui } = await openMenu()
@@ -354,5 +354,78 @@ describe('NavUser — the language switcher', () => {
     // Per browser, so a translator who reloads keeps the mode.
     expect(localStorage.getItem(TRANSLATE_MODE_KEY)).toBe('1')
     expect(screen.getByRole('menuitemcheckbox', { name: 'Translate mode' })).toHaveAttribute('aria-checked', 'true')
+  })
+})
+
+/**
+ * The theme switcher. Same keyboard path as the language switcher: a pointer
+ * click cannot enter the submenu (see the note on that describe).
+ *
+ * Default is System — next-themes' `defaultTheme`, and what the index.html
+ * boot script treats as "follow prefers-color-scheme". Nothing is written to
+ * `semantius-ui-theme` until the user picks Light or Dark.
+ */
+describe('NavUser — the theme switcher', () => {
+  beforeEach(async () => {
+    await bootApp({
+      VITE_BACKEND_TYPE: 'custom',
+      VITE_UI_CUSTOMIZER: JSON.stringify({ user: { menu: MENU } }),
+    })
+    disableCollector()
+  })
+
+  it('checks System while nothing has been chosen', async () => {
+    const { ui } = await openMenu()
+
+    await openSubmenu(ui, 'Theme')
+
+    const system = await screen.findByRole('menuitemradio', { name: 'System' })
+    expect(system).toHaveAttribute('aria-checked', 'true')
+    expect(localStorage.getItem('semantius-ui-theme')).toBeNull()
+  })
+
+  it('lists Light and Dark beside System', async () => {
+    const { ui } = await openMenu()
+    await openSubmenu(ui, 'Theme')
+
+    expect(await screen.findByRole('menuitemradio', { name: 'Light' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitemradio', { name: 'Dark' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitemradio', { name: 'System' })).toBeInTheDocument()
+  })
+
+  it('choosing Dark persists and paints dark', async () => {
+    const { ui } = await openMenu()
+    await openSubmenu(ui, 'Theme')
+
+    await chooseEntry(ui, 'Dark')
+
+    await waitFor(() => expect(localStorage.getItem('semantius-ui-theme')).toBe('dark'))
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
+  })
+
+  it('choosing Light persists and paints light', async () => {
+    const { ui } = await openMenu()
+    await openSubmenu(ui, 'Theme')
+
+    await chooseEntry(ui, 'Light')
+
+    await waitFor(() => expect(localStorage.getItem('semantius-ui-theme')).toBe('light'))
+    expect(document.documentElement.classList.contains('dark')).toBe(false)
+  })
+
+  it('choosing System follows the OS again', async () => {
+    const { ui } = await openMenu()
+    await openSubmenu(ui, 'Theme')
+    await chooseEntry(ui, 'Dark')
+    await waitFor(() => expect(localStorage.getItem('semantius-ui-theme')).toBe('dark'))
+
+    await ui.keyboard('{ArrowLeft}')
+    await waitFor(() => expect(screen.getByRole('menuitem', { name: 'Theme' })).toBeInTheDocument())
+    await openSubmenu(ui, 'Theme')
+    await screen.findByRole('menuitemradio', { name: 'System' })
+    await chooseEntry(ui, 'System')
+
+    await waitFor(() => expect(localStorage.getItem('semantius-ui-theme')).toBe('system'))
+    expect(screen.getByRole('menuitemradio', { name: 'System' })).toHaveAttribute('aria-checked', 'true')
   })
 })

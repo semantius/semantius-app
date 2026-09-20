@@ -12,6 +12,7 @@ import { inject } from 'vitest'
 import { I18nProvider } from '@lingui/react'
 import { AuthProviderWrapper } from '@/contexts/AuthContext'
 import { i18n } from '@/i18n'
+import { ThemeProvider } from '@/components/ThemeProvider'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { initConfig } from '@/lib/config'
 import type { RouterContext } from '@/routes/__root'
@@ -193,12 +194,16 @@ export function AppHarness({
 
   // <I18nProvider> is main.tsx's outermost provider, and it is here for the same
   // reason: <Trans> reads the catalog off React context. `setup.browser.ts` has
-  // already activated en-US, so it never renders null.
+  // already activated en-US, so it never renders null. ThemeProvider is next,
+  // with the same props main.tsx uses, so a test that opens the account-menu
+  // theme switcher talks to the real next-themes store.
   return (
     <I18nProvider i18n={i18n}>
-      <QueryClientProvider client={queryClient}>
-        <AuthProviderWrapper router={router}>{children}</AuthProviderWrapper>
-      </QueryClientProvider>
+      <ThemeProvider attribute="class" defaultTheme="system" storageKey="semantius-ui-theme">
+        <QueryClientProvider client={queryClient}>
+          <AuthProviderWrapper router={router}>{children}</AuthProviderWrapper>
+        </QueryClientProvider>
+      </ThemeProvider>
     </I18nProvider>
   )
 }
@@ -212,8 +217,9 @@ export function appWrapper({ children }: { children: ReactNode }) {
  * Render something that ROUTES — a `<Link>`, a `useRouter()`, a
  * `router.history.push()` — in the app's own provider composition.
  *
- * The nesting is `main.tsx`'s, in the same order: QueryClient, Tooltip,
- * `AuthProviderWrapper` over the router, `RouterProvider` for that same router.
+ * The nesting is `main.tsx`'s, in the same order: ThemeProvider, QueryClient,
+ * Tooltip, `AuthProviderWrapper` over the router, `RouterProvider` for that
+ * same router.
  * The route tree is a single root route rendering `ui`, so the component under
  * test is what the router renders — nothing else is invented, and the router,
  * its history and its links are all real.
@@ -247,13 +253,15 @@ export function renderInApp(ui: ReactElement, { initialEntries = ['/'] }: { init
 
   const result = render(
     <I18nProvider i18n={i18n}>
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <AuthProviderWrapper router={router}>
-            <RouterProvider router={router} />
-          </AuthProviderWrapper>
-        </TooltipProvider>
-      </QueryClientProvider>
+      <ThemeProvider attribute="class" defaultTheme="system" storageKey="semantius-ui-theme">
+        <QueryClientProvider client={queryClient}>
+          <TooltipProvider>
+            <AuthProviderWrapper router={router}>
+              <RouterProvider router={router} />
+            </AuthProviderWrapper>
+          </TooltipProvider>
+        </QueryClientProvider>
+      </ThemeProvider>
     </I18nProvider>,
   )
   return { ...result, router }
