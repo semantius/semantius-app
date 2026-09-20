@@ -125,6 +125,7 @@
     "Error loading record": "Error loading record",
     "Error updating record": "Error updating record",
     "Example configuration:": "Example configuration:",
+    "Extended documentation guide for {label}": "Extended documentation guide for {label}",
     "Failed to call RPC function \"{name}\" ({status})": "Failed to call RPC function \"{name}\" ({status})",
     "Failed to create {table} record ({status})": "Failed to create {table} record ({status})",
     "Failed to delete {table} record ({status})": "Failed to delete {table} record ({status})",
