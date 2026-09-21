@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { describe, expect, it } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -85,7 +86,27 @@ describe('APISelect', () => {
 
   it('returns focus to the trigger after the clear button is clicked', async () => {
     const user = userEvent.setup()
-    renderSelect({ value: '1' })
+    function Controlled() {
+      const [value, setValue] = useState('1')
+      return (
+        <APISelect<Row>
+          label="Owner"
+          value={value}
+          onChange={setValue}
+          getRecordId={(r) => r.id}
+          renderItem={(r) => r.name}
+          fetcher={async () => ROWS}
+          recordFetcher={async (id) => ROWS.find((r) => r.id === id) ?? null}
+          id="owner"
+        />
+      )
+    }
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <Controlled />
+      </QueryClientProvider>,
+    )
     const trigger = screen.getByRole('combobox')
     await user.click(await screen.findByRole('button', { name: /clear selection/i }))
     await waitFor(() => {
@@ -96,7 +117,27 @@ describe('APISelect', () => {
 
   it('returns focus to the trigger after the clear button is activated with the keyboard', async () => {
     const user = userEvent.setup()
-    renderSelect({ value: '1' })
+    function Controlled() {
+      const [value, setValue] = useState('1')
+      return (
+        <APISelect<Row>
+          label="Owner"
+          value={value}
+          onChange={setValue}
+          getRecordId={(r) => r.id}
+          renderItem={(r) => r.name}
+          fetcher={async () => ROWS}
+          recordFetcher={async (id) => ROWS.find((r) => r.id === id) ?? null}
+          id="owner"
+        />
+      )
+    }
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <Controlled />
+      </QueryClientProvider>,
+    )
     const trigger = screen.getByRole('combobox')
     const clear = await screen.findByRole('button', { name: /clear selection/i })
     clear.focus()
