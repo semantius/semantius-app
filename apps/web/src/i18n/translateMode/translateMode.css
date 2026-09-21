@@ -45,6 +45,8 @@
  * ring far larger than the glyph. Drop the outline and color the SVG with
  * the same yellow the text highlight uses. The host keeps muted-foreground;
  * Lucide strokes currentColor, so the glyph is what to tint.
+ * The field-hint trigger puts the tooltip on `data-i18n-text` so the mark
+ * follows the description, not the button's chrome aria-label.
  * `data-icon-button` is set on the field-hint trigger; `[data-size^='icon']`
  * is the matching hook InputGroupButton already emits.
  */

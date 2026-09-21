@@ -7,8 +7,9 @@
  * saw before. Where the API is missing (older Safari, Firefox before 140) the
  * fallback is an attribute on the PARENT element, styled with a box-shadow so
  * it never fights a focus outline. Attribute hosts (`aria-label`,
- * `placeholder`, `title`, `alt`) have no text node to range over and get that
- * same attribute in every browser.
+ * `placeholder`, `title`, `alt`, or `data-i18n-text` on an icon that stands
+ * in for other copy) have no text node to range over and get that same
+ * attribute in every browser.
  *
  * Everything is resolved through the reverse index: a text node's data or an
  * attribute's value is looked up as rendered, and the ids that produced it say
@@ -33,6 +34,14 @@ export const UI_ATTRIBUTE = 'data-i18n-ui'
 
 /** The attributes whose values our own functions produce. */
 export const SCANNED_ATTRIBUTES: readonly string[] = ['aria-label', 'aria-description', 'placeholder', 'title', 'alt']
+
+/**
+ * An icon-only host that stands in for other copy (the field-hint button
+ * standing in for its tooltip) puts that copy here. The scan and a click then
+ * use this value and skip `aria-label`: the button's own name is chrome, not
+ * the string the icon is marking.
+ */
+export const HOST_TEXT_ATTRIBUTE = 'data-i18n-text'
 
 const SKIPPED_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'svg', 'SVG'])
 
@@ -147,7 +156,12 @@ export function scanAndMark({ root, mark, isMissing }: ScanOptions): ScanResult 
       continue
     }
     const element = node as Element
-    for (const attribute of SCANNED_ATTRIBUTES) {
+    // A host-text attribute wins: it is the payload the icon represents
+    // (the field-hint tooltip). Scanning aria-label as well would mark every
+    // hint button for its chrome name, even when the tooltip is translated.
+    const hostText = element.getAttribute(HOST_TEXT_ATTRIBUTE)
+    const attributes = hostText ? [HOST_TEXT_ATTRIBUTE] : SCANNED_ATTRIBUTES
+    for (const attribute of attributes) {
       const value = element.getAttribute(attribute)
       if (!value) continue
       const ids = resolveRenderedText(value)
@@ -273,7 +287,9 @@ export function resolveClickTarget(event: MouseEvent): ClickTarget | null {
       const ids = idsForText(text)
       if (ids.length > 0) return { ids, text, element }
     }
-    for (const attribute of SCANNED_ATTRIBUTES) {
+    const hostText = element.getAttribute(HOST_TEXT_ATTRIBUTE)
+    const attributes = hostText ? [HOST_TEXT_ATTRIBUTE] : SCANNED_ATTRIBUTES
+    for (const attribute of attributes) {
       const value = element.getAttribute(attribute)
       if (!value) continue
       const ids = idsForText(value)

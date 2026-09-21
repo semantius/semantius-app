@@ -6,6 +6,7 @@ import { FormHarness } from '@/components/form/__tests__/harness'
 import { InputText } from '@/components/form/InputText'
 import { bootApp, renderInApp } from '@/test/appHarness'
 import {
+  HOST_TEXT_ATTRIBUTE,
   MISSING_ATTRIBUTE,
   SOURCE_LANGUAGE,
   activateLocale,
@@ -67,6 +68,17 @@ const UNTRANSLATED = 'A sentence no catalog has ever seen'
 const UNTRANSLATED_LABEL = 'An unmistakably untranslated label'
 const LONG_HINT =
   'This description is deliberately longer than six words so the field collapses it.'
+const LONG_HINT_DE =
+  'Diese Beschreibung ist absichtlich länger als sechs Wörter, damit das Feld sie zusammenzieht.'
+
+function HintField({ description }: { description: string }) {
+  const t = useT()
+  return (
+    <FormHarness>
+      <InputText name="testField" label="Username" description={t(description)} />
+    </FormHarness>
+  )
+}
 
 /** A model label rendered the way the sidebar renders one. Not a real table. */
 const LABEL_MODULE = 'vitest'
@@ -120,7 +132,7 @@ describe('translate mode', () => {
 
   afterEach(async () => {
     disableCollector()
-    await forget([UNTRANSLATED, UNTRANSLATED_LABEL, PLURAL_KEY, SINGULAR_KEY])
+    await forget([UNTRANSLATED, UNTRANSLATED_LABEL, PLURAL_KEY, SINGULAR_KEY, LONG_HINT])
   })
 
   it('runs where CSS Custom Highlights exist', () => {
@@ -379,17 +391,15 @@ describe('translate mode', () => {
   })
 
   it('marks a field-hint icon by coloring the glyph, not outlining the hit box', async () => {
-    // The help button's name is an aria-label, so the scan marks the host.
-    // A 24px rounded-2xl outline would ring the glyph; the icon-button hook
-    // colors it with the same yellow the text highlight uses instead.
+    // The icon stands in for the tooltip. The scan marks data-i18n-text (the
+    // description), not the chrome aria-label. A 24px outline would ring the
+    // glyph; the icon-button hook colors it with the highlight yellow instead.
     setTranslateMode(true)
     await activateLocale(GERMAN)
     renderInApp(
       <>
         <TranslateModeHost />
-        <FormHarness>
-          <InputText name="testField" label="Username" description={LONG_HINT} />
-        </FormHarness>
+        <HintField description={LONG_HINT} />
       </>,
     )
 
@@ -398,10 +408,60 @@ describe('translate mode', () => {
     })
     await waitFor(() => expect(help).toHaveAttribute(MISSING_ATTRIBUTE))
     expect(help).toHaveAttribute('data-icon-button')
+    expect(help).toHaveAttribute(HOST_TEXT_ATTRIBUTE, LONG_HINT)
     const svg = help.querySelector('svg')
     expect(svg).toBeTruthy()
     expect(getComputedStyle(help).outlineStyle).toBe('none')
     expect(getComputedStyle(svg!).color).toBe('rgb(202, 138, 4)')
+  })
+
+  it('leaves the field-hint icon muted when the tooltip is translated', async () => {
+    // The button's aria-label is still empty in German. Yellow follows the
+    // tooltip, so a translated description must not paint the glyph.
+    await write(SOURCE_LANGUAGE, LONG_HINT, LONG_HINT)
+    await write('de-DE', LONG_HINT, LONG_HINT_DE)
+    setTranslateMode(true)
+    await activateLocale(GERMAN)
+    renderInApp(
+      <>
+        <TranslateModeHost />
+        <HintField description={LONG_HINT} />
+      </>,
+    )
+
+    const help = await screen.findByRole('button', {
+      name: 'Extended documentation guide for Username',
+    })
+    await waitFor(() => expect(help).toHaveAttribute(HOST_TEXT_ATTRIBUTE, LONG_HINT_DE))
+    await new Promise((resolve) => setTimeout(resolve, 400))
+    expect(help).not.toHaveAttribute(MISSING_ATTRIBUTE)
+    const svg = help.querySelector('svg')
+    expect(svg).toBeTruthy()
+    expect(getComputedStyle(svg!).color).not.toBe('rgb(202, 138, 4)')
+  })
+
+  it('opens the tooltip, not the chrome name, on Alt+click of the field-hint icon', async () => {
+    setTranslateMode(true)
+    await activateLocale(GERMAN)
+    const ui = userEvent.setup()
+    renderInApp(
+      <>
+        <TranslateModeHost />
+        <HintField description={LONG_HINT} />
+      </>,
+    )
+    const help = await screen.findByRole('button', {
+      name: 'Extended documentation guide for Username',
+    })
+    await waitFor(() => expect(help).toHaveAttribute(MISSING_ATTRIBUTE))
+
+    await ui.keyboard('{Alt>}')
+    await ui.click(help)
+    await ui.keyboard('{/Alt}')
+
+    const dialog = await screen.findByRole('dialog', { name: 'Übersetzen' })
+    expect(within(dialog).getByText(LONG_HINT)).toBeInTheDocument()
+    expect(within(dialog).queryByText(/Extended documentation guide/)).not.toBeInTheDocument()
   })
 
   it('renders nothing while the switch is off', async () => {
