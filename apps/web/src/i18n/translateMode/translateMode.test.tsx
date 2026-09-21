@@ -2,6 +2,8 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { TranslateModeHost } from '@/components/TranslateModeHost'
+import { FormHarness } from '@/components/form/__tests__/harness'
+import { InputText } from '@/components/form/InputText'
 import { bootApp, renderInApp } from '@/test/appHarness'
 import {
   MISSING_ATTRIBUTE,
@@ -63,6 +65,8 @@ const GERMAN = { language: 'de-DE', locale: 'de-DE' }
 /** Text no catalog has, so it is missing in every language but the source. */
 const UNTRANSLATED = 'A sentence no catalog has ever seen'
 const UNTRANSLATED_LABEL = 'An unmistakably untranslated label'
+const LONG_HINT =
+  'This description is deliberately longer than six words so the field collapses it.'
 
 /** A model label rendered the way the sidebar renders one. Not a real table. */
 const LABEL_MODULE = 'vitest'
@@ -142,6 +146,7 @@ describe('translate mode', () => {
     // instead — and the name itself is untouched, so the query still resolves.
     const field = screen.getByRole('textbox', { name: UNTRANSLATED_LABEL })
     await waitFor(() => expect(field).toHaveAttribute(MISSING_ATTRIBUTE))
+    expect(getComputedStyle(field).outlineStyle).toBe('dashed')
     expect(document.documentElement.lang).toBe('de-DE')
   })
 
@@ -371,6 +376,32 @@ describe('translate mode', () => {
     await ui.click(within(panel).getByRole('button', { name: 'Fehlt' }))
 
     expect(await within(panel).findByRole('button', { name: new RegExp(UNTRANSLATED) })).toBeInTheDocument()
+  })
+
+  it('marks a field-hint icon by coloring the glyph, not outlining the hit box', async () => {
+    // The help button's name is an aria-label, so the scan marks the host.
+    // A 24px rounded-2xl outline would ring the glyph; the icon-button hook
+    // colors it with the same yellow the text highlight uses instead.
+    setTranslateMode(true)
+    await activateLocale(GERMAN)
+    renderInApp(
+      <>
+        <TranslateModeHost />
+        <FormHarness>
+          <InputText name="testField" label="Username" description={LONG_HINT} />
+        </FormHarness>
+      </>,
+    )
+
+    const help = await screen.findByRole('button', {
+      name: 'Extended documentation guide for Username',
+    })
+    await waitFor(() => expect(help).toHaveAttribute(MISSING_ATTRIBUTE))
+    expect(help).toHaveAttribute('data-icon-button')
+    const svg = help.querySelector('svg')
+    expect(svg).toBeTruthy()
+    expect(getComputedStyle(help).outlineStyle).toBe('none')
+    expect(getComputedStyle(svg!).color).toBe('rgb(202, 138, 4)')
   })
 
   it('renders nothing while the switch is off', async () => {
