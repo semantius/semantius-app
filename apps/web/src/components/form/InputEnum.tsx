@@ -69,7 +69,11 @@ export function InputEnum({
 
         const currentValue: string = field.state.value ?? ''
         const isDisabled = disabled || readonly
-        const showClearButton = !isDisabled && !required && !!currentValue
+        // Required-ness is enforced by the validator at submit, not by
+        // withholding the control — the same way a required text input can
+        // be emptied. Disabled/readonly still suppress it: those fields are
+        // not editable at all.
+        const showClearButton = !isDisabled && !!currentValue
 
         const handleSelect = (selected: string) => {
           field.setMeta((meta: any) => ({
@@ -90,6 +94,10 @@ export function InputEnum({
             errorMap: {},
           }))
           field.handleChange('')
+          // The clear button unmounts as soon as the value is empty, which
+          // would drop keyboard focus onto the surrounding dialog. Put it
+          // on the trigger so the user stays in the field they just emptied.
+          document.getElementById(name)?.focus()
         }
 
         return (
@@ -131,8 +139,13 @@ export function InputEnum({
                       data-field-surface=""
                       className={cn(
                         "w-full cursor-pointer justify-between font-normal pl-3",
-                        // Reserve the gutter the overlaid clear button occupies.
-                        showClearButton ? "pr-12" : "pr-3",
+                        // Constant trailing padding: the chevron is in flow
+                        // (`ml-auto`) so it sits against this edge. A larger
+                        // gutter here used to shift the chevron 36px left on
+                        // clearable fields. The clear button is overlaid to
+                        // the chevron's left (`right-8`); the label's `mr-7`
+                        // keeps truncated text out from under it.
+                        "pr-3",
                         inputSurfaceClassName,
                         !currentValue && "text-muted-foreground",
                         "aria-invalid:ring-destructive/20 aria-invalid:border-destructive"
@@ -140,21 +153,23 @@ export function InputEnum({
                     />
                   }
                 >
-                  <span className="truncate">
+                  <span className={cn("truncate", showClearButton && "mr-7")}>
                     {isDisabled
                       ? (currentValue ? labelFor(currentValue) : '')
                       : (currentValue ? labelFor(currentValue) : t('Select an option'))}
                   </span>
-                  {!isDisabled && <ChevronsUpDown className="ml-auto shrink-0 opacity-50" size={10} />}
+                  {!isDisabled && <ChevronsUpDown className="ml-auto shrink-0 opacity-50" />}
                 </PopoverTrigger>
                 {showClearButton && (
                   // A real <button>: the previous <span role="button"> was not
                   // focusable and took no key events. size-6 (24px) satisfies
-                  // 2.5.8; the glyph stays 12px.
+                  // 2.5.8; the glyph stays 12px. `right-8` places the box
+                  // immediately inside the chevron rather than in the old
+                  // 28px void outside it.
                   <button
                     type="button"
                     aria-label={t('Clear selection')}
-                    className="absolute top-1/2 right-7 flex size-6 -translate-y-1/2 items-center justify-center rounded-sm opacity-0 transition-opacity focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring group-hover/combobox:opacity-100 group-focus-within/combobox:opacity-100 group-has-aria-expanded/combobox:opacity-100"
+                    className="absolute top-1/2 right-8 flex size-6 -translate-y-1/2 items-center justify-center rounded-sm opacity-0 transition-opacity focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring group-hover/combobox:opacity-100 group-focus-within/combobox:opacity-100 group-has-aria-expanded/combobox:opacity-100"
                     onPointerDown={(e) => {
                       e.preventDefault()
                       e.stopPropagation()

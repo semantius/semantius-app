@@ -4,6 +4,13 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { APISelect } from '../api-select'
 
+/** Distance from the trigger's right border to the chevron's right edge. */
+function chevronInset(trigger: HTMLElement): number {
+  const chevron = trigger.querySelector('svg')
+  if (!chevron) throw new Error('expected a chevron svg inside the trigger')
+  return trigger.getBoundingClientRect().right - chevron.getBoundingClientRect().right
+}
+
 /**
  * The structural half of this component's accessibility, asserted here because
  * it is invisible on screen: a nested button and a dangling `aria-controls` both
@@ -74,6 +81,75 @@ describe('APISelect', () => {
     renderSelect({ value: '1', clearable: false })
     await waitFor(() => expect(screen.getByRole('combobox')).toHaveTextContent('Ada'))
     expect(screen.queryByRole('button', { name: /clear selection/i })).not.toBeInTheDocument()
+  })
+
+  it('returns focus to the trigger after the clear button is clicked', async () => {
+    const user = userEvent.setup()
+    renderSelect({ value: '1' })
+    const trigger = screen.getByRole('combobox')
+    await user.click(await screen.findByRole('button', { name: /clear selection/i }))
+    await waitFor(() => {
+      expect(trigger).toHaveTextContent('Select...')
+    })
+    expect(document.activeElement).toBe(trigger)
+  })
+
+  it('returns focus to the trigger after the clear button is activated with the keyboard', async () => {
+    const user = userEvent.setup()
+    renderSelect({ value: '1' })
+    const trigger = screen.getByRole('combobox')
+    const clear = await screen.findByRole('button', { name: /clear selection/i })
+    clear.focus()
+    expect(document.activeElement).toBe(clear)
+    await user.keyboard('{Enter}')
+    await waitFor(() => {
+      expect(trigger).toHaveTextContent('Select...')
+    })
+    expect(document.activeElement).toBe(trigger)
+  })
+
+  it('keeps the chevron the same distance from the trigger edge whether the field is clearable or not', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <div style={{ width: 406 }}>
+          <APISelect<Row>
+            label="Owner"
+            value="1"
+            onChange={() => {}}
+            getRecordId={(r) => r.id}
+            renderItem={(r) => r.name}
+            fetcher={async () => ROWS}
+            recordFetcher={async (id) => ROWS.find((r) => r.id === id) ?? null}
+            id="filled"
+            width="406px"
+          />
+          <APISelect<Row>
+            label="Owner"
+            value=""
+            onChange={() => {}}
+            getRecordId={(r) => r.id}
+            renderItem={(r) => r.name}
+            fetcher={async () => ROWS}
+            recordFetcher={async () => null}
+            id="empty"
+            width="406px"
+          />
+        </div>
+      </QueryClientProvider>,
+    )
+
+    const filled = document.getElementById('filled') as HTMLElement
+    const empty = document.getElementById('empty') as HTMLElement
+    await waitFor(() => expect(filled).toHaveTextContent('Ada'))
+
+    const filledInset = chevronInset(filled)
+    const emptyInset = chevronInset(empty)
+    expect(Math.abs(filledInset - emptyInset)).toBeLessThan(1)
+    expect(filledInset).toBeGreaterThanOrEqual(11)
+    expect(filledInset).toBeLessThanOrEqual(13)
+    expect(getComputedStyle(filled).paddingRight).toBe('12px')
+    expect(getComputedStyle(empty).paddingRight).toBe('12px')
   })
 
   it('points aria-controls at an element that actually exists', async () => {

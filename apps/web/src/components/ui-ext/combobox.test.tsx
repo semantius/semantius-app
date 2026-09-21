@@ -3,6 +3,13 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Combobox } from './combobox'
 
+/** Distance from the trigger's right border to the chevron's right edge. */
+function chevronInset(trigger: HTMLElement): number {
+  const chevron = trigger.querySelector('svg')
+  if (!chevron) throw new Error('expected a chevron svg inside the trigger')
+  return trigger.getBoundingClientRect().right - chevron.getBoundingClientRect().right
+}
+
 /**
  * The structural half of this component's accessibility, asserted here because
  * it is invisible on screen: a nested button and a dangling `aria-controls` both
@@ -89,5 +96,42 @@ describe('Combobox', () => {
 
     await user.click(screen.getByRole('button', { name: /clear selection/i }))
     expect(current).toBe('')
+  })
+
+  it('returns focus to the trigger after the clear button is clicked', async () => {
+    const user = userEvent.setup()
+    render(<Combobox options={OPTIONS} value="Alpha" showClear id="pick" aria-label="Greek letter" />)
+    const trigger = screen.getByRole('combobox')
+    await user.click(screen.getByRole('button', { name: /clear selection/i }))
+    expect(document.activeElement).toBe(trigger)
+  })
+
+  it('returns focus to the trigger after the clear button is activated with the keyboard', async () => {
+    const user = userEvent.setup()
+    render(<Combobox options={OPTIONS} value="Alpha" showClear id="pick" aria-label="Greek letter" />)
+    const trigger = screen.getByRole('combobox')
+    const clear = screen.getByRole('button', { name: /clear selection/i })
+    clear.focus()
+    expect(document.activeElement).toBe(clear)
+    await user.keyboard('{Enter}')
+    expect(document.activeElement).toBe(trigger)
+  })
+
+  it('keeps the chevron the same distance from the trigger edge whether the field is clearable or not', () => {
+    render(
+      <div style={{ width: 406 }}>
+        <Combobox options={OPTIONS} value="Alpha" showClear id="filled" aria-label="Filled" />
+        <Combobox options={OPTIONS} id="empty" aria-label="Empty" />
+      </div>,
+    )
+    const filled = screen.getByRole('combobox', { name: 'Filled' })
+    const empty = screen.getByRole('combobox', { name: 'Empty' })
+    const filledInset = chevronInset(filled)
+    const emptyInset = chevronInset(empty)
+    expect(Math.abs(filledInset - emptyInset)).toBeLessThan(1)
+    expect(filledInset).toBeGreaterThanOrEqual(11)
+    expect(filledInset).toBeLessThanOrEqual(13)
+    expect(getComputedStyle(filled).paddingRight).toBe('12px')
+    expect(getComputedStyle(empty).paddingRight).toBe('12px')
   })
 })
