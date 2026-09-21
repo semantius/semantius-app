@@ -3,6 +3,7 @@ import { Languages } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
+  HOST_TEXT_ATTRIBUTE,
   SCANNED_ATTRIBUTES,
   SOURCE_LANGUAGE,
   catalogSnapshot,
@@ -124,7 +125,7 @@ export default function TranslateMode() {
       subtree: true,
       characterData: true,
       attributes: true,
-      attributeFilter: [...SCANNED_ATTRIBUTES],
+      attributeFilter: [...SCANNED_ATTRIBUTES, HOST_TEXT_ATTRIBUTE],
     })
     const unsubscribe = subscribeToCatalog(schedule)
     schedule()

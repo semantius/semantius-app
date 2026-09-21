@@ -119,14 +119,16 @@ function FieldHintPopover({ label, description }: { label: string; description: 
         openOnHover
         closeDelay={HINT_HOVER_CLOSE_MS}
         render={
-          // Translate mode outlines attribute hosts; on a 24px rounded
-          // button that is a ring around the glyph. data-icon-button tells
-          // the mark to color the icon instead (translateMode.css).
+          // Translate mode marks this host from the tooltip (description),
+          // not the chrome aria-label. data-i18n-text is that payload;
+          // data-icon-button tells the mark to color the glyph instead of
+          // outlining the hit box (translateMode.css).
           <Button
             type="button"
             variant="ghost"
             size="icon-xs"
             data-icon-button=""
+            data-i18n-text={description}
             aria-label={t('Extended documentation guide for {label}', { label })}
             className="-ml-1 text-muted-foreground"
           />

@@ -23,7 +23,7 @@
     },
     "obsolete": {
       "$ref": "#/$defs/translationMap",
-      "description": "Translations whose code string was reworded or removed, kept so they are not lost silently. Written by the optional `i18n:extract` scan, emptied by `i18n:extract --prune`. Never a `module.*` key: nothing retires those."
+      "description": "Translations whose source was reworded or removed, kept so they are not lost silently. A code string lands here when the optional `i18n:extract` scan no longer finds the old wording; a `module.*` key lands here when the model English is reworded. Emptied by `i18n:extract --prune`."
     }
   },
   "$defs": {

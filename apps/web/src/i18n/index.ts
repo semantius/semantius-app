@@ -155,6 +155,7 @@ export {
   HIGHLIGHT_NAME,
   MISSING_ATTRIBUTE,
   UI_ATTRIBUTE,
+  HOST_TEXT_ATTRIBUTE,
   SCANNED_ATTRIBUTES,
   supportsHighlightApi,
   scanAndMark,
