@@ -15,19 +15,45 @@
  */
 
 import type { ChildRelation, EntityMetadata, JsonSchemaProperty, SemSchemaTable } from '@/types/metadata'
-import { ENTITY_MARKER, ENUM_MARKER, FIELD_MARKER, MODULE_ROOT, type MetadataId } from './catalog'
-import { translate } from './translate'
+import { ENTITY_MARKER, ENUM_MARKER, FIELD_MARKER, MODULE_ROOT, messageId, type MetadataId } from './catalog'
+import { reportClearedSource, translate } from './translate'
 
 /**
  * One model attribute, translated, or the model's own text where nothing
  * overrides it. An absent attribute stays absent: a field with no description
  * is normal, and there is nothing to translate.
+ *
+ * It is still REPORTED. An attribute that is empty now but was not always —
+ * a description cleared in the model — is the one thing discovery cannot see
+ * by rendering, because there is nothing to render; and the key would
+ * otherwise sit in the index forever with a translation under it in every
+ * language. Here the model's answer is in hand, so the emptiness is observable
+ * exactly once: at the point model text would have become a message. The
+ * common case (an attribute that was never filled) costs one map entry in the
+ * collector and no request — `sendPending` acts only where the index has the
+ * key.
  */
 export function metadataText(id: MetadataId, fallback: string): string
 export function metadataText(id: MetadataId, fallback: string | undefined): string | undefined
 export function metadataText(id: MetadataId, fallback: string | undefined): string | undefined {
-  if (!fallback) return fallback
+  if (!fallback) {
+    reportClearedMetadata(id)
+    return fallback
+  }
   return translate({ id, defaultMessage: fallback })
+}
+
+/**
+ * Report a model attribute that is empty NOW, by id — the signal that its key
+ * should leave the index and every language with it.
+ *
+ * `metadataText` does this itself. It is exported for the call sites that
+ * render model text without it: `moduleLabels` spells its own `t()` because a
+ * component's re-render on a language switch depends on holding `t`, and it
+ * would otherwise skip an emptied module description in silence.
+ */
+export function reportClearedMetadata(id: MetadataId): void {
+  reportClearedSource(messageId({ id, defaultMessage: '' }))
 }
 
 /**

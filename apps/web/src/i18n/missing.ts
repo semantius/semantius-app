@@ -27,7 +27,7 @@
 
 import { i18n } from '@lingui/core'
 import { SOURCE_LANGUAGE, currentLanguage, isKnownKey, markKnownKey } from './catalog'
-import { addSourceIndexEntry, loadSourceIndex } from './store'
+import { addSourceIndexEntry, loadSourceIndex, removeSourceIndexEntry } from './store'
 import { setRenderReporter } from './translate'
 import { discoveryEnabled, writeTranslation } from './translateTarget'
 
@@ -42,7 +42,13 @@ const MAX_KEY_LENGTH = 500
 const FLUSH_DELAY_MS = 3000
 
 interface Pending {
-  /** The source, once a producer supplied one; `<Trans>` reports only the id, which is its source. */
+  /**
+   * The source, once a producer supplied one; `<Trans>` reports only the id,
+   * which is its source. An EMPTY string is a third state and a deliberate
+   * one: the key's model attribute is now blank (`reportClearedSource`). It
+   * survives `entry.source ?? id` because `??` keeps `''`, and a real render
+   * arriving in the same batch overwrites it — text beats absence.
+   */
   source?: string
   /** The language that was active when the key rendered. */
   locale: string
@@ -156,6 +162,20 @@ async function sendPending(options: { keepalive?: boolean }): Promise<void> {
   for (const [id, entry] of batch) {
     const source = entry.source ?? id
     try {
+      // An EMPTY source is not a render: `reportClearedSource` sent it because
+      // the model attribute behind this key is now blank. Clearing the index
+      // entry is what the endpoint's empty write means, and the server drops
+      // the key from every language with it — a translation of text the model
+      // no longer has is not work, it is a leftover. A key the index does not
+      // have is an attribute that was never filled, which is the overwhelming
+      // majority of these reports: nothing is sent.
+      if (source === '') {
+        if (index.has(id)) {
+          await writeTranslation({ locale: SOURCE_LANGUAGE, key: id, translation: '' }, options)
+          removeSourceIndexEntry(id)
+        }
+        continue
+      }
       if (index.get(id) !== source) {
         await writeTranslation({ locale: SOURCE_LANGUAGE, key: id, translation: source }, options)
         addSourceIndexEntry(id, source)

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Plugin } from 'vite'
@@ -97,6 +97,9 @@ export function serializeLocaleFile(file: LocaleFile): string {
  * write drops the entry, because an index entry without a source is nothing.
  * That is also what lets a test clean up after a probe string: clear it in
  * the index first, then in the language.
+ *
+ * Clearing an index entry CASCADES: the key is removed from every other
+ * language file in the same write. See `dropFromOtherLanguages`.
  */
 export function applyTranslation(message: TranslationMessage, dir = LOCALES_DIR): { file: string; changed: boolean } {
   const { locale, key, translation } = message
@@ -105,6 +108,7 @@ export function applyTranslation(message: TranslationMessage, dir = LOCALES_DIR)
 
   const file = readLocaleFile(locale, dir) ?? { locale }
   const messages = { ...(file.messages ?? {}) }
+  const leavesIndex = locale === SOURCE_LANGUAGE && translation === '' && key in messages
   if (translation === '') {
     const known = locale !== SOURCE_LANGUAGE && key in readMessages(SOURCE_LANGUAGE, dir)
     if (known) messages[key] = ''
@@ -113,14 +117,52 @@ export function applyTranslation(message: TranslationMessage, dir = LOCALES_DIR)
     messages[key] = translation
   }
 
-  const next = serializeLocaleFile({ ...file, locale, messages })
-  const label = `i18n/${locale}.json`
-  const path = filePathFor(locale, dir)
+  const changed = writeLocaleFile({ ...file, locale, messages }, dir)
+  // The index is what every other language is translated FROM, so a key that
+  // leaves it has to leave them too: an entry there would be a translation of
+  // text that no longer exists anywhere, and nothing downstream could tell it
+  // from work in progress. The SERVER owns the merge — the client sends the
+  // one message the contract has and never enumerates languages itself.
+  const cascaded = leavesIndex ? dropFromOtherLanguages(key, dir) : false
+  return { file: `i18n/${locale}.json`, changed: changed || cascaded }
+}
+
+/** Write a language file, unless the bytes are already what they would be. */
+function writeLocaleFile(file: LocaleFile, dir: string): boolean {
+  const next = serializeLocaleFile(file)
+  const path = filePathFor(file.locale, dir)
   const previous = existsSync(path) ? readFileSync(path, 'utf8') : null
-  if (previous === next) return { file: label, changed: false }
+  if (previous === next) return false
   mkdirSync(dirname(path), { recursive: true })
   writeFileSync(path, next, 'utf8')
-  return { file: label, changed: true }
+  return true
+}
+
+/**
+ * Every language file in the folder. Named by BCP-47 tag and nothing else, so
+ * `schema.json` is not one and neither is `work-de-DE.json` — a translator's
+ * half-finished file is not a language and must never be written to here.
+ */
+function languagesIn(dir: string): string[] {
+  if (!existsSync(dir)) return []
+  return readdirSync(dir)
+    .filter((name) => name.endsWith('.json'))
+    .map((name) => name.slice(0, -'.json'.length))
+    .filter((locale) => LANGUAGE_TAG.test(locale))
+}
+
+/** Remove `key` from every language but the index. Answers whether anything changed. */
+function dropFromOtherLanguages(key: string, dir: string): boolean {
+  let changed = false
+  for (const locale of languagesIn(dir)) {
+    if (locale === SOURCE_LANGUAGE) continue
+    const file = readLocaleFile(locale, dir)
+    if (!file?.messages || !(key in file.messages)) continue
+    const messages = { ...file.messages }
+    delete messages[key]
+    if (writeLocaleFile({ ...file, locale, messages }, dir)) changed = true
+  }
+  return changed
 }
 
 function send(res: { statusCode: number; setHeader(k: string, v: string): void; end(b?: string): void }, status: number, body: unknown): void {

@@ -125,6 +125,22 @@ export function setRenderReporter(reporter: RenderReporter | undefined): void {
   reportRender = reporter
 }
 
+/**
+ * Report that a keyed message's source is GONE — the model attribute it was
+ * built from is now empty.
+ *
+ * Discovery is otherwise driven entirely by rendering, and an emptied
+ * attribute renders NOTHING: `metadataText` returns before `translate()` is
+ * reached, so a description cleared in the model would leave its key in the
+ * index and its translation in every language file forever, with nothing at
+ * runtime able to observe the absence. This is the one report that is not a
+ * render, and an empty source is its whole signal — `translate()` never mints
+ * a key for one, so `''` cannot mean anything else.
+ */
+export function reportClearedSource(id: string): void {
+  reportRender?.(id, '')
+}
+
 // ── Translating ─────────────────────────────────────────────────────────────
 
 /**

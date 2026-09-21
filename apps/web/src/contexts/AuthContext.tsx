@@ -5,7 +5,7 @@ import { ConfigErrorPage } from '@/components/ConfigErrorPage'
 import { getApiConfig, createApiHeaders, setInterceptorToken } from '@/lib/apiClient'
 import { getConfig } from '@/lib/config'
 import { appError } from '@/lib/appError'
-import type { TranslateFn } from '@/i18n'
+import { MODULE_ROOT, reportClearedMetadata, type TranslateFn } from '@/i18n'
 import type { AnyRouter } from '@tanstack/react-router'
 import type { RouterContext } from '@/routes/__root'
 
@@ -87,6 +87,13 @@ export function moduleLabels(
   t: TranslateFn,
   module: Pick<Module, 'module_slug' | 'module_name' | 'description'>,
 ): { name?: string; description?: string } {
+  // A cleared attribute renders NOTHING, and the ternaries below would skip it
+  // silently — leaving its key in the index with a translation under it in
+  // every language, forever. `metadataText` reports that case itself; this
+  // site cannot use it, because `t` is what makes the caller re-render on a
+  // language switch, so it reports the same thing by hand.
+  if (!module.module_name) reportClearedMetadata([MODULE_ROOT, module.module_slug, 'name'])
+  if (!module.description) reportClearedMetadata([MODULE_ROOT, module.module_slug, 'description'])
   return {
     name: module.module_name
       ? t({ id: ['module', module.module_slug, 'name'], defaultMessage: module.module_name })

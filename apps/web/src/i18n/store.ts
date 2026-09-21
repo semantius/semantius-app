@@ -232,6 +232,17 @@ export function addSourceIndexEntry(id: string, source: string): void {
   for (const listener of indexListeners) listener()
 }
 
+/**
+ * Forget an entry discovery just cleared. The counterpart of
+ * `addSourceIndexEntry`: a model attribute that has been emptied leaves the
+ * index, and the panel's counts follow without a refetch.
+ */
+export function removeSourceIndexEntry(id: string): void {
+  if (!sourceIndex?.delete(id)) return
+  sourceIndexVersionCounter++
+  for (const listener of indexListeners) listener()
+}
+
 export function subscribeToSourceIndex(listener: () => void): () => void {
   indexListeners.add(listener)
   return () => indexListeners.delete(listener)

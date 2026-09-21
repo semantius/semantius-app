@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -67,6 +67,52 @@ describe('applyTranslation', () => {
     applyTranslation({ locale: 'en-US', key: 'A probe', translation: '' }, dir)
 
     expect(readMessages('en-US', dir)).toEqual({})
+  })
+
+  it('drops the key from every other language when the index entry is cleared', () => {
+    applyTranslation({ locale: 'en-US', key: 'module.admin.users.field.note.description', translation: 'A note' }, dir)
+    applyTranslation({ locale: 'de-DE', key: 'module.admin.users.field.note.description', translation: 'Eine Notiz' }, dir)
+    applyTranslation({ locale: 'fr-FR', key: 'module.admin.users.field.note.description', translation: 'Une note' }, dir)
+    applyTranslation({ locale: 'de-DE', key: 'Save', translation: 'Speichern' }, dir)
+
+    const { changed } = applyTranslation(
+      { locale: 'en-US', key: 'module.admin.users.field.note.description', translation: '' },
+      dir,
+    )
+
+    expect(changed).toBe(true)
+    expect(readMessages('en-US', dir)).toEqual({})
+    // Gone, not kept as an empty entry: there is nothing left to translate from.
+    expect(readMessages('de-DE', dir)).toEqual({ Save: 'Speichern' })
+    expect(readMessages('fr-FR', dir)).toEqual({})
+  })
+
+  it('cascades only for a key the index actually had', () => {
+    applyTranslation({ locale: 'en-US', key: 'Save', translation: 'Save' }, dir)
+    applyTranslation({ locale: 'de-DE', key: 'module.admin.users.field.note.description', translation: 'Eine Notiz' }, dir)
+
+    // The index never knew this key, so there is nothing to cascade FROM: the
+    // German entry is somebody's work against a source that simply has not
+    // been discovered yet, and clearing an absent index entry must not eat it.
+    const { changed } = applyTranslation(
+      { locale: 'en-US', key: 'module.admin.users.field.note.description', translation: '' },
+      dir,
+    )
+
+    expect(changed).toBe(false)
+    expect(readMessages('de-DE', dir)).toEqual({ 'module.admin.users.field.note.description': 'Eine Notiz' })
+  })
+
+  it('never writes a work file as if it were a language', () => {
+    writeFileSync(
+      join(dir, 'work-de-DE.json'),
+      JSON.stringify({ locale: 'de-DE', entries: { 'module.admin.users.field.note.description': { source: 'A note', translation: 'Eine Notiz' } } }),
+    )
+    applyTranslation({ locale: 'en-US', key: 'module.admin.users.field.note.description', translation: 'A note' }, dir)
+    applyTranslation({ locale: 'en-US', key: 'module.admin.users.field.note.description', translation: '' }, dir)
+
+    const work = JSON.parse(readFileSync(join(dir, 'work-de-DE.json'), 'utf8')) as { entries: Record<string, unknown> }
+    expect(Object.keys(work.entries)).toEqual(['module.admin.users.field.note.description'])
   })
 
   it('refuses a locale that is not a language tag, so schema.json can never be written', () => {
