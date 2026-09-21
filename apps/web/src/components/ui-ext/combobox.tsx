@@ -141,14 +141,15 @@ export function Combobox({
                 "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
                 "aria-invalid:ring-destructive/20 aria-invalid:border-destructive",
                 "disabled:cursor-not-allowed disabled:opacity-50",
-                "data-placeholder:text-muted-foreground",
                 className
               )}
             />
           }
         >
-          <span className={cn("truncate", showClearButton && "mr-7")}>{disabled ? (value || '') : (value || placeholderText)}</span>
-          {!disabled && <ChevronsUpDownIcon className="size-4 shrink-0 opacity-50" />}
+          <span className={cn("truncate", showClearButton && "mr-7", !value && !disabled && "text-muted-foreground")}>{disabled ? (value || '') : (value || placeholderText)}</span>
+          {/* text-foreground: the chevron is the permanent affordance and must
+              not inherit the placeholder's muted color. */}
+          {!disabled && <ChevronsUpDownIcon className="size-4 shrink-0 text-foreground opacity-50" />}
         </PopoverTrigger>
         {showClearButton && (
           // A real <button>: a <span role="button"> is not focusable and takes

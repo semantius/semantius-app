@@ -359,7 +359,9 @@ export function APISelect<T>({
                 <span className="text-muted-foreground">{placeholderText}</span>
               )}
             </span>
-            {!disabled && <ChevronsUpDown className="ml-auto shrink-0 opacity-50" />}
+            {/* text-foreground: the chevron is the permanent affordance and
+                must not inherit a muted placeholder color from a sibling. */}
+            {!disabled && <ChevronsUpDown className="ml-auto shrink-0 text-foreground opacity-50" />}
         </PopoverTrigger>
         {showClearButton && (
           // A real <button>, not a <span role="button">: the span was neither

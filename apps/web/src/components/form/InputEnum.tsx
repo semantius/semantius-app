@@ -147,18 +147,21 @@ export function InputEnum({
                         // keeps truncated text out from under it.
                         "pr-3",
                         inputSurfaceClassName,
-                        !currentValue && "text-muted-foreground",
                         "aria-invalid:ring-destructive/20 aria-invalid:border-destructive"
                       )}
                     />
                   }
                 >
-                  <span className={cn("truncate", showClearButton && "mr-7")}>
+                  <span className={cn("truncate", showClearButton && "mr-7", !currentValue && !isDisabled && "text-muted-foreground")}>
                     {isDisabled
                       ? (currentValue ? labelFor(currentValue) : '')
                       : (currentValue ? labelFor(currentValue) : t('Select an option'))}
                   </span>
-                  {!isDisabled && <ChevronsUpDown className="ml-auto shrink-0 opacity-50" />}
+                  {/* text-foreground: the chevron is the permanent affordance
+                      and must not inherit the placeholder's muted color, or an
+                      empty/invalid field paints a lighter arrow than a filled
+                      neighbour. */}
+                  {!isDisabled && <ChevronsUpDown className="ml-auto shrink-0 text-foreground opacity-50" />}
                 </PopoverTrigger>
                 {showClearButton && (
                   // A real <button>: the previous <span role="button"> was not

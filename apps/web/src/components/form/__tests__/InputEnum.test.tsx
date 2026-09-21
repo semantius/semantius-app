@@ -12,6 +12,14 @@ function chevronInset(trigger: HTMLElement): number {
   return trigger.getBoundingClientRect().right - chevron.getBoundingClientRect().right
 }
 
+/** Painted color of the chevron, including its own opacity. */
+function chevronStyle(trigger: HTMLElement): { color: string; opacity: string } {
+  const chevron = trigger.querySelector('svg')
+  if (!chevron) throw new Error('expected a chevron svg inside the trigger')
+  const cs = getComputedStyle(chevron)
+  return { color: cs.color, opacity: cs.opacity }
+}
+
 describe('InputEnum', () => {
   const withValue = (option: string) => ({ defaultValues: { option } })
 
@@ -207,6 +215,46 @@ describe('InputEnum', () => {
     expect(requiredInset).toBeLessThanOrEqual(13)
     expect(getComputedStyle(requiredTrigger).paddingRight).toBe('12px')
     expect(getComputedStyle(optionalTrigger).paddingRight).toBe('12px')
+  })
+
+  it('paints the chevron the same color on an empty, filled, and invalid field', async () => {
+    // The placeholder used to set text-muted-foreground on the whole trigger,
+    // so an empty (or just-cleared, focused, invalid) field's chevron inherited
+    // a lighter color than a filled neighbour — then opacity-50 made it fainter
+    // still. The chevron is the permanent affordance; only the label is muted.
+    const user = userEvent.setup()
+    render(
+      <div style={{ width: 406 }}>
+        <FormHarness defaultValues={{ filled: 'Option 1', required: 'Option 1' }}>
+          <InputEnum name="filled" label="Filled" />
+          <InputEnum name="empty" label="Empty" />
+          <InputEnum
+            name="required"
+            label="Required"
+            inputMode="required"
+            validators={{
+              onChange: ({ value }) => (!value || value === '' ? 'must not be empty' : undefined),
+            }}
+          />
+        </FormHarness>
+      </div>,
+    )
+
+    const filled = screen.getByRole('combobox', { name: /^Filled/ })
+    const empty = screen.getByRole('combobox', { name: /^Empty/ })
+    const required = screen.getByRole('combobox', { name: /^Required/ })
+    const filledStyle = chevronStyle(filled)
+    expect(chevronStyle(empty)).toEqual(filledStyle)
+
+    const requiredClear = required.parentElement!.querySelector(
+      'button[aria-label="Clear selection"]',
+    ) as HTMLButtonElement
+    await user.click(requiredClear)
+    expect(await screen.findByRole('alert')).toHaveTextContent('must not be empty')
+    required.focus()
+    expect(required).toHaveAttribute('aria-invalid', 'true')
+    expect(document.activeElement).toBe(required)
+    expect(chevronStyle(required)).toEqual(filledStyle)
   })
 
   /**

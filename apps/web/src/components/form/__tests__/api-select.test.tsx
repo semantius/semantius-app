@@ -191,6 +191,12 @@ describe('APISelect', () => {
     expect(filledInset).toBeLessThanOrEqual(13)
     expect(getComputedStyle(filled).paddingRight).toBe('12px')
     expect(getComputedStyle(empty).paddingRight).toBe('12px')
+    expect(getComputedStyle(empty.querySelector('svg')!).color).toBe(
+      getComputedStyle(filled.querySelector('svg')!).color,
+    )
+    expect(getComputedStyle(empty.querySelector('svg')!).opacity).toBe(
+      getComputedStyle(filled.querySelector('svg')!).opacity,
+    )
   })
 
   it('points aria-controls at an element that actually exists', async () => {
