@@ -131,6 +131,12 @@ function FieldHintPopover({ label, description }: { label: string; description: 
         <CircleHelp aria-hidden="true" />
       </PopoverTrigger>
       <PopoverContent
+        // Visual-only help, already on the field via aria-describedby. role=dialog
+        // would trip ModalInert, make #root inert, and take the trigger out of
+        // hit-testing — hover would then close, or the rest of the form would
+        // lock until the bubble dismissed.
+        role="note"
+        data-field-hint=""
         side="bottom"
         align="start"
         sideOffset={8}

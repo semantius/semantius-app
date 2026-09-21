@@ -241,4 +241,19 @@ describe('InputText', () => {
     expect(screen.getAllByText(LONG_HINT).length).toBe(2)
     expect(document.querySelector('[data-slot="popover-arrow"]')).toBeTruthy()
   })
+
+  it('does not present the hint bubble as a modal dialog', async () => {
+    const user = userEvent.setup()
+    renderControl(<InputText name="testField" label="Username" description={LONG_HINT} />)
+
+    await user.hover(
+      screen.getByRole('button', { name: 'Extended documentation guide for Username' }),
+    )
+    await waitFor(() => {
+      expect(screen.getAllByText(LONG_HINT).length).toBe(2)
+    })
+    const popup = document.querySelector('[data-slot="popover-content"]')
+    expect(popup).toHaveAttribute('data-field-hint')
+    expect(popup).toHaveAttribute('role', 'note')
+  })
 })
