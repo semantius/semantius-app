@@ -53,6 +53,15 @@ export function metadataText(id: MetadataId, fallback: string | undefined): stri
  * would otherwise skip an emptied module description in silence.
  */
 export function reportClearedMetadata(id: MetadataId): void {
+  // A segment built from DATA can be empty, and then the id is not a key and
+  // never was — so there is nothing to clear, and minting it to say so would
+  // THROW. The model has several enums whose stored values include `''` (the
+  // "unset" option on `entities.edit_mode` and `modules.module_type`), and an
+  // enum's value IS its last segment; a module with no slug is the same shape
+  // of thing. Silent here and only here: `translate()` still refuses a
+  // malformed id for a non-empty source, and this branch did nothing at all
+  // before it existed.
+  if (id.some((segment) => !segment)) return
   reportClearedSource(messageId({ id, defaultMessage: '' }))
 }
 

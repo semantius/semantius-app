@@ -104,6 +104,24 @@ describe('localizeMetadata', () => {
     expect(localized.properties?.status.enum_labels?.archived).toBeUndefined()
   })
 
+  it('survives an enum whose stored value is empty — the model has several', () => {
+    // `entities.edit_mode` and `modules.module_type` both carry '' as their
+    // "unset" option, and an enum value IS the key's last segment. There is no
+    // key to record, clear or translate for one, so the walk has to pass over
+    // it rather than mint an id that cannot exist.
+    const meta = metadata()
+    meta.properties!.status.enum = ['', 'active', 'inactive']
+
+    const localized = localizeMetadata(meta)
+
+    expect(localized.properties?.status.enum).toEqual(['', 'active', 'inactive'])
+    expect(localized.properties?.status.enum_labels).toEqual({ active: 'Aktiv', inactive: 'Inaktiv' })
+  })
+
+  it('survives a module with no slug, for the same reason', () => {
+    expect(() => metadataText(['module', '', 'description'] as never, '')).not.toThrow()
+  })
+
   it('does not mutate the loader data it was handed', () => {
     const original = metadata()
     localizeMetadata(original)

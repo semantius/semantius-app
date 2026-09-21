@@ -115,6 +115,44 @@ describe('applyTranslation', () => {
     expect(Object.keys(work.entries)).toEqual(['module.admin.users.field.note.description'])
   })
 
+  it('retires every translation to obsolete when the source is reworded', () => {
+    const KEY = 'module.admin.audit_record_logs.field.record_id.title'
+    applyTranslation({ locale: 'en-US', key: KEY, translation: 'Record Id' }, dir)
+    applyTranslation({ locale: 'de-DE', key: KEY, translation: 'Datensatz-ID' }, dir)
+    applyTranslation({ locale: 'de-DE', key: 'Save', translation: 'Speichern' }, dir)
+
+    const { changed } = applyTranslation({ locale: 'en-US', key: KEY, translation: 'Record UUID' }, dir)
+
+    expect(changed).toBe(true)
+    expect(readMessages('en-US', dir)).toEqual({ [KEY]: 'Record UUID' })
+    // Out of `messages`, so the label falls back to the new English rather
+    // than rendering German made from the old one — but kept, because the
+    // English still exists and the old text is where a translator starts.
+    expect(readMessages('de-DE', dir)).toEqual({ Save: 'Speichern' })
+    expect(read('de-DE').obsolete).toEqual({ [KEY]: 'Datensatz-ID' })
+  })
+
+  it('leaves an untranslated entry alone when the source is reworded', () => {
+    const KEY = 'module.admin.audit_record_logs.field.record_id.title'
+    applyTranslation({ locale: 'en-US', key: KEY, translation: 'Record Id' }, dir)
+    applyTranslation({ locale: 'de-DE', key: KEY, translation: '' }, dir)
+
+    applyTranslation({ locale: 'en-US', key: KEY, translation: 'Record UUID' }, dir)
+
+    // '' is "not translated yet", which carries nothing stale and is still work.
+    expect(readMessages('de-DE', dir)).toEqual({ [KEY]: '' })
+    expect(read('de-DE').obsolete).toBeUndefined()
+  })
+
+  it('retires nothing when the source write repeats the value it already had', () => {
+    const KEY = 'module.admin.audit_record_logs.field.record_id.title'
+    applyTranslation({ locale: 'en-US', key: KEY, translation: 'Record Id' }, dir)
+    applyTranslation({ locale: 'de-DE', key: KEY, translation: 'Datensatz-ID' }, dir)
+
+    expect(applyTranslation({ locale: 'en-US', key: KEY, translation: 'Record Id' }, dir).changed).toBe(false)
+    expect(readMessages('de-DE', dir)).toEqual({ [KEY]: 'Datensatz-ID' })
+  })
+
   it('refuses a locale that is not a language tag, so schema.json can never be written', () => {
     expect(() => applyTranslation({ locale: 'schema', key: 'x', translation: 'y' }, dir)).toThrow(/language tag/)
     expect(() => applyTranslation({ locale: '../x', key: 'x', translation: 'y' }, dir)).toThrow(/language tag/)

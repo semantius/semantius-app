@@ -98,8 +98,10 @@ export function serializeLocaleFile(file: LocaleFile): string {
  * That is also what lets a test clean up after a probe string: clear it in
  * the index first, then in the language.
  *
- * Clearing an index entry CASCADES: the key is removed from every other
- * language file in the same write. See `dropFromOtherLanguages`.
+ * A source write CASCADES into the other languages two ways: clearing an
+ * index entry REMOVES the key from each of them (`dropFromOtherLanguages`),
+ * and rewording one RETIRES each translation to `obsolete`
+ * (`retireInOtherLanguages`).
  */
 export function applyTranslation(message: TranslationMessage, dir = LOCALES_DIR): { file: string; changed: boolean } {
   const { locale, key, translation } = message
@@ -109,6 +111,13 @@ export function applyTranslation(message: TranslationMessage, dir = LOCALES_DIR)
   const file = readLocaleFile(locale, dir) ?? { locale }
   const messages = { ...(file.messages ?? {}) }
   const leavesIndex = locale === SOURCE_LANGUAGE && translation === '' && key in messages
+  // The English this key's translations were made FROM has been reworded. The
+  // window to notice is exactly here and nowhere else: a language file records
+  // text against a key and never the source it was translated from, so the
+  // moment the index takes the new English, nothing anywhere can tell a stale
+  // translation from a current one.
+  const reworded =
+    locale === SOURCE_LANGUAGE && translation !== '' && key in messages && messages[key] !== translation
   if (translation === '') {
     const known = locale !== SOURCE_LANGUAGE && key in readMessages(SOURCE_LANGUAGE, dir)
     if (known) messages[key] = ''
@@ -124,7 +133,8 @@ export function applyTranslation(message: TranslationMessage, dir = LOCALES_DIR)
   // from work in progress. The SERVER owns the merge — the client sends the
   // one message the contract has and never enumerates languages itself.
   const cascaded = leavesIndex ? dropFromOtherLanguages(key, dir) : false
-  return { file: `i18n/${locale}.json`, changed: changed || cascaded }
+  const retired = reworded ? retireInOtherLanguages(key, dir) : false
+  return { file: `i18n/${locale}.json`, changed: changed || cascaded || retired }
 }
 
 /** Write a language file, unless the bytes are already what they would be. */
@@ -149,6 +159,45 @@ function languagesIn(dir: string): string[] {
     .filter((name) => name.endsWith('.json'))
     .map((name) => name.slice(0, -'.json'.length))
     .filter((locale) => LANGUAGE_TAG.test(locale))
+}
+
+/**
+ * Retire every language's translation of `key`, because the source it renders
+ * against has been REWORDED.
+ *
+ * This is the rule `reconcileLanguage` already applies to the other half of
+ * the catalog — "a reworded string is a new string, and the report has to say
+ * so until someone confirms the old translation still fits". A code string
+ * gets it for free, because its key IS its source text, so a reword orphans
+ * the old key. A metadata key is the model path and deliberately does NOT
+ * move, which is what keeps a label's translations linked across a rename —
+ * and is exactly why nothing here orphans on its own. Without this, "Record
+ * Id" becoming "Record UUID" leaves the German saying "Datensatz-ID"
+ * forever, rendering confidently and wrongly.
+ *
+ * To `obsolete`, not deleted: the English still exists, so the old text is a
+ * translator's starting point rather than a loss. A REMOVED source is the
+ * other case and is dropped outright (`dropFromOtherLanguages`) — there is
+ * nothing left to adapt it to. The runtime never reads `obsolete`, so the
+ * label falls back to the new English until someone confirms a translation,
+ * and `reconcileLanguage` never resurrects from it.
+ *
+ * An EMPTY entry is left alone: it says "not translated yet" and carries
+ * nothing stale.
+ */
+function retireInOtherLanguages(key: string, dir: string): boolean {
+  let changed = false
+  for (const locale of languagesIn(dir)) {
+    if (locale === SOURCE_LANGUAGE) continue
+    const file = readLocaleFile(locale, dir)
+    const text = file?.messages?.[key]
+    if (!text) continue
+    const messages = { ...file.messages }
+    delete messages[key]
+    const obsolete = { ...(file.obsolete ?? {}), [key]: text }
+    if (writeLocaleFile({ ...file, locale, messages, obsolete }, dir)) changed = true
+  }
+  return changed
 }
 
 /** Remove `key` from every language but the index. Answers whether anything changed. */

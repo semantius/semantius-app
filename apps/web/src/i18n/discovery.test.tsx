@@ -37,8 +37,15 @@ async function write(locale: string, key: string, translation: string): Promise<
 }
 
 beforeEach(async () => {
+  // OFF BEFORE THE BOOT, not after it. The setup enables the collector for
+  // every test, and `bootApp()` renders the chrome — including whatever
+  // modules `get_userinfo` answers with. Browser workers run four files at a
+  // time against ONE tenant, so a `_vitest_` fixture module another file has
+  // created mid-run is live in that answer, and booting with the collector on
+  // records its name into the shipped index under a slug no screen will ever
+  // render again. These tests drive the collector by hand anyway.
+  disableCollector()
   await bootApp()
-  // The setup enables the collector for every test; these drive it by hand.
   disableCollector()
   resetSourceIndex()
 })
