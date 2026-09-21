@@ -16,8 +16,8 @@
  * unlayered and an unlayered declaration beats any Tailwind utility. That
  * same precedence is what lets the mark show on a control that carries
  * `outline-none`. Icon-only hosts are the exception: the outline traces the
- * hit box as a ring around a 12px glyph, so those swap the outline for a
- * yellow `color` on the glyph (see the rule below).
+ * hit box as a ring around a 12px glyph, so those drop the outline and paint
+ * the SVG yellow instead (see the rule below).
  */
 ::highlight(semantius-i18n-missing) {
   background-color: rgb(253 224 71 / 0.55);
@@ -42,16 +42,24 @@
  * Icon-only hosts (the field-hint CircleHelp, a password toggle, a picker
  * chevron) have no text for ::highlight() to paint, so they get the attribute.
  * The outline traces the hit box — on a 24px rounded-2xl button that is a
- * ring far larger than the glyph. Color the glyph with the same yellow the
- * text highlight uses instead. `data-icon-button` is set on those triggers;
- * `[data-size^='icon']` is the matching hook InputGroupButton already emits.
+ * ring far larger than the glyph. Drop the outline and color the SVG with
+ * the same yellow the text highlight uses. The host keeps muted-foreground;
+ * Lucide strokes currentColor, so the glyph is what to tint.
+ * `data-icon-button` is set on the field-hint trigger; `[data-size^='icon']`
+ * is the matching hook InputGroupButton already emits.
  */
-[data-i18n-missing]:is([data-icon-button], [data-size^='icon']) {
+[data-i18n-missing][data-icon-button],
+[data-i18n-missing][data-size^='icon'] {
   outline: none;
   outline-offset: 0;
+}
+
+[data-i18n-missing][data-icon-button] svg,
+[data-i18n-missing][data-size^='icon'] svg {
   color: rgb(202 138 4);
 }
 
-.dark [data-i18n-missing]:is([data-icon-button], [data-size^='icon']) {
+.dark [data-i18n-missing][data-icon-button] svg,
+.dark [data-i18n-missing][data-size^='icon'] svg {
   color: rgb(253 224 71);
 }

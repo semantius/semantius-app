@@ -398,9 +398,10 @@ describe('translate mode', () => {
     })
     await waitFor(() => expect(help).toHaveAttribute(MISSING_ATTRIBUTE))
     expect(help).toHaveAttribute('data-icon-button')
-    const style = getComputedStyle(help)
-    expect(style.outlineStyle).toBe('none')
-    expect(style.color).toBe('rgb(202, 138, 4)')
+    const svg = help.querySelector('svg')
+    expect(svg).toBeTruthy()
+    expect(getComputedStyle(help).outlineStyle).toBe('none')
+    expect(getComputedStyle(svg!).color).toBe('rgb(202, 138, 4)')
   })
 
   it('renders nothing while the switch is off', async () => {
