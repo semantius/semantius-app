@@ -329,8 +329,13 @@ export function APISelect<T>({
               data-field-surface=""
               className={cn(
                 "w-full cursor-pointer justify-between font-normal pl-3",
-                // Reserve the gutter the overlaid clear button occupies.
-                showClearButton ? "pr-12" : "pr-3",
+                // Constant trailing padding: the chevron is in flow
+                // (`ml-auto`) so it sits against this edge. A larger
+                // gutter here used to shift the chevron 36px left on
+                // clearable fields. The clear button is overlaid to
+                // the chevron's left (`right-8`); the label's `mr-7`
+                // keeps truncated text out from under it.
+                "pr-3",
                 inputSurfaceClassName,
                 disabled && "opacity-50 cursor-not-allowed",
                 triggerClassName
@@ -339,29 +344,34 @@ export function APISelect<T>({
             />
           }
         >
-            {selectedOption ? (
-              <div className={itemClassName}>{renderItem(selectedOption)}</div>
-            ) : initialLoading ? (
-              // role="status" so the wait is announced. Without it a screen
-              // reader user hears the trigger's name and then silence until the
-              // record arrives, with nothing saying anything is happening.
-              <div role="status" className="flex items-center gap-2 text-muted-foreground">
-                <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-                <span>{t("Loading...")}</span>
-              </div>
-            ) : (
-              <span className="text-muted-foreground">{placeholderText}</span>
-            )}
-            {!disabled && <ChevronsUpDown className="ml-auto shrink-0 opacity-50" size={10} />}
+            <span className={cn("truncate", showClearButton && "mr-7")}>
+              {selectedOption ? (
+                <div className={itemClassName}>{renderItem(selectedOption)}</div>
+              ) : initialLoading ? (
+                // role="status" so the wait is announced. Without it a screen
+                // reader user hears the trigger's name and then silence until the
+                // record arrives, with nothing saying anything is happening.
+                <div role="status" className="flex items-center gap-2 text-muted-foreground">
+                  <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                  <span>{t("Loading...")}</span>
+                </div>
+              ) : (
+                <span className="text-muted-foreground">{placeholderText}</span>
+              )}
+            </span>
+            {/* text-foreground: the chevron is the permanent affordance and
+                must not inherit a muted placeholder color from a sibling. */}
+            {!disabled && <ChevronsUpDown className="ml-auto shrink-0 text-foreground opacity-50" />}
         </PopoverTrigger>
         {showClearButton && (
           // A real <button>, not a <span role="button">: the span was neither
           // focusable nor key-operable. size-6 (24px) meets 2.5.8 while the X
-          // glyph stays 12px.
+          // glyph stays 12px. `right-8` places the box immediately inside
+          // the chevron rather than in the old 28px void outside it.
           <button
             type="button"
             aria-label={t("Clear selection")}
-            className="absolute top-1/2 right-7 flex size-6 -translate-y-1/2 items-center justify-center rounded-sm opacity-0 transition-opacity focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring group-hover/combobox:opacity-100 group-focus-within/combobox:opacity-100 group-has-aria-expanded/combobox:opacity-100"
+            className="absolute top-1/2 right-8 flex size-6 -translate-y-1/2 items-center justify-center rounded-sm opacity-0 transition-opacity focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring group-hover/combobox:opacity-100 group-focus-within/combobox:opacity-100 group-has-aria-expanded/combobox:opacity-100"
             onPointerDown={(e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -372,6 +382,10 @@ export function APISelect<T>({
               setSelectedValue("");
               setSelectedOption(null);
               onChange("");
+              // The clear button unmounts as soon as the value is empty, which
+              // would drop keyboard focus onto the surrounding dialog. Put it
+              // on the trigger so the user stays in the field they just emptied.
+              document.getElementById(triggerId)?.focus();
             }}
           >
             <X className="opacity-50 hover:opacity-100 h-3 w-3" />

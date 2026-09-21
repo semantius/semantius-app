@@ -1,9 +1,24 @@
 import { describe, it, expect } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { InputEnum } from '../InputEnum'
 import { chromeAccessibleName } from '@/test/chromeAccessibleName'
-import { renderControl } from './harness'
+import { renderControl, FormHarness } from './harness'
+
+/** Distance from the trigger's right border to the chevron's right edge. */
+function chevronInset(trigger: HTMLElement): number {
+  const chevron = trigger.querySelector('svg')
+  if (!chevron) throw new Error('expected a chevron svg inside the trigger')
+  return trigger.getBoundingClientRect().right - chevron.getBoundingClientRect().right
+}
+
+/** Painted color of the chevron, including its own opacity. */
+function chevronStyle(trigger: HTMLElement): { color: string; opacity: string } {
+  const chevron = trigger.querySelector('svg')
+  if (!chevron) throw new Error('expected a chevron svg inside the trigger')
+  const cs = getComputedStyle(chevron)
+  return { color: cs.color, opacity: cs.opacity }
+}
 
 describe('InputEnum', () => {
   const withValue = (option: string) => ({ defaultValues: { option } })
@@ -36,8 +51,20 @@ describe('InputEnum', () => {
     expect(screen.getByRole('button', { name: /clear selection/i })).toBeInTheDocument()
   })
 
-  it('should NOT show clear button for required enum field', () => {
+  it('should show clear button for required enum field', () => {
+    // Required-ness is enforced at submit, not by withholding the control —
+    // a required text input in the same form can be emptied the same way.
     renderControl(<InputEnum name="option" inputMode="required" />, withValue('Option 1'))
+    expect(screen.getByRole('button', { name: /clear selection/i })).toBeInTheDocument()
+  })
+
+  it('should NOT show clear button for a disabled enum field', () => {
+    renderControl(<InputEnum name="option" inputMode="disabled" />, withValue('Option 1'))
+    expect(screen.queryByRole('button', { name: /clear selection/i })).not.toBeInTheDocument()
+  })
+
+  it('should NOT show clear button for a readonly enum field', () => {
+    renderControl(<InputEnum name="option" inputMode="readonly" />, withValue('Option 1'))
     expect(screen.queryByRole('button', { name: /clear selection/i })).not.toBeInTheDocument()
   })
 
@@ -108,6 +135,126 @@ describe('InputEnum', () => {
     await waitFor(() => {
       expect(screen.getByRole('combobox')).toHaveTextContent('Select an option')
     })
+  })
+
+  it('returns focus to the trigger after the clear button is clicked', async () => {
+    const user = userEvent.setup()
+    renderControl(<InputEnum name="option" inputMode="default" />, withValue('Option 1'))
+
+    const trigger = screen.getByRole('combobox')
+    await user.click(screen.getByRole('button', { name: /clear selection/i }))
+
+    await waitFor(() => {
+      expect(trigger).toHaveTextContent('Select an option')
+    })
+    expect(document.activeElement).toBe(trigger)
+  })
+
+  it('returns focus to the trigger after the clear button is activated with the keyboard', async () => {
+    const user = userEvent.setup()
+    renderControl(<InputEnum name="option" inputMode="default" />, withValue('Option 1'))
+
+    const trigger = screen.getByRole('combobox')
+    const clear = screen.getByRole('button', { name: /clear selection/i })
+    clear.focus()
+    expect(document.activeElement).toBe(clear)
+    await user.keyboard('{Enter}')
+
+    await waitFor(() => {
+      expect(trigger).toHaveTextContent('Select an option')
+    })
+    expect(document.activeElement).toBe(trigger)
+  })
+
+  it('announces the required error after the field is cleared', async () => {
+    const user = userEvent.setup()
+    renderControl(
+      <InputEnum
+        name="option"
+        label="Choose Option"
+        inputMode="required"
+        validators={{
+          onChange: ({ value }) => (!value || value === '' ? 'must not be empty' : undefined),
+        }}
+      />,
+      withValue('Option 1'),
+    )
+
+    const trigger = screen.getByRole('combobox')
+    await user.click(screen.getByRole('button', { name: /clear selection/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('must not be empty')
+    expect(trigger).toHaveAttribute('aria-invalid', 'true')
+    const described = trigger.getAttribute('aria-describedby')
+    expect(described).toContain('option-error')
+    expect(document.getElementById('option-error')).not.toBeNull()
+    expect(trigger).toHaveAccessibleDescription(/must not be empty/)
+  })
+
+  it('keeps the chevron the same distance from the trigger edge whether the field is clearable or not', () => {
+    // The defect this guards: trigger padding used to grow from 12px to 48px
+    // when a clear button was mounted, so the in-flow chevron jumped 36px.
+    render(
+      <div style={{ width: 406 }}>
+        <FormHarness defaultValues={{ required_field: 'Option 1' }}>
+          <InputEnum name="required_field" label="Required" inputMode="required" />
+          <InputEnum name="optional_field" label="Optional" inputMode="default" />
+        </FormHarness>
+      </div>,
+    )
+
+    const [requiredTrigger, optionalTrigger] = screen.getAllByRole('combobox')
+    expect(requiredTrigger).toHaveTextContent('Option 1')
+    expect(screen.getByRole('button', { name: /clear selection/i })).toBeInTheDocument()
+
+    const requiredInset = chevronInset(requiredTrigger)
+    const optionalInset = chevronInset(optionalTrigger)
+    expect(Math.abs(requiredInset - optionalInset)).toBeLessThan(1)
+    // pr-3 = 12px; the chevron's right edge sits against that padding.
+    expect(requiredInset).toBeGreaterThanOrEqual(11)
+    expect(requiredInset).toBeLessThanOrEqual(13)
+    expect(getComputedStyle(requiredTrigger).paddingRight).toBe('12px')
+    expect(getComputedStyle(optionalTrigger).paddingRight).toBe('12px')
+  })
+
+  it('paints the chevron the same color on an empty, filled, and invalid field', async () => {
+    // The placeholder used to set text-muted-foreground on the whole trigger,
+    // so an empty (or just-cleared, focused, invalid) field's chevron inherited
+    // a lighter color than a filled neighbour — then opacity-50 made it fainter
+    // still. The chevron is the permanent affordance; only the label is muted.
+    const user = userEvent.setup()
+    render(
+      <div style={{ width: 406 }}>
+        <FormHarness defaultValues={{ filled: 'Option 1', required: 'Option 1' }}>
+          <InputEnum name="filled" label="Filled" />
+          <InputEnum name="empty" label="Empty" />
+          <InputEnum
+            name="required"
+            label="Required"
+            inputMode="required"
+            validators={{
+              onChange: ({ value }) => (!value || value === '' ? 'must not be empty' : undefined),
+            }}
+          />
+        </FormHarness>
+      </div>,
+    )
+
+    const filled = screen.getByRole('combobox', { name: /^Filled/ })
+    const empty = screen.getByRole('combobox', { name: /^Empty/ })
+    const required = screen.getByRole('combobox', { name: /^Required/ })
+    const filledStyle = chevronStyle(filled)
+    expect(chevronStyle(empty)).toEqual(filledStyle)
+
+    const requiredClear = required.parentElement!.querySelector(
+      'button[aria-label="Clear selection"]',
+    ) as HTMLButtonElement
+    await user.click(requiredClear)
+    expect(await screen.findByRole('alert')).toHaveTextContent('must not be empty')
+    required.focus()
+    expect(required).toHaveAttribute('aria-invalid', 'true')
+    expect(document.activeElement).toBe(required)
+    expect(chevronStyle(required)).toEqual(filledStyle)
   })
 
   /**

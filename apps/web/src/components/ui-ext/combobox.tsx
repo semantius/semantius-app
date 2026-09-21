@@ -82,8 +82,15 @@ export function Combobox({
   }
 
   const handleClear = (e: React.MouseEvent) => {
+    e.preventDefault()
     e.stopPropagation()
     onValueChange?.("")
+    // The clear button unmounts as soon as the value is empty, which would
+    // drop keyboard focus onto the surrounding dialog. Put it on the
+    // trigger so the user stays in the field they just emptied.
+    const trigger = (id && document.getElementById(id))
+      || (e.currentTarget.parentElement?.querySelector('[role="combobox"]') as HTMLElement | null)
+    trigger?.focus()
   }
 
   // Only show the search input when there are more than 10 options
@@ -125,31 +132,37 @@ export function Combobox({
               data-placeholder={!value && !disabled ? "" : undefined}
               className={cn(
                 "border-input-border flex h-9 w-full items-center justify-between gap-2 rounded-md border bg-transparent py-2 pl-3 text-sm shadow-xs outline-none transition-[color,box-shadow]",
-                // Reserve the gutter the overlaid clear button occupies so the
-                // value never truncates underneath it.
-                showClearButton ? "pr-12" : "pr-3",
+                // Constant trailing padding: the chevron sits against this
+                // edge. A larger gutter here used to shift it left on
+                // clearable fields. The clear button is overlaid to the
+                // chevron's left (`right-8`); the label's `mr-7` keeps
+                // truncated text out from under it.
+                "pr-3",
                 "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
                 "aria-invalid:ring-destructive/20 aria-invalid:border-destructive",
                 "disabled:cursor-not-allowed disabled:opacity-50",
-                "data-placeholder:text-muted-foreground",
                 className
               )}
             />
           }
         >
-          <span className="truncate">{disabled ? (value || '') : (value || placeholderText)}</span>
-          {!disabled && <ChevronsUpDownIcon className="size-4 shrink-0 opacity-50" />}
+          <span className={cn("truncate", showClearButton && "mr-7", !value && !disabled && "text-muted-foreground")}>{disabled ? (value || '') : (value || placeholderText)}</span>
+          {/* text-foreground: the chevron is the permanent affordance and must
+              not inherit the placeholder's muted color. */}
+          {!disabled && <ChevronsUpDownIcon className="size-4 shrink-0 text-foreground opacity-50" />}
         </PopoverTrigger>
         {showClearButton && (
           // A real <button>: a <span role="button"> is not focusable and takes
           // no key events. size-6 (24px) satisfies 2.5.8 target size.
+          // `right-8` places the box immediately inside the chevron. Opacity
+          // matches the chevron (`opacity-50`) rather than a different token.
           <button
             type="button"
             aria-label={t("Clear selection")}
             onClick={handleClear}
-            className="text-muted-foreground hover:text-foreground absolute top-1/2 right-7 flex size-6 -translate-y-1/2 items-center justify-center rounded-sm focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
+            className="absolute top-1/2 right-8 flex size-6 -translate-y-1/2 items-center justify-center rounded-sm opacity-50 hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
           >
-            <XIcon className="size-3.5" />
+            <XIcon className="size-3" />
           </button>
         )}
       </div>
