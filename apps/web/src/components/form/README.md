@@ -58,7 +58,9 @@ interface FormControlProps {
   named by a `<label for>` can point `aria-labelledby` at it. Pass `description` so a
   hint that would wrap — more than 6 words, or a one-line width greater than the
   live field column — becomes a help-circle popover to the right of the label.
-  The trigger is a sibling of the `<label>`, never inside it.
+  The trigger is a sibling of the `<label>`, never inside it. Mouse hover opens
+  it; a pointer click on an already-hover-opened hint does not toggle it closed.
+  Keyboard and touch still use the button.
 - **FormDescription** — renders muted description text; returns `null` in view mode.
   Emits `id={name}-description` when there IS a description; the `&nbsp;` spacer it
   renders otherwise is `aria-hidden`. Long hints stay in this element as `sr-only`

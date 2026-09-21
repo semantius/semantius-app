@@ -14,6 +14,18 @@ import { useFormContext } from './FormContext'
 import { useCollapsesFieldDescription } from './fieldDescriptionLayout'
 import { labelId } from './fieldAria'
 
+/**
+ * Time to travel the 8px gap from the icon onto the popup. WCAG 1.4.13 requires
+ * hover-opened content to stay while the pointer moves onto it; Base UI's
+ * default closeDelay is 0.
+ */
+const HINT_HOVER_CLOSE_MS = 200
+
+/** Keyboard activation synthesizes click with detail 0; a pointer click is 1+. */
+function isPointerGeneratedClick(event: Event): boolean {
+  return 'detail' in event && (event as { detail: number }).detail !== 0
+}
+
 interface FormLabelProps {
   htmlFor: string
   label?: string
@@ -36,7 +48,9 @@ interface FormLabelProps {
  * label would both toggle the popover and activate the control. The popover is
  * visual only; `aria-describedby` still points at FormDescription, which stays
  * mounted so a screen reader hears the text on control focus whether or not
- * the popup is open.
+ * the popup is open. Mouse users also get hover-to-open; keyboard and touch
+ * still use the button (Enter / Space / tap). A pointer click on a hover-opened
+ * hint is ignored so it cannot toggle closed and immediately reopen.
  */
 export function FormLabel({ htmlFor, label, description, required, error }: FormLabelProps) {
   const t = useT()
@@ -78,10 +92,32 @@ export function FormLabel({ htmlFor, label, description, required, error }: Form
 
 function FieldHintPopover({ label, description }: { label: string; description: string }) {
   const t = useT()
+  const openedByHoverRef = useRef(false)
 
   return (
-    <Popover>
+    <Popover
+      onOpenChange={(nextOpen, eventDetails) => {
+        if (nextOpen) {
+          openedByHoverRef.current = eventDetails.reason === 'trigger-hover'
+          return
+        }
+        // Pointer click on a hover-opened hint would toggle it closed while the
+        // cursor is still on the icon, so hover would reopen it. Keyboard
+        // activation (detail 0), Escape, and outside press still dismiss.
+        if (
+          openedByHoverRef.current &&
+          eventDetails.reason === 'trigger-press' &&
+          isPointerGeneratedClick(eventDetails.event)
+        ) {
+          eventDetails.cancel()
+          return
+        }
+        openedByHoverRef.current = false
+      }}
+    >
       <PopoverTrigger
+        openOnHover
+        closeDelay={HINT_HOVER_CLOSE_MS}
         render={
           <Button
             type="button"
