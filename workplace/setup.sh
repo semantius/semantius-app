@@ -1,10 +1,14 @@
 #!/bin/bash
 
 # Current script version
-VERSION="003"
+VERSION="004"
 
 # Setup workplace script
-# This script configures the environment and dependencies after checkout
+# This script configures the environment and dependencies after checkout.
+#
+# Invoke from the repository root (cwd /workspace in Cloud Agents):
+#   bash workplace/setup.sh
+# Do not use /workplace/setup.sh — that absolute path is not this script.
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -29,6 +33,31 @@ error_handler() {
 trap 'error_handler ${LINENO}' ERR
 set -e
 
+# Cursor Cloud prepends /exec-daemon to PATH, so `node` is
+# /exec-daemon/node. npm's shebang is `#!/usr/bin/env node`, which
+# makes `npm prefix` resolve to `/` (parent of /exec-daemon). Then
+# `npm install -g` tries to write /usr/lib/node_modules and fails
+# with EACCES. Prefer nvm's node when present; otherwise a user
+# prefix. Devcontainers and other hosts already have a writable
+# prefix, so this is a no-op there.
+ensure_writable_npm_prefix() {
+    local nvm_root="${NVM_DIR:-$HOME/.nvm}/versions/node"
+    if [ -d "$nvm_root" ]; then
+        local nvm_ver
+        nvm_ver="$(ls "$nvm_root" | sort -V | tail -1)"
+        if [ -n "$nvm_ver" ] && [ -x "$nvm_root/$nvm_ver/bin/node" ]; then
+            export PATH="$nvm_root/$nvm_ver/bin:$PATH"
+        fi
+    fi
+    local prefix
+    prefix="$(npm config get prefix 2>/dev/null || true)"
+    if [ -z "$prefix" ] || [ "$prefix" = "/" ] || [ ! -w "$prefix" ]; then
+        mkdir -p "$HOME/.npm-global/bin"
+        export NPM_CONFIG_PREFIX="$HOME/.npm-global"
+        export PATH="$HOME/.npm-global/bin:$PATH"
+    fi
+}
+ensure_writable_npm_prefix
 
 # Path to the version file
 VERSION_FILE=".workplace-version"
