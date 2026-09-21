@@ -45,7 +45,8 @@ attribute vocabulary is the model's own column names.
    optional `i18n:extract` scan moves the old translation to `obsolete`. A
    metadata message has a key instead, so relabeling a field in the model does
    not move its translation — `en-US.json` records the new source next to the
-   old key, which is how you notice the German is stale.
+   old key, and the old translation is retired to `obsolete` in the same write,
+   because that is the only moment anything can still tell it is stale.
 2. **An empty value means "not translated yet".** It is not "translate to
    nothing": the app falls back to the source text for an empty entry, so
    leaving one blank is safe, visible and reported. Discovery writes empty
@@ -68,10 +69,13 @@ attribute vocabulary is the model's own column names.
    splitting the source string, the SOURCE is wrong — say so rather than
    working around it, and it gets rewritten as one ICU message.
 7. **`obsolete` is a parking lot, not a graveyard.** An entry there is a
-   translation whose code string has gone. Copy it back up if a reworded
-   string means the same thing; otherwise leave it. `i18n:extract --prune`
-   empties the section. Nothing retires a `module.*` key: a removed field is a
-   manual edit.
+   translation whose source moved out from under it — a code string that has
+   gone, or, for either kind, an English the index has REWORDED since the
+   translation was written. Copy it back up if the new wording means the same
+   thing; otherwise retranslate from the new source. `i18n:extract --prune`
+   empties the section. A `module.*` key only ever lands there by a reword,
+   never by removal: a field that leaves the model is dropped from every
+   language outright, because there is nothing left to adapt the text to.
 
 ## The workflow
 

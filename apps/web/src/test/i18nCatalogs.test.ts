@@ -23,8 +23,8 @@ import { availableLanguages } from '@/i18n/store'
  * The index (`i18n/en-US.json`) is the complete baseline, filled by
  * the running app; each language file is checked against it. What FAILS: a
  * translation whose ICU placeholders differ from its source, a translation
- * that does not compile, a `module.*` key in `obsolete` whose index entry
- * is gone, and a file that breaks its shape.
+ * that does not compile, model text retired from a source the index no longer
+ * has, and a file that breaks its shape.
  *
  * What only REPORTS: missing translations and code strings
  * the optional scan finds that no test has rendered into the index. A missing
@@ -107,15 +107,24 @@ describe.each(languages.map((language) => [language.code, language] as const))('
     }
   })
 
-  it('keeps a retired model translation only while the index still has the key', () => {
-    // A metadata key is the model path and does not move when English is
-    // reworded, so the writer parks the old translation in obsolete. That is
-    // a reword, not a prune: a module.* key whose index entry is gone has
-    // nothing left to adapt and must be dropped, not parked.
-    const indexKeys = new Set(entries.map(([key]) => key))
+  it('retires model text by REWORD only, never by removal', () => {
+    // `obsolete` has two producers and they retire for different reasons. The
+    // scan (`reconcileLanguage`) retires a code string the source no longer
+    // contains, and it leaves `module.*` alone — asserted directly on that
+    // function in `i18nExtractor.test.ts`. The dev writer retires a translation
+    // of either kind when the index REWORDS its source, because a metadata key
+    // is the model path and deliberately does NOT move on a relabel, so nothing
+    // downstream could otherwise tell a stale translation from a current one.
+    //
+    // The index is what tells the two apart: a reworded source is still in it,
+    // while a REMOVED one is dropped from every language outright
+    // (`dropFromOtherLanguages`), there being nothing left to adapt to. So
+    // model text sitting in `obsolete` with no entry in the index is model text
+    // that was pruned — the case this file has always guarded against, and the
+    // one the reword cascade must never become.
     for (const key of Object.keys(onDisk.obsolete ?? {})) {
       if (!isMetadataKey(key)) continue
-      expect(indexKeys.has(key), `${code}: ${key} is obsolete but gone from the index`).toBe(true)
+      expect(key in (index.messages ?? {}), `${code}: ${key} is obsolete but gone from the index`).toBe(true)
     }
   })
 
