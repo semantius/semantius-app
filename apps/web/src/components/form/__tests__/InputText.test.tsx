@@ -200,4 +200,60 @@ describe('InputText', () => {
     ).not.toBeInTheDocument()
     expect(screen.queryByText(LONG_HINT)).not.toBeInTheDocument()
   })
+
+  it('opens the long description on hover without moving focus', async () => {
+    const user = userEvent.setup()
+    renderControl(<InputText name="testField" label="Username" description={LONG_HINT} />)
+
+    const input = screen.getByRole('textbox', { name: 'Username' })
+    input.focus()
+    await user.hover(
+      screen.getByRole('button', { name: 'Extended documentation guide for Username' }),
+    )
+    await waitFor(() => {
+      expect(screen.getAllByText(LONG_HINT).length).toBe(2)
+    })
+    expect(input).toHaveFocus()
+    expect(input).toHaveAccessibleDescription(LONG_HINT)
+  })
+
+  it('does not open the hint on keyboard focus alone', async () => {
+    renderControl(<InputText name="testField" label="Username" description={LONG_HINT} />)
+
+    screen.getByRole('button', { name: 'Extended documentation guide for Username' }).focus()
+    await new Promise((resolve) => setTimeout(resolve, 400))
+    expect(screen.getAllByText(LONG_HINT)).toHaveLength(1)
+  })
+
+  it('keeps a hover-opened hint open when the pointer then clicks the icon', async () => {
+    const user = userEvent.setup()
+    renderControl(<InputText name="testField" label="Username" description={LONG_HINT} />)
+
+    const help = screen.getByRole('button', { name: 'Extended documentation guide for Username' })
+    await user.hover(help)
+    await waitFor(() => {
+      expect(screen.getAllByText(LONG_HINT).length).toBe(2)
+    })
+    // Past Base UI's 500ms stickIfOpen window: without canceling the press,
+    // this click would close (and hover would reopen).
+    await new Promise((resolve) => setTimeout(resolve, 600))
+    await user.click(help)
+    expect(screen.getAllByText(LONG_HINT).length).toBe(2)
+    expect(document.querySelector('[data-slot="popover-arrow"]')).toBeTruthy()
+  })
+
+  it('does not present the hint bubble as a modal dialog', async () => {
+    const user = userEvent.setup()
+    renderControl(<InputText name="testField" label="Username" description={LONG_HINT} />)
+
+    await user.hover(
+      screen.getByRole('button', { name: 'Extended documentation guide for Username' }),
+    )
+    await waitFor(() => {
+      expect(screen.getAllByText(LONG_HINT).length).toBe(2)
+    })
+    const popup = document.querySelector('[data-slot="popover-content"]')
+    expect(popup).toHaveAttribute('data-field-hint')
+    expect(popup).toHaveAttribute('role', 'note')
+  })
 })
