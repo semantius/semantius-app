@@ -23,8 +23,8 @@ import { availableLanguages } from '@/i18n/store'
  * The index (`i18n/en-US.json`) is the complete baseline, filled by
  * the running app; each language file is checked against it. What FAILS: a
  * translation whose ICU placeholders differ from its source, a translation
- * that does not compile, a `module.*` key in `obsolete`, and a file that
- * breaks its shape.
+ * that does not compile, a `module.*` key in `obsolete` whose index entry
+ * is gone, and a file that breaks its shape.
  *
  * What only REPORTS: missing translations and code strings
  * the optional scan finds that no test has rendered into the index. A missing
@@ -107,9 +107,15 @@ describe.each(languages.map((language) => [language.code, language] as const))('
     }
   })
 
-  it('retires no model text — nothing prunes a module.* key', () => {
+  it('keeps a retired model translation only while the index still has the key', () => {
+    // A metadata key is the model path and does not move when English is
+    // reworded, so the writer parks the old translation in obsolete. That is
+    // a reword, not a prune: a module.* key whose index entry is gone has
+    // nothing left to adapt and must be dropped, not parked.
+    const indexKeys = new Set(entries.map(([key]) => key))
     for (const key of Object.keys(onDisk.obsolete ?? {})) {
-      expect(isMetadataKey(key), `${code}: ${key} is in obsolete`).toBe(false)
+      if (!isMetadataKey(key)) continue
+      expect(indexKeys.has(key), `${code}: ${key} is obsolete but gone from the index`).toBe(true)
     }
   })
 

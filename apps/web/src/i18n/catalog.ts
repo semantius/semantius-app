@@ -241,8 +241,11 @@ export interface LocaleFile {
   name?: string
   messages?: TranslationMap
   /**
-   * Translations whose code string was reworded or removed, kept so they are
-   * not lost silently. Never a `module.*` key: nothing retires those.
+   * Translations whose source was reworded or removed, kept so they are
+   * not lost silently. A code string lands here when the scan no longer
+   * finds the old wording. A `module.*` key lands here when the model
+   * English is reworded — the path stays the same, so the writer has to
+   * retire the old translation itself.
    */
   obsolete?: TranslationMap
 }
