@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 import { formatNumberForDisplay, resolvePrecision } from '@/lib/number-format'
 import { resolveControl } from '@/components/form/resolveControl'
 import { formatDateForDisplay, isDateFormat } from '@/lib/date-format'
-import { enumLabel, useFormattingLocale, useT, type TranslateFn } from '@/i18n'
+import { enumEntries, enumLabel, useFormattingLocale, useT, type TranslateFn } from '@/i18n'
 import { useTable } from '@/hooks/useTable'
 import { useUpdateRecord } from '@/hooks/useTableMutations'
 import { useConfirmDelete } from '@/hooks/useConfirmDelete'
@@ -171,7 +171,7 @@ export interface DataTableViewProps {
 // Helper to map metadata property type to niko-table filter variant
 function getFilterVariant(property: {
   type?: string | string[]
-  enum?: string[]
+  enum?: unknown[]
   reference_table?: string
 }): FilterVariant {
   if (property.enum && property.enum.length > 0) return FILTER_VARIANTS.SELECT
@@ -781,8 +781,11 @@ export function DataTableView({
       // The filter's VALUE stays the raw enum value the database holds; only
       // the label is translated, so a filter built in German still queries the
       // same rows. `enum_labels` is filled by localizeMetadata at the route.
-      const options = property.enum
-        ? property.enum.map(v => ({ label: enumLabel(property, v), value: v }))
+      // Entries may be `{ value, label }` pairs from `get_schema` — never pass
+      // the raw entry to `enumLabel` or into the filter value.
+      const enumValues = enumEntries(property.enum)
+      const options = enumValues.length > 0
+        ? enumValues.map(({ value }) => ({ label: enumLabel(property, value), value }))
         : undefined
 
       // Sticky-left-pinned columns get a fixed width and always truncate so their

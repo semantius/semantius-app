@@ -2,7 +2,7 @@
  * Tests for data validation using SemSchema vocabulary
  * These tests verify that data correctly validates against schemas using custom keywords
  */
-import { validateData } from '../api';
+import { validateData, validateSchema } from '../api';
 
 describe('Data Validation Tests', () => {
   describe('Format: json', () => {
@@ -477,6 +477,36 @@ describe('Data Validation Tests', () => {
 
       expect(validateData('inactive', schema).valid).toBe(true);
       expect(validateData(1, schema).valid).toBe(false);
+    });
+
+    it('should validate against the stored value of a value/label pair', () => {
+      const schema = {
+        type: 'string',
+        format: 'enum',
+        enum: [
+          { value: 'responsible', label: 'Responsible (R)' },
+          { value: 'accountable', label: 'Accountable (A)' },
+          '',
+        ],
+      };
+
+      expect(validateData('responsible', schema).valid).toBe(true);
+      expect(validateData('accountable', schema).valid).toBe(true);
+      expect(validateData('', schema).valid).toBe(true);
+      expect(validateData('Responsible (R)', schema).valid).toBe(false);
+    });
+
+    it('should ignore unexpected enum entry types', () => {
+      const schema = {
+        type: 'string',
+        format: 'enum',
+        enum: ['active', { value: 'inactive', label: 'Inactive' }, { not: 'an entry' }, 3, null],
+      };
+
+      expect(validateSchema(schema).valid).toBe(true);
+      expect(validateData('active', schema).valid).toBe(true);
+      expect(validateData('inactive', schema).valid).toBe(true);
+      expect(validateData('archived', schema).valid).toBe(false);
     });
 
     it('should work in an object schema with inputMode', () => {

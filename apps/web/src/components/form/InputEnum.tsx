@@ -16,7 +16,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { enumLabel, useT } from '@/i18n'
+import { enumEntries, enumLabel, useT } from '@/i18n'
 import type { JsonSchemaProperty } from '@/types/metadata'
 import type { FormControlProps } from './types'
 import { useFormContext } from './FormContext'
@@ -53,10 +53,12 @@ export function InputEnum({
   const disabled = inputMode === 'disabled'
   const hidden = inputMode === 'hidden'
 
-  // Get enum values from schema prop. `schema` is one localized property from
-  // the route's metadata, so its `enum_labels` (if the active language overrides
-  // any) is already filled — see src/i18n/labels.ts.
-  const enumValues: string[] = (schema as any)?.enum || []
+  // Stored values only. `get_schema` may send `{ value, label }` pairs (or
+  // unexpected types); walking the raw array as strings is what threw
+  // `t.replace is not a function` on `/admin/entities`. `schema` is one
+  // localized property from the route's metadata, so its `enum_labels` (if
+  // the active language overrides any) is already filled — see src/i18n/metadata.ts.
+  const enumValues = enumEntries(schema?.enum).map((entry) => entry.value)
   const labelFor = (value: string) => enumLabel(schema as JsonSchemaProperty | undefined, value)
   const showSearch = enumValues.length > 10
 
