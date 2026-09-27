@@ -66,15 +66,56 @@ export function reportClearedMetadata(id: MetadataId): void {
 }
 
 /**
+ * A `get_schema` enum entry after the two shapes have been collapsed: the
+ * stored value, and the label to show when nothing is translated. A plain
+ * string is both. Anything else (a number, a bare object, `null`) is not an
+ * entry — `get_schema` started sending `{ value, label }` and the old walk
+ * called `.replace` on whatever it got, which is the TypeError on
+ * `/admin/entities`.
+ */
+export interface NormalizedEnumEntry {
+  value: string
+  label: string
+}
+
+/** Collapse one enum entry to `{ value, label }`, or drop it if it is not one. */
+export function normalizeEnumEntry(entry: unknown): NormalizedEnumEntry | undefined {
+  if (typeof entry === 'string') return { value: entry, label: entry }
+  if (entry !== null && typeof entry === 'object' && !Array.isArray(entry)) {
+    const value = (entry as { value?: unknown }).value
+    if (typeof value !== 'string') return undefined
+    const label = (entry as { label?: unknown }).label
+    return { value, label: typeof label === 'string' ? label : value }
+  }
+  return undefined
+}
+
+/** The usable entries of a property's `enum`, unexpected types skipped. */
+export function enumEntries(enumList: unknown): NormalizedEnumEntry[] {
+  if (!Array.isArray(enumList)) return []
+  const out: NormalizedEnumEntry[] = []
+  for (const entry of enumList) {
+    const normalized = normalizeEnumEntry(entry)
+    if (normalized) out.push(normalized)
+  }
+  return out
+}
+
+/**
  * The display label for one enum value.
  *
  * Reads the `enum_labels` slot `localizeMetadata` fills rather than looking
  * the value up again, so a call site that already holds a localized property
- * needs nothing else. Falls back to the stored value, which is what the grid
- * and the form showed before any of this existed.
+ * needs nothing else. Falls back to the schema's own label, then the stored
+ * value — which is what the grid and the form showed before any of this
+ * existed.
  */
 export function enumLabel(property: JsonSchemaProperty | undefined, value: string): string {
-  return property?.enum_labels?.[value] ?? value
+  if (property?.enum_labels?.[value] != null) return property.enum_labels[value]
+  for (const entry of enumEntries(property?.enum)) {
+    if (entry.value === value) return entry.label
+  }
+  return value
 }
 
 /**
@@ -156,11 +197,15 @@ function localizeProperties(
 }
 
 /**
- * The `enum_labels` slot: stored value -> displayed label, filled only for the
- * values a translation actually covers. A partly translated enum keeps its raw
- * values for the rest, which `enumLabel()` falls back to. The stored value is
- * both the key's last segment and the source a translator sees: the model
- * holds no English label for it.
+ * The `enum_labels` slot: stored value -> displayed label, filled for a
+ * translation or for a schema label that is not the stored value itself. A
+ * partly translated enum keeps the schema label (or the raw value) for the
+ * rest, which `enumLabel()` falls back to.
+ *
+ * The i18n key's last segment is always the STORED value, never the label,
+ * so relabeling does not move the key. The schema label is the English a
+ * translator sees; a plain-string entry has no separate label and the
+ * stored value is the source, as before.
  */
 function localizeEnum(
   slug: string,
@@ -168,13 +213,24 @@ function localizeEnum(
   field: string,
   property: JsonSchemaProperty,
 ): Record<string, string> | undefined {
-  if (!property.enum || property.enum.length === 0) return property.enum_labels
+  const entries = enumEntries(property.enum)
+  if (entries.length === 0) return property.enum_labels
   let out: Record<string, string> | undefined
-  for (const value of property.enum) {
-    const label = metadataText([MODULE_ROOT, slug, table, ENUM_MARKER, field, value], value)
-    if (label !== value) {
+  for (const { value, label } of entries) {
+    // An empty stored value cannot be a key segment (`entities.edit_mode`).
+    // A schema label for it still belongs in enum_labels so the form can
+    // show it; there is no key to mint, translate or clear.
+    if (!value) {
+      if (label !== value) {
+        out ??= { ...property.enum_labels }
+        out[value] = label
+      }
+      continue
+    }
+    const translated = metadataText([MODULE_ROOT, slug, table, ENUM_MARKER, field, value], label)
+    if (translated !== value) {
       out ??= { ...property.enum_labels }
-      out[value] = label
+      out[value] = translated
     }
   }
   return out ?? property.enum_labels

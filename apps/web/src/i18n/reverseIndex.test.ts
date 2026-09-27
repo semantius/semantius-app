@@ -112,6 +112,26 @@ describe('recording', () => {
     expect(renderedSourceOf('module.crm.customers.entity.plural_label')).toBe('Customers')
   })
 
+  it('records a value/label enum under the stored value, with the schema label as source', () => {
+    setRecordingRenders(true)
+    const meta = {
+      table: { table_name: 'assignments', module_slug: 'crm', singular_label: 'Assignment', plural_label: 'Assignments' },
+      properties: {
+        raci: {
+          type: 'string',
+          title: 'RACI',
+          enum: [{ value: 'responsible', label: 'Responsible (R)' }, ''],
+        },
+      },
+    } as unknown as EntityMetadata
+
+    localizeMetadata(meta)
+    expect([...resolveRenderedText('Responsible (R)')!]).toEqual(['module.crm.assignments.enum.raci.responsible'])
+    expect(renderedSourceOf('module.crm.assignments.enum.raci.responsible')).toBe('Responsible (R)')
+    // The empty stored value is not a key — same as a string `''` entry.
+    expect(resolveRenderedText('')).toBeUndefined()
+  })
+
   it('records enum values through localizeMetadata even when nothing translates them', () => {
     setRecordingRenders(true)
     const meta = {

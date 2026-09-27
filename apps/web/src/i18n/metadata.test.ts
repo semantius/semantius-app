@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { EntityMetadata } from '@/types/metadata'
 import { activateLocale, localeLayers, type LocaleFile, type LocaleLayer } from '.'
-import { enumLabel, localizeMetadata, metadataText } from './metadata'
+import { enumEntries, enumLabel, localizeMetadata, metadataText, normalizeEnumEntry } from './metadata'
 
 /**
  * Model text, rendered as messages.
@@ -24,6 +24,7 @@ const file: LocaleFile = {
     'module.crm.customers.field.status.title': 'Status',
     'module.crm.customers.enum.status.active': 'Aktiv',
     'module.crm.customers.enum.status.inactive': 'Inaktiv',
+    'module.crm.customers.enum.raci.responsible': 'Verantwortlich (R)',
     'module.crm.customers.field.company_name.title': 'Firma',
     'module.crm.customers.field.company_name.description': 'Der eingetragene Name',
     'module.crm.orders.entity.plural_label': 'Aufträge',
@@ -104,6 +105,67 @@ describe('localizeMetadata', () => {
     expect(localized.properties?.status.enum_labels?.archived).toBeUndefined()
   })
 
+  it('keys a value/label enum by the stored value and shows the schema label when nothing is translated', () => {
+    const meta = metadata()
+    const enumPairs = [
+      { value: 'responsible', label: 'Responsible (R)' },
+      { value: 'accountable', label: 'Accountable (A)' },
+      { value: 'consulted', label: 'Consulted (C)' },
+      { value: 'informed', label: 'Informed (I)' },
+      '',
+    ]
+    meta.properties!.raci = { type: 'string', title: 'RACI', enum: enumPairs }
+
+    const localized = localizeMetadata(meta)
+    const raci = localized.properties?.raci
+
+    // The walk must not rewrite the array `get_schema` sent — stored values
+    // stay in `enum`, labels live in `enum_labels`.
+    expect(raci?.enum).toEqual(enumPairs)
+    expect(raci?.enum_labels).toEqual({
+      responsible: 'Verantwortlich (R)',
+      accountable: 'Accountable (A)',
+      consulted: 'Consulted (C)',
+      informed: 'Informed (I)',
+    })
+    expect(enumLabel(raci, 'responsible')).toBe('Verantwortlich (R)')
+    expect(enumLabel(raci, 'accountable')).toBe('Accountable (A)')
+    expect(enumLabel(raci, '')).toBe('')
+  })
+
+  it('shows a schema label for an empty stored value without minting a key', () => {
+    const meta = metadata()
+    meta.properties!.status.enum = [{ value: '', label: 'Unset' }, 'active']
+
+    expect(() => localizeMetadata(meta)).not.toThrow()
+    const localized = localizeMetadata(meta)
+    expect(localized.properties?.status.enum_labels).toEqual({
+      '': 'Unset',
+      active: 'Aktiv',
+    })
+    expect(enumLabel(localized.properties?.status, '')).toBe('Unset')
+  })
+
+  it('survives unexpected types in enum instead of calling string methods on them', () => {
+    const meta = metadata()
+    meta.properties!.status.enum = [
+      'active',
+      { value: 'inactive', label: 'Inactive' },
+      { not: 'an entry' } as never,
+      3 as never,
+      null as never,
+      { value: 'archived' },
+    ]
+
+    expect(() => localizeMetadata(meta)).not.toThrow()
+    const localized = localizeMetadata(meta)
+    expect(localized.properties?.status.enum_labels).toEqual({
+      active: 'Aktiv',
+      inactive: 'Inaktiv',
+    })
+    expect(enumLabel(localized.properties?.status, 'archived')).toBe('archived')
+  })
+
   it('survives an enum whose stored value is empty — the model has several', () => {
     // `entities.edit_mode` and `modules.module_type` both carry '' as their
     // "unset" option, and an enum value IS the key's last segment. There is no
@@ -158,6 +220,41 @@ describe('enumLabel', () => {
     expect(enumLabel(status, 'active')).toBe('Aktiv')
     expect(enumLabel(status, 'archived')).toBe('archived')
     expect(enumLabel(undefined, 'active')).toBe('active')
+  })
+
+  it('falls back to the schema label when no translation is filled', () => {
+    const property = {
+      type: 'string',
+      enum: [{ value: 'responsible', label: 'Responsible (R)' }, ''],
+    }
+    expect(enumLabel(property, 'responsible')).toBe('Responsible (R)')
+    expect(enumLabel(property, '')).toBe('')
+  })
+})
+
+describe('normalizeEnumEntry', () => {
+  it('treats a plain string as both value and label', () => {
+    expect(normalizeEnumEntry('responsible')).toEqual({ value: 'responsible', label: 'responsible' })
+    expect(normalizeEnumEntry('')).toEqual({ value: '', label: '' })
+  })
+
+  it('reads value/label pairs and defaults a missing label to the value', () => {
+    expect(normalizeEnumEntry({ value: 'responsible', label: 'Responsible (R)' })).toEqual({
+      value: 'responsible',
+      label: 'Responsible (R)',
+    })
+    expect(normalizeEnumEntry({ value: 'open' })).toEqual({ value: 'open', label: 'open' })
+  })
+
+  it('drops anything that is not a string or a { value } object', () => {
+    expect(normalizeEnumEntry(null)).toBeUndefined()
+    expect(normalizeEnumEntry(3)).toBeUndefined()
+    expect(normalizeEnumEntry({ label: 'No value' })).toBeUndefined()
+    expect(normalizeEnumEntry({ value: 1 })).toBeUndefined()
+    expect(enumEntries(['a', { value: 'b', label: 'B' }, { nope: true }, 2])).toEqual([
+      { value: 'a', label: 'a' },
+      { value: 'b', label: 'B' },
+    ])
   })
 })
 

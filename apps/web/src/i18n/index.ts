@@ -90,7 +90,15 @@ export type {
   LocaleFile,
   TranslationMap,
 } from './catalog'
-export { localizeMetadata, enumLabel, metadataText, reportClearedMetadata } from './metadata'
+export {
+  localizeMetadata,
+  enumLabel,
+  enumEntries,
+  normalizeEnumEntry,
+  metadataText,
+  reportClearedMetadata,
+} from './metadata'
+export type { NormalizedEnumEntry } from './metadata'
 export {
   availableLocales,
   languageDisplayName,

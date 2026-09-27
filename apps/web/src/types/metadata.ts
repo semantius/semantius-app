@@ -1,3 +1,10 @@
+/**
+ * One `enum` entry from `get_schema`. A string is the stored value (and the
+ * label). An object names them separately; `label` is optional and equals
+ * `value` when omitted.
+ */
+export type JsonSchemaEnumEntry = string | { value: string; label?: string }
+
 // JSON Schema property definition
 export interface JsonSchemaProperty {
   type: string | string[]
@@ -5,14 +12,20 @@ export interface JsonSchemaProperty {
   title?: string
   description?: string
   format?: string
-  enum?: string[]
+  /**
+   * Allowed stored values. `get_schema` sends each entry as a string or as
+   * `{ value, label }`. A plain string is its own label. The stored `value` is
+   * what the database holds and what filters compare; read display text
+   * through `enumLabel(property, value)`, never by using an entry as a string.
+   */
+  enum?: JsonSchemaEnumEntry[]
   // Display labels for the enum values above, keyed by the STORED value. The one
   // consumer-facing slot for translated model labels: `localizeMetadata` fills
   // it from the active language's overrides at render time (src/i18n/labels.ts),
   // and a future server-side label channel would fill the same slot with no call
   // site changing. Read it through `enumLabel(property, value)`, which falls back
-  // to the raw value — the enum's own `value` strings are what the database
-  // holds and what filters and comparisons keep using.
+  // to the schema label, then the raw value — the enum's own `value` strings are
+  // what the database holds and what filters and comparisons keep using.
   enum_labels?: Record<string, string>
   default?: unknown
   minimum?: number

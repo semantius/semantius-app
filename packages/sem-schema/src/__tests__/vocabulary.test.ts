@@ -1244,6 +1244,19 @@ describe('Vocabulary Definition Tests', () => {
       expect(result.errors).toBeNull();
     });
 
+    it('should accept value/label pairs and mixed string entries', () => {
+      const result = validateSchema({
+        format: 'enum',
+        enum: [
+          { value: 'responsible', label: 'Responsible (R)' },
+          { value: 'accountable', label: 'Accountable (A)' },
+          '',
+        ],
+      });
+      expect(result.valid).toBe(true);
+      expect(result.errors).toBeNull();
+    });
+
     it('should accept object schema with enum, object and array formatted properties', () => {
       const schema = {
         type: 'object',

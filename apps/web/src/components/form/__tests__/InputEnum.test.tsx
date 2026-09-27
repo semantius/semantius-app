@@ -20,6 +20,18 @@ function chevronStyle(trigger: HTMLElement): { color: string; opacity: string } 
   return { color: cs.color, opacity: cs.opacity }
 }
 
+const raciSchema = {
+  enum: [
+    { value: 'responsible', label: 'Responsible (R)' },
+    { value: 'accountable', label: 'Accountable (A)' },
+    { value: 'consulted', label: 'Consulted (C)' },
+    '',
+    { not: 'an entry' },
+    3,
+    null,
+  ],
+}
+
 describe('InputEnum', () => {
   const withValue = (option: string) => ({ defaultValues: { option } })
 
@@ -86,6 +98,29 @@ describe('InputEnum', () => {
   it('should display current value in trigger', () => {
     renderControl(<InputEnum name="option" />, withValue('Option 2'))
     expect(screen.getByRole('combobox')).toHaveTextContent('Option 2')
+  })
+
+  it('lists schema labels for value/label pairs and stores the raw value', async () => {
+    const user = userEvent.setup()
+    renderControl(<InputEnum name="option" label="RACI" schema={raciSchema} />)
+
+    const trigger = screen.getByRole('combobox')
+    await user.click(trigger)
+
+    expect(await screen.findByRole('option', { name: /Responsible \(R\)/ })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /Accountable \(A\)/ })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: /responsible$/i })).not.toBeInTheDocument()
+    expect(screen.queryByText('[object Object]')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('option', { name: /Responsible \(R\)/ }))
+    await waitFor(() => {
+      expect(trigger).toHaveTextContent('Responsible (R)')
+    })
+  })
+
+  it('shows the schema label for a stored value on the closed trigger', () => {
+    renderControl(<InputEnum name="option" schema={raciSchema} />, withValue('accountable'))
+    expect(screen.getByRole('combobox')).toHaveTextContent('Accountable (A)')
   })
 
   it('should select an option and update value', async () => {
