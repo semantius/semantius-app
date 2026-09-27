@@ -52,6 +52,34 @@ function evaluateInputTypeRule(rule: unknown, values: Record<string, any>): Inpu
   }
 }
 
+/**
+ * The mode a field is drawn in, or `null` when the form does not draw it.
+ *
+ * One function because two places need the same answer: the renderer, and the
+ * submit handler, which must know whether an error it is about to attach to a
+ * field has anywhere on screen to appear.
+ */
+function renderedInputMode(
+  key: string,
+  propSchema: SchemaObject,
+  ruleResult: InputMode | null,
+  formMode: FormMode,
+  parentField: string | undefined,
+): InputMode | null {
+  // parentField (injected via _pf/_pv) is always hidden — it carries the foreign
+  // key that links this child record to its parent and must not be visible or
+  // editable by the user.
+  if (key === parentField) return 'hidden'
+  // input_type_rule (JsonLogic) overrides the static schema inputMode when it
+  // evaluates to a valid InputMode against current form values.
+  const inputMode: InputMode = ruleResult || (propSchema as any).inputMode || 'default'
+  // In create mode, readonly and disabled fields are not drawn.
+  if (formMode === 'create' && (inputMode === 'readonly' || inputMode === 'disabled')) return null
+  // Form-level view mode overrides schema-level inputMode (except for hidden).
+  if (formMode === 'view' && inputMode !== 'hidden') return 'readonly'
+  return inputMode
+}
+
 interface SchemaFormProps {
   schema: SchemaObject
   initialValue?: Record<string, any>
@@ -359,13 +387,31 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
         validationSchema = { ...schema, required: filteredRequired }
       }
       
-      // For AJV validation, omit null/undefined for non-required fields.
-      // AJV rejects null for type:'string' (produces "must be string"), but null is
-      // a valid cleared value for optional fields — treat absent == valid here.
       const requiredFields = new Set<string>(Array.isArray(validationSchema.required) ? validationSchema.required : [])
+
+      // A create request leaves an empty optional field OUT, so the database
+      // fills it in. For a text column that changes nothing — get_schema
+      // declares a default on every optional text property, almost all `""` —
+      // but it is the only way to create a record whose key the database
+      // assigns while the form still offers it: a has_a key takes its base
+      // record's key when absent, and rejects `''` as a malformed TypeID.
+      // An edit keeps the `''`: leaving the field out of a PATCH would make
+      // clearing a text field impossible.
+      if (formMode === 'create') {
+        const properties = schema.properties as Record<string, SchemaObject>
+        for (const key of Object.keys(cleanedValue)) {
+          const optional = !requiredFields.has(key) && (properties[key] as any)?.inputMode !== 'required'
+          if (cleanedValue[key] === '' && optional) delete cleanedValue[key]
+        }
+      }
+
+      // For AJV validation, omit empty values of optional fields — null,
+      // undefined and `''` alike, which is what the per-field check does too.
+      // AJV rejects null for type:'string' (produces "must be string"), and `''`
+      // fails any `pattern` or `minLength`, but an empty optional field is valid.
       const validationValue = Object.fromEntries(
         Object.entries(cleanedValue).filter(([key, val]) =>
-          requiredFields.has(key) || (val !== null && val !== undefined)
+          requiredFields.has(key) || (val !== null && val !== undefined && val !== '')
         )
       )
 
@@ -411,9 +457,18 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
               : error.instancePath
             
             // Check if this field exists in the form
-            const fieldExists = fieldPath && schema.properties?.[fieldPath]
-            
-            if (fieldPath && fieldExists) {
+            const propSchema = fieldPath ? (schema.properties as Record<string, SchemaObject> | undefined)?.[fieldPath] : undefined
+
+            // An error needs somewhere on screen to appear. A field the form
+            // does not draw has none — a hidden one, or one a rule made readonly
+            // in a create form — so its error goes to the banner under the
+            // field's title instead of disappearing with the field.
+            const mode = propSchema
+              ? renderedInputMode(fieldPath, propSchema, evaluateInputTypeRule((propSchema as any).input_type_rule, value), formMode, parentField)
+              : null
+            if (propSchema && (mode === null || mode === 'hidden')) {
+              unhandledErrors.push(t('{field}: {message}', { field: propSchema.title || fieldPath, message: error.message }))
+            } else if (fieldPath && propSchema) {
               // Track first field with error for scrolling
               if (!firstErrorField) {
                 firstErrorField = fieldPath
@@ -514,6 +569,17 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
           e.preventDefault()
           e.stopPropagation()
           onBeforeSubmit?.((e.nativeEvent as SubmitEvent).submitter)
+          // Every attempt starts with no submit errors. TanStack Form re-runs
+          // the validators of MOUNTED fields only, and `handleSubmit` stops
+          // before our onSubmit while any field meta holds an error — so an
+          // error parked on a field that has since left the screen, or on the
+          // `_validationError` / `_schemaError` banners, which have no validator
+          // at all, blocked every later submit: the button did nothing. The
+          // validators and the whole-form check below set again what still holds.
+          for (const key of [...Object.keys(schema.properties ?? {}), '_validationError', '_schemaError']) {
+            if (!form.getFieldMeta(key)?.errorMap?.onSubmit) continue
+            form.setFieldMeta(key, (meta) => ({ ...meta, errorMap: { ...meta.errorMap, onSubmit: undefined } }))
+          }
           form.handleSubmit()
           
           // After validation, scroll to first error field if any
@@ -621,31 +687,8 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
               const label = propSchema.title || key
               const description = propSchema.description
 
-              let inputMode: InputMode = (propSchema as any).inputMode || 'default'
-
-              // input_type_rule (JsonLogic) overrides the static schema inputMode when
-              // it evaluates to a valid InputMode against current form values.
-              if (ruleResult) {
-                inputMode = ruleResult
-              }
-
-              // parentField (injected via _pf/_pv) is always forced to hidden —
-              // it carries the foreign key that links this child record to its parent
-              // and must not be visible or editable by the user
-              if (key === parentField) {
-                inputMode = 'hidden'
-              }
-
-              // In create mode, skip fields with inputMode='readonly' or 'disabled'
-              // Exception: parentField (injected via _pf/_pv) is always rendered
-              if (formMode === 'create' && (inputMode === 'readonly' || inputMode === 'disabled') && key !== parentField) {
-                return null
-              }
-
-              // Form-level view mode overrides schema-level inputMode (except for hidden)
-              if (formMode === 'view' && inputMode !== 'hidden') {
-                inputMode = 'readonly'
-              }
+              const inputMode = renderedInputMode(key, propSchema, ruleResult, formMode, parentField)
+              if (inputMode === null) return null
 
               // Strict: assertSupportedFormats() ran at the top of this render,
               // so an unresolvable format threw before anything was drawn. There

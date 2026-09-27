@@ -57,17 +57,24 @@ export function InputReference({
 
   // console.log('InputReference derived props', {     fieldType,    searchUrl,   idUrl,    getRecords,    getRecordId,    renderItem,    placeholder  })
 
-  // Convert the numeric form value to a string for APISelect, and back on change.
+  // Convert the form value to a string for APISelect, and back on change.
   //
-  // The property's own `type` is not enough: `get_schema` emits a nullable
-  // reference as the UNION `["integer","null"]`, and `fieldType === 'integer'`
-  // is false for an array — so those fields quietly submitted the foreign key as
-  // a string. Take the type from the catalog, which has one answer per format,
-  // and fall back to the property only for a schema with no format (the
-  // playground).
-  const isNumeric = isFormatName(format)
-    ? isNumericFormat(format)
-    : fieldType === 'integer' || fieldType === 'number'
+  // A reference holds a value of the key it points at, and `get_schema` puts
+  // that key's type on the property: `string` for a text key (`entities`,
+  // `permissions`, TypeID and UUID keys), `integer` for an auto-increment one.
+  // The catalog's `integer` for reference/parent describes only the numeric
+  // keys — read from there, `Number('parties')` is NaN, the value became null,
+  // and the submit dropped the field without a word.
+  //
+  // The type may be a UNION (`["integer","null"]` for a nullable column), so it
+  // is read as a list: `fieldType === 'integer'` is false for an array, and that
+  // once submitted a numeric key as a string.
+  const propertyTypes: unknown[] = Array.isArray(fieldType) ? fieldType : [fieldType]
+  const isNumeric = format === 'reference' || format === 'parent'
+    ? propertyTypes.some((type) => type === 'integer' || type === 'number')
+    : isFormatName(format)
+      ? isNumericFormat(format)
+      : fieldType === 'integer' || fieldType === 'number'
 
   function toSelectValue(formValue: any): string {
     if (formValue === undefined || formValue === null || formValue === '') return ''

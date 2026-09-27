@@ -1133,3 +1133,114 @@ describe('jsonlogic errors reach the editor', () => {
     await waitFor(() => expect(onSubmit).toHaveBeenCalled())
   })
 })
+
+describe('empty optional fields, and errors on fields the form does not draw', () => {
+  // The key get_schema sends for a has_a entity (`vendors` on the test tenant),
+  // as sent: optional, no default, a TypeID pattern, and a rule that makes it
+  // readonly once it holds a value. The database gives a new record its base
+  // record's key when `id` is absent, and rejects `''` as a malformed TypeID.
+  const TYPEID = '^([a-z]([a-z_]{0,61}[a-z])?_)?[0-7][0123456789abcdefghjkmnpqrstvwxyz]{25}$'
+  const hasA: SchemaObject = {
+    type: 'object',
+    properties: {
+      id: {
+        type: 'string', format: 'string', title: 'Id', pattern: TYPEID, inputMode: 'default',
+        input_type_rule: { if: [{ var: 'id' }, 'readonly', 'default'] },
+      },
+      name: { type: 'string', format: 'text', title: 'Name', default: '', inputMode: 'required' },
+    },
+    required: [],
+  }
+
+  it('leaves an empty key out of a create, so the database assigns it', async () => {
+    const onSubmit = vi.fn()
+    const user = userEvent.setup()
+    render(<SchemaForm schema={hasA} formMode="create" onSubmit={onSubmit} />)
+
+    await user.type(screen.getByLabelText(/^Name/), 'Acme')
+    await user.click(screen.getByRole('button', { name: 'Submit' }))
+
+    // Not a pattern error for a field nobody filled in, and no `id: ''`.
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+    expect(onSubmit.mock.calls[0][0]).toEqual({ name: 'Acme' })
+  })
+
+  it('keeps an empty optional value in an edit, without checking it against its pattern', async () => {
+    // Leaving it out of a PATCH would make clearing a text field impossible.
+    const schema: SchemaObject = {
+      type: 'object',
+      properties: { code: { type: 'string', format: 'text', title: 'Code', pattern: '^[A-Z]{3}$' } },
+    }
+    const onSubmit = vi.fn()
+    const user = userEvent.setup()
+    render(<SchemaForm schema={schema} formMode="edit" initialValue={{ code: '' }} onSubmit={onSubmit} />)
+
+    await user.click(screen.getByRole('button', { name: 'Submit' }))
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+    expect(onSubmit.mock.calls[0][0]).toEqual({ code: '' })
+  })
+
+  it('shows the error of a field a rule took off the screen, and Submit still works after it', async () => {
+    const onSubmit = vi.fn()
+    const user = userEvent.setup()
+    render(<SchemaForm schema={hasA} formMode="create" onSubmit={onSubmit} />)
+
+    // The key's rule reads the value being typed, so one character makes the
+    // field readonly — and a create form does not draw a readonly field.
+    await user.type(screen.getByLabelText(/^Id/), 'x')
+    expect(screen.queryByLabelText(/^Id/)).not.toBeInTheDocument()
+    await user.type(screen.getByLabelText(/^Name/), 'Acme')
+    await user.click(screen.getByRole('button', { name: 'Submit' }))
+
+    // The value is still in the form and still fails; the error says so where
+    // it can be seen, instead of on a field that is not there.
+    expect(await screen.findByText(/^Id: must match pattern/)).toBeInTheDocument()
+    expect(onSubmit).not.toHaveBeenCalled()
+
+    // Reset brings the key back empty, and the banner's own error must not
+    // block the next attempt.
+    await user.click(screen.getByRole('button', { name: 'Reset' }))
+    await user.type(screen.getByLabelText(/^Name/), 'Acme')
+    await user.click(screen.getByRole('button', { name: 'Submit' }))
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+    expect(onSubmit.mock.calls[0][0]).toEqual({ name: 'Acme' })
+    expect(screen.queryByText(/^Id: /)).not.toBeInTheDocument()
+  })
+
+  it('does not let an error on a field that has since left the screen block the next submit', async () => {
+    // TanStack Form re-runs the validators of mounted fields only, and stops a
+    // submit while any field holds an error. `code` fails while it is on screen,
+    // is then emptied (valid: it is optional) and taken off the screen by the
+    // rule — its old error has nothing left that could clear it.
+    const schema: SchemaObject = {
+      type: 'object',
+      properties: {
+        kind: { type: 'string', format: 'text', title: 'Kind' },
+        code: {
+          type: 'string', format: 'text', title: 'Code', pattern: '^[A-Z]{3}$',
+          input_type_rule: { if: [{ '==': [{ var: 'kind' }, 'none'] }, 'readonly', 'default'] },
+        },
+      },
+    }
+    const onSubmit = vi.fn()
+    const user = userEvent.setup()
+    render(<SchemaForm schema={schema} formMode="create" initialValue={{ code: 'ab' }} onSubmit={onSubmit} />)
+
+    await user.click(screen.getByRole('button', { name: 'Submit' }))
+    const code = screen.getByLabelText(/^Code/)
+    await waitFor(() => expect(code).toHaveAttribute('aria-invalid', 'true'))
+    // SchemaForm moves focus to the first error on a timer; typing before it
+    // fires would land in the wrong field.
+    await waitFor(() => expect(code).toHaveFocus())
+
+    await user.clear(code)
+    await user.type(screen.getByLabelText(/^Kind/), 'none')
+    expect(screen.queryByLabelText(/^Code/)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Submit' }))
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+    expect(onSubmit.mock.calls[0][0]).toEqual({ kind: 'none' })
+  })
+})
