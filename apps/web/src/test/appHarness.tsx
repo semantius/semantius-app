@@ -226,7 +226,8 @@ export function appWrapper({ children }: { children: ReactNode }) {
  *
  * The returned `router` is the observation point: after a click that navigates,
  * `router.history.location` says where the app actually went. That is a fact
- * about a real history, not a spy recording a call.
+ * about a real history, not a spy recording a call. The returned `queryClient`
+ * is the one the component reads, so a test can wait until its queries settle.
  */
 export function renderInApp(ui: ReactElement, { initialEntries = ['/'] }: { initialEntries?: string[] } = {}) {
   // A root route with an index child, which is the shape the router expects: a
@@ -264,5 +265,5 @@ export function renderInApp(ui: ReactElement, { initialEntries = ['/'] }: { init
       </ThemeProvider>
     </I18nProvider>,
   )
-  return { ...result, router }
+  return { ...result, router, queryClient }
 }

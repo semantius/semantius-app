@@ -64,10 +64,23 @@ const MENU: UserMenuEntry[] = [
 
 const USER = { name: 'Wei Chen', email: 'admin@test.com', avatar: '' }
 
-/** Open the avatar popover; returns the click helper and the real router. */
+/**
+ * Open the avatar popover and wait until its item list is final; returns the
+ * click helper and the real router.
+ *
+ * WHY WAIT FOR THE LIST. Two entries above the submenus mount late: `Platform`
+ * once `get_userinfo` grants its permission, `Manage Favorites` once the
+ * bookmarks query answers (and only if the tenant holds any, so it cannot be
+ * waited for by name). Base UI tracks the highlighted item by INDEX, and an
+ * entry inserted above the focused one does not move focus, so nothing resyncs
+ * that index: the next ArrowDown lands on the item that already has focus, and
+ * `arrowTo` waits for a move that never comes. That failed the v0.3.0 release
+ * gate. No key is pressed before this returns, so every index is built against
+ * the list the test navigates.
+ */
 async function openMenu() {
   const ui = userEvent.setup()
-  const { router } = renderInApp(
+  const { router, queryClient } = renderInApp(
     <SidebarProvider>
       <NavUser user={USER} />
     </SidebarProvider>,
@@ -80,6 +93,12 @@ async function openMenu() {
   // moment after that; a test that types next needs the second, not the first.
   await waitFor(() => expect(screen.getByText('Log out')).toBeInTheDocument())
   await waitFor(() => expect(document.activeElement?.closest('[role="menu"]')).toBeTruthy())
+  // `Platform` appearing means get_userinfo has resolved; the bookmarks query
+  // started when NavUser mounted, so no query in flight means it has answered.
+  await waitFor(() => expect(screen.getByRole('menuitem', { name: 'Platform' })).toBeInTheDocument(), {
+    timeout: 20000,
+  })
+  await waitFor(() => expect(queryClient.isFetching()).toBe(0))
   return { ui, router }
 }
 
