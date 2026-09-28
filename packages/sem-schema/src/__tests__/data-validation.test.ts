@@ -2,7 +2,7 @@
  * Tests for data validation using SemSchema vocabulary
  * These tests verify that data correctly validates against schemas using custom keywords
  */
-import { validateData, validateSchema } from '../api';
+import { validateData } from '../api';
 
 describe('Data Validation Tests', () => {
   describe('Format: json', () => {
@@ -479,36 +479,6 @@ describe('Data Validation Tests', () => {
       expect(validateData(1, schema).valid).toBe(false);
     });
 
-    it('should validate against the stored value of a value/label pair', () => {
-      const schema = {
-        type: 'string',
-        format: 'enum',
-        enum: [
-          { value: 'responsible', label: 'Responsible (R)' },
-          { value: 'accountable', label: 'Accountable (A)' },
-          '',
-        ],
-      };
-
-      expect(validateData('responsible', schema).valid).toBe(true);
-      expect(validateData('accountable', schema).valid).toBe(true);
-      expect(validateData('', schema).valid).toBe(true);
-      expect(validateData('Responsible (R)', schema).valid).toBe(false);
-    });
-
-    it('should ignore unexpected enum entry types', () => {
-      const schema = {
-        type: 'string',
-        format: 'enum',
-        enum: ['active', { value: 'inactive', label: 'Inactive' }, { not: 'an entry' }, 3, null],
-      };
-
-      expect(validateSchema(schema).valid).toBe(true);
-      expect(validateData('active', schema).valid).toBe(true);
-      expect(validateData('inactive', schema).valid).toBe(true);
-      expect(validateData('archived', schema).valid).toBe(false);
-    });
-
     it('should work in an object schema with inputMode', () => {
       const schema = {
         type: 'object',
@@ -522,6 +492,76 @@ describe('Data Validation Tests', () => {
       expect(validateData({ status: '', stage: 'done' }, schema).valid).toBe(true);
       expect(validateData({ status: 'active', stage: '' }, schema).valid).toBe(false);
       expect(validateData({ status: 'archived', stage: 'draft' }, schema).valid).toBe(false);
+    });
+  });
+
+  describe('Enum entries with labels', () => {
+    const raci = [
+      { value: 'responsible', label: 'Responsible (R)' },
+      { value: 'accountable', label: 'Accountable (A)' },
+      { value: 'consulted', label: 'Consulted (C)' },
+      { value: 'informed', label: 'Informed (I)' },
+      'something'
+    ];
+    const schemaWith = (props: Record<string, unknown>) => ({
+      type: 'object',
+      properties: { raci: { format: 'enum', enum: raci, ...props } }
+    });
+
+    it('should accept the value of a {value, label} entry', () => {
+      expect(validateData({ raci: 'responsible' }, schemaWith({})).valid).toBe(true);
+      expect(validateData({ raci: 'informed' }, schemaWith({})).valid).toBe(true);
+    });
+
+    it('should accept a plain value next to {value, label} entries', () => {
+      expect(validateData({ raci: 'something' }, schemaWith({})).valid).toBe(true);
+    });
+
+    it('should reject the label', () => {
+      const result = validateData({ raci: 'Responsible (R)' }, schemaWith({}));
+      expect(result.valid).toBe(false);
+      expect(result.errors?.[0]?.keyword).toBe('enum');
+      expect(result.errors?.[0]?.instancePath).toBe('/raci');
+    });
+
+    it('should reject the {value, label} object itself', () => {
+      const result = validateData({ raci: { value: 'responsible', label: 'Responsible (R)' } }, schemaWith({}));
+      expect(result.valid).toBe(false);
+      expect(result.errors?.some(e => e.keyword === 'enum')).toBe(true);
+    });
+
+    it('should list the values, not the labels, as allowed values', () => {
+      const result = validateData({ raci: 'unknown' }, schemaWith({}));
+      expect(result.errors?.[0]?.params.allowedValues).toEqual(['responsible', 'accountable', 'consulted', 'informed', 'something', '']);
+    });
+
+    it('should accept an empty value only when the field is not required', () => {
+      expect(validateData({ raci: '' }, schemaWith({})).valid).toBe(true);
+
+      const result = validateData({ raci: '' }, schemaWith({ inputMode: 'required' }));
+      expect(result.valid).toBe(false);
+      expect(result.errors?.[0]?.keyword).toBe('inputMode');
+    });
+
+    it('should treat a {value: ""} entry as the empty value', () => {
+      const schema = { type: 'object', properties: { raci: { enum: [{ value: '', label: 'None' }, 'something'] } } };
+      const result = validateData({ raci: 'unknown' }, schema);
+      expect(result.errors?.[0]?.params.allowedValues).toEqual(['', 'something']);
+    });
+
+    it('should compare number values', () => {
+      const schema = { type: 'integer', enum: [{ value: 1, label: 'Low' }, { value: 2, label: 'High' }] };
+      expect(validateData(2, schema).valid).toBe(true);
+      expect(validateData(3, schema).valid).toBe(false);
+    });
+
+    it('should validate {value, label} entries in nested objects', () => {
+      const schema = { type: 'object', properties: { assignment: schemaWith({}) } };
+      expect(validateData({ assignment: { raci: 'consulted' } }, schema).valid).toBe(true);
+
+      const result = validateData({ assignment: { raci: 'Consulted (C)' } }, schema);
+      expect(result.valid).toBe(false);
+      expect(result.errors?.[0]?.instancePath).toBe('/assignment/raci');
     });
   });
 
@@ -741,14 +781,14 @@ describe('Data Validation Tests', () => {
       expect(validateData(10.5, schema).valid).toBe(false);
     });
 
-    it('should handle precision values between 0 and 4', () => {
-      for (let precision = 0; precision <= 4; precision++) {
+    it('should handle precision values between 0 and 9', () => {
+      for (let precision = 0; precision <= 9; precision++) {
         const schema = { type: 'number', precision };
         
         const validNumber = parseFloat('10.' + '5'.repeat(precision));
         expect(validateData(validNumber, schema).valid).toBe(true);
         
-        if (precision < 4) {
+        if (precision < 9) {
           const invalidNumber = parseFloat('10.' + '5'.repeat(precision + 1));
           expect(validateData(invalidNumber, schema).valid).toBe(false);
         }

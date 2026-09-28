@@ -12,7 +12,7 @@ import vocabularySchema from './vocabulary.json';
  * - Custom formats: json, html, text
  * - Standard formats: date, time, email, uri, etc. (from ajv-formats)
  * - inputMode: Controls UI state and validation (required/readonly/disabled/hidden)
- * - Number precision keyword (0-4 decimal places)
+ * - Number precision keyword (0-9 decimal places)
  * - Type inference (format without type defaults to string)
  */
 export function createSemSchemaValidator(): Ajv {

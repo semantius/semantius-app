@@ -92,6 +92,13 @@ describe('Vocabulary Definition Tests', () => {
       expect(result.errors).toBeNull();
     });
 
+    it('should accept schema with precision: 9', () => {
+      const schema = { type: 'number', precision: 9 };
+      const result = validateSchema(schema);
+      expect(result.valid).toBe(true);
+      expect(result.errors).toBeNull();
+    });
+
     it('should reject schema with invalid precision: -2', () => {
       const schema = { type: 'number', precision: -2 };
       const result = validateSchema(schema);
@@ -112,13 +119,13 @@ describe('Vocabulary Definition Tests', () => {
       expect(result.errors?.[0]?.schemaPath).toBe('#');
     });
 
-    it('should reject schema with invalid precision: 5', () => {
-      const schema = { type: 'number', precision: 5 };
+    it('should reject schema with invalid precision: 11', () => {
+      const schema = { type: 'number', precision: 11 };
       const result = validateSchema(schema);
       expect(result.valid).toBe(false);
       expect(result.errors).toBeDefined();
       expect(result.errors?.[0]?.message).toContain('precision');
-      expect(result.errors?.[0]?.message).toContain('must be <= 4');
+      expect(result.errors?.[0]?.message).toContain('must be <= 9');
     });
   });
 
@@ -1244,19 +1251,6 @@ describe('Vocabulary Definition Tests', () => {
       expect(result.errors).toBeNull();
     });
 
-    it('should accept value/label pairs and mixed string entries', () => {
-      const result = validateSchema({
-        format: 'enum',
-        enum: [
-          { value: 'responsible', label: 'Responsible (R)' },
-          { value: 'accountable', label: 'Accountable (A)' },
-          '',
-        ],
-      });
-      expect(result.valid).toBe(true);
-      expect(result.errors).toBeNull();
-    });
-
     it('should accept object schema with enum, object and array formatted properties', () => {
       const schema = {
         type: 'object',
@@ -1269,6 +1263,62 @@ describe('Vocabulary Definition Tests', () => {
       const result = validateSchema(schema);
       expect(result.valid).toBe(true);
       expect(result.errors).toBeNull();
+    });
+  });
+
+  describe('Schema Validity - enum entries with labels', () => {
+    const withEntries = (entries: unknown[]) => ({
+      type: 'object',
+      properties: { raci: { format: 'enum', enum: entries } }
+    });
+    const firstMessage = (entries: unknown[]) => validateSchema(withEntries(entries)).errors?.[0]?.message;
+
+    it('should accept {value, label} entries mixed with plain values', () => {
+      const result = validateSchema(withEntries([
+        { value: 'responsible', label: 'Responsible (R)' },
+        { value: 'accountable', label: 'Accountable (A)' },
+        'something'
+      ]));
+      expect(result.valid).toBe(true);
+      expect(result.errors).toBeNull();
+    });
+
+    it('should accept {value, label} entries in nested schemas', () => {
+      const schema = { type: 'array', items: { type: 'object', properties: { raci: { enum: [{ value: 'informed', label: 'Informed (I)' }] } } } };
+      expect(validateSchema(schema).valid).toBe(true);
+    });
+
+    it('should accept number, boolean and null values', () => {
+      const result = validateSchema({ enum: [{ value: 1, label: 'One' }, { value: true, label: 'Yes' }, { value: null, label: 'None' }] });
+      expect(result.valid).toBe(true);
+    });
+
+    it('should reject an entry without label', () => {
+      expect(firstMessage([{ value: 'responsible' }])).toContain("enum/0 must have required property 'label'");
+    });
+
+    it('should reject an entry without value', () => {
+      expect(firstMessage(['something', { label: 'Responsible (R)' }])).toContain("enum/1 must have required property 'value'");
+    });
+
+    it('should reject an entry with other keys', () => {
+      expect(firstMessage([{ value: 'responsible', label: 'Responsible (R)', color: 'red' }])).toContain('enum/0 must NOT have additional properties');
+    });
+
+    it('should reject a label that is not a string', () => {
+      expect(firstMessage([{ value: 'responsible', label: 1 }])).toContain('enum/0/label must be string');
+    });
+
+    it('should reject a value that is an object or array', () => {
+      expect(firstMessage([{ value: { code: 'r' }, label: 'Responsible (R)' }])).toContain('enum/0/value must be string,number,boolean,null');
+      expect(firstMessage([{ value: ['r'], label: 'Responsible (R)' }])).toContain('enum/0/value must be string,number,boolean,null');
+    });
+
+    it('should reject invalid entries in nested schemas', () => {
+      const schema = { type: 'array', items: { type: 'object', properties: { raci: { enum: [{ value: 'informed' }] } } } };
+      const result = validateSchema(schema);
+      expect(result.valid).toBe(false);
+      expect(result.errors?.[0]?.message).toContain("must have required property 'label'");
     });
   });
 });

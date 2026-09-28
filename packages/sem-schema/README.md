@@ -66,8 +66,14 @@ SemSchema uses the **`inputMode: "required"`** keyword that serves BOTH UI and v
 **Important for Form Validation**: The `inputMode: "required"` keyword is checked during data validation in the `validateData` function, and form components use it to display asterisks and determine field behavior.
 
 #### `precision` Keyword
-- **`precision`**: Integer (0-4) limiting decimal places in numbers
+- **`precision`**: Integer (0-9) limiting decimal places in numbers
   - Example: `precision: 2` allows 99.99 but rejects 99.999
+
+#### `enum` Entries with Labels
+- An `enum` entry is a value, or a `{ "value", "label" }` object whose label the UI shows instead of the value, like `enum_values` in the Semantius backend
+- Data must equal the **value**; the label is never valid data
+- An object entry needs both `value` (string, number, boolean or null) and `label` (string), and nothing else
+- Example: `"enum": [{ "value": "responsible", "label": "Responsible (R)" }, "something"]` accepts `"responsible"` and `"something"`
 
 ### Type Inference
 - When `format` is provided without `type`, the type is the format's `jsonType` in [src/vocabulary.json](src/vocabulary.json) — the type the Semantius backend maps the format to

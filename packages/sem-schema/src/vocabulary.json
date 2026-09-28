@@ -72,11 +72,27 @@
       "type": "string",
       "enum": ["default", "required", "readonly", "disabled", "hidden"]
     },
+    "enum": {
+      "description": "The allowed values, in the order they are offered. An entry is a value, or a {value, label} object whose label the UI shows instead of the value; data must equal the value. Matches enum_values in the Semantius backend.",
+      "type": "array",
+      "items": {
+        "if": { "type": "object" },
+        "then": {
+          "type": "object",
+          "required": ["value", "label"],
+          "properties": {
+            "value": { "type": ["string", "number", "boolean", "null"] },
+            "label": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
     "precision": {
-      "description": "Number of decimal places allowed (0-4)",
+      "description": "Number of decimal places allowed (0-9)",
       "type": "integer",
       "minimum": 0,
-      "maximum": 4
+      "maximum": 9
     },
     "table": {
       "description": "Database table metadata for schema-driven applications",

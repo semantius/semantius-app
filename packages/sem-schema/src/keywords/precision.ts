@@ -4,7 +4,7 @@ import Ajv from 'ajv';
 /**
  * Add custom 'precision' keyword to AJV instance
  * 
- * Validates the number of decimal places in a number (0-4)
+ * Validates the number of decimal places in a number (0-9)
  * Example: precision: 2 allows numbers like 99.99 but rejects 99.999
  */
 export function addPrecisionKeyword(ajv: Ajv): void {
@@ -15,10 +15,10 @@ export function addPrecisionKeyword(ajv: Ajv): void {
     compile(schema: number) {
       const validateFn = function validate(data: number): boolean {
         // Validate schema value
-        if (!Number.isInteger(schema) || schema < 0 || schema > 4) {
+        if (!Number.isInteger(schema) || schema < 0 || schema > 9) {
           (validate as any).errors = [{
             keyword: 'precision',
-            message: 'precision must be an integer between 0 and 4',
+            message: 'precision must be an integer between 0 and 9',
             params: { precision: schema },
             instancePath: '',
             schemaPath: ''

@@ -1,6 +1,7 @@
 import type { SchemaObject } from 'ajv';
 import { JSON_KEYWORD } from './keywords/json';
 import { JSONLOGIC_KEYWORD } from './keywords/jsonlogic';
+import { enumEntryValue } from './keywords/enum';
 import vocabularySchema from './vocabulary.json';
 
 /**
@@ -137,38 +138,14 @@ export function validateSchemaStructure(schema: SchemaObject, path: string = '#'
 }
 
 /**
- * The stored value of one `enum` entry. `get_schema` sends a string or
- * `{ value, label }`; AJV compares the instance to the stored value, not the
- * display object. Anything else is not an allowed value.
- */
-function enumStoredValue(entry: unknown): string | undefined {
-  if (typeof entry === 'string') return entry;
-  if (entry !== null && typeof entry === 'object' && !Array.isArray(entry)) {
-    const value = (entry as { value?: unknown }).value;
-    if (typeof value === 'string') return value;
-  }
-  return undefined;
-}
-
-function flattenEnumValues(entries: unknown[]): string[] {
-  const values: string[] = [];
-  for (const entry of entries) {
-    const value = enumStoredValue(entry);
-    if (value !== undefined) values.push(value);
-  }
-  return values;
-}
-
-/**
  * Preprocess schema to handle default type as string and enum empty string handling
  * 
  * When a schema has a format but no type, this function sets the type the format implies
  * (its jsonType in vocabulary.json, e.g. int32 -> integer, json -> every JSON type, html -> string)
  * This allows schemas like { format: "json" }, { format: "int32" } or { format: "object" } to work correctly
  * 
- * When a schema has an enum, this function flattens `{ value, label }` entries
- * to the stored value. When inputMode is not "required", it also adds "" so
- * empty strings are valid for optional enum fields.
+ * When a schema has an enum but inputMode is not "required", this function adds "" to the enum
+ * This allows empty strings to be valid for optional enum fields
  *
  * When a schema has format "json" or "jsonlogic", this function attaches the matching
  * internal keyword, which validates the value whatever its JSON type (AJV only passes
@@ -194,16 +171,13 @@ export function preprocessSchema(schema: SchemaObject): SchemaObject {
     processed.type = Array.isArray(type) ? [...type] : type;
   }
 
-  // Flatten `{ value, label }` enum entries to the stored value AJV compares.
-  // `get_schema` started sending optional labels; leaving the objects in
-  // `enum` would reject every valid string (`"responsible" !== { value }`).
-  // Unexpected types are dropped — they are not allowed values.
-  if (processed.enum && Array.isArray(processed.enum)) {
-    const values = flattenEnumValues(processed.enum);
-    if ((processed as any).inputMode !== 'required' && !values.includes('')) {
-      values.unshift('');
+  // If enum is present and inputMode is not "required", add "" to enum if no entry has that value
+  // This allows empty strings for optional enum fields. It goes last, as in the Semantius backend,
+  // so the index in a schema error still points at the entry the author wrote
+  if (processed.enum && Array.isArray(processed.enum) && (processed as any).inputMode !== 'required') {
+    if (!processed.enum.some((entry) => enumEntryValue(entry) === '')) {
+      processed.enum = [...processed.enum, ''];
     }
-    processed.enum = values;
   }
 
   // Process properties recursively
