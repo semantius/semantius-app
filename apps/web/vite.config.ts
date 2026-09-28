@@ -224,6 +224,15 @@ export default defineConfig(({ mode }) => ({
       // entity-view tests were the first browser tests to mount the full grid,
       // and their first run discovered it mid-run and reloaded.
       'radix-ui',
+      // Imported by sem-schema's enum keyword (packages/sem-schema/src/keywords/
+      // enum.ts). A cold cache finds it in the scan; a WARM one does not rescan,
+      // because the cache is keyed on the lockfile and this config, not on source.
+      // So on every machine whose cache predated the import, the first form test
+      // discovered it, re-optimized and reloaded — one test file was lost. When
+      // the loss happened before the file reported, the run did not fail: it hung
+      // forever at "94 passed (95)", idle, which is how `release.sh` stalled.
+      // Listing it here also changes the config hash, which rebuilds those caches.
+      'ajv/dist/runtime/equal',
     ],
   },
   test: {
