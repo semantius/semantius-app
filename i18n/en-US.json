@@ -857,6 +857,8 @@
     "module.admin.webhook_receivers.field.table_name_label.description": "Composed label of the referenced Entity",
     "module.admin.webhook_receivers.field.table_name_label.title": "Entity",
     "module.admin.webhook_receivers.field.updated_at.title": "Updated At",
+    "module.customer_success.description": "Accounts, health and CSM activity",
+    "module.customer_success.name": "Customer Success",
     "module.equipment_maintenance.description": "Keep every machine running with planned maintenance and tracked repairs.",
     "module.equipment_maintenance.name": "Equipment Maintenance",
     "module.fleet_costs.description": "Kosten und Ergebnis je Lkw und Tag",

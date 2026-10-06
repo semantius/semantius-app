@@ -19,15 +19,13 @@ import { bootApp, renderInApp } from '@/test/appHarness'
  * file covers the wiring: the real query (`order=module_name.asc`), the real
  * mapping, and the real icon and color fallbacks.
  *
- * IT READS THE FIXTURE TENANT. The assertions below name what the `tests` tenant
- * actually contains. By name order it opens with `Equipment Maintenance` (its own
- * logo color), and the menu lists `Northwind` (description "Northwind Sample
- * Database", no logo color) and `_core` (description "Administration"). Between
- * them they exercise both display rules and both color branches. If the tenant's
- * demo data is edited, this fails loudly and gets updated — which is the point of
- * testing against data that exists rather than data invented to make an
- * assertion pass. (It was updated once already: `Equipment Maintenance` and
- * `Fuhrpark` were added and moved `Northwind` off the first position.)
+ * IT READS THE FIXTURE TENANT, BUT ONLY WHAT IS STABLE. The tenant's demo
+ * modules come and go, and pinning which one sorts first broke this file every
+ * time one was added. So the active module is checked against the menu (the
+ * trigger shows whatever the menu lists first), never by name. The only rows
+ * named are the platform's own two — `Northwind` (description "Northwind Sample
+ * Database", no logo color) and `_core` (description "Administration") — which
+ * between them exercise both display rules and both color branches.
  */
 
 function renderSwitcher() {
@@ -38,62 +36,71 @@ function renderSwitcher() {
   )
 }
 
-const NETWORK = { timeout: 20000 }
+const NETWORK = { timeout: 15000 }
+
+// The logo tile is the one element carrying an inline background color.
+const tileIn = (el: Element) => el.querySelector<HTMLElement>('[style*="background-color"]')
 
 describe('ModuleSwitcher', () => {
   beforeEach(async () => {
     await bootApp()
   })
 
-  // The trigger shows the active module, which starts as the first by name.
-  const FIRST = 'Equipment Maintenance'
+  // The loading skeleton is a plain button; only the loaded switcher is a menu
+  // trigger, so waiting for one is waiting for the modules.
+  async function findTrigger(container: HTMLElement) {
+    return waitFor(() => {
+      const trigger = container.querySelector<HTMLElement>('[aria-haspopup="menu"]')
+      expect(trigger).not.toBeNull()
+      return trigger!
+    }, NETWORK)
+  }
 
   async function openMenu() {
     const user = userEvent.setup()
-    renderSwitcher()
-    const trigger = await waitFor(() => screen.getByRole('button', { name: new RegExp(FIRST) }), NETWORK)
+    const { container } = renderSwitcher()
+    const trigger = await findTrigger(container)
     await user.click(trigger)
-    return screen.findByRole('menu')
+    const menu = await screen.findByRole('menu')
+    // The first item is "Quick navigation"; the modules follow in query order.
+    const modules = within(menu).getAllByRole('menuitem').slice(1)
+    return { container, trigger, menu, modules }
   }
 
-  it('shows the first module by name order, under the name the display rule gives it', async () => {
-    renderSwitcher()
+  it('makes the first listed module the active one, with its name and color', async () => {
+    const { trigger, modules } = await openMenu()
 
-    // Its description does not begin with its name, so the name stays the
-    // visible line.
-    await waitFor(
-      () => expect(screen.getByRole('button', { name: new RegExp(FIRST) })).toBeInTheDocument(),
-      NETWORK,
-    )
+    expect(modules.length).toBeGreaterThan(0)
+    expect(trigger).toHaveTextContent(modules[0].textContent!.trim())
+    const color = tileIn(modules[0])!.style.backgroundColor
+    expect(tileIn(trigger)).toHaveStyle({ backgroundColor: color })
   })
 
-  it('renders the icon named by icon_name, not an <img>', async () => {
+  it('renders the icon named by icon_name inside the logo tile, not an <img>', async () => {
     const { container } = renderSwitcher()
+    const trigger = await findTrigger(container)
 
-    // The logo is a NamedIcon looked up by name — there has been no image logo
-    // (and so no alt text) since the switcher started fetching its own modules.
-    await waitFor(() => expect(container.querySelector('svg')).not.toBeNull(), NETWORK)
+    // Scoped to the tile: the trigger's chevron is an <svg> too, so a bare
+    // `querySelector('svg')` would pass with no logo at all. Waited for, because
+    // `DynamicIcon` imports each icon lazily and renders nothing until it lands.
+    await waitFor(() => expect(tileIn(trigger)?.querySelector('svg')).not.toBeNull(), NETWORK)
     expect(container.querySelector('img')).toBeNull()
   })
 
-  it('paints the active module with its own logo color', async () => {
-    const { container } = renderSwitcher()
-
-    await waitFor(() => screen.getByRole('button', { name: new RegExp(FIRST) }), NETWORK)
-    const tile = container.querySelector('[style*="background-color"]')
-    expect(tile).toHaveStyle({ backgroundColor: '#520e17' })
-  })
-
-  it('lists the other modules, each under its display name and logo color', async () => {
-    const menu = await openMenu()
-    const tileOf = (text: string) =>
-      within(menu).getByText(text).parentElement?.querySelector('[style*="background-color"]') ?? null
+  it('lists the modules in name order, each under its display name and logo color', async () => {
+    const { menu, modules } = await openMenu()
+    const item = (text: string) => within(menu).getByText(text).closest('[role="menuitem"]')!
 
     // `Northwind`'s description begins with its name, so the description is
     // promoted to the single visible line; its logo_color is empty in the
     // tenant, which is the fallback path.
-    expect(tileOf('Northwind Sample Database')).toHaveStyle({ backgroundColor: '#0000FF' })
+    expect(tileIn(item('Northwind Sample Database'))).toHaveStyle({ backgroundColor: '#0000FF' })
     // `_core` is an internal module: the underscore rule shows its description.
-    expect(tileOf('Administration')).toHaveStyle({ backgroundColor: '#029948' })
+    expect(tileIn(item('Administration'))).toHaveStyle({ backgroundColor: '#029948' })
+
+    // By `module_name`, `Northwind` sorts before `_core`, whatever else the
+    // tenant holds around them.
+    expect(modules.indexOf(item('Northwind Sample Database') as HTMLElement))
+      .toBeLessThan(modules.indexOf(item('Administration') as HTMLElement))
   })
 })
