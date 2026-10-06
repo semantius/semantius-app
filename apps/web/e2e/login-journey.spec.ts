@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 
 /**
  * The real login journey, end to end, with nothing stubbed.
@@ -101,6 +101,50 @@ test.describe('OAuth2 authorization-code login', () => {
     expect(tokenRequests).toEqual([])
   })
 
+  // Every token exchange fails. The exchange has to be reached the real way,
+  // through the provider, so the library's loginInProgress flag and PKCE
+  // verifier are in place.
+  const failEveryTokenExchange = async (page: Page) => {
+    const attempts: number[] = []
+    await page.route(`${IDP}/token`, (route) => {
+      attempts.push(Date.now())
+      return route.fulfill({
+        status: 400,
+        contentType: 'application/json',
+        body: '{"error":"invalid_grant"}',
+      })
+    })
+    return attempts
+  }
+
+  // The provider may show its form again on a later visit or, holding a
+  // session, redirect straight back; either way the exchange is what counts.
+  const signInIfAsked = async (page: Page) => {
+    const username = page.locator('input[name="username"]')
+    const asked = await username.waitFor({ state: 'visible', timeout: 15_000 }).then(
+      () => true,
+      () => false,
+    )
+    if (!asked) return
+    await username.fill(USER.username)
+    await page.fill('input[name="password"]', USER.password)
+    await page.click('button[type="submit"]')
+  }
+
+  // Writes the callback's retry record before the app boots. /logout-success is
+  // a plain route that needs no session, so it is a page on the app's origin
+  // that starts no login.
+  const seedRetryRecord = async (page: Page, ageMs: number) => {
+    await page.goto('/logout-success')
+    await page.evaluate((at) => {
+      localStorage.setItem('SC_oauth_retry', JSON.stringify({ count: 1, at }))
+    }, Date.now() - ageMs)
+  }
+
+  // Named, not just `level: 1`: every standalone page carries an <h1>, so
+  // "some h1 appeared" does not distinguish the failure page from any other.
+  const loginError = (page: Page) => page.getByRole('heading', { level: 1, name: /Login Error/ })
+
   test('a token exchange that keeps failing surfaces an error instead of looping', async ({ page }) => {
     // logIn() / logOut() in react-oauth2-code-pkce are fire-and-forget: the
     // library swallows its own rejection and the message surfaces ONLY as
@@ -108,52 +152,83 @@ test.describe('OAuth2 authorization-code login', () => {
     // way to be visible — AuthFailure — and if that branch regresses the user
     // gets the boot overlay forever.
     //
-    // The exchange has to be reached the real way, through the provider, so the
-    // library's loginInProgress flag and PKCE verifier are in place — and it has
-    // to fail TWICE. The callback route recovers from the first failure with one
-    // fresh logIn() (an expired or replayed code is the common case) and shows
-    // the error only when that attempt fails as well.
-    const tokenAttempts: number[] = []
-    await page.route(`${IDP}/token`, (route) => {
-      tokenAttempts.push(Date.now())
-      return route.fulfill({
-        status: 400,
-        contentType: 'application/json',
-        body: '{"error":"invalid_grant"}',
-      })
-    })
+    // It has to fail TWICE. The callback route recovers from the first failure
+    // with one fresh logIn() (an expired or replayed code is the common case)
+    // and shows the error only when a second failure follows within the window.
+    //
+    // A failure recorded two minutes ago is seeded first: it is outside the
+    // window, so it must not cost this failure its retry. (The budget used to be
+    // a counter only a success reset, and a tab that had once spent its retry
+    // showed every later failure at once.)
+    await seedRetryRecord(page, 120_000)
+    const tokenAttempts = await failEveryTokenExchange(page)
 
-    // The provider may show its form again on the second visit or, holding a
-    // session, redirect straight back; either way the exchange is what counts.
-    const signInIfAsked = async () => {
-      const username = page.locator('input[name="username"]')
-      const asked = await username.waitFor({ state: 'visible', timeout: 15_000 }).then(
-        () => true,
-        () => false,
-      )
-      if (!asked) return
-      await username.fill(USER.username)
-      await page.fill('input[name="password"]', USER.password)
-      await page.click('button[type="submit"]')
-    }
+    // Every time the error card is in the DOM, record when — sessionStorage on
+    // the app's origin survives the redirects through the provider.
+    await page.addInitScript(() => {
+      new MutationObserver(() => {
+        if (!/Login Error/.test(document.querySelector('h1')?.textContent ?? '')) return
+        const seen = JSON.parse(sessionStorage.getItem('e2e_login_error_seen') ?? '[]')
+        sessionStorage.setItem('e2e_login_error_seen', JSON.stringify([...seen, Date.now()]))
+      }).observe(document, { childList: true, subtree: true })
+    })
 
     await page.goto('/')
-    await signInIfAsked()
+    await signInIfAsked(page)
     await expect.poll(() => tokenAttempts.length, { timeout: 30_000 }).toBe(1)
     // The automatic retry is a fresh logIn(): back to the provider once more.
-    await signInIfAsked()
+    await signInIfAsked(page)
     await expect.poll(() => tokenAttempts.length, { timeout: 30_000 }).toBe(2)
 
-    // Named, not just `level: 1`: every standalone page now carries an <h1>, so
-    // "some h1 appeared" no longer distinguishes the failure page from any other
-    // page this could have landed on.
-    await expect(page.getByRole('heading', { level: 1, name: /Login Error/ })).toBeVisible({
-      timeout: 30_000,
-    })
+    await expect(loginError(page)).toBeVisible({ timeout: 30_000 })
     await expect
       .poll(() => page.evaluate(() => document.getElementById('app-loader')?.hasAttribute('hidden') ?? true))
       .toBe(true)
     // Still two once the error is up: one automatic retry, then a human, never a loop.
     expect(tokenAttempts).toHaveLength(2)
+
+    // The first failure was retried behind the overlay: the card never rendered
+    // before the second exchange. It used to, for as long as the redirect took.
+    const seen: number[] = await page.evaluate(() =>
+      JSON.parse(sessionStorage.getItem('e2e_login_error_seen') ?? '[]'),
+    )
+    expect(seen.length).toBeGreaterThan(0)
+    expect(seen.every((at) => at >= tokenAttempts[1])).toBe(true)
+  })
+
+  test('a failure within a minute of another, in any tab, is shown without a retry', async ({ page }) => {
+    // The record is shared through localStorage, so a failure another tab
+    // recorded ten seconds ago means this one is the second in the window.
+    await seedRetryRecord(page, 10_000)
+    const tokenAttempts = await failEveryTokenExchange(page)
+
+    await page.goto('/')
+    await signInIfAsked(page)
+
+    await expect(loginError(page)).toBeVisible({ timeout: 30_000 })
+    expect(tokenAttempts).toHaveLength(1)
+  })
+
+  test('Try Again shows a spinner and is disabled while the login restarts', async ({ page }) => {
+    await seedRetryRecord(page, 10_000)
+    await failEveryTokenExchange(page)
+
+    await page.goto('/')
+    await signInIfAsked(page)
+    await expect(loginError(page)).toBeVisible({ timeout: 30_000 })
+
+    const tryAgain = page.getByRole('button', { name: 'Try Again' })
+    await expect(tryAgain).toBeEnabled()
+
+    // Keep the clicked page on screen: a 204 answer to a navigation leaves the
+    // current document in place, so the redirect to the provider starts and
+    // goes nowhere. (Leaving the request unanswered instead keeps Playwright
+    // waiting on the pending navigation, and nothing can be observed.)
+    await page.route(`${IDP}/authorize**`, (route) => route.fulfill({ status: 204 }))
+    await tryAgain.click()
+
+    await expect(tryAgain).toBeDisabled()
+    await expect(tryAgain).toHaveAttribute('aria-busy', 'true')
+    await expect(tryAgain.locator('svg.animate-spin')).toBeVisible()
   })
 })

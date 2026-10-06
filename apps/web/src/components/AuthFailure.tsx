@@ -1,5 +1,7 @@
-import { AlertCircle } from 'lucide-react'
+import { useState } from 'react'
+import { AlertCircle, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useAuth } from '@/hooks/useAuth'
 import { useT } from '@/i18n'
 
 interface AuthFailureProps {
@@ -24,6 +26,16 @@ interface AuthFailureProps {
  */
 export function AuthFailure({ message, onRetry, title, description }: AuthFailureProps) {
   const t = useT()
+  const { loginInProgress } = useAuth()
+  // Busy from the click until the redirect leaves the page. logIn() is
+  // fire-and-forget and gives the caller nothing to await, so the library's own
+  // loginInProgress is the signal: it is set synchronously by logIn() and
+  // cleared again only when the redirect could not be started — which also
+  // re-enables the button for another attempt. Both legs reach this card with
+  // it cleared (a failed start, or a failed exchange), so it cannot read busy
+  // before a click.
+  const [retried, setRetried] = useState(false)
+  const busy = retried && loginInProgress
   // Defaulted in the body rather than in the parameter list: a default there is
   // evaluated before any hook has run, so it could not be translated.
   const heading = title ?? t('Login Error')
@@ -41,7 +53,16 @@ export function AuthFailure({ message, onRetry, title, description }: AuthFailur
           {message}
         </div>
         <div className="mt-6 space-y-3">
-          <Button onClick={onRetry} className="w-full">
+          <Button
+            onClick={() => {
+              setRetried(true)
+              onRetry()
+            }}
+            disabled={busy}
+            aria-busy={busy}
+            className="w-full"
+          >
+            {busy && <Loader2 aria-hidden className="mr-2 h-4 w-4 animate-spin" />}
             {t('Try Again')}
           </Button>
           <p className="text-xs text-muted-foreground">

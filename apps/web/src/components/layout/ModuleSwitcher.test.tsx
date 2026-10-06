@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, beforeEach } from 'vitest'
 import { ModuleSwitcher } from './ModuleSwitcher'
@@ -20,12 +20,14 @@ import { bootApp, renderInApp } from '@/test/appHarness'
  * mapping, and the real icon and color fallbacks.
  *
  * IT READS THE FIXTURE TENANT. The assertions below name what the `tests` tenant
- * actually contains — `Northwind` (description "Northwind Sample Database", no
- * logo color) and `_core` (description "Administration"). That is deliberate:
- * they are the platform's own demo modules, and between them they exercise both
- * display rules and both color branches. If the tenant's demo data is edited,
- * this fails loudly and gets updated — which is the point of testing against
- * data that exists rather than data invented to make an assertion pass.
+ * actually contains. By name order it opens with `Equipment Maintenance` (its own
+ * logo color), and the menu lists `Northwind` (description "Northwind Sample
+ * Database", no logo color) and `_core` (description "Administration"). Between
+ * them they exercise both display rules and both color branches. If the tenant's
+ * demo data is edited, this fails loudly and gets updated — which is the point of
+ * testing against data that exists rather than data invented to make an
+ * assertion pass. (It was updated once already: `Equipment Maintenance` and
+ * `Fuhrpark` were added and moved `Northwind` off the first position.)
  */
 
 function renderSwitcher() {
@@ -43,13 +45,24 @@ describe('ModuleSwitcher', () => {
     await bootApp()
   })
 
+  // The trigger shows the active module, which starts as the first by name.
+  const FIRST = 'Equipment Maintenance'
+
+  async function openMenu() {
+    const user = userEvent.setup()
+    renderSwitcher()
+    const trigger = await waitFor(() => screen.getByRole('button', { name: new RegExp(FIRST) }), NETWORK)
+    await user.click(trigger)
+    return screen.findByRole('menu')
+  }
+
   it('shows the first module by name order, under the name the display rule gives it', async () => {
     renderSwitcher()
 
-    // `Northwind` sorts before `_core`, and its description begins with its
-    // name, so the description is promoted to the single visible line.
+    // Its description does not begin with its name, so the name stays the
+    // visible line.
     await waitFor(
-      () => expect(screen.getByText('Northwind Sample Database')).toBeInTheDocument(),
+      () => expect(screen.getByRole('button', { name: new RegExp(FIRST) })).toBeInTheDocument(),
       NETWORK,
     )
   })
@@ -63,31 +76,24 @@ describe('ModuleSwitcher', () => {
     expect(container.querySelector('img')).toBeNull()
   })
 
-  it('falls back to the default blue when the row carries no logo color', async () => {
+  it('paints the active module with its own logo color', async () => {
     const { container } = renderSwitcher()
 
-    // Northwind's logo_color is empty in the tenant, which is the fallback path.
-    await waitFor(
-      () => expect(screen.getByText('Northwind Sample Database')).toBeInTheDocument(),
-      NETWORK,
-    )
+    await waitFor(() => screen.getByRole('button', { name: new RegExp(FIRST) }), NETWORK)
     const tile = container.querySelector('[style*="background-color"]')
-    expect(tile).toHaveStyle({ backgroundColor: '#0000FF' })
+    expect(tile).toHaveStyle({ backgroundColor: '#520e17' })
   })
 
-  it('lists the other modules, each painted with its own logo color', async () => {
-    const user = userEvent.setup()
-    renderSwitcher()
+  it('lists the other modules, each under its display name and logo color', async () => {
+    const menu = await openMenu()
+    const tileOf = (text: string) =>
+      within(menu).getByText(text).parentElement?.querySelector('[style*="background-color"]') ?? null
 
-    await waitFor(
-      () => expect(screen.getByText('Northwind Sample Database')).toBeInTheDocument(),
-      NETWORK,
-    )
-    await user.click(screen.getByRole('button', { name: /Northwind Sample Database/i }))
-
+    // `Northwind`'s description begins with its name, so the description is
+    // promoted to the single visible line; its logo_color is empty in the
+    // tenant, which is the fallback path.
+    expect(tileOf('Northwind Sample Database')).toHaveStyle({ backgroundColor: '#0000FF' })
     // `_core` is an internal module: the underscore rule shows its description.
-    const administration = await waitFor(() => screen.getByText('Administration'))
-    const tile = administration.parentElement?.querySelector('[style*="background-color"]')
-    expect(tile).toHaveStyle({ backgroundColor: '#029948' })
+    expect(tileOf('Administration')).toHaveStyle({ backgroundColor: '#029948' })
   })
 })
