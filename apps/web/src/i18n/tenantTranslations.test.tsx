@@ -118,14 +118,16 @@ describe('the platform features the preferences need', () => {
 
 describe('the model the keys are built from', () => {
   it('get_schema names the module slug and shapes a child relation as table.field', async () => {
-    const response = await api('/rpc/get_schema', { method: 'POST', body: JSON.stringify({ p_table_name: 'orders' }) })
+    // `roles` is the platform's own (module `admin`), so it exists on every
+    // backend — a sample module like Northwind does not — and it has children.
+    const response = await api('/rpc/get_schema', { method: 'POST', body: JSON.stringify({ p_table_name: 'roles' }) })
     expect(response.ok, await response.clone().text()).toBe(true)
     const schema: EntityMetadata = await response.json()
 
     // The slug comes from the model, never from the route: a parent-filtered
     // view fetches ANOTHER entity's schema, and this is where its module is.
-    expect(schema.table?.module_slug).toBe('nwind')
-    expect(schema.table?.table_name).toBe('orders')
+    expect(schema.table?.module_slug).toBe('admin')
+    expect(schema.table?.table_name).toBe('roles')
     for (const child of schema.children ?? []) {
       // `<child table>.<fk field>` — the two segments the child keys are built from.
       expect(child.id, child.id).toMatch(/^[a-z0-9_]+\.[a-z0-9_]+$/)

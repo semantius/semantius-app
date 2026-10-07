@@ -1,9 +1,11 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { ModuleSwitcher } from './ModuleSwitcher'
 import { SidebarProvider } from '@/components/ui/sidebar'
+import { disableCollector } from '@/i18n/missing'
 import { bootApp, renderInApp } from '@/test/appHarness'
+import { db, deleteVitestModules, moduleFixture } from '@/test/moduleFixture'
 
 /**
  * The module switcher against the tenant's real modules.
@@ -19,14 +21,14 @@ import { bootApp, renderInApp } from '@/test/appHarness'
  * file covers the wiring: the real query (`order=module_name.asc`), the real
  * mapping, and the real icon and color fallbacks.
  *
- * IT READS THE FIXTURE TENANT, BUT ONLY WHAT IS STABLE. The tenant's demo
- * modules come and go, and pinning which one sorts first broke this file every
- * time one was added. So the active module is checked against the menu (the
- * trigger shows whatever the menu lists first), never by name. The only rows
- * named are the platform's own two — `Northwind` (description "Northwind Sample
- * Database", no logo color) and `_core` (description "Administration") — which
- * between them exercise both display rules and both color branches.
+ * IT NAMES NO TENANT MODULE. The tenant's demo modules come and go, and pinning
+ * which one sorts first broke this file every time one was added; Northwind is
+ * not on every backend either. So the active module is checked against the menu
+ * (the trigger shows whatever the menu lists first), and the rows the last test
+ * names are two it writes itself and deletes again.
  */
+
+const FILE = 'ModuleSwitcher.test.tsx'
 
 function renderSwitcher() {
   return renderInApp(
@@ -44,6 +46,10 @@ const tileIn = (el: Element) => el.querySelector<HTMLElement>('[style*="backgrou
 describe('ModuleSwitcher', () => {
   beforeEach(async () => {
     await bootApp()
+  })
+
+  afterEach(async () => {
+    await deleteVitestModules()
   })
 
   // The loading skeleton is a plain button; only the loaded switcher is a menu
@@ -88,19 +94,31 @@ describe('ModuleSwitcher', () => {
   })
 
   it('lists the modules in name order, each under its display name and logo color', async () => {
+    // Fixture names are not product text: the collector would record them into
+    // en-US.json the moment the menu renders them.
+    disableCollector()
+    // Both names start with `_`, so the underscore rule shows the description
+    // (the rules themselves are getModuleDisplay.test.ts's) — made unique per
+    // row, because CI runs share the tenant. One has no logo_color: the
+    // fallback path. The other has its own.
+    const fixture = (logo_color: string | null) => {
+      const row = { ...moduleFixture(FILE), logo_color }
+      return { ...row, description: `${row.description} ${row.module_slug}` }
+    }
+    const plain = fixture(null)
+    const colored = fixture('#123456')
+    const created = await db('/modules', { method: 'POST', body: JSON.stringify([plain, colored]) })
+    expect(created.ok, await created.clone().text()).toBe(true)
+
     const { menu, modules } = await openMenu()
-    const item = (text: string) => within(menu).getByText(text).closest('[role="menuitem"]')!
+    const item = (text: string) => within(menu).getByText(text).closest<HTMLElement>('[role="menuitem"]')!
 
-    // `Northwind`'s description begins with its name, so the description is
-    // promoted to the single visible line; its logo_color is empty in the
-    // tenant, which is the fallback path.
-    expect(tileIn(item('Northwind Sample Database'))).toHaveStyle({ backgroundColor: '#0000FF' })
-    // `_core` is an internal module: the underscore rule shows its description.
-    expect(tileIn(item('Administration'))).toHaveStyle({ backgroundColor: '#029948' })
+    expect(tileIn(item(plain.description))).toHaveStyle({ backgroundColor: '#0000FF' })
+    expect(tileIn(item(colored.description))).toHaveStyle({ backgroundColor: '#123456' })
 
-    // By `module_name`, `Northwind` sorts before `_core`, whatever else the
-    // tenant holds around them.
-    expect(modules.indexOf(item('Northwind Sample Database') as HTMLElement))
-      .toBeLessThan(modules.indexOf(item('Administration') as HTMLElement))
+    // By `module_name`. The two differ only in hex digits after a shared
+    // prefix, which every collation orders the same way.
+    const [first, second] = plain.module_name < colored.module_name ? [plain, colored] : [colored, plain]
+    expect(modules.indexOf(item(first.description))).toBeLessThan(modules.indexOf(item(second.description)))
   })
 })

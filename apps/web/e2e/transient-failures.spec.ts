@@ -43,8 +43,23 @@ const RPC_USERINFO = /\/rpc\/get_userinfo(\?|$)/
 const MODULES_QUERY = /\/modules\?/
 /** The table route's blocking loader — a PostgREST function call, not a query. */
 const GET_SCHEMA = /\/rpc\/get_schema(\?|$)/
-/** A table the tenant has, reached through the route whose loader is get_schema. */
-const TABLE_PATH = '/nwind/customers'
+/**
+ * A table the tenant has, reached through the route whose loader is get_schema.
+ * Administration is the platform's own module, so it exists on every backend —
+ * a sample module like Northwind does not — and `roles` renders through the
+ * generic table view (only `users` and `modules` have their own).
+ */
+const TABLE_PATH = '/admin/roles'
+
+/**
+ * The table route arrived: its grid is rendered. Not the heading's text — that
+ * is the entity's `plural_label`, model data an edit to the tenant may reword —
+ * and the route renders nothing until get_schema has answered, while the error
+ * and not-found pages carry no table at all.
+ */
+function tableGrid(page: Page) {
+  return page.getByRole('main').getByRole('table')
+}
 
 /**
  * The two cards this whole file exists to keep off the screen.
@@ -111,6 +126,19 @@ async function signIn(page: Page) {
   await page.goto(`/#jwt=${token}`)
 }
 
+/**
+ * The sidebar's module switcher, once the `/modules` query has answered — it
+ * renders past the ProtectedRoute gate, and only as a disabled skeleton until
+ * then. Found by its place, NOT by the module it names: at `/` it shows the
+ * tenant's FIRST module by name, so any demo module added to the tenant that
+ * sorts ahead of Northwind failed every test here while the app was fine —
+ * `ModuleSwitcher.test.tsx` met the same thing and stopped naming it too. The
+ * menu trigger carries `aria-expanded`; the skeleton does not.
+ */
+function moduleSwitcher(page: Page) {
+  return page.locator('[data-slot="sidebar-header"]').getByRole('button', { expanded: false })
+}
+
 test.describe('a transient failure never reaches the user', () => {
   test('a rate-limited userinfo is retried, not shown', async ({ page }) => {
     const attempts = await failFirst(page, USERINFO, { times: 2, status: 429, retryAfter: '1' })
@@ -119,7 +147,7 @@ test.describe('a transient failure never reaches the user', () => {
 
     // The app arrives: the sidebar is rendered, which only happens past the
     // ProtectedRoute gate.
-    await expect(page.getByRole('button', { name: /Northwind/i })).toBeVisible({ timeout: 30_000 })
+    await expect(moduleSwitcher(page)).toBeVisible({ timeout: 30_000 })
     await expect(page.getByText(PROVIDER_CARD)).toHaveCount(0)
     // The 429s really were served — otherwise this test proves nothing.
     expect(attempts.failed).toBe(2)
@@ -135,7 +163,7 @@ test.describe('a transient failure never reaches the user', () => {
 
     await signIn(page)
 
-    await expect(page.getByRole('button', { name: /Northwind/i })).toBeVisible({ timeout: 30_000 })
+    await expect(moduleSwitcher(page)).toBeVisible({ timeout: 30_000 })
     await expect(page.getByText(API_CARD)).toHaveCount(0)
     expect(attempts.failed).toBe(1)
     expect(attempts.total).toBeGreaterThan(1)
@@ -150,7 +178,7 @@ test.describe('a transient failure never reaches the user', () => {
 
     await signIn(page)
 
-    await expect(page.getByRole('button', { name: /Northwind/i })).toBeVisible({ timeout: 30_000 })
+    await expect(moduleSwitcher(page)).toBeVisible({ timeout: 30_000 })
     expect(attempts.failed).toBe(2)
     expect(attempts.total).toBeGreaterThan(2)
   })
@@ -179,7 +207,7 @@ test.describe('a transient failure never reaches the user', () => {
     await signIn(page)
 
     // Past the ProtectedRoute gate, with the chrome rendered.
-    await expect(page.getByRole('button', { name: /Northwind/i })).toBeVisible({ timeout: 60_000 })
+    await expect(moduleSwitcher(page)).toBeVisible({ timeout: 60_000 })
     await expect(page.getByText(PROVIDER_CARD)).toHaveCount(0)
     await expect
       .poll(() =>
@@ -200,7 +228,7 @@ test.describe('a transient failure never reaches the user', () => {
 
     await page.goto(`${TABLE_PATH}#jwt=${token}`)
 
-    await expect(page.getByRole('heading', { level: 1, name: /customers/i })).toBeVisible({ timeout: 30_000 })
+    await expect(tableGrid(page)).toBeVisible({ timeout: 30_000 })
     await expect(page.getByText('404 - Page Not Found')).toHaveCount(0)
     expect(attempts.failed).toBe(2)
     expect(attempts.total).toBeGreaterThan(2)
@@ -232,7 +260,7 @@ test.describe('a transient failure never reaches the user', () => {
     // re-render of the old failure.
     inject = false
     await tryAgain.click()
-    await expect(page.getByRole('heading', { level: 1, name: /customers/i })).toBeVisible({ timeout: 30_000 })
+    await expect(tableGrid(page)).toBeVisible({ timeout: 30_000 })
   })
 })
 
@@ -274,7 +302,7 @@ test.describe('how many times the transport asks', () => {
 
   test.beforeEach(async ({ page }) => {
     await signIn(page)
-    await expect(page.getByRole('button', { name: /Northwind/i })).toBeVisible({ timeout: 30_000 })
+    await expect(moduleSwitcher(page)).toBeVisible({ timeout: 30_000 })
   })
 
   test('a read: up to the budget', async ({ page }) => {

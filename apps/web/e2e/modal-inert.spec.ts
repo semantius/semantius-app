@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import { exchangeApiKeyForToken } from '../src/test/exchangeApiKeyForToken'
 
 /**
@@ -12,10 +12,13 @@ import { exchangeApiKeyForToken } from '../src/test/exchangeApiKeyForToken'
  * that, and — the part that could silently regress — that it comes OFF before
  * Base UI returns focus to the opener, or every Escape would drop focus on
  * <body>.
+ *
+ * It reads Administration's `roles`: the platform's own module exists on every
+ * backend, a sample module like Northwind does not. No record id is assumed —
+ * the deep link is taken from a row the grid actually rendered.
  */
 
-const RECORD_PATH = '/nwind/orders/11077'
-const LIST_PATH = '/nwind/orders'
+const LIST_PATH = '/admin/roles'
 
 let token: string
 
@@ -23,8 +26,18 @@ test.beforeAll(async () => {
   token = (await exchangeApiKeyForToken()).access_token
 })
 
+/** The grid's first record link — the label cell of its first row. */
+function firstRowLink(page: Page) {
+  return page.locator(`tbody a[href*="${LIST_PATH}/"]`).first()
+}
+
 test('a deep-linked record Sheet makes the page behind it inert', async ({ page }) => {
-  await page.goto(`${RECORD_PATH}#jwt=${token}`)
+  await page.goto(`${LIST_PATH}#jwt=${token}`)
+  const recordPath = await firstRowLink(page).getAttribute('href', { timeout: 30_000 })
+  expect(recordPath).toBeTruthy()
+
+  // A fresh document at the record's url — the deep link, not a row click.
+  await page.goto(recordPath!)
 
   const sheet = page.getByRole('dialog')
   await expect(sheet).toBeVisible({ timeout: 30_000 })
@@ -47,7 +60,7 @@ test('a deep-linked record Sheet makes the page behind it inert', async ({ page 
 
 test('closing the Sheet lifts inert first, so focus returns to the opener', async ({ page }) => {
   await page.goto(`${LIST_PATH}#jwt=${token}`)
-  const rowLink = page.locator('tbody a[href*="/nwind/orders/"]').first()
+  const rowLink = firstRowLink(page)
   await expect(rowLink).toBeVisible({ timeout: 30_000 })
 
   // Open by keyboard, so there is a real opener to return to.
