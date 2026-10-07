@@ -3,7 +3,6 @@ import userEvent from '@testing-library/user-event'
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { ModuleSwitcher } from './ModuleSwitcher'
 import { SidebarProvider } from '@/components/ui/sidebar'
-import { disableCollector } from '@/i18n/missing'
 import { bootApp, renderInApp } from '@/test/appHarness'
 import { db, deleteVitestModules, moduleFixture } from '@/test/moduleFixture'
 
@@ -94,9 +93,6 @@ describe('ModuleSwitcher', () => {
   })
 
   it('lists the modules in name order, each under its display name and logo color', async () => {
-    // Fixture names are not product text: the collector would record them into
-    // en-US.json the moment the menu renders them.
-    disableCollector()
     // Both names start with `_`, so the underscore rule shows the description
     // (the rules themselves are getModuleDisplay.test.ts's) — made unique per
     // row, because CI runs share the tenant. One has no logo_color: the

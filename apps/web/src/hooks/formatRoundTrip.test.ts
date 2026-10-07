@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { getApiConfig } from '@/lib/apiClient'
 import { getConfig, initConfig } from '@/lib/config'
 import { testToken } from '@/test/session'
+import { PREFIX, SLUG_PREFIX } from '@/test/moduleFixture'
 import { encodeBytes, decodeBytes } from '@/lib/fileEncoding'
 
 /**
@@ -21,7 +22,6 @@ import { encodeBytes, decodeBytes } from '@/lib/fileEncoding'
  * cleanup.
  */
 
-const PREFIX = '_vitest_'
 const REFRESH_TIMEOUT_MS = 60_000
 const SAMPLE = new Uint8Array([0x48, 0x69, 0x0a, 0x00, 0xff])
 
@@ -58,7 +58,7 @@ beforeAll(async () => {
   await initConfig()
   baseUrl = getApiConfig().baseUrl
   const suffix = crypto.randomUUID().slice(0, 8)
-  const slug = 'vitest_' + suffix
+  const slug = SLUG_PREFIX + suffix
   table = PREFIX + 'fmt_' + suffix
 
   const modRes = await db('/modules', {

@@ -17,6 +17,19 @@ import { testToken } from './session'
 /** Every row a test writes carries it. */
 export const PREFIX = '_vitest_'
 
+/** Every fixture module's slug starts with it, and so every model key under one. */
+export const SLUG_PREFIX = 'vitest_'
+
+/**
+ * A translation key minted from fixture data: `module.<fixture slug>.…` — the
+ * module's own name and description, and every entity and field a test built
+ * inside it. Discovery must never record one (`ignoreKeys` in setup.browser.ts):
+ * the module is deleted when the test ends, so the key names nothing.
+ */
+export function isFixtureKey(id: string): boolean {
+  return id.startsWith(`module.${SLUG_PREFIX}`)
+}
+
 /**
  * Unique per file run: Vitest gives each test file its own module instance, so
  * every file that imports this one gets a fresh value.
@@ -31,7 +44,7 @@ const STALE_AFTER_MS = 60 * 60 * 1000
  * description so a leftover row says where it came from.
  */
 export function moduleFixture(writtenBy: string) {
-  const slug = `vitest_${crypto.randomUUID().slice(0, 8)}`
+  const slug = `${SLUG_PREFIX}${crypto.randomUUID().slice(0, 8)}`
   return {
     module_name: `${RUN_PREFIX}${slug}`,
     description: `written by ${writtenBy}`,

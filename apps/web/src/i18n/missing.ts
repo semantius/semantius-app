@@ -61,6 +61,19 @@ const seen = new Set<string>()
 let flushTimer: ReturnType<typeof setTimeout> | undefined
 let flushing: Promise<void> | undefined
 let unsubscribeMissing: (() => void) | undefined
+let ignored: (id: string) => boolean = () => false
+
+/**
+ * Never record a key `predicate` accepts, whoever renders it. Survives
+ * `disableCollector()`. The browser test setup passes the fixtures' rule: tests
+ * create `_vitest_` modules on the shared tenant, and any OTHER file that
+ * renders the module list while one exists recorded it into the shipped index —
+ * a per-file `disableCollector()` cannot reach that. The rule lives with the
+ * fixtures (`src/test/moduleFixture.ts`), not here.
+ */
+export function ignoreKeys(predicate: (id: string) => boolean): void {
+  ignored = predicate
+}
 
 /**
  * Start recording. Idempotent — StrictMode and a re-boot both re-enter it. A
@@ -106,7 +119,7 @@ function onVisibilityChange(): void {
 }
 
 function record(id: string, source?: string): void {
-  if (!enabled || !id || id.length > MAX_KEY_LENGTH) return
+  if (!enabled || !id || id.length > MAX_KEY_LENGTH || ignored(id)) return
   const existing = pending.get(id)
   if (existing) {
     // Lingui's `missing` fires inside `_()` BEFORE the producer reports, with

@@ -11,7 +11,8 @@ import {
   setTranslateMode,
   setTranslateTarget,
 } from '@/i18n'
-import { disableCollector, enableCollector, flush } from '@/i18n/missing'
+import { disableCollector, enableCollector, flush, ignoreKeys } from '@/i18n/missing'
+import { isFixtureKey } from './moduleFixture'
 
 // Setup for the `browser` Vitest project (see vite.config.ts): everything that
 // touches a document, run in a real Chromium through Playwright.
@@ -49,6 +50,9 @@ function useDevTarget(): void {
 }
 
 beforeAll(async () => {
+  // A fixture module is live on the shared tenant while its test runs, and
+  // every file rendering the module list sees it — not only the one that made it.
+  ignoreKeys(isFixtureKey)
   useDevTarget()
   await activateLocale(SOURCE)
 })

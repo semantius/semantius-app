@@ -23,6 +23,10 @@ const KEY = messageId({ id: ID, defaultMessage: '' })
 const UNFILLED: MetadataId = [MODULE_ROOT, 'admin', 'users', 'field', '_vitest_never_set', 'description']
 const UNFILLED_KEY = messageId({ id: UNFILLED, defaultMessage: '' })
 
+/** A fixture module's name — its slug has the shape `src/test/moduleFixture.ts` gives one. */
+const FIXTURE: MetadataId = [MODULE_ROOT, 'vitest_probe00', 'name']
+const FIXTURE_KEY = messageId({ id: FIXTURE, defaultMessage: '' })
+
 async function record(locale: string): Promise<Record<string, string>> {
   const res = await fetch(translationsUrl(locale))
   return (await res.json()) as Record<string, string>
@@ -53,6 +57,7 @@ beforeEach(async () => {
 afterEach(async () => {
   await write(SOURCE_LANGUAGE, KEY, '')
   await write(SOURCE_LANGUAGE, UNFILLED_KEY, '')
+  await write(SOURCE_LANGUAGE, FIXTURE_KEY, '')
   await write('de-DE', KEY, '')
   await write('de-DE', UNFILLED_KEY, '')
   resetSourceIndex()
@@ -101,5 +106,23 @@ describe('a model attribute that has been cleared', () => {
     disableCollector()
 
     expect((await record(SOURCE_LANGUAGE))[KEY]).toBe('The new wording')
+  })
+})
+
+describe('a fixture module', () => {
+  it('is never recorded, whoever renders it', async () => {
+    // Tests create `_vitest_` modules on the shared tenant, and every file that
+    // renders the module list while one exists renders its name — six such keys
+    // were once committed to en-US.json. The setup tells the collector to
+    // ignore them; a real key in the same batch shows the collector did run.
+    enableCollector()
+    expect(metadataText(FIXTURE, '_vitest_probe00')).toBe('_vitest_probe00')
+    expect(metadataText(ID, 'A real description')).toBe('A real description')
+    await flush()
+    disableCollector()
+
+    const index = await record(SOURCE_LANGUAGE)
+    expect(index[KEY]).toBe('A real description')
+    expect(index[FIXTURE_KEY]).toBeUndefined()
   })
 })

@@ -45,8 +45,7 @@
   it work" is the reason every unapproved decision was ever made.
 - **A plan document in this repo is NOT agreed requirements unless the owner says
   so.** `i18n-plan.md` was treated as authority and built from; much of it was
-  invented in the document itself. `UNAUTHORIZED-DECISIONS.md` lists what came
-  from there rather than from the owner. Before implementing anything a plan
+  invented in the document itself. Before implementing anything a plan
   specifies, check whether the owner actually asked for it — and name any
   structural choice BEFORE writing code, not in the report afterwards.
 - **Never cite git authorship to attribute code to the human.** Agents work in the human's
@@ -417,7 +416,7 @@ pinning permanently. `state` re-reads it.
 
 **Lingui's RUNTIME only** — `@lingui/core`, `@lingui/react`, `@lingui/message-utils`
 — with no macros, no Babel plugin, no Vite transform, no CLI and no PO files. The
-language files (JSON, `apps/web/public/locales/`), the endpoint client and the
+language files (JSON, `i18n/` at the repository root), the endpoint client and the
 optional scan (`apps/web/scripts/i18n/extract.mjs`, TypeScript compiler API) are
 ours. Re-proposing the macros means re-proposing a Babel pass over every file in
 `vite build` and both Vitest projects, plus hashed ids that need source-text
@@ -459,16 +458,20 @@ through a VARIABLE into `appError()` is refused too, which is why the three
 mutation hooks spell their template at the `throw`.
 
 **One flat file per language, and `en-US.json` is the index.** `{ locale, name,
-messages, obsolete }`, all maps flat, in `public/locales/` — there is no
-`src/locales` and no `labels` / `server` / `rule` / `contexts` section. `en-US.json`
+messages, obsolete }`, all maps flat, in `i18n/` at the repository root — there
+is no `src/locales`, nothing under `public/locales/` but the two JSON schemas, and
+no `labels` / `server` / `rule` / `contexts` section. `en-US.json`
 has the same shape with the SOURCE text as every value: the complete baseline a
 new language is started from. It is NEVER loaded as the source language's
 catalog (`store.ts` skips it): a recorded source would render in place of a
 model label that has since been reworded. `__SHIPPED_LOCALES__` — the language
 files present at build time, read off the folder by `vite.config.ts` and
 declared in `src/env.d.ts` — is what `availableLanguages()` lists; the files stay
-static assets, fetched one at a time. `TRANSLATION-GUIDE.md` lives in
-`scripts/i18n/`.
+static assets, fetched one at a time at `/locales/<code>.json`, which
+`emitLanguageFiles()` in `vite.config.ts` copies into `dist/locales/` on a build
+and serves from `i18n/` in dev — the URL did not move with the folder.
+`TRANSLATION-GUIDE.md` lives beside them in `i18n/`; the scripts stay in
+`apps/web/scripts/i18n/`.
 
 **There is no glossary file, and a flat term map is not the way back to one.**
 `scripts/i18n/glossary.json` held eight English-to-German pairs and a catalog
@@ -491,17 +494,18 @@ renderings of one English source is found by a consistency report over the whole
 catalog.
 
 **A work file is WORK, and it is committed.** `i18n:translate` writes
-`public/locales/work-<locale>.json` BESIDE the language it is about — not in a
+`i18n/work-<locale>.json` BESIDE the language it is about — not in a
 dotfolder — and it is tracked like any other authored file. The tempting
 argument is that it regenerates, so ignore it; that is true only of an EMPTY
 one. A partly filled work file is somebody's half-finished translation, and
 regenerating hands back empty strings, so ignoring it loses that work the
 moment the device changes. Being in the repo must not mean being deployed:
-`public/` is copied into `dist/` wholesale and Vite has no per-file exclude, so
-`dropWorkFiles()` in `vite.config.ts` removes them in `writeBundle`. Nothing
-lists one as a language either — no BCP-47 tag matches `work-*.json`, which
-`i18nCatalogs.test.ts` pins, because loosening that regex would put a
-translator's file in the language switcher.
+`i18n/` is outside `publicDir`, and the build emits only files named by a BCP-47
+tag (`LANGUAGE_FILE` in `vite.config.ts`) — an ALLOWLIST, so the work files,
+todo files, guide and plan documents in the same flat folder never reach
+`dist/`. The same regex is why nothing lists a work file as a language, which
+`i18nCatalogs.test.ts` pins: loosening it would ship a translator's file and put
+it in the language switcher.
 
 **The same reasoning makes REBUILDING it non-destructive.** `buildWorkFile`
 takes `previous` — the file already on disk — and carries every filled
@@ -598,14 +602,19 @@ empty entry only when the language's file does not mention the key
 message per POST. It runs only where the target's mode DISCOVERS (`dev`,
 `stage`). `setup.browser.ts` points the target at the dev server and enables the
 collector before every test, flushes after it: `pnpm check` fills
-`public/locales/en-US.json`, and its diff is the discovery. Consequences: a test
+`i18n/en-US.json`, and its diff is the discovery. Consequences: a test
 that renders a FIXTURE string — a probe sentence, a custom menu title — must
 `disableCollector()` first, or the string is shipped (`NavUser.test.tsx`,
 `i18n.test.tsx`, `translateMode.test.tsx` do; the scan prunes a leak, but do not
-rely on it); a `.json` write under `public/` triggers NO Vite reload (matched
-against no module — verified in Vite 7's `handleHMRUpdate`), which is what makes
-writing the served folder mid-test safe; and the node project cannot discover
-(no server), so a string only a node test renders is a scan finding.
+rely on it). A fixture MODULE is the exception a per-file switch cannot reach:
+it is live on the shared tenant while its test runs, so every OTHER file that
+renders the module list records it — and the scan never prunes `module.*`. So
+`setup.browser.ts` passes `isFixtureKey` (`src/test/moduleFixture.ts`: any
+`module.vitest_*` key) to `ignoreKeys()`; fixture rows of a new shape need their
+keys covered there. A write to `i18n/` triggers NO Vite reload (it is in no
+module graph), which is what makes writing the language files mid-test safe;
+and the node project cannot discover (no server), so a string only a node test
+renders is a scan finding.
 
 **`i18n:extract` is an optional tool you run, never a gate.** Not in `pnpm build`,
 `pnpm check` or a hook — the drift assertion that once made it mandatory is
