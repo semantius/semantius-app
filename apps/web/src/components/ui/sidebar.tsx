@@ -276,13 +276,13 @@ function SidebarTrigger({
       variant="ghost"
       size="icon-sm"
       className={cn(className)}
-      aria-expanded={expanded}
-      aria-controls={SIDEBAR_ID}
       onClick={(event) => {
         onClick?.(event)
         toggleSidebar()
       }}
       {...props}
+      aria-expanded={expanded}
+      aria-controls={SIDEBAR_ID}
     >
       <PanelLeftIcon className="rtl:rotate-180" />
       <span className="sr-only">Toggle Sidebar</span>
