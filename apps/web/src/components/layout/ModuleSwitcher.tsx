@@ -78,7 +78,7 @@ export function ModuleSwitcher({
   const params = useParams({ strict: false })
   const { moduleId } = params as { moduleId?: string }
   const navigateToModule = useModuleNavigate()
-  const { isMobile } = useSidebar()
+  const { isMobile, setOpenMobile } = useSidebar()
   const [activeModule, setActiveModule] = React.useState<ModuleItem | undefined>(undefined)
 
   React.useEffect(() => {
@@ -106,13 +106,16 @@ export function ModuleSwitcher({
 
   const handleModuleClick = React.useCallback((module: ModuleItem) => {
     setActiveModule(module)
+    // The sheet is a modal overlay; leave it up and the new module home is
+    // already there, just hidden. Close first so the navigation is visible.
+    setOpenMobile(false)
     navigateToModule({
       homePage: module.home_page,
       moduleId: module.id,
       moduleName: module.name,
       moduleSlug: module.slug,
     })
-  }, [navigateToModule])
+  }, [navigateToModule, setOpenMobile])
 
   if (loading) {
     return (
