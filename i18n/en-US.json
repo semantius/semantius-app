@@ -385,6 +385,7 @@
     "To pick up a sortable item, press space or enter. While dragging, use the {orientation, select, vertical {up and down} horizontal {left and right} other {arrow}} keys to move the item. Press space or enter again to drop the item in its new position, or press escape to cancel.": "To pick up a sortable item, press space or enter. While dragging, use the {orientation, select, vertical {up and down} horizontal {left and right} other {arrow}} keys to move the item. Press space or enter again to drop the item in its new position, or press escape to cancel.",
     "Today, {day}": "Today, {day}",
     "Today, {day}, selected": "Today, {day}, selected",
+    "Toggle Sidebar": "Toggle Sidebar",
     "Toggle columns": "Toggle columns",
     "Toggle theme ({theme, select, dark {Dark} light {Light} other {System}})": "Toggle theme ({theme, select, dark {Dark} light {Light} other {System}})",
     "Total Orders": "Total Orders",
