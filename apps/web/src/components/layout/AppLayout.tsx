@@ -2,6 +2,7 @@ import { Outlet } from '@tanstack/react-router'
 import { useT } from '@/i18n'
 import { Header } from './Header'
 import { AppSidebar } from './AppSidebar'
+import { CloseMobileSidebarOnNavigate } from './CloseMobileSidebarOnNavigate'
 import { CommandPalette } from './CommandPalette'
 import { SkipLink } from '@/components/a11y/SkipLink'
 import { MAIN_CONTENT_ID } from '@/components/a11y/landmarks'
@@ -18,6 +19,7 @@ export function AppLayout() {
     <SidebarProvider className="overflow-x-hidden">
       {/* First focusable element in the document — see SkipLink. */}
       <SkipLink />
+      <CloseMobileSidebarOnNavigate />
       <CommandPalette />
       {/* Renders nothing unless a translator switched it on in the account menu. */}
       <TranslateModeHost />

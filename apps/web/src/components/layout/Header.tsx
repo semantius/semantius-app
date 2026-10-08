@@ -1,5 +1,4 @@
 import { Link } from '@tanstack/react-router'
-import { PanelLeft } from 'lucide-react'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { useT } from '@/i18n'
 
@@ -8,9 +7,7 @@ export function Header() {
 
   return (
     <div className="flex h-full w-full items-center px-4 gap-2">
-      <SidebarTrigger>
-        <PanelLeft className="h-5 w-5" />
-      </SidebarTrigger>
+      <SidebarTrigger aria-label={t('Toggle Sidebar')} />
       
       <div className="flex items-center gap-2">
         <Link to="/" className="flex items-center gap-2 md:hidden">

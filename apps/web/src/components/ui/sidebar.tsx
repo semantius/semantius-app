@@ -31,6 +31,8 @@ const SIDEBAR_WIDTH = "16rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
 const SIDEBAR_WIDTH_ICON = "3rem"
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
+/** Shared by the trigger's aria-controls and both the desktop panel and the mobile sheet. */
+const SIDEBAR_ID = "app-sidebar"
 
 type SidebarContextProps = {
   state: "expanded" | "collapsed"
@@ -183,11 +185,12 @@ function Sidebar({
     return (
       <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
         <SheetContent
+          id={SIDEBAR_ID}
           dir={dir}
           data-sidebar="sidebar"
           data-slot="sidebar"
           data-mobile="true"
-          className="w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
+          className="w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground"
           style={
             {
               "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
@@ -199,7 +202,13 @@ function Sidebar({
             <SheetTitle>Sidebar</SheetTitle>
             <SheetDescription>Displays the mobile sidebar.</SheetDescription>
           </SheetHeader>
-          <div className="flex h-full w-full flex-col">{children}</div>
+          {/* pr-12 clears the close button, which is absolute top-4 right-4 on
+              the sheet. The CLI hides that button (`[&>button]:hidden`); we
+              keep it because the page behind a modal sheet is inert, so the
+              header trigger cannot dismiss it. */}
+          <div className="flex h-full w-full flex-col [&_[data-slot=sidebar-header]]:pr-12">
+            {children}
+          </div>
         </SheetContent>
       </Sheet>
     )
@@ -213,6 +222,7 @@ function Sidebar({
       data-variant={variant}
       data-side={side}
       data-slot="sidebar"
+      id={SIDEBAR_ID}
     >
       {/* This is what handles the sidebar gap on desktop */}
       <div
@@ -256,7 +266,8 @@ function SidebarTrigger({
   onClick,
   ...props
 }: React.ComponentProps<typeof Button>) {
-  const { toggleSidebar } = useSidebar()
+  const { toggleSidebar, open, openMobile, isMobile } = useSidebar()
+  const expanded = isMobile ? openMobile : open
 
   return (
     <Button
@@ -270,8 +281,10 @@ function SidebarTrigger({
         toggleSidebar()
       }}
       {...props}
+      aria-expanded={expanded}
+      aria-controls={SIDEBAR_ID}
     >
-      <PanelLeftIcon />
+      <PanelLeftIcon className="rtl:rotate-180" />
       <span className="sr-only">Toggle Sidebar</span>
     </Button>
   )

@@ -38,7 +38,7 @@ export function NavApps({
   moduleId: number | null
   moduleSlug: string | null
 }) {
-  const { isMobile } = useSidebar()
+  const { isMobile, setOpenMobile } = useSidebar()
   const matchRoute = useMatchRoute()
   const navigate = useNavigate()
   const t = useT()
@@ -136,6 +136,10 @@ export function NavApps({
                 isActive={isActive}
                 onClick={(e) => {
                   e.preventDefault()
+                  // Close before the destination loader runs — the sheet is a
+                  // modal overlay, so a tap with the sheet still up looks like
+                  // nothing happened (the route updates behind it).
+                  setOpenMobile(false)
                   // Explicitly clear search params to avoid inheriting sortBy, page, etc. from current page
                   navigate({ to: url, search: {}, replace: true })
                 }}

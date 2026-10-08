@@ -93,7 +93,7 @@ export function NavUser({
     avatar: string
   }
 }) {
-  const { isMobile } = useSidebar()
+  const { isMobile, setOpenMobile } = useSidebar()
   const router = useRouter()
   const t = useT()
   const userInitials = getUserInitials(user.name)
@@ -127,6 +127,7 @@ export function NavUser({
     // history.push, not navigate({ search }): these are pre-built URLs with a
     // query string, and TanStack's search serializer JSON-encodes values that
     // parse as JSON (an org slug like "1002" would become %221002%22).
+    setOpenMobile(false)
     router.history.push(entry.url)
   }
 

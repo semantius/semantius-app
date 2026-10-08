@@ -10,12 +10,14 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from '@/components/ui/sidebar'
 
 // Displays the current user's saved bookmarks (user_bookmarks table), ordered by
 // the hidden `row_order` column. The section is hidden entirely when there are none.
 export function NavBookmarks() {
   const navigate = useNavigate()
+  const { setOpenMobile } = useSidebar()
   const t = useT()
 
   // user_bookmarks is row-level scoped to the current user; order by the hidden
@@ -47,6 +49,7 @@ export function NavBookmarks() {
                   e.preventDefault()
                   if (!url) return
                   if (isInternal) {
+                    setOpenMobile(false)
                     navigate({ to: url })
                   } else {
                     window.open(url, '_blank', 'noopener,noreferrer')
