@@ -15,11 +15,14 @@ describe('EnumBadge', () => {
     expect(badge).toHaveTextContent('Active')
   })
 
-  it('renders a named icon to the left of the label', async () => {
+  it('renders a named icon to the left of the label at 16px', async () => {
     const { container } = render(<EnumBadge label="Shipped" icon="truck" color="#86EFAC" />)
     expect(screen.getByText('Shipped')).toHaveTextContent('Shipped')
     await waitFor(() => {
-      expect(container.querySelector('svg')).not.toBeNull()
+      const svg = container.querySelector('svg')
+      expect(svg).not.toBeNull()
+      expect(getComputedStyle(svg!).width).toBe('16px')
+      expect(getComputedStyle(svg!).height).toBe('16px')
     })
   })
 })

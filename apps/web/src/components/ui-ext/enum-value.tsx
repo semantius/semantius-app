@@ -36,9 +36,13 @@ export function EnumBadge({
     <Badge
       variant={painted ? 'outline' : variant}
       style={painted}
-      className={icon ? 'gap-1 pl-1.5' : undefined}
+      // Badge's `[&>svg]:size-3!` is 12px. The grid enum icon is 16px, and
+      // h-6 gives that glyph a 24px badge so overflow-hidden does not clip it.
+      className={icon ? 'h-6 gap-1 [&>svg]:size-4!' : undefined}
     >
-      {icon ? <NamedIcon name={icon} aria-hidden="true" data-icon="inline-start" /> : null}
+      {icon ? (
+        <NamedIcon name={icon} aria-hidden="true" data-icon="inline-start" className="size-4 shrink-0" />
+      ) : null}
       {label}
     </Badge>
   )
