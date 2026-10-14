@@ -40,6 +40,7 @@ export function InputColor({
       {(field: any) => {
         const error = field.state.meta.errors?.[0]
         const current = typeof field.state.value === 'string' ? field.state.value : ''
+        const display = current.startsWith('#') ? current.toUpperCase() : current
         const locked = disabled || readonly
         const showClearButton = !locked && !!current
         const pickerId = `${name}-color-picker`
@@ -109,12 +110,12 @@ export function InputColor({
                   <span
                     className={cn(
                       'truncate',
-                      current.startsWith('#') && 'font-mono uppercase',
+                      current.startsWith('#') && 'font-mono',
                       showClearButton && 'mr-7',
                       !current && !locked && 'text-muted-foreground',
                     )}
                   >
-                    {locked ? (current || '') : (current || t('No color'))}
+                    {locked ? (display || '') : (display || t('No color'))}
                   </span>
                   {!locked && <ChevronsUpDown className="ml-auto shrink-0 text-foreground opacity-50" />}
                 </PopoverTrigger>
