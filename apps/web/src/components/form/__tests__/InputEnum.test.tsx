@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { InputEnum } from '../InputEnum'
 import { chromeAccessibleName } from '@/test/chromeAccessibleName'
@@ -420,7 +420,8 @@ describe('InputEnum', () => {
       const pending = await screen.findByRole('option', { name: 'Pending' })
       expect(pending).toHaveAccessibleDescription('Order can still be modified')
       expect(pending.querySelector('[data-field-hint-trigger]')).not.toBeNull()
-      expect(pending.querySelector('button')).toBeNull()
+      // The option is the interactive; a nested button is axe nested-interactive.
+      expect(within(pending).queryByRole('button')).toBeNull()
       expect(screen.getByRole('option', { name: 'Picking' }).querySelector('[data-field-hint-trigger]')).toBeNull()
 
       await user.hover(pending.querySelector('[data-field-hint-trigger]')!)

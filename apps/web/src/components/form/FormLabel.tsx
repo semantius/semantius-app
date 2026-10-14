@@ -141,6 +141,7 @@ export function FieldHintPopover({
             // cmdk does not treat the press as a select of a different target,
             // and so the parent combobox popover does not see it as outside.
             <span
+              aria-hidden="true"
               data-field-hint-trigger=""
               data-icon-button=""
               data-i18n-text={description}
