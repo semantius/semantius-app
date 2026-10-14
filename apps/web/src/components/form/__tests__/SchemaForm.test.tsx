@@ -273,6 +273,23 @@ describe('SchemaForm', () => {
       const input = screen.getByLabelText(/bio/i)
       expect(input.tagName).toBe('INPUT')
     })
+
+    it('should use the color picker for color format', () => {
+      render(
+        <SchemaForm
+          schema={{
+            type: 'object',
+            properties: {
+              logo_color: { type: 'string', format: 'color', title: 'Logo Color' },
+            },
+          }}
+        />,
+      )
+
+      const trigger = screen.getByRole('combobox', { name: /Logo Color/ })
+      expect(trigger.tagName).toBe('BUTTON')
+      expect(trigger).toHaveTextContent('No color')
+    })
   })
 
   describe('Reset Functionality', () => {

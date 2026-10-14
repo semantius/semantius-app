@@ -47,6 +47,7 @@ import { InputRegex } from './InputRegex'
 import { InputEnum } from './InputEnum'
 import { InputReference } from './InputReference'
 import { InputIcon } from './InputIcon'
+import { InputColor } from './InputColor'
 import type { FormControlProps } from './types'
 
 export interface FormatEntry {
@@ -110,9 +111,9 @@ export const controls: Record<FormatName, FormatEntry> = {
   parent: text(InputReference),
   enum: text(InputEnum),
 
-  // Catalog extras: color is an HTML color string (text until a color picker
-  // exists), icon has its own picker, rating is a 0–5 integer.
-  color: text(InputText),
+  // Catalog extras: color is an HTML color string with a dropdown picker,
+  // icon has its own picker, rating is a 0–5 integer.
+  color: text(InputColor),
   icon: { control: InputIcon, width: 'm', gridColumn: true },
   rating: compact(InputNumber),
 
