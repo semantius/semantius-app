@@ -90,7 +90,22 @@ export function FormLabel({ htmlFor, label, description, required, error }: Form
   )
 }
 
-function FieldHintPopover({ label, description }: { label: string; description: string }) {
+/**
+ * The circle-help popover used next to a field label. `nested` is for a host
+ * that is already interactive (a listbox option): a button inside an option
+ * is axe `nested-interactive`, and a tab stop inside a combobox list is a
+ * second cursor. Hover still opens the same bubble; the option itself carries
+ * the description via `aria-describedby`.
+ */
+export function FieldHintPopover({
+  label,
+  description,
+  nested = false,
+}: {
+  label: string
+  description: string
+  nested?: boolean
+}) {
   const t = useT()
   const openedByHoverRef = useRef(false)
 
@@ -118,20 +133,35 @@ function FieldHintPopover({ label, description }: { label: string; description: 
       <PopoverTrigger
         openOnHover
         closeDelay={HINT_HOVER_CLOSE_MS}
+        nativeButton={!nested}
+        tabIndex={nested ? -1 : undefined}
         render={
-          // Translate mode marks this host from the tooltip (description),
-          // not the chrome aria-label. data-i18n-text is that payload;
-          // data-icon-button tells the mark to color the glyph instead of
-          // outlining the hit box (translateMode.css).
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            data-icon-button=""
-            data-i18n-text={description}
-            aria-label={t('Extended documentation guide for {label}', { label })}
-            className="-ml-1 text-muted-foreground"
-          />
+          nested ? (
+            // Not a button: the option is the interactive. Stop the pointer so
+            // cmdk does not treat the press as a select of a different target,
+            // and so the parent combobox popover does not see it as outside.
+            <span
+              aria-hidden="true"
+              data-field-hint-trigger=""
+              data-icon-button=""
+              data-i18n-text={description}
+              className="-mr-1 inline-flex size-6 shrink-0 items-center justify-center text-muted-foreground"
+            />
+          ) : (
+            // Translate mode marks this host from the tooltip (description),
+            // not the chrome aria-label. data-i18n-text is that payload;
+            // data-icon-button tells the mark to color the glyph instead of
+            // outlining the hit box (translateMode.css).
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              data-icon-button=""
+              data-i18n-text={description}
+              aria-label={t('Extended documentation guide for {label}', { label })}
+              className="-ml-1 text-muted-foreground"
+            />
+          )
         }
       >
         <CircleHelp aria-hidden="true" />

@@ -93,6 +93,7 @@ export type {
 export {
   localizeMetadata,
   enumLabel,
+  enumEntry,
   enumEntries,
   normalizeEnumEntry,
   metadataText,

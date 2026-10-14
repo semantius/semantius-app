@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 import { formatNumberForDisplay, resolvePrecision } from '@/lib/number-format'
 import { resolveControl } from '@/components/form/resolveControl'
 import { formatDateForDisplay, isDateFormat } from '@/lib/date-format'
-import { enumEntries, enumLabel, useFormattingLocale, useT, type TranslateFn } from '@/i18n'
+import { enumEntries, enumEntry, enumLabel, useFormattingLocale, useT, type TranslateFn } from '@/i18n'
 import { useTable } from '@/hooks/useTable'
 import { useUpdateRecord } from '@/hooks/useTableMutations'
 import { useConfirmDelete } from '@/hooks/useConfirmDelete'
@@ -51,6 +51,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { NamedIcon } from '@/components/ui-ext/named-icon'
+import { EnumBadge } from '@/components/ui-ext/enum-value'
 import { ColorSwatch } from '@/components/ui-ext/color-picker'
 import {
   MoreHorizontal,
@@ -858,19 +859,21 @@ export function DataTableView({
           }
 
           if (property.enum && Array.isArray(property.enum)) {
-            // The enum value exactly as the model spells it — it is data, and
-            // the variant below keeps comparing the RAW value. Only the "no
-            // value at all" case is a word of ours, so only that one is a
-            // message.
             // The variant keeps comparing the RAW value — it is data, and a
             // translated badge must not change color with the language. Only
             // the displayed text goes through the label override, and the "no
             // value at all" case is a word of ours, so it stays a message.
+            // A schema `color` paints the badge background and wins over these
+            // fallbacks; `icon` sits to the left of the label.
             const sv = String(value || '')
+            const entry = enumEntry(property, sv)
             return (
-              <Badge variant={sv === 'active' ? 'default' : sv === 'inactive' ? 'secondary' : 'outline'}>
-                {sv ? enumLabel(property, sv) : t('Unknown')}
-              </Badge>
+              <EnumBadge
+                icon={entry?.icon}
+                color={entry?.color}
+                label={sv ? enumLabel(property, sv) : t('Unknown')}
+                variant={sv === 'active' ? 'default' : sv === 'inactive' ? 'secondary' : 'outline'}
+              />
             )
           }
 

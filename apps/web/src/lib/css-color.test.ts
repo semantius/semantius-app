@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_HSVA,
+  contrastForeground,
   cssColorForSwatch,
+  enumBadgeColors,
   formatHex,
   formatHsl,
   formatRgb,
@@ -66,5 +68,24 @@ describe('css-color', () => {
 
   it('starts an empty picker on a saturated blue, not black', () => {
     expect(formatHex(DEFAULT_HSVA)).toBe('#0080ff')
+  })
+
+  it('picks dark text on a light enum color and white on a dark one', () => {
+    expect(contrastForeground('#FDBA74')).toBe('#111827')
+    expect(contrastForeground('#86EFAC')).toBe('#111827')
+    expect(contrastForeground('#111827')).toBe('#ffffff')
+    expect(contrastForeground('navy')).toBe('#ffffff')
+    expect(contrastForeground('not-a-color')).toBeUndefined()
+  })
+
+  it('paints enum badge colors only when the string is a real CSS color', () => {
+    expect(enumBadgeColors('#FDBA74')).toEqual({
+      backgroundColor: '#FDBA74',
+      color: '#111827',
+      borderColor: 'transparent',
+    })
+    expect(enumBadgeColors('amber')).toBeUndefined()
+    expect(enumBadgeColors(undefined)).toBeUndefined()
+    expect(enumBadgeColors('')).toBeUndefined()
   })
 })

@@ -76,16 +76,42 @@ export function reportClearedMetadata(id: MetadataId): void {
 export interface NormalizedEnumEntry {
   value: string
   label: string
+  description?: string
+  color?: string
+  icon?: string
+}
+
+function optionalMetaString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() !== '' ? value : undefined
 }
 
 /** Collapse one enum entry to `{ value, label }`, or drop it if it is not one. */
 export function normalizeEnumEntry(entry: unknown): NormalizedEnumEntry | undefined {
   if (typeof entry === 'string') return { value: entry, label: entry }
   if (entry !== null && typeof entry === 'object' && !Array.isArray(entry)) {
-    const value = (entry as { value?: unknown }).value
+    const rec = entry as {
+      value?: unknown
+      label?: unknown
+      description?: unknown
+      color?: unknown
+      icon?: unknown
+      iconName?: unknown
+    }
+    const value = rec.value
     if (typeof value !== 'string') return undefined
-    const label = (entry as { label?: unknown }).label
-    return { value, label: typeof label === 'string' ? label : value }
+    const label = rec.label
+    const description = optionalMetaString(rec.description)
+    const color = optionalMetaString(rec.color)
+    // Schema and `get_schema` spell this `icon`. The issue that added the UI
+    // called it `iconName`; accept both so a payload spelling either still paints.
+    const icon = optionalMetaString(rec.icon) ?? optionalMetaString(rec.iconName)
+    return {
+      value,
+      label: typeof label === 'string' ? label : value,
+      ...(description ? { description } : {}),
+      ...(color ? { color } : {}),
+      ...(icon ? { icon } : {}),
+    }
   }
   return undefined
 }
@@ -112,10 +138,15 @@ export function enumEntries(enumList: unknown): NormalizedEnumEntry[] {
  */
 export function enumLabel(property: JsonSchemaProperty | undefined, value: string): string {
   if (property?.enum_labels?.[value] != null) return property.enum_labels[value]
-  for (const entry of enumEntries(property?.enum)) {
-    if (entry.value === value) return entry.label
-  }
-  return value
+  return enumEntry(property, value)?.label ?? value
+}
+
+/** The normalized entry for one stored value, or undefined if it is not listed. */
+export function enumEntry(
+  property: JsonSchemaProperty | undefined,
+  value: string,
+): NormalizedEnumEntry | undefined {
+  return enumEntries(property?.enum).find((entry) => entry.value === value)
 }
 
 /**
