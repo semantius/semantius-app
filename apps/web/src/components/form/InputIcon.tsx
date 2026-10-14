@@ -1,11 +1,11 @@
 import { useRef, useState } from 'react'
+import { Popover as PopoverPrimitive } from '@base-ui/react/popover'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { inputSurfaceClassName } from '@/lib/utils-ext'
 import { Button } from '@/components/ui/button'
 import {
   Popover,
-  PopoverContent,
   PopoverDescription,
   PopoverTitle,
   PopoverTrigger,
@@ -163,25 +163,41 @@ export function InputIcon({
                   </button>
                 ) : null}
               </div>
-              <PopoverContent className="w-(--anchor-width) min-w-72 gap-0 p-0" align="start">
-                <PopoverTitle className="sr-only">{t('Choose an icon')}</PopoverTitle>
-                <PopoverDescription className="sr-only">{t('Select an icon from the list.')}</PopoverDescription>
-                <IconPicker
-                  id={pickerId}
-                  value={current}
-                  onSelect={(iconName) => {
-                    suppressFocusOpen.current = true
-                    field.setMeta((meta: any) => ({
-                      ...meta,
-                      errors: [],
-                      errorMap: {},
-                    }))
-                    field.handleChange(iconName)
-                    setOpen(false)
-                    field.handleBlur()
-                  }}
-                />
-              </PopoverContent>
+              <PopoverPrimitive.Portal>
+                <PopoverPrimitive.Positioner
+                  align="start"
+                  side="bottom"
+                  sideOffset={4}
+                  // Stay on the vertical axis (below, or above if the dialog
+                  // has no room). Without this, a tall grid falls back to the
+                  // left of the field and covers the neighbouring column.
+                  collisionAvoidance={{ fallbackAxisSide: 'none' }}
+                  className="isolate z-50"
+                >
+                  <PopoverPrimitive.Popup
+                    data-slot="popover-content"
+                    className="z-50 flex w-(--anchor-width) origin-(--transform-origin) flex-col gap-0 rounded-3xl bg-popover p-0 text-sm text-popover-foreground shadow-lg ring-1 ring-foreground/5 outline-hidden duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2 dark:ring-foreground/10 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95"
+                  >
+                    <PopoverTitle className="sr-only">{t('Choose an icon')}</PopoverTitle>
+                    <PopoverDescription className="sr-only">{t('Select an icon from the list.')}</PopoverDescription>
+                    <IconPicker
+                      id={pickerId}
+                      value={current}
+                      onSelect={(iconName) => {
+                        suppressFocusOpen.current = true
+                        field.setMeta((meta: any) => ({
+                          ...meta,
+                          errors: [],
+                          errorMap: {},
+                        }))
+                        field.handleChange(iconName)
+                        setOpen(false)
+                        field.handleBlur()
+                      }}
+                    />
+                  </PopoverPrimitive.Popup>
+                </PopoverPrimitive.Positioner>
+              </PopoverPrimitive.Portal>
             </Popover>
             {readonly ? <input type="hidden" name={name} value={current} /> : null}
             <FormDescription name={name} description={description} error={error} />

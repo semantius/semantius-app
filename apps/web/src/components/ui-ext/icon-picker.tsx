@@ -70,7 +70,7 @@ export function IconPicker({ id, value, onSelect }: IconPickerProps) {
       <div
         id={id}
         ref={parentRef}
-        className="h-64 overflow-auto rounded-xl border border-border"
+        className="h-52 overflow-auto rounded-xl border border-border"
       >
         {filtered.length === 0 ? (
           <p className="p-6 text-center text-sm text-muted-foreground">{t('No icon found.')}</p>
