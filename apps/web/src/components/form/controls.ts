@@ -46,6 +46,7 @@ import { InputRelativeJsonPointer } from './InputRelativeJsonPointer'
 import { InputRegex } from './InputRegex'
 import { InputEnum } from './InputEnum'
 import { InputReference } from './InputReference'
+import { InputIcon } from './InputIcon'
 import type { FormControlProps } from './types'
 
 export interface FormatEntry {
@@ -108,6 +109,12 @@ export const controls: Record<FormatName, FormatEntry> = {
   reference: text(InputReference),
   parent: text(InputReference),
   enum: text(InputEnum),
+
+  // Catalog extras: color is an HTML color string (text until a color picker
+  // exists), icon has its own picker, rating is a 0–5 integer.
+  color: text(InputText),
+  icon: { control: InputIcon, width: 'm', gridColumn: true },
+  rating: compact(InputNumber),
 
   // Date and time. All three are typed columns that reject an empty string.
   date: { control: InputDate, width: 'm', emptyValue: 'null', gridColumn: true },

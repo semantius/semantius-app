@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { describedBy, descriptionId, errorId, labelId, labelledBy } from './fieldAria'
 
 /**
- * `fieldAria` is the contract all 29 form controls depend on, and every one of
+ * `fieldAria` is the contract every form control depends on, and every one of
  * its branches is a real accessibility failure when it goes wrong:
  *
  * - emitting an id for an element that is not rendered is an

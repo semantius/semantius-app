@@ -50,6 +50,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { NamedIcon } from '@/components/ui-ext/named-icon'
 import {
   MoreHorizontal,
   Pencil,
@@ -889,6 +890,19 @@ export function DataTableView({
           if (isDateFormat(property.format)) {
             const text = formatDateForDisplay(value, property.format, { locale: formattingLocale }) || '-'
             return <div className={truncateClasses} style={truncateStyle} title={showTitle ? text : undefined}>{text}</div>
+          }
+
+          if (property.format === 'icon') {
+            const iconName = typeof value === 'string' ? value.trim() : ''
+            if (!iconName) {
+              return <div className={truncateClasses} style={truncateStyle}>-</div>
+            }
+            return (
+              <div className="flex items-center" title={iconName}>
+                <NamedIcon name={iconName} className="size-4" aria-hidden="true" />
+                <span className="sr-only">{iconName}</span>
+              </div>
+            )
           }
 
           const text = String(value ?? '-')
