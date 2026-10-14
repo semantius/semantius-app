@@ -464,6 +464,107 @@ describe('Data Validation Tests', () => {
     });
   });
 
+  describe('Format: rating', () => {
+    const ratingWith = (props: Record<string, unknown>) => ({
+      type: 'object',
+      properties: { rating: { format: 'rating', ...props } }
+    });
+
+    it.each([0, 1, 2, 3, 4, 5])('should accept %s', (value) => {
+      expect(validateData(value, { format: 'rating' }).valid).toBe(true);
+    });
+
+    it.each([-1, 6])('should reject %s', (value) => {
+      const result = validateData(value, { format: 'rating' });
+      expect(result.valid).toBe(false);
+      expect(result.errors?.[0]?.keyword).toBe('format');
+    });
+
+    it.each([2.5, '3', true, null])('should reject %j, which is not an integer', (value) => {
+      const result = validateData(value, { format: 'rating' });
+      expect(result.valid).toBe(false);
+      expect(result.errors?.[0]?.keyword).toBe('type');
+    });
+
+    it('should reject 0 when the rating is required', () => {
+      const result = validateData({ rating: 0 }, ratingWith({ inputMode: 'required' }));
+      expect(result.valid).toBe(false);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors?.[0]).toMatchObject({ keyword: 'inputMode', message: 'must not be 0', instancePath: '/rating' });
+    });
+
+    it('should reject a missing or null rating when the rating is required', () => {
+      expect(validateData({}, ratingWith({ inputMode: 'required' })).valid).toBe(false);
+      expect(validateData({ rating: null }, ratingWith({ inputMode: 'required' })).valid).toBe(false);
+    });
+
+    it.each([1, 5])('should accept %s when the rating is required', (value) => {
+      expect(validateData({ rating: value }, ratingWith({ inputMode: 'required' })).valid).toBe(true);
+    });
+
+    it('should reject a required rating out of range by format', () => {
+      const result = validateData({ rating: 6 }, ratingWith({ inputMode: 'required' }));
+      expect(result.valid).toBe(false);
+      expect(result.errors?.[0]?.keyword).toBe('format');
+    });
+
+    it('should accept 0 when the rating is not required', () => {
+      expect(validateData({ rating: 0 }, ratingWith({})).valid).toBe(true);
+      expect(validateData({ rating: 0 }, ratingWith({ inputMode: 'default' })).valid).toBe(true);
+    });
+
+    it.each(['readonly', 'disabled', 'hidden'])('should accept 0 and reject 7 when the rating is %s', (inputMode) => {
+      expect(validateData({ rating: 0 }, ratingWith({ inputMode })).valid).toBe(true);
+
+      const result = validateData({ rating: 7 }, ratingWith({ inputMode }));
+      expect(result.valid).toBe(false);
+      expect(result.errors?.[0]?.keyword).toBe('format');
+    });
+
+    it('should not apply the rule to 0 in other integer formats', () => {
+      const schema = { type: 'object', properties: { count: { format: 'int32', inputMode: 'required' } } };
+      expect(validateData({ count: 0 }, schema).valid).toBe(true);
+    });
+  });
+
+  describe.each(['color', 'icon'])('Format: %s', (format) => {
+    const fieldWith = (props: Record<string, unknown>) => ({
+      type: 'object',
+      properties: { field: { format, ...props } }
+    });
+
+    it.each(['#ff0000', 'red', 'circle-pause', '/icons/a.svg', 'https://example.com/a.svg'])('should accept any string (%s)', (value) => {
+      expect(validateData(value, { format }).valid).toBe(true);
+    });
+
+    it.each([1, true, { name: 'red' }])('should reject %j, which is not a string', (value) => {
+      const result = validateData(value, { format });
+      expect(result.valid).toBe(false);
+      expect(result.errors?.[0]?.keyword).toBe('type');
+    });
+
+    it('should reject an empty, missing or null value when required', () => {
+      const required = fieldWith({ inputMode: 'required' });
+      for (const data of [{ field: '' }, {}, { field: null }]) {
+        const result = validateData(data, required);
+        expect(result.valid).toBe(false);
+        expect(result.errors?.some((e) => e.keyword === 'inputMode')).toBe(true);
+      }
+    });
+
+    it('should accept a non-empty value when required', () => {
+      expect(validateData({ field: 'red' }, fieldWith({ inputMode: 'required' })).valid).toBe(true);
+    });
+
+    it('should accept an empty value when not required', () => {
+      expect(validateData({ field: '' }, fieldWith({})).valid).toBe(true);
+    });
+
+    it.each(['readonly', 'disabled', 'hidden'])('should accept an empty value when %s', (inputMode) => {
+      expect(validateData({ field: '' }, fieldWith({ inputMode })).valid).toBe(true);
+    });
+  });
+
   describe('Format: enum', () => {
     it('should validate values against the enum list', () => {
       const schema = { type: 'string', format: 'enum', enum: ['active', 'inactive'] };
@@ -553,6 +654,30 @@ describe('Data Validation Tests', () => {
       const schema = { type: 'integer', enum: [{ value: 1, label: 'Low' }, { value: 2, label: 'High' }] };
       expect(validateData(2, schema).valid).toBe(true);
       expect(validateData(3, schema).valid).toBe(false);
+    });
+
+    describe('with description, color and icon', () => {
+      const entries = [
+        { value: 'on_hold', label: 'On hold', description: 'Waiting on the customer', color: 'amber', icon: 'circle-pause' },
+        'active'
+      ];
+      const schema = { type: 'object', properties: { status: { format: 'enum', enum: entries } } };
+
+      it('should accept the value', () => {
+        expect(validateData({ status: 'on_hold' }, schema).valid).toBe(true);
+        expect(validateData({ status: 'active' }, schema).valid).toBe(true);
+      });
+
+      it.each(['Waiting on the customer', 'amber', 'circle-pause'])('should reject %s, which is not a value', (value) => {
+        const result = validateData({ status: value }, schema);
+        expect(result.valid).toBe(false);
+        expect(result.errors?.[0]?.keyword).toBe('enum');
+      });
+
+      it('should list only the values as allowed values', () => {
+        const result = validateData({ status: 'unknown' }, schema);
+        expect(result.errors?.[0]?.params.allowedValues).toEqual(['on_hold', 'active', '']);
+      });
     });
 
     it('should validate {value, label} entries in nested objects', () => {

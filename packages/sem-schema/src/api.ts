@@ -174,6 +174,15 @@ export function validateData(data: any, schemaJson: SchemaObject): {
               instancePath: `/${key}`,
               schemaPath: `#/properties/${key}/inputMode`
             });
+          } else if ((propSchema as any).format === 'rating' && value === 0) {
+            // A rating of 0 means not rated
+            inputModeErrors.push({
+              keyword: 'inputMode',
+              message: `must not be 0`,
+              params: { inputMode: 'required' },
+              instancePath: `/${key}`,
+              schemaPath: `#/properties/${key}/inputMode`
+            });
           }
         }
       }

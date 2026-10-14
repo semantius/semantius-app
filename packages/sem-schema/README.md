@@ -33,6 +33,7 @@ SemSchema uses the **`inputMode: "required"`** keyword that serves BOTH UI and v
   - `undefined` → FAILS validation  
   - `""` (empty string) → FAILS validation
   - **Applies to ALL string types** (json, html, text, date, email, enum, or any format)
+  - `0` for format `rating` → FAILS validation (0 means not rated)
 
 **Valid `inputMode` values**:
 - `"default"` - Normal field (no special UI or validation)
@@ -72,13 +73,15 @@ SemSchema uses the **`inputMode: "required"`** keyword that serves BOTH UI and v
 #### `enum` Entries with Labels
 - An `enum` entry is a value, or a `{ "value", "label" }` object whose label the UI shows instead of the value, like `enum_values` in the Semantius backend
 - Data must equal the **value**; the label is never valid data
-- An object entry needs both `value` (string, number, boolean or null) and `label` (string), and nothing else
+- An object entry needs both `value` (string, number, boolean or null) and `label` (string). It may also have a `description`, `color` and `icon` (strings, for the UI; the icon is an internal icon name or an external SVG file url), and nothing else
 - Example: `"enum": [{ "value": "responsible", "label": "Responsible (R)" }, "something"]` accepts `"responsible"` and `"something"`
+- Example: `"enum": [{ "value": "on_hold", "label": "On hold", "description": "Waiting on the customer", "color": "amber", "icon": "circle-pause" }]` accepts `"on_hold"`
 
 ### Type Inference
 - When `format` is provided without `type`, the type is the format's `jsonType` in [src/vocabulary.json](src/vocabulary.json) — the type the Semantius backend maps the format to
 - E.g. `html`, `date`, `enum` → `string`; `int32`, `reference` → `integer`; `double` → `number`; `object` → `object`; `json` and `jsonlogic` → every JSON type (`object`, `array`, `string`, `number`, `integer`, `boolean`, `null`)
 - Allows schemas like `{ "format": "json" }` or `{ "format": "int32" }` without explicit type declaration
+- A declared `type` must be one the format allows, or `validateSchema()` rejects the schema: `{ "type": "string", "format": "int32" }` is invalid. `integer` and `number` are interchangeable, and `reference` and `parent` also allow `string`, the type of a text, uuid or typeid key
 
 ### JSON values and AJV
 

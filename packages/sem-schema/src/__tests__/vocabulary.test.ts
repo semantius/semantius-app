@@ -21,6 +21,94 @@ describe('Vocabulary Definition Tests', () => {
       expect(() => execFileSync(process.execPath, [script, '--check'], { stdio: 'pipe' })).not.toThrow();
     });
 
+    // A declared type must be one the format allows; its jsonType, with integer and number
+    // interchangeable. reference and parent are tested below: they also take string keys.
+    const singleTypeFormats = formats
+      .filter((entry) => !Array.isArray(entry.jsonType) && !['reference', 'parent'].includes(entry.const))
+      .map((entry) => [entry.const, entry.jsonType as string]);
+
+    it.each(singleTypeFormats)('should accept format: "%s" with its own type "%s"', (format, type) => {
+      const result = validateSchema({ type, format });
+      expect(result.valid).toBe(true);
+      expect(result.errors).toBeNull();
+    });
+
+    it.each(singleTypeFormats)('should reject format: "%s" (%s) with any other type', (format, type) => {
+      const numeric = ['integer', 'number'];
+      const others = ['string', 'integer', 'number', 'boolean', 'object', 'array', 'null']
+        .filter((t) => t !== type && !(numeric.includes(type) && numeric.includes(t)));
+      for (const other of others) {
+        const result = validateSchema({ type: other, format });
+        expect(result.valid).toBe(false);
+        expect(result.errors?.[0]?.message).toContain(`Format "${format}" is not compatible with type "${other}"`);
+      }
+    });
+
+    it.each(['json', 'jsonlogic'])('should accept format: "%s" with every type', (format) => {
+      for (const type of ['string', 'integer', 'number', 'boolean', 'object', 'array', 'null']) {
+        expect(validateSchema({ type, format }).valid).toBe(true);
+      }
+    });
+  });
+
+  describe('Schema Validity - a declared type must match the format', () => {
+    it.each(['reference', 'parent'])('should accept format: "%s" with an integer, number or string key', (format) => {
+      for (const type of ['integer', 'number', 'string']) {
+        expect(validateSchema({ type, format }).valid).toBe(true);
+      }
+    });
+
+    it.each(['reference', 'parent'])('should reject format: "%s" with a boolean, object or array type', (format) => {
+      for (const type of ['boolean', 'object', 'array']) {
+        const result = validateSchema({ type, format });
+        expect(result.valid).toBe(false);
+        expect(result.errors?.[0]?.message).toContain(`Format "${format}" is not compatible with type "${type}"`);
+      }
+    });
+
+    it('should reject format: "int32" with type "string"', () => {
+      const result = validateSchema({ type: 'string', format: 'int32' });
+      expect(result.valid).toBe(false);
+      expect(result.errors?.[0]?.message).toBe('Format "int32" is not compatible with type "string". Expected type "integer" or "number"');
+    });
+
+    it('should reject format: "rating" with type "string"', () => {
+      const result = validateSchema({ type: 'string', format: 'rating' });
+      expect(result.valid).toBe(false);
+      expect(result.errors?.[0]?.message).toContain('Format "rating" is not compatible with type "string"');
+    });
+
+    it.each(['color', 'icon'])('should reject format: "%s" with type "integer"', (format) => {
+      const result = validateSchema({ type: 'integer', format });
+      expect(result.valid).toBe(false);
+      expect(result.errors?.[0]?.message).toContain(`Format "${format}" is not compatible with type "integer"`);
+    });
+
+    it('should reject a type list with a type the format does not allow', () => {
+      const result = validateSchema({ type: ['string', 'null'], format: 'email' });
+      expect(result.valid).toBe(false);
+      expect(result.errors?.[0]?.message).toContain('Format "email" is not compatible with type "string, null"');
+    });
+
+    it('should accept a type list the format allows', () => {
+      expect(validateSchema({ type: ['integer', 'number'], format: 'rating' }).valid).toBe(true);
+    });
+
+    it('should reject a mismatched type in a nested property', () => {
+      const result = validateSchema({ type: 'object', properties: { stars: { type: 'string', format: 'rating' } } });
+      expect(result.valid).toBe(false);
+      expect(result.errors?.[0]?.message).toContain('Format "rating" is not compatible with type "string"');
+    });
+
+    it('should accept a format without a type', () => {
+      expect(validateSchema({ format: 'rating' }).valid).toBe(true);
+      expect(validateSchema({ format: 'icon' }).valid).toBe(true);
+    });
+  });
+
+  describe('Schema Validity - Format list in vocabulary.json, registration', () => {
+    const formats = vocabulary.properties.format.oneOf;
+
     it.each(formats.map((entry) => entry.const))('should accept schema with format: "%s" and register it with AJV', (format) => {
       const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
       try {
@@ -528,28 +616,28 @@ describe('Vocabulary Definition Tests', () => {
 
     // Number formats
     it('should accept schema with format: int32', () => {
-      const schema = { type: 'string', format: 'int32' };
+      const schema = { type: 'integer', format: 'int32' };
       const result = validateSchema(schema);
       expect(result.valid).toBe(true);
       expect(result.errors).toBeNull();
     });
 
     it('should accept schema with format: int64', () => {
-      const schema = { type: 'string', format: 'int64' };
+      const schema = { type: 'integer', format: 'int64' };
       const result = validateSchema(schema);
       expect(result.valid).toBe(true);
       expect(result.errors).toBeNull();
     });
 
     it('should accept schema with format: float', () => {
-      const schema = { type: 'string', format: 'float' };
+      const schema = { type: 'number', format: 'float' };
       const result = validateSchema(schema);
       expect(result.valid).toBe(true);
       expect(result.errors).toBeNull();
     });
 
     it('should accept schema with format: double', () => {
-      const schema = { type: 'string', format: 'double' };
+      const schema = { type: 'number', format: 'double' };
       const result = validateSchema(schema);
       expect(result.valid).toBe(true);
       expect(result.errors).toBeNull();
@@ -1266,6 +1354,34 @@ describe('Vocabulary Definition Tests', () => {
     });
   });
 
+  describe('Schema Validity - color, icon and rating formats', () => {
+    it.each(['color', 'icon'])('should accept schema with format: "%s" and type: "string"', (format) => {
+      const result = validateSchema({ type: 'string', format });
+      expect(result.valid).toBe(true);
+      expect(result.errors).toBeNull();
+    });
+
+    it('should accept schema with format: "rating" and type: "integer"', () => {
+      const result = validateSchema({ type: 'integer', format: 'rating' });
+      expect(result.valid).toBe(true);
+      expect(result.errors).toBeNull();
+    });
+
+    it('should accept object schema with color, icon and rating properties without types', () => {
+      const schema = {
+        type: 'object',
+        properties: {
+          color: { format: 'color' },
+          icon: { format: 'icon' },
+          rating: { format: 'rating', inputMode: 'required' }
+        }
+      };
+      const result = validateSchema(schema);
+      expect(result.valid).toBe(true);
+      expect(result.errors).toBeNull();
+    });
+  });
+
   describe('Schema Validity - enum entries with labels', () => {
     const withEntries = (entries: unknown[]) => ({
       type: 'object',
@@ -1301,8 +1417,44 @@ describe('Vocabulary Definition Tests', () => {
       expect(firstMessage(['something', { label: 'Responsible (R)' }])).toContain("enum/1 must have required property 'value'");
     });
 
+    it('should accept entries with description, color and icon', () => {
+      const result = validateSchema(withEntries([
+        { value: 'responsible', label: 'Responsible (R)', description: 'Does the work', color: 'red', icon: 'circle-check' },
+        { value: 'accountable', label: 'Accountable (A)', icon: '/icons/accountable.svg' },
+        'something'
+      ]));
+      expect(result.valid).toBe(true);
+      expect(result.errors).toBeNull();
+    });
+
+    it.each(['description', 'color', 'icon'])('should accept an entry with only %s next to value and label', (prop) => {
+      const result = validateSchema(withEntries([{ value: 'responsible', label: 'Responsible (R)', [prop]: 'x' }]));
+      expect(result.valid).toBe(true);
+      expect(result.errors).toBeNull();
+    });
+
+    it.each(['description', 'color', 'icon'])('should reject %s that is not a string', (prop) => {
+      for (const bad of [1, true, { name: 'x' }, null]) {
+        expect(firstMessage([{ value: 'responsible', label: 'Responsible (R)', [prop]: bad }])).toContain(`enum/0/${prop} must be string`);
+      }
+    });
+
+    it('should report every invalid description, color and icon', () => {
+      const result = validateSchema(withEntries([{ value: 'responsible', label: 'Responsible (R)', description: 1, color: false, icon: [] }]));
+      expect(result.valid).toBe(false);
+      const messages = result.errors?.map((e) => e.message).join('\n');
+      expect(messages).toContain('enum/0/description must be string');
+      expect(messages).toContain('enum/0/color must be string');
+      expect(messages).toContain('enum/0/icon must be string');
+    });
+
+    it('should still require value and label when description, color or icon is set', () => {
+      expect(firstMessage([{ value: 'responsible', description: 'Does the work', color: 'red', icon: 'circle-check' }])).toContain("enum/0 must have required property 'label'");
+      expect(firstMessage([{ label: 'Responsible (R)', description: 'Does the work', color: 'red', icon: 'circle-check' }])).toContain("enum/0 must have required property 'value'");
+    });
+
     it('should reject an entry with other keys', () => {
-      expect(firstMessage([{ value: 'responsible', label: 'Responsible (R)', color: 'red' }])).toContain('enum/0 must NOT have additional properties');
+      expect(firstMessage([{ value: 'responsible', label: 'Responsible (R)', sortOrder: 1 }])).toContain('enum/0 must NOT have additional properties');
     });
 
     it('should reject a label that is not a string', () => {

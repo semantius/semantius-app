@@ -18,14 +18,17 @@
       "oneOf": [
         { "const": "json", "jsonType": ["object", "array", "string", "number", "integer", "boolean", "null"], "description": "JSON value, or JSON text that parses to one" },
         { "const": "html", "jsonType": "string", "description": "HTML markup; must contain at least one tag" },
-        { "const": "text", "jsonType": "string", "description": "Single-line text; no format check" },
-        { "const": "multiline", "jsonType": "string", "description": "Multi-line text; no format check" },
-        { "const": "code", "jsonType": "string", "description": "Source code; no format check" },
-        { "const": "jsonata", "jsonType": "string", "description": "JSONata expression; no format check" },
+        { "const": "text", "jsonType": "string", "description": "Single-line text" },
+        { "const": "multiline", "jsonType": "string", "description": "Multi-line text" },
+        { "const": "code", "jsonType": "string", "description": "Source code" },
+        { "const": "jsonata", "jsonType": "string", "description": "JSONata expression" },
         { "const": "jsonlogic", "jsonType": ["object", "array", "string", "number", "integer", "boolean", "null"], "description": "JsonLogic rule, checked against the operators of the Semantius backend" },
         { "const": "reference", "jsonType": "integer", "description": "Key of a record in another entity" },
         { "const": "parent", "jsonType": "integer", "description": "Key of the record that owns this one" },
         { "const": "enum", "jsonType": "string", "description": "One of the values listed in enum" },
+        { "const": "color", "jsonType": "string", "description": "HTML Color" },
+        { "const": "icon", "jsonType": "string", "description": "Internal icon name or external SVG file url" },
+        { "const": "rating", "jsonType": "integer", "description": "Rating from 0 to 5, where 0 means not rated" },
 
         { "const": "date", "jsonType": "string", "description": "Full date, RFC 3339 (2026-09-15)" },
         { "const": "time", "jsonType": "string", "description": "Time of day, RFC 3339 (14:30:00Z)" },
@@ -52,8 +55,8 @@
         { "const": "json-pointer-uri-fragment", "jsonType": "string", "description": "JSON Pointer as a URI fragment (#/a/0)" },
         { "const": "relative-json-pointer", "jsonType": "string", "description": "Relative JSON Pointer (1/a)" },
         { "const": "byte", "jsonType": "string", "description": "Base64-encoded data" },
-        { "const": "binary", "jsonType": "string", "description": "Binary data; no format check" },
-        { "const": "password", "jsonType": "string", "description": "Password; no format check" },
+        { "const": "binary", "jsonType": "string", "description": "Binary data" },
+        { "const": "password", "jsonType": "string", "description": "Password" },
         { "const": "int32", "jsonType": "integer", "description": "Signed 32-bit integer" },
         { "const": "int64", "jsonType": "integer", "description": "Signed 64-bit integer" },
         { "const": "float", "jsonType": "number", "description": "Single-precision floating-point number" },
@@ -73,7 +76,7 @@
       "enum": ["default", "required", "readonly", "disabled", "hidden"]
     },
     "enum": {
-      "description": "The allowed values, in the order they are offered. An entry is a value, or a {value, label} object whose label the UI shows instead of the value; data must equal the value. Matches enum_values in the Semantius backend.",
+      "description": "The allowed values, in the order they are offered. An entry is a value, or a {value, label} object whose label the UI shows instead of the value, with an optional description, color and icon for the UI; data must equal the value. Matches enum_values in the Semantius backend.",
       "type": "array",
       "items": {
         "if": { "type": "object" },
@@ -82,7 +85,10 @@
           "required": ["value", "label"],
           "properties": {
             "value": { "type": ["string", "number", "boolean", "null"] },
-            "label": { "type": "string" }
+            "label": { "type": "string" },
+            "description": { "type": "string" },
+            "color": { "type": "string" },
+            "icon": { "type": "string" }
           },
           "additionalProperties": false
         }

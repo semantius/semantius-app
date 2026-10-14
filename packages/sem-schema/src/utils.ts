@@ -18,6 +18,29 @@ const FORMAT_JSON_TYPES = new Map<string, string | string[]>(
 export const TYPE_NAME_FORMATS = [...FORMAT_JSON_TYPES].filter(([format, type]) => format === type).map(([format]) => format);
 
 /**
+ * The formats whose value is the key of another record. Their type is the type of that
+ * key, as field_json_type() in the Semantius backend emits it: integer for a numeric key,
+ * string for a text, uuid or typeid key.
+ */
+const KEY_FORMATS = ['reference', 'parent'];
+
+/**
+ * The JSON types a schema may declare next to a format: the format's jsonType, with
+ * integer and number interchangeable, and integer or string for a key format.
+ */
+function allowedTypes(format: string): string[] {
+  if (KEY_FORMATS.includes(format)) {
+    return ['integer', 'number', 'string'];
+  }
+  const jsonType = FORMAT_JSON_TYPES.get(format) ?? [];
+  const types = Array.isArray(jsonType) ? [...jsonType] : [jsonType];
+  if (types.includes('integer') || types.includes('number')) {
+    types.push(...['integer', 'number'].filter((t) => !types.includes(t)));
+  }
+  return types;
+}
+
+/**
  * Schema validation error
  */
 export interface SchemaValidationError {
@@ -50,18 +73,15 @@ export function validateSchemaStructure(schema: SchemaObject, path: string = '#'
         keyword: 'format',
         value: schema.format
       });
-    } else if (TYPE_NAME_FORMATS.includes(schema.format) && schema.type) {
-      // When format is a JSON type name, it must be compatible with the declared type.
-      // "integer" and "number" are mutually compatible; all other primitive formats must
-      // match the type exactly.
+    } else if (schema.type) {
+      // The format implies the type (see preprocessSchema), so a declared type must be one
+      // the format allows: {type: "string", format: "int32"} would let "x" through, because
+      // a format only checks values of its own type
       const fmt = schema.format as string;
       const types = Array.isArray(schema.type) ? schema.type : [schema.type];
-      const compatible =
-        (fmt === 'integer' || fmt === 'number')
-          ? types.some(t => t === 'integer' || t === 'number')
-          : types.includes(fmt);
-      if (!compatible) {
-        const expectedType = fmt === 'integer' ? '"integer" or "number"' : `"${fmt}"`;
+      const allowed = allowedTypes(fmt);
+      if (!types.every((t: string) => allowed.includes(t))) {
+        const expectedType = allowed.map((t) => `"${t}"`).join(' or ');
         const actualType = Array.isArray(schema.type) ? schema.type.join(', ') : schema.type;
         errors.push({
           schemaPath: path,
