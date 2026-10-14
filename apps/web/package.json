@@ -59,7 +59,7 @@
     "date-fns": "^4.4.0",
     "drizzle-cube": "^0.5.8",
     "json-logic-js": "^2.0.5",
-    "lucide-react": "^0.556.0",
+    "lucide-react": "^1.57.0",
     "next-themes": "^0.4.6",
     "radix-ui": "^1.6.7",
     "react": "^19.2.8",
