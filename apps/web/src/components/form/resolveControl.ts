@@ -1,18 +1,20 @@
 /**
- * Strict format resolution: a field's `format` names its control, or the form
- * refuses to render.
+ * Format resolution: a field's `format` names its control.
  *
- * The old rule was `controls[format || (enum ? 'enum' : type)] || InputText`,
- * which had two silent failure modes. A format the app did not know became a
- * text box — so an `int32` got a free-text editor and an `enum` with a format
- * the registry missed lost its picker. And a field with NO format fell back to
- * its type, which is why the type fallback existed at all: the backend used to
- * strip `format` for eleven of them. It no longer does (semantius `b0db26f`),
- * so a missing format is now a modeling error, not a normal state, and saying
- * so beats rendering the wrong editor over data the user then saves.
+ * A missing format is a modeling error and still throws — the backend used to
+ * strip `format` for eleven of them, and it no longer does (semantius `b0db26f`),
+ * so a blank format is not a normal state.
  *
- * Pure, and deliberately free of React: it is called from render, but it is
- * also the thing a node test can exercise on its own.
+ * An UNKNOWN format is different: the catalog on this app can lag the platform,
+ * and a field the registry has never heard of must still be editable. Those
+ * names `console.error` and render as `text`. Missing stays a throw; unknown
+ * does not, because refusing the whole form over one new format is how a
+ * module with two uncataloged names became an error page.
+ *
+ * Pure in the return value, and deliberately free of React: it is called from
+ * render, but it is also the thing a node test can exercise on its own. The
+ * `console.error` for an unknown name lives in `assertSupportedFormats`, not
+ * here, so resolution itself has no side effect.
  */
 
 import { appError } from '@/lib/appError'
@@ -32,11 +34,16 @@ export function isSyntheticProperty(property: PropertyLike): boolean {
   return typeof property.ctype === 'string' && Object.hasOwn(SYNTHETIC_CTYPES, property.ctype)
 }
 
-/** The registry entry for a property, or `undefined` if its format is unusable. */
+/**
+ * The registry entry for a property, or `undefined` if it has no format.
+ *
+ * An unrecognized name falls back to `text` so the field still renders. Callers
+ * that need to tell "unknown" from "text" go through `isFormatName`.
+ */
 export function resolveControl(property: PropertyLike): FormatEntry | undefined {
   const { format } = property
   if (typeof format !== 'string' || format === '') return undefined
-  if (!isFormatName(format)) return undefined
+  if (!isFormatName(format)) return controls.text
   return controls[format]
 }
 
@@ -46,54 +53,70 @@ interface Offender {
   format: string | undefined
 }
 
-function offendersIn(schema: Record<string, unknown>): Offender[] {
+function propertiesOf(schema: Record<string, unknown>): [string, PropertyLike][] {
   const properties = (schema.properties ?? {}) as Record<string, PropertyLike>
+  return Object.entries(properties)
+}
+
+function labelOf(field: string, property: PropertyLike): string {
+  return typeof property.title === 'string' && property.title ? property.title : field
+}
+
+function missingFormatsIn(schema: Record<string, unknown>): Offender[] {
   const offenders: Offender[] = []
-  for (const [field, property] of Object.entries(properties)) {
+  for (const [field, property] of propertiesOf(schema)) {
     if (!property || typeof property !== 'object') continue
     if (isSyntheticProperty(property)) continue
-    if (resolveControl(property)) continue
-    offenders.push({
-      field,
-      label: typeof property.title === 'string' && property.title ? property.title : field,
-      // An EMPTY format is "no format", not an unsupported one: there is no
-      // name to put in the message, and the model simply left the field blank.
-      format: typeof property.format === 'string' && property.format !== '' ? property.format : undefined,
-    })
+    const { format } = property
+    if (typeof format === 'string' && format !== '') continue
+    offenders.push({ field, label: labelOf(field, property), format: undefined })
+  }
+  return offenders
+}
+
+function unknownFormatsIn(schema: Record<string, unknown>): Offender[] {
+  const offenders: Offender[] = []
+  for (const [field, property] of propertiesOf(schema)) {
+    if (!property || typeof property !== 'object') continue
+    if (isSyntheticProperty(property)) continue
+    const { format } = property
+    if (typeof format !== 'string' || format === '') continue
+    if (isFormatName(format)) continue
+    offenders.push({ field, label: labelOf(field, property), format })
   }
   return offenders
 }
 
 /**
- * Throws unless every property in the schema resolves to a control.
+ * Throws unless every property has a format.
  *
- * Every inputMode is checked, hidden and readonly included: a hidden field is
- * still submitted, and a readonly one is still rendered. The throw names the
- * FIRST offender so the message is about one field, and lists all of them in
- * `details` so one pass fixes the model instead of one field per reload.
+ * Unknown formats are logged (`console.error` of the unsupported-format
+ * message, with the name filled in) and then treated as `text` by
+ * `resolveControl`. Missing formats still throw: a hidden field is still
+ * submitted, a readonly one is still rendered, and there is no name to fall
+ * back from. The throw names the FIRST missing field so the message is about
+ * one field, and lists all of them in `details` so one pass fixes the model.
  */
 export function assertSupportedFormats(schema: Record<string, unknown>): void {
-  const offenders = offendersIn(schema)
+  for (const unknown of unknownFormatsIn(schema)) {
+    // Developer log, not a translated UI string: the form still renders, and
+    // the name of the format the catalog does not have is the whole point.
+    console.error(
+      `${unknown.label} (${unknown.field}) has the format "${unknown.format}", which is not supported.`,
+    )
+  }
+
+  const offenders = missingFormatsIn(schema)
   if (offenders.length === 0) return
 
   const [first] = offenders
-  // `field: format`, with the format simply absent when there is none — a
-  // parenthetical like "(no format)" would be developer prose in a panel the
-  // app deliberately never translates.
-  const details = offenders
-    .map((o) => `${o.field}: ${o.format ?? ''}`)
-    .join('\n')
+  // `field: ` with a blank format — a parenthetical like "(no format)" would be
+  // developer prose in a panel the app deliberately never translates.
+  const details = offenders.map((o) => `${o.field}: `).join('\n')
 
-  if (first.format === undefined) {
-    throw appError({
-      message: '{label} ({field}) has no format.',
-      values: { label: first.label, field: first.field },
-      details,
-    })
-  }
   throw appError({
-    message: '{label} ({field}) has the format "{format}", which is not supported.',
-    values: { label: first.label, field: first.field, format: first.format },
+    message: '{label} ({field}) has no format.',
+    values: { label: first.label, field: first.field },
     details,
   })
 }
