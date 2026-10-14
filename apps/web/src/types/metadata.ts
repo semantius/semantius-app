@@ -3,7 +3,17 @@
  * label). An object names them separately; `label` is optional and equals
  * `value` when omitted.
  */
-export type JsonSchemaEnumEntry = string | { value: string; label?: string }
+export type JsonSchemaEnumEntry =
+  | string
+  | {
+      value: string
+      label?: string
+      description?: string
+      color?: string
+      /** Lucide icon name. `get_schema` spells this `icon`; some payloads use `iconName`. */
+      icon?: string
+      iconName?: string
+    }
 
 // JSON Schema property definition
 export interface JsonSchemaProperty {

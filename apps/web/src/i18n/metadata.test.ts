@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { EntityMetadata } from '@/types/metadata'
 import { activateLocale, localeLayers, type LocaleFile, type LocaleLayer } from '.'
-import { enumEntries, enumLabel, localizeMetadata, metadataText, normalizeEnumEntry } from './metadata'
+import { enumEntries, enumEntry, enumLabel, localizeMetadata, metadataText, normalizeEnumEntry } from './metadata'
 
 /**
  * Model text, rendered as messages.
@@ -244,6 +244,49 @@ describe('normalizeEnumEntry', () => {
       label: 'Responsible (R)',
     })
     expect(normalizeEnumEntry({ value: 'open' })).toEqual({ value: 'open', label: 'open' })
+  })
+
+  it('keeps optional description, color and icon, and reads iconName as icon', () => {
+    expect(
+      normalizeEnumEntry({
+        value: 'picking',
+        label: 'Picking',
+        description: 'Warehouse is assembling the order',
+        color: '#FDBA74',
+        icon: 'forklift',
+      }),
+    ).toEqual({
+      value: 'picking',
+      label: 'Picking',
+      description: 'Warehouse is assembling the order',
+      color: '#FDBA74',
+      icon: 'forklift',
+    })
+    expect(
+      normalizeEnumEntry({ value: 'shipped', label: 'Shipped', iconName: 'truck' }),
+    ).toEqual({ value: 'shipped', label: 'Shipped', icon: 'truck' })
+    expect(normalizeEnumEntry({ value: 'pending', label: 'Pending', icon: '  ' })).toEqual({
+      value: 'pending',
+      label: 'Pending',
+    })
+  })
+
+  it('looks up the normalized entry by stored value', () => {
+    const property = {
+      type: 'string',
+      enum: [
+        { value: 'picking', label: 'Picking', icon: 'forklift', color: '#FDBA74' },
+        'pending',
+      ],
+    }
+    expect(enumEntry(property, 'picking')).toEqual({
+      value: 'picking',
+      label: 'Picking',
+      icon: 'forklift',
+      color: '#FDBA74',
+    })
+    expect(enumEntry(property, 'pending')).toEqual({ value: 'pending', label: 'pending' })
+    expect(enumEntry(property, 'missing')).toBeUndefined()
   })
 
   it('drops anything that is not a string or a { value } object', () => {

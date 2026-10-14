@@ -415,5 +415,44 @@ export function cssColorForSwatch(value: string): string {
   return parseCssColor(trimmed) ? trimmed : 'transparent'
 }
 
+function srgbChannel(value: number): number {
+  const s = clamp(value, 0, 255) / 255
+  return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4
+}
+
+function relativeLuminance(r: number, g: number, b: number): number {
+  return 0.2126 * srgbChannel(r) + 0.7152 * srgbChannel(g) + 0.0722 * srgbChannel(b)
+}
+
+/**
+ * Black or white text for a painted enum badge. Unknown colors return
+ * undefined so the badge keeps its variant foreground.
+ */
+export function contrastForeground(color: string): string | undefined {
+  const parsed = parseCssColor(color)
+  if (!parsed) return undefined
+  const rgb = hsvToRgb(parsed.h, parsed.s, parsed.v)
+  const a = clamp(parsed.a, 0, 1)
+  // Composite onto white: a transparent badge sits on the grid's background,
+  // which is light in both themes' default badge surface.
+  const r = rgb.r * a + 255 * (1 - a)
+  const g = rgb.g * a + 255 * (1 - a)
+  const b = rgb.b * a + 255 * (1 - a)
+  return relativeLuminance(r, g, b) > 0.4 ? '#111827' : '#ffffff'
+}
+
+/** Inline styles that paint an enum badge from a schema `color` string. */
+export function enumBadgeColors(
+  color: string | undefined,
+): { backgroundColor: string; color: string; borderColor: string } | undefined {
+  if (!color?.trim()) return undefined
+  if (!parseCssColor(color)) return undefined
+  return {
+    backgroundColor: color.trim(),
+    color: contrastForeground(color) ?? '#111827',
+    borderColor: 'transparent',
+  }
+}
+
 /** Working color shown in an empty picker so the area is not a black square. */
 export const DEFAULT_HSVA: Hsva = { h: 210, s: 100, v: 100, a: 1 }

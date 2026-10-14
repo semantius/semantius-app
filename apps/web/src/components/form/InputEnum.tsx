@@ -16,14 +16,15 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { enumEntries, enumLabel, useT } from '@/i18n'
+import { enumEntries, enumEntry, enumLabel, useT } from '@/i18n'
 import type { JsonSchemaProperty } from '@/types/metadata'
 import type { FormControlProps } from './types'
 import { useFormContext } from './FormContext'
-import { FormLabel } from './FormLabel'
+import { FieldHintPopover, FormLabel } from './FormLabel'
 import { FormDescription } from './FormDescription'
 import { FormError } from './FormError'
 import { describedBy, labelledBy } from './fieldAria'
+import { EnumValue } from '@/components/ui-ext/enum-value'
 
 export function InputEnum({
   name,
@@ -58,8 +59,11 @@ export function InputEnum({
   // `t.replace is not a function` on `/admin/entities`. `schema` is one
   // localized property from the route's metadata, so its `enum_labels` (if
   // the active language overrides any) is already filled — see src/i18n/metadata.ts.
-  const enumValues = enumEntries(schema?.enum).map((entry) => entry.value)
-  const labelFor = (value: string) => enumLabel(schema as JsonSchemaProperty | undefined, value)
+  const property = schema as JsonSchemaProperty | undefined
+  const entries = enumEntries(schema?.enum)
+  const enumValues = entries.map((entry) => entry.value)
+  const labelFor = (value: string) => enumLabel(property, value)
+  const entryFor = (value: string) => enumEntry(property, value)
   const showSearch = enumValues.length > 10
 
   return (
@@ -154,10 +158,12 @@ export function InputEnum({
                     />
                   }
                 >
-                  <span className={cn("truncate", showClearButton && "mr-7", !currentValue && !isDisabled && "text-muted-foreground")}>
-                    {isDisabled
-                      ? (currentValue ? labelFor(currentValue) : '')
-                      : (currentValue ? labelFor(currentValue) : t('Select an option'))}
+                  <span className={cn("flex min-w-0 items-center", showClearButton && "mr-7", !currentValue && !isDisabled && "text-muted-foreground")}>
+                    {currentValue ? (
+                      <EnumValue icon={entryFor(currentValue)?.icon} label={labelFor(currentValue)} />
+                    ) : (
+                      isDisabled ? '' : t('Select an option')
+                    )}
                   </span>
                   {/* text-foreground: the chevron is the permanent affordance
                       and must not inherit the placeholder's muted color, or an
@@ -191,31 +197,52 @@ export function InputEnum({
                   <CommandList ref={listboxRef}>
                     <CommandEmpty>{t('No option found.')}</CommandEmpty>
                     <CommandGroup>
-                      {enumValues.map((option) => (
+                      {enumValues.map((option) => {
                         // `value` stays the RAW enum value: it is what
                         // onSelect hands back and what the form stores. The
                         // translated label is the visible text and goes into
                         // `keywords` so typing it still matches.
-                        <CommandItem
-                          key={option}
-                          value={option}
-                          keywords={[labelFor(option)]}
-                          onSelect={handleSelect}
-                          // No background override here: cmdk sets `data-selected` on the item the
-                          // keyboard is on, and `bg-transparent!` beat its
-                          // `data-selected:bg-muted`, so arrowing through the list moved
-                          // an invisible cursor (WCAG 2.4.7).
-                          className="cursor-pointer"
-                        >
-                          <Check
-                            className={cn(
-                              "mr-2 size-4",
-                              currentValue === option ? "opacity-100" : "opacity-0"
-                            )}
-                          />
-                          {labelFor(option)}
-                        </CommandItem>
-                      ))}
+                        const optionLabel = labelFor(option)
+                        const optionEntry = entryFor(option)
+                        const descriptionId = optionEntry?.description
+                          ? `${name}-enum-${option}-description`
+                          : undefined
+                        return (
+                          <CommandItem
+                            key={option}
+                            value={option}
+                            keywords={[optionLabel]}
+                            onSelect={handleSelect}
+                            aria-label={optionLabel}
+                            aria-describedby={descriptionId}
+                            // No background override here: cmdk sets `data-selected` on the item the
+                            // keyboard is on, and `bg-transparent!` beat its
+                            // `data-selected:bg-muted`, so arrowing through the list moved
+                            // an invisible cursor (WCAG 2.4.7).
+                            className="cursor-pointer"
+                          >
+                            <Check
+                              className={cn(
+                                "size-4",
+                                currentValue === option ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            <EnumValue icon={optionEntry?.icon} label={optionLabel} />
+                            {optionEntry?.description && descriptionId ? (
+                              <>
+                                <span id={descriptionId} className="sr-only">
+                                  {optionEntry.description}
+                                </span>
+                                <FieldHintPopover
+                                  label={optionLabel}
+                                  description={optionEntry.description}
+                                  nested
+                                />
+                              </>
+                            ) : null}
+                          </CommandItem>
+                        )
+                      })}
                     </CommandGroup>
                   </CommandList>
                 </Command>

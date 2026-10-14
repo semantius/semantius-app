@@ -5,18 +5,21 @@ import { InputEnum } from '../InputEnum'
 import { chromeAccessibleName } from '@/test/chromeAccessibleName'
 import { renderControl, FormHarness } from './harness'
 
+function chevronSvg(trigger: HTMLElement): SVGElement {
+  const chevron = trigger.querySelector('svg.ml-auto')
+  if (!chevron) throw new Error('expected a chevron svg inside the trigger')
+  return chevron
+}
+
 /** Distance from the trigger's right border to the chevron's right edge. */
 function chevronInset(trigger: HTMLElement): number {
-  const chevron = trigger.querySelector('svg')
-  if (!chevron) throw new Error('expected a chevron svg inside the trigger')
+  const chevron = chevronSvg(trigger)
   return trigger.getBoundingClientRect().right - chevron.getBoundingClientRect().right
 }
 
 /** Painted color of the chevron, including its own opacity. */
 function chevronStyle(trigger: HTMLElement): { color: string; opacity: string } {
-  const chevron = trigger.querySelector('svg')
-  if (!chevron) throw new Error('expected a chevron svg inside the trigger')
-  const cs = getComputedStyle(chevron)
+  const cs = getComputedStyle(chevronSvg(trigger))
   return { color: cs.color, opacity: cs.opacity }
 }
 
@@ -373,6 +376,59 @@ describe('InputEnum', () => {
       )
       expect(screen.getByRole('combobox')).not.toHaveAttribute('aria-describedby')
       expect(document.getElementById('option-description')).toBeNull()
+    })
+  })
+
+  describe('icon, color and description on enum entries', () => {
+    const statusSchema = {
+      enum: [
+        { value: 'pending', label: 'Pending', description: 'Order can still be modified' },
+        { value: 'picking', label: 'Picking', color: '#FDBA74', icon: 'forklift' },
+        { value: 'shipped', label: 'Shipped', color: '#86EFAC', iconName: 'truck' },
+      ],
+    }
+
+    it('shows the selected value icon on the closed trigger', async () => {
+      const { container } = renderControl(
+        <InputEnum name="option" label="Status" schema={statusSchema} />,
+        withValue('picking'),
+      )
+      expect(screen.getByRole('combobox')).toHaveTextContent('Picking')
+      await waitFor(() => {
+        expect(container.querySelector('#option svg:not(.ml-auto)')).not.toBeNull()
+      })
+    })
+
+    it('lists an icon to the left of each labelled option', async () => {
+      const user = userEvent.setup()
+      renderControl(<InputEnum name="option" label="Status" schema={statusSchema} />)
+
+      await user.click(screen.getByRole('combobox'))
+      const picking = await screen.findByRole('option', { name: 'Picking' })
+      await waitFor(() => {
+        expect(picking.querySelector('svg')).not.toBeNull()
+      })
+      expect(picking).toHaveTextContent('Picking')
+      expect(screen.getByRole('option', { name: 'Pending' })).toHaveTextContent('Pending')
+    })
+
+    it('shows a nested field-hint on options that have a description, not a nested button', async () => {
+      const user = userEvent.setup()
+      renderControl(<InputEnum name="option" label="Status" schema={statusSchema} />)
+
+      await user.click(screen.getByRole('combobox'))
+      const pending = await screen.findByRole('option', { name: 'Pending' })
+      expect(pending).toHaveAccessibleDescription('Order can still be modified')
+      expect(pending.querySelector('[data-field-hint-trigger]')).not.toBeNull()
+      expect(pending.querySelector('button')).toBeNull()
+      expect(screen.getByRole('option', { name: 'Picking' }).querySelector('[data-field-hint-trigger]')).toBeNull()
+
+      await user.hover(pending.querySelector('[data-field-hint-trigger]')!)
+      await waitFor(() => {
+        expect(screen.getAllByText('Order can still be modified').length).toBeGreaterThan(1)
+      })
+      const popup = document.querySelector('[data-slot="popover-content"][data-field-hint]')
+      expect(popup).toHaveAttribute('role', 'note')
     })
   })
 })
