@@ -60,9 +60,11 @@ export function InputIcon({
             errorMap: {},
           }))
           field.handleChange('')
-          // The clear button unmounts as soon as the value is empty, which
-          // would drop keyboard focus onto the surrounding dialog. Put it
-          // on the trigger so the user stays in the field they just emptied.
+          setOpen(false)
+          // Focusing the trigger would otherwise reopen the picker (the
+          // field opens on focus). Suppress that one so clear matches the
+          // other dropdowns: the user stays in the emptied field.
+          suppressFocusOpen.current = true
           document.getElementById(name)?.focus()
         }
 

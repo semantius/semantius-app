@@ -38,7 +38,7 @@ describe('InputIcon', () => {
     })
     expect(screen.getByRole('combobox', { name: /Icon Name/ })).toHaveTextContent('house')
     await waitFor(() => {
-      expect(container.querySelector('[data-slot="button"] svg')).not.toBeNull()
+      expect(container.querySelector('#icon_name svg')).not.toBeNull()
     })
   })
 
