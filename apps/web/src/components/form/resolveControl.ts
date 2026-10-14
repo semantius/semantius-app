@@ -9,7 +9,7 @@
  * and a field the registry has never heard of must still be editable. Those
  * names `console.error` and render as `text`. Missing stays a throw; unknown
  * does not, because refusing the whole form over one new format is how a
- * module with two uncataloged names became an error page.
+ * module with two names the catalog does not have became an error page.
  *
  * Pure in the return value, and deliberately free of React: it is called from
  * render, but it is also the thing a node test can exercise on its own. The
