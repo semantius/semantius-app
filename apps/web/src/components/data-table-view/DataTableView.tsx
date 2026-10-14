@@ -51,6 +51,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { NamedIcon } from '@/components/ui-ext/named-icon'
+import { ColorSwatch } from '@/components/ui-ext/color-picker'
 import {
   MoreHorizontal,
   Pencil,
@@ -901,6 +902,19 @@ export function DataTableView({
               <div className="flex items-center" title={iconName}>
                 <NamedIcon name={iconName} className="size-4" aria-hidden="true" />
                 <span className="sr-only">{iconName}</span>
+              </div>
+            )
+          }
+
+          if (property.format === 'color') {
+            const colorValue = typeof value === 'string' ? value.trim() : ''
+            if (!colorValue) {
+              return <div className={truncateClasses} style={truncateStyle}>-</div>
+            }
+            return (
+              <div className="flex items-center" title={colorValue}>
+                <ColorSwatch color={colorValue} />
+                <span className="sr-only">{colorValue}</span>
               </div>
             )
           }
