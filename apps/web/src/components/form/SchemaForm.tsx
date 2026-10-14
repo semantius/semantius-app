@@ -231,9 +231,14 @@ function validateField(
  *
  * A foreign key starts null, not 0: it is empty, and `undefined` would drop it
  * from form state entirely.
+ *
+ * An unknown format starts as `''`, the same as `text`, because the control
+ * that will edit it is the text control.
  */
 export function defaultValueForFormat(format: unknown): unknown {
-  if (!isFormatName(format)) return undefined
+  if (!isFormatName(format)) {
+    return typeof format === 'string' && format !== '' ? '' : undefined
+  }
   if (format === 'reference' || format === 'parent') return null
   switch (formatType(format)) {
     case 'boolean':
@@ -255,8 +260,8 @@ export function defaultValueForFormat(format: unknown): unknown {
  *
  * The buckets live on the registry entry (`controls.ts`), so the form and the
  * grid read one list instead of keeping two that drift — they already had.
- * `resolveControl` always answers here, because `assertSupportedFormats` has
- * thrown for anything it would not.
+ * An unknown format resolves to `text` (width `m`); a missing one has already
+ * thrown from `assertSupportedFormats`.
  */
 function getDefaultWidthForForm(format?: string): 's' | 'm' | 'w' {
   return resolveControl({ format })?.width ?? 'm'
@@ -283,9 +288,9 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
   // locale: a validation message is prose, so it follows the catalog.
   const language = useLanguage()
 
-  // Before anything else, including the default values below: a field whose
-  // format the registry cannot serve throws here, so the form neither renders
-  // nor submits. The throw reaches the router's defaultErrorComponent.
+  // Before anything else, including the default values below: a field with no
+  // format throws here (the throw reaches the router's defaultErrorComponent).
+  // An unknown format name is logged and the field renders as text.
   assertSupportedFormats(schema)
 
   // Merge schema defaults under initialValue so explicit values win
@@ -690,11 +695,9 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
               const inputMode = renderedInputMode(key, propSchema, ruleResult, formMode, parentField)
               if (inputMode === null) return null
 
-              // Strict: assertSupportedFormats() ran at the top of this render,
-              // so an unresolvable format threw before anything was drawn. There
-              // is deliberately no fallback control — rendering a text box over
-              // an int32 or an enum is how the wrong editor used to reach the
-              // user, who then saved through it.
+              // assertSupportedFormats() ran at the top of this render: a
+              // missing format already threw, and an unknown name already
+              // logged. resolveControl falls unknown names back to `text`.
               const ControlComponent = resolveControl({ format })!.control
 
               // Skip validation for readonly, disabled, and hidden fields

@@ -941,12 +941,9 @@ describe('SchemaForm', () => {
 
 
 /**
- * A field the registry cannot serve stops the form dead.
- *
- * The old rule (`controls[format || type] || InputText`) turned an unknown or
- * absent format into a text box, so an int32 got a free-text editor and an enum
- * lost its picker — and the user then saved through it. `assertSupportedFormats`
- * runs at the top of render, so nothing is drawn and nothing can be submitted.
+ * A field with no format stops the form dead. An unknown format name does not:
+ * it is logged and the field renders as text, so a catalog that lags the
+ * platform still produces an editable form.
  */
 describe('strict format resolution', () => {
   /**
@@ -995,14 +992,56 @@ describe('strict format resolution', () => {
     expect(screen.getByTestId('boundary')).toHaveTextContent('{label} ({field}) has no format.')
   })
 
-  it('throws for a format outside the catalog', () => {
-    renderCaught(withProperty({ type: 'string', format: 'markdown' }))
-    expect(screen.getByTestId('boundary')).toHaveTextContent(
-      '{label} ({field}) has the format "{format}", which is not supported.',
-    )
+  it('renders an unknown format as a text input and logs the name', () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      render(
+        <SchemaForm
+          schema={withProperty({ type: 'string', format: 'markdown' })}
+          onSubmit={vi.fn()}
+        />,
+      )
+      const input = screen.getByRole('textbox', { name: 'Shipper' })
+      expect(input).toBeInTheDocument()
+      expect(input).toHaveAttribute('type', 'text')
+      expect(spy).toHaveBeenCalledWith(
+        'Shipper (ship_via) has the format "markdown", which is not supported.',
+      )
+    } finally {
+      spy.mockRestore()
+    }
   })
 
-  it('renders no field and never submits', async () => {
+  it('renders every unknown format as text, logging each name', () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      render(
+        <SchemaForm
+          schema={{
+            type: 'object',
+            properties: {
+              name: { type: 'string', format: 'text', title: 'Name' },
+              alpha: { type: 'string', format: 'newtype-a', title: 'Alpha' },
+              beta: { type: 'string', format: 'newtype-b', title: 'Beta' },
+            },
+          }}
+        />,
+      )
+      expect(screen.getByRole('textbox', { name: 'Name' })).toHaveAttribute('type', 'text')
+      expect(screen.getByRole('textbox', { name: 'Alpha' })).toHaveAttribute('type', 'text')
+      expect(screen.getByRole('textbox', { name: 'Beta' })).toHaveAttribute('type', 'text')
+      expect(spy).toHaveBeenCalledWith(
+        'Alpha (alpha) has the format "newtype-a", which is not supported.',
+      )
+      expect(spy).toHaveBeenCalledWith(
+        'Beta (beta) has the format "newtype-b", which is not supported.',
+      )
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('renders no field and never submits when a format is missing', async () => {
     const onSubmit = renderCaught(withProperty({ type: 'integer' }))
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /save|submit/i })).not.toBeInTheDocument()

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import formats from 'sem-schema/formats.json'
 import { assertSupportedFormats, isSyntheticProperty, resolveControl } from './resolveControl'
 import { controls } from './controls'
@@ -10,12 +10,18 @@ describe('resolveControl', () => {
     }
   })
 
-  it.each([undefined, '', 'markdown', 'Text', 'toString', 'constructor', 42, null])(
-    'does not resolve %p',
-    (format) => {
-      expect(resolveControl({ format })).toBeUndefined()
-    },
-  )
+  it('falls unknown names back to the text control', () => {
+    expect(resolveControl({ format: 'markdown' })).toBe(controls.text)
+    expect(resolveControl({ format: 'Text' })).toBe(controls.text)
+    // Prototype names are not catalog formats (`isFormatName` uses Object.hasOwn),
+    // so they take the same unknown-name path rather than resolving as themselves.
+    expect(resolveControl({ format: 'toString' })).toBe(controls.text)
+    expect(resolveControl({ format: 'constructor' })).toBe(controls.text)
+  })
+
+  it.each([undefined, '', 42, null])('does not resolve %p', (format) => {
+    expect(resolveControl({ format })).toBeUndefined()
+  })
 
   it('skips the synthetic label companions', () => {
     expect(isSyntheticProperty({ ctype: '_label' })).toBe(true)
@@ -27,6 +33,10 @@ describe('resolveControl', () => {
 
 describe('assertSupportedFormats', () => {
   const ok = { properties: { name: { type: 'string', format: 'text' } } }
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
 
   it('accepts a schema whose every property resolves', () => {
     expect(() => assertSupportedFormats(ok)).not.toThrow()
@@ -51,20 +61,16 @@ describe('assertSupportedFormats', () => {
     })
   })
 
-  it('names the unsupported format when there is one', () => {
-    let thrown: Error | undefined
-    try {
-      assertSupportedFormats({ properties: { notes: { type: 'string', format: 'markdown' } } })
-    } catch (err) {
-      thrown = err as Error
-    }
-    expect(thrown?.message).toBe(
-      '{label} ({field}) has the format "{format}", which is not supported.',
+  it('logs an unknown format by name and does not throw', () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    expect(() =>
+      assertSupportedFormats({
+        properties: { notes: { type: 'string', format: 'markdown', title: 'Notes' } },
+      }),
+    ).not.toThrow()
+    expect(spy).toHaveBeenCalledWith(
+      'Notes (notes) has the format "markdown", which is not supported.',
     )
-    expect((thrown?.cause as Record<string, unknown>)?.values).toMatchObject({
-      field: 'notes',
-      format: 'markdown',
-    })
   })
 
   it('falls back to the field name when the property has no title', () => {
@@ -75,7 +81,9 @@ describe('assertSupportedFormats', () => {
     }
   })
 
-  it('lists every offender in details, not only the one it names', () => {
+  it('lists every missing format in details, and logs unknown names instead of throwing for them', () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    let thrown: Error | undefined
     try {
       assertSupportedFormats({
         properties: {
@@ -85,10 +93,16 @@ describe('assertSupportedFormats', () => {
         },
       })
     } catch (err) {
-      const details = (err as Error).cause as { details?: string }
-      expect(details.details).toBe('missing: \nunknown: markdown')
-      expect(details.details).not.toContain('ok_field')
+      thrown = err as Error
     }
+    expect(thrown).toBeDefined()
+    const details = thrown?.cause as { details?: string }
+    expect(details.details).toBe('missing: ')
+    expect(details.details).not.toContain('ok_field')
+    expect(details.details).not.toContain('unknown')
+    expect(spy).toHaveBeenCalledWith(
+      'unknown (unknown) has the format "markdown", which is not supported.',
+    )
   })
 
   it('checks hidden and readonly fields too', () => {
