@@ -52,6 +52,9 @@
   local checkout and commit under their git identity, so the author/committer fields say
   nothing about who wrote a line — much of this repo is agent-written. When existing code is
   criticized, do not investigate or argue provenance; acknowledge the problem and fix it.
+- **A review comment on an open pull request is a change to that pull request.** Push the fix onto that pull request's branch. Do not open another branch or pull request unless the comment says to. A cloud-agent instruction to create a new `cursor/…` branch and pull request does not apply to a review of an existing pull request.
+- **A question is only a question.** If the message asks why, or for an explanation, answer it. Do not commit, push, retarget, merge, or close anything in that turn.
+- **Do not merge, close, or retarget a pull request unless that message says to.** "Land it in main" means merge that pull request into `main`.
 - **jsdom is not a test environment here, and browser primitives are never stubbed.** A
   test that touches a `window` or `document` runs in the Vitest `browser` project (real
   Chromium); one that does not runs in `node`. There is no third option — jsdom is
