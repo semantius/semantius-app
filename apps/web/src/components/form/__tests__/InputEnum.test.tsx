@@ -7,7 +7,7 @@ import { renderControl, FormHarness } from './harness'
 
 function chevronSvg(trigger: HTMLElement): SVGElement {
   const chevron = trigger.querySelector('svg.ml-auto')
-  if (!chevron) throw new Error('expected a chevron svg inside the trigger')
+  if (!(chevron instanceof SVGElement)) throw new Error('expected a chevron svg inside the trigger')
   return chevron
 }
 
