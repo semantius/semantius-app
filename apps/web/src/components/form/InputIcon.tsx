@@ -1,20 +1,24 @@
-import { useState } from 'react'
-import { Pencil, X } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { X } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { inputSurfaceClassName } from '@/lib/utils-ext'
+import { Button } from '@/components/ui/button'
 import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupText,
-} from '@/components/ui/input-group'
+  Popover,
+  PopoverContent,
+  PopoverDescription,
+  PopoverTitle,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import { NamedIcon } from '@/components/ui-ext/named-icon'
-import { IconPickerDialog } from '@/components/ui-ext/icon-picker'
+import { IconPicker } from '@/components/ui-ext/icon-picker'
 import { useT } from '@/i18n'
 import type { FormControlProps } from './types'
 import { useFormContext } from './FormContext'
 import { FormLabel } from './FormLabel'
 import { FormDescription } from './FormDescription'
 import { FormError } from './FormError'
-import { describedBy, labelId } from './fieldAria'
+import { describedBy, labelledBy } from './fieldAria'
 
 export function InputIcon({
   name,
@@ -26,6 +30,8 @@ export function InputIcon({
   const { form, formMode } = useFormContext()
   const t = useT()
   const [open, setOpen] = useState(false)
+  const suppressFocusOpen = useRef(false)
+  const openedFromFocus = useRef(false)
 
   const required = inputMode === 'required'
   const readonly = inputMode === 'readonly'
@@ -38,10 +44,26 @@ export function InputIcon({
         const error = field.state.meta.errors?.[0]
         const current = typeof field.state.value === 'string' ? field.state.value : ''
         const locked = disabled || readonly
-        const showClear = !locked && !!current
+        const showClearButton = !locked && !!current
+        const pickerId = `${name}-icon-picker`
 
         if (hidden) {
           return <input type="hidden" name={name} value={current} />
+        }
+
+        const handleClear = (e: React.MouseEvent) => {
+          e.preventDefault()
+          e.stopPropagation()
+          field.setMeta((meta: any) => ({
+            ...meta,
+            errors: [],
+            errorMap: {},
+          }))
+          field.handleChange('')
+          // The clear button unmounts as soon as the value is empty, which
+          // would drop keyboard focus onto the surrounding dialog. Put it
+          // on the trigger so the user stays in the field they just emptied.
+          document.getElementById(name)?.focus()
         }
 
         return (
@@ -53,62 +75,115 @@ export function InputIcon({
               required={required}
               error={!!error}
             />
-            <InputGroup data-invalid={error ? true : undefined} data-disabled={locked || undefined}>
-              {current ? (
-                <InputGroupAddon align="inline-start">
-                  <NamedIcon name={current} aria-hidden="true" />
-                </InputGroupAddon>
-              ) : null}
-              <InputGroupText aria-live="polite" className="flex-1 truncate px-1">
-                {current || t('No icon')}
-              </InputGroupText>
-              <InputGroupAddon align="inline-end">
-                <InputGroupButton
-                  id={name}
-                  size="icon-xs"
-                  disabled={locked}
-                  aria-haspopup="dialog"
-                  aria-expanded={open}
-                  aria-labelledby={label ? `${labelId(name)} ${name}-pick` : undefined}
-                  aria-describedby={describedBy(name, { description, error, formMode })}
-                  aria-invalid={error ? true : undefined}
-                  onClick={() => setOpen(true)}
+            <Popover
+              open={open}
+              onOpenChange={(isOpen, details) => {
+                // Clicking the field focuses it first, which opens the picker.
+                // The click then arrives as a trigger-press and would toggle
+                // it closed in the same gesture — ignore that one close.
+                if (!isOpen && details.reason === 'trigger-press' && openedFromFocus.current) {
+                  openedFromFocus.current = false
+                  return
+                }
+                openedFromFocus.current = false
+                setOpen(isOpen)
+                if (!isOpen) {
+                  suppressFocusOpen.current = true
+                  field.handleBlur()
+                }
+              }}
+            >
+              {/* The clear button is a SIBLING of the trigger, not one of its
+                  children. Nesting a <button> inside the trigger <button> is
+                  invalid HTML and an axe `nested-interactive` (serious) error.
+                  Reveal-on-interaction hangs off this wrapper, matching
+                  InputEnum / APISelect: hidden until hover, focus, or an
+                  open picker. */}
+              <div className="group/combobox relative w-full">
+                <PopoverTrigger
+                  render={
+                    <Button
+                      id={name}
+                      variant="ghost"
+                      role="combobox"
+                      aria-expanded={open}
+                      aria-controls={open ? pickerId : undefined}
+                      aria-haspopup="dialog"
+                      aria-labelledby={labelledBy(name, label) ? `${labelledBy(name, label)} ${name}` : undefined}
+                      aria-invalid={error ? true : undefined}
+                      aria-describedby={describedBy(name, { description, error, formMode })}
+                      disabled={locked}
+                      data-field-surface=""
+                      className={cn(
+                        'w-full cursor-pointer justify-start gap-2 font-normal pl-3 pr-3',
+                        inputSurfaceClassName,
+                        'aria-invalid:ring-destructive/20 aria-invalid:border-destructive',
+                      )}
+                      onFocus={() => {
+                        if (locked) return
+                        if (suppressFocusOpen.current) {
+                          suppressFocusOpen.current = false
+                          return
+                        }
+                        if (!open) {
+                          openedFromFocus.current = true
+                          setOpen(true)
+                        }
+                      }}
+                    />
+                  }
                 >
-                  <Pencil aria-hidden="true" />
-                  <span id={`${name}-pick`} className="sr-only">
-                    {t('Choose an icon')}
-                  </span>
-                </InputGroupButton>
-                {showClear ? (
-                  <InputGroupButton
-                    size="icon-xs"
-                    aria-label={t('Clear icon')}
-                    onClick={() => {
-                      field.handleChange('')
-                      field.handleBlur()
-                      document.getElementById(name)?.focus()
-                    }}
+                  {current ? (
+                    <NamedIcon name={current} aria-hidden="true" className="size-4 shrink-0" />
+                  ) : null}
+                  <span
+                    className={cn(
+                      'truncate',
+                      showClearButton && 'mr-7',
+                      !current && !locked && 'text-muted-foreground',
+                    )}
                   >
-                    <X aria-hidden="true" />
-                  </InputGroupButton>
+                    {locked ? (current || '') : (current || t('No icon'))}
+                  </span>
+                </PopoverTrigger>
+                {showClearButton ? (
+                  <button
+                    type="button"
+                    aria-label={t('Clear selection')}
+                    className="absolute top-1/2 right-2 flex size-6 -translate-y-1/2 items-center justify-center rounded-sm opacity-0 transition-opacity focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring group-hover/combobox:opacity-100 group-focus-within/combobox:opacity-100 group-has-aria-expanded/combobox:opacity-100"
+                    onPointerDown={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                    }}
+                    onClick={handleClear}
+                  >
+                    <X className="h-3 w-3 opacity-50 hover:opacity-100" />
+                  </button>
                 ) : null}
-              </InputGroupAddon>
-            </InputGroup>
+              </div>
+              <PopoverContent className="w-(--anchor-width) min-w-72 gap-0 p-0" align="start">
+                <PopoverTitle className="sr-only">{t('Choose an icon')}</PopoverTitle>
+                <PopoverDescription className="sr-only">{t('Select an icon from the list.')}</PopoverDescription>
+                <IconPicker
+                  id={pickerId}
+                  value={current}
+                  onSelect={(iconName) => {
+                    suppressFocusOpen.current = true
+                    field.setMeta((meta: any) => ({
+                      ...meta,
+                      errors: [],
+                      errorMap: {},
+                    }))
+                    field.handleChange(iconName)
+                    setOpen(false)
+                    field.handleBlur()
+                  }}
+                />
+              </PopoverContent>
+            </Popover>
             {readonly ? <input type="hidden" name={name} value={current} /> : null}
             <FormDescription name={name} description={description} error={error} />
             <FormError name={name} error={error} />
-            <IconPickerDialog
-              open={open}
-              onOpenChange={(isOpen) => {
-                setOpen(isOpen)
-                if (!isOpen) field.handleBlur()
-              }}
-              value={current}
-              onSelect={(iconName) => {
-                field.handleChange(iconName)
-                field.handleBlur()
-              }}
-            />
           </div>
         )
       }}

@@ -4,39 +4,27 @@ import { iconNames, type IconName } from 'lucide-react/dynamic'
 import { cn } from '@/lib/utils'
 import { useT } from '@/i18n'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { NamedIcon } from '@/components/ui-ext/named-icon'
 
 const COLUMNS = 8
 const ROW_SIZE = 40
 
-export interface IconPickerDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
+export interface IconPickerProps {
+  id?: string
   value?: string
   onSelect: (name: IconName) => void
 }
 
 /**
- * A searchable, virtualized Lucide icon grid in a Base UI dialog.
+ * A searchable, virtualized Lucide icon grid.
  *
  * Pattern follows alan-crts/shadcn-iconpicker (search + TanStack Virtual rows),
- * rebuilt on this repo's Base UI Dialog and NamedIcon rather than a Radix
- * popover and a hand-rolled DynamicIcon wrapper.
+ * rebuilt on this repo's Base UI primitives and NamedIcon. The form control
+ * mounts this inside a Popover anchored to the field — not a centered dialog —
+ * so it sits below the input like the other pickers.
  */
-export function IconPickerDialog({
-  open,
-  onOpenChange,
-  value,
-  onSelect,
-}: IconPickerDialogProps) {
+export function IconPicker({ id, value, onSelect }: IconPickerProps) {
   const t = useT()
   const [query, setQuery] = useState('')
   const parentRef = useRef<HTMLDivElement>(null)
@@ -55,20 +43,15 @@ export function IconPickerDialog({
     getScrollElement: () => parentRef.current,
     estimateSize: () => ROW_SIZE,
     overscan: 8,
-    enabled: open,
   })
 
   useEffect(() => {
-    if (!open) {
-      setQuery('')
-      return
-    }
-    const id = window.setTimeout(() => {
+    const timeoutId = window.setTimeout(() => {
       searchRef.current?.focus()
       virtualizer.measure()
     }, 0)
-    return () => window.clearTimeout(id)
-  }, [open, virtualizer])
+    return () => window.clearTimeout(timeoutId)
+  }, [virtualizer])
 
   useEffect(() => {
     parentRef.current?.scrollTo({ top: 0 })
@@ -76,70 +59,62 @@ export function IconPickerDialog({
   }, [query, virtualizer])
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="gap-4 p-4 sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{t('Choose an icon')}</DialogTitle>
-          <DialogDescription>{t('Select an icon from the list.')}</DialogDescription>
-        </DialogHeader>
-        <Input
-          ref={searchRef}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder={t('Search icons')}
-          aria-label={t('Search icons')}
-        />
-        <div
-          ref={parentRef}
-          className="h-80 overflow-auto rounded-xl border border-border"
-        >
-          {filtered.length === 0 ? (
-            <p className="p-6 text-center text-sm text-muted-foreground">{t('No icon found.')}</p>
-          ) : (
-            <div
-              className="relative w-full"
-              style={{ height: virtualizer.getTotalSize() }}
-            >
-              {virtualizer.getVirtualItems().map((row) => {
-                const start = row.index * COLUMNS
-                const names = filtered.slice(start, start + COLUMNS)
-                return (
-                  <div
-                    key={row.key}
-                    className="absolute top-0 left-0 grid w-full grid-cols-8 px-1"
-                    style={{
-                      height: row.size,
-                      transform: `translateY(${row.start}px)`,
-                    }}
-                  >
-                    {names.map((name) => {
-                      const selected = name === value
-                      return (
-                        <Button
-                          key={name}
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          title={name}
-                          aria-label={name}
-                          aria-pressed={selected}
-                          className={cn(selected && 'bg-muted')}
-                          onClick={() => {
-                            onSelect(name)
-                            onOpenChange(false)
-                          }}
-                        >
-                          <NamedIcon name={name} aria-hidden="true" />
-                        </Button>
-                      )
-                    })}
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
+    <div className="flex flex-col gap-2 p-2">
+      <Input
+        ref={searchRef}
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder={t('Search icons')}
+        aria-label={t('Search icons')}
+      />
+      <div
+        id={id}
+        ref={parentRef}
+        className="h-64 overflow-auto rounded-xl border border-border"
+      >
+        {filtered.length === 0 ? (
+          <p className="p-6 text-center text-sm text-muted-foreground">{t('No icon found.')}</p>
+        ) : (
+          <div
+            className="relative w-full"
+            style={{ height: virtualizer.getTotalSize() }}
+          >
+            {virtualizer.getVirtualItems().map((row) => {
+              const start = row.index * COLUMNS
+              const names = filtered.slice(start, start + COLUMNS)
+              return (
+                <div
+                  key={row.key}
+                  className="absolute top-0 left-0 grid w-full grid-cols-8 px-1"
+                  style={{
+                    height: row.size,
+                    transform: `translateY(${row.start}px)`,
+                  }}
+                >
+                  {names.map((name) => {
+                    const selected = name === value
+                    return (
+                      <Button
+                        key={name}
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        title={name}
+                        aria-label={name}
+                        aria-pressed={selected}
+                        className={cn(selected && 'bg-muted')}
+                        onClick={() => onSelect(name)}
+                      >
+                        <NamedIcon name={name} aria-hidden="true" />
+                      </Button>
+                    )
+                  })}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </div>
   )
 }

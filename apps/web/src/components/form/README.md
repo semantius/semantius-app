@@ -139,7 +139,7 @@ below are what `fieldAria.ts` exists to encode; use it rather than repeating the
 | `html`    | InputHtml     | CodeMirror editor with HTML syntax    |
 | `code`    | InputCode     | CodeMirror editor (generic)           |
 | `jsonata` | InputJsonata  | CodeMirror editor with JSONata syntax |
-| `icon`    | InputIcon     | Lucide icon picker (NamedIcon + modal) |
+| `icon`    | InputIcon     | Lucide icon picker (NamedIcon + popover) |
 
 ### Type-Based Controls (no format specified)
 

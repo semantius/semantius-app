@@ -233,8 +233,8 @@ export default defineConfig(({ mode }) => ({
       // forever at "94 passed (95)", idle, which is how `release.sh` stalled.
       // Listing it here also changes the config hash, which rebuilds those caches.
       'ajv/dist/runtime/equal',
-      // Reached through the icon picker dialog (InputIcon). A cold cache would
-      // otherwise discover it mid-run the first time a form test opens the modal.
+      // Reached through the icon picker popover (InputIcon). A cold cache would
+      // otherwise discover it mid-run the first time a form test opens the picker.
       '@tanstack/react-virtual',
     ],
   },
