@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useRef, useState, type CSSProperties } from 'react'
 import { Slider } from '@base-ui/react/slider'
 import { cn } from '@/lib/utils'
 import { useT } from '@/i18n'
@@ -72,38 +72,29 @@ function formatFor(format: ColorFormat, color: Hsva): string {
 export function ColorPicker({ id, value, onChange }: ColorPickerProps) {
   const t = useT()
   const [format, setFormat] = useState<ColorFormat>('hex')
-  const [color, setColor] = useState<Hsva>(() => parseCssColor(value) ?? DEFAULT_HSVA)
-  const [draft, setDraft] = useState(() => formatFor('hex', color))
-
-  useEffect(() => {
-    const parsed = parseCssColor(value)
-    if (!parsed) return
-    setColor((prev) => ({
-      ...parsed,
-      h: parsed.s === 0 ? prev.h : parsed.h,
-    }))
-  }, [value])
-
-  useEffect(() => {
-    setDraft(formatFor(format, color))
-  }, [format, color])
+  const [hueLock, setHueLock] = useState(() => parseCssColor(value)?.h ?? DEFAULT_HSVA.h)
+  const [draft, setDraft] = useState<string | null>(null)
+  const parsed = parseCssColor(value)
+  const color: Hsva = parsed
+    ? { ...parsed, h: parsed.s === 0 ? hueLock : parsed.h }
+    : { ...DEFAULT_HSVA, h: hueLock }
+  const shown = draft ?? (value ? formatFor(format, color) : '')
 
   const rgb = hsvToRgb(color.h, color.s, color.v)
   const css = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${color.a})`
   const opaque = `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`
 
   const commit = (next: Hsva) => {
-    setColor(next)
+    setHueLock(next.h)
+    setDraft(null)
     onChange(formatHex(next))
   }
 
   const commitDraft = () => {
-    const parsed = parseCssColor(draft)
-    if (!parsed) {
-      setDraft(formatFor(format, color))
-      return
-    }
-    commit(parsed)
+    if (draft === null) return
+    const next = parseCssColor(draft)
+    setDraft(null)
+    if (next) commit(next)
   }
 
   return (
@@ -139,7 +130,10 @@ export function ColorPicker({ id, value, onChange }: ColorPickerProps) {
                   : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
               )}
               aria-pressed={format === item}
-              onClick={() => setFormat(item)}
+              onClick={() => {
+                setFormat(item)
+                setDraft(null)
+              }}
             >
               {item}
             </button>
@@ -147,7 +141,7 @@ export function ColorPicker({ id, value, onChange }: ColorPickerProps) {
         </div>
         <Input
           aria-label={format === 'hex' ? t('Hex') : format === 'rgb' ? 'RGB' : 'HSL'}
-          value={draft}
+          value={shown}
           spellCheck={false}
           onChange={(event) => setDraft(event.target.value)}
           onBlur={commitDraft}
