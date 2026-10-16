@@ -13,7 +13,9 @@ import { useDerivedColumnTitle } from "../hooks"
  * universal grid idiom, and as a div it was mouse-only: no tab stop, no focus
  * ring, no Enter/Space, and nothing announcing that the text does anything
  * (2.1.1, 2.4.7). The button is styled to look exactly like the plain title —
- * `text-left` and `w-full` keep the truncation behavior identical.
+ * `text-left` and `w-full` keep the truncation behavior identical. Callers
+ * override alignment via `className` (`text-right` on numeric columns); it
+ * must be merged last so it wins over that default.
  *
  * The sorted state itself is announced from `aria-sort` on the enclosing `<th>`
  * (see DataTableHeader); it deliberately is not repeated in the button's label,
@@ -35,13 +37,19 @@ export function TableColumnTitle<TData, TValue>({
   const derivedTitle = useDerivedColumnTitle(column, column.id, title)
   const content = children ?? derivedTitle
 
-  const baseClassName = cn(
+  // `className` is last so a numeric column's `text-right` beats the default
+  // `text-left`. Putting `text-left` after `className` is what made every
+  // sortable numeric heading read as left-aligned after the 2.5.8 min-target
+  // fix.
+  const titleClassName = cn(
     "truncate py-0.5 text-sm font-semibold transition-colors",
+    onClick &&
+      "min-h-6 min-w-6 w-full text-left rounded-sm outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
     className,
   )
 
   if (!onClick) {
-    return <div className={baseClassName}>{content}</div>
+    return <div className={titleClassName}>{content}</div>
   }
 
   // 2.5.8 Target Size. Height is already 24px (a 20px line box + py-0.5), so
@@ -51,14 +59,7 @@ export function TableColumnTitle<TData, TValue>({
   // exception did not apply either. Measured on the 320px preview, not
   // theorized; the first diagnosis ("add min-h-6") would have changed nothing.
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        baseClassName,
-        "min-h-6 min-w-6 w-full text-left rounded-sm outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-      )}
-    >
+    <button type="button" onClick={onClick} className={titleClassName}>
       {content}
     </button>
   )

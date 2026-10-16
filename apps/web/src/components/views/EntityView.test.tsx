@@ -64,4 +64,17 @@ describe('EntityView — the generic delete confirmation', () => {
     const rows = (await (await db(`/modules?module_slug=eq.${fixture.module_slug}`)).json()) as unknown[]
     expect(rows).toHaveLength(1)
   })
+
+  it('right-aligns the numeric Id column in the real grid', async () => {
+    renderInApp(<EntityView moduleId="admin" table_name="modules" recordId="" metadata={metadata} />)
+    await screen.findByRole('button', { name: 'Add Module' })
+    await findRow(fixture.module_name)
+
+    const title = await screen.findByRole('button', { name: /^id$/i })
+    const idHeader = title.closest('th')
+    expect(idHeader).toBeTruthy()
+    expect(getComputedStyle(idHeader!).textAlign).toBe('right')
+    expect(getComputedStyle(title).textAlign).toBe('right')
+    expect(idHeader!.getBoundingClientRect().width).toBeLessThanOrEqual(160)
+  })
 })

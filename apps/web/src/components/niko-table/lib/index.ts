@@ -32,7 +32,7 @@ export {
 } from "./filter-functions"
 
 // Style utilities
-export { getCommonPinningStyles } from "./styles"
+export { getCommonPinningStyles, getColumnLayout } from "./styles"
 
 // Row filtering utilities
 export { getFilteredRowsExcludingColumn } from "./filter-rows"
