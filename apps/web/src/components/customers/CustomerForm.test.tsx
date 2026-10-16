@@ -20,12 +20,14 @@ import { AppHarness, bootApp } from '@/test/appHarness'
  *
  * WHAT THAT TURNED UP. The form's fields (`email`, `phone`, `company`, …) are
  * not the tenant's `customers` columns (`company_name`, `contact_name`, …), so
- * a real save is REJECTED — `PGRST204`, "column \"company\" of relation
- * \"customers\" does not exist". That is a defect in this demo route, not in the
- * test, and it makes the failure path the honest thing to assert here: the
- * message reaches the user and the form stays open with their input intact.
- * Asserting a successful save would mean inventing a schema the tenant does not
- * have — which is what the mock was doing.
+ * a real save is REJECTED. PostgREST answers either `PGRST204` ("column
+ * \"company\" of relation \"customers\" does not exist") or `PGRST205` ("Could
+ * not find the table 'public.customers' in the schema cache") depending on
+ * whether the relation is in this tenant's cache. That is a defect in this
+ * demo route, not in the test, and it makes the failure path the honest thing
+ * to assert here: the message reaches the user and the form stays open with
+ * their input intact. Asserting a successful save would mean inventing a
+ * schema the tenant does not have — which is what the mock was doing.
  */
 
 function Wrapper({ children }: { children: ReactNode }) {
@@ -116,8 +118,10 @@ describe('CustomerForm', () => {
     await user.click(screen.getByRole('button', { name: /Create Customer/i }))
 
     // The message is PostgREST's, rendered by the component's own error line.
+    // PGRST204 names a missing column; PGRST205 names a missing table — both
+    // are the database refusing this demo form's payload.
     await waitFor(
-      () => expect(screen.getByText(/does not exist/)).toBeInTheDocument(),
+      () => expect(screen.getByText(/does not exist|schema cache/i)).toBeInTheDocument(),
       { timeout: 20000 },
     )
     // A save that failed must not look like one that worked.
