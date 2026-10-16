@@ -1,5 +1,6 @@
 import { type Column } from "@tanstack/react-table"
 import type React from "react"
+import { cn } from "@/lib/utils"
 
 export const getCommonPinningStyles = <TData>(
   column: Column<TData>,
@@ -44,4 +45,34 @@ export const getCommonPinningStyles = <TData>(
       ? "1px 0 0 color-mix(in srgb, var(--border) 50%, transparent)"
       : "-1px 0 0 color-mix(in srgb, var(--border) 50%, transparent)",
   } as React.CSSProperties
+}
+
+/**
+ * Width, max-width and alignment for a header or body cell, including pinning.
+ *
+ * Numeric columns set `meta.align = "end"` and `meta.maxWidth`. Pinning styles
+ * are spread last so a sticky column keeps its explicit pixel size.
+ */
+export function getColumnLayout<TData>(
+  column: Column<TData>,
+  isHeader: boolean = false,
+): { style: React.CSSProperties; className: string } {
+  const size = column.columnDef.size
+  const maxWidth = column.columnDef.meta?.maxWidth
+  const alignEnd = column.columnDef.meta?.align === "end"
+  const pinned = column.getIsPinned()
+  return {
+    style: {
+      width: size ? `${size}px` : undefined,
+      maxWidth: maxWidth ? `${maxWidth}px` : undefined,
+      ...getCommonPinningStyles(column, isHeader),
+    },
+    className: cn(
+      alignEnd && "text-right",
+      // `width: 1%` is the auto-table shrink-to-content trick: the column sizes
+      // to its content (capped by maxWidth) and leftover width goes to columns
+      // that did not set a width. Pinned columns already have a fixed size.
+      Boolean(maxWidth) && !pinned && "w-[1%] overflow-hidden",
+    ),
+  }
 }

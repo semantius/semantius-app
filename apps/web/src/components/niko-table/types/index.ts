@@ -42,6 +42,17 @@ declare module "@tanstack/react-table" {
     unit?: string
     icon?: React.ComponentType<{ className?: string }>
 
+    /**
+     * Inline alignment of the header and body cells. `"end"` right-aligns
+     * numeric columns so figures and their headings share one edge.
+     */
+    align?: "start" | "end"
+    /**
+     * Cap on the column's width in px. Unpinned numeric columns use this so a
+     * `w-full` table cannot stretch Id/count columns across the page.
+     */
+    maxWidth?: number
+
     // Row Expansion
     expandedContent?: (row: TData) => React.ReactNode
   }

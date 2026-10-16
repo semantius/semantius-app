@@ -171,6 +171,12 @@ export interface DataTableViewProps {
   renderDeleteConfirmation?: (props: DeleteConfirmationProps) => React.ReactNode
 }
 
+/** JSON Schema `type` unwrapped to a single name (`["integer","null"]` → `"integer"`). */
+function schemaType(property: { type?: string | string[] }): string | undefined {
+  const type = property.type
+  return Array.isArray(type) ? type[0] : type
+}
+
 // Helper to map metadata property type to niko-table filter variant
 function getFilterVariant(property: {
   type?: string | string[]
@@ -179,10 +185,27 @@ function getFilterVariant(property: {
 }): FilterVariant {
   if (property.enum && property.enum.length > 0) return FILTER_VARIANTS.SELECT
   if (property.reference_table) return FILTER_VARIANTS.SELECT
-  const type = Array.isArray(property.type) ? property.type[0] : property.type
+  const type = schemaType(property)
   if (type === 'integer' || type === 'number') return FILTER_VARIANTS.NUMBER
   if (type === 'boolean') return FILTER_VARIANTS.BOOLEAN
   return FILTER_VARIANTS.TEXT
+}
+
+/**
+ * A figure column — integer/number, not a reference or enum that happens to
+ * store a numeric key. Those render a label/badge and stay left-aligned.
+ */
+function isNumericGridColumn(property: {
+  type?: string | string[]
+  enum?: unknown[]
+  reference_table?: string
+}): boolean {
+  const type = schemaType(property)
+  return (
+    (type === 'integer' || type === 'number') &&
+    !property.reference_table &&
+    !(property.enum && property.enum.length > 0)
+  )
 }
 
 // Default display width for a property in the grid.
@@ -207,6 +230,11 @@ function getWidthBucket(property: { width?: string; format?: string; type?: stri
 // the rendered width and the cell content can be truncated to it — otherwise
 // long values overflow into the neighbouring column.
 const PINNED_WIDTH_PX: Record<'s' | 'm' | 'w', number> = { s: 100, m: 220, w: 340 }
+
+// Unpinned numeric columns shrink to content and never grow past this. 10rem
+// fits a grouped 10-digit figure or a short heading ("Max guests") without
+// letting a `w-full` table stretch Id/count columns across the page.
+const NUMERIC_COL_MAX_PX = 160
 
 // Convert one ExtendedColumnFilter to one or more PostgREST AND query parameters.
 // Returns an array because 'between' requires two parameters.
@@ -770,15 +798,11 @@ export function DataTableView({
 
       const variant = getFilterVariant(property)
       // Numeric columns are right-aligned (cells via text-right below, header via
-      // justify-end) so the heading lines up with the right-aligned figures.
+      // justify-end + a text-right title) so the heading lines up with the figures.
       // Reference (FK) and enum columns have a numeric underlying type but render a
       // left-aligned label/badge in the cell — they must NOT get a right-aligned
-      // heading. Mirror the cell logic: text-right is only reached when the column
-      // is not a reference, not a boolean, and not an enum.
-      const isNumeric =
-        (property.type === 'integer' || property.type === 'number') &&
-        !property.reference_table &&
-        !(property.enum && property.enum.length > 0)
+      // heading.
+      const isNumeric = isNumericGridColumn(property)
       const columnTitle = property.title || key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 
       // The filter's VALUE stays the raw enum value the database holds; only
@@ -819,6 +843,7 @@ export function DataTableView({
           label: columnTitle,
           variant,
           ...(options ? { options } : {}),
+          ...(isNumeric ? { align: 'end' as const, maxWidth: NUMERIC_COL_MAX_PX } : {}),
         },
         header: ({ column }) => {
           // Show the sort control only when the column is actually sorted — no hover-reveal
@@ -828,7 +853,9 @@ export function DataTableView({
           const showSort = Boolean(column.getIsSorted())
           return (
             <DataTableColumnHeader className={isNumeric ? 'justify-end gap-0.5' : 'justify-start'}>
-              <DataTableColumnTitle>{columnTitle}</DataTableColumnTitle>
+              <DataTableColumnTitle className={isNumeric ? 'text-right' : undefined}>
+                {columnTitle}
+              </DataTableColumnTitle>
               {showSort && <DataTableColumnSortMenu className={isNumeric ? 'size-6' : undefined} />}
             </DataTableColumnHeader>
           )
@@ -854,7 +881,7 @@ export function DataTableView({
             return <div className={truncateClasses} style={truncateStyle} title={showTitle ? text : undefined}>{text}</div>
           }
 
-          if (property.type === 'boolean') {
+          if (schemaType(property) === 'boolean') {
             return <Badge variant={value ? 'default' : 'secondary'}>{value ? t('Yes') : t('No')}</Badge>
           }
 
@@ -877,12 +904,12 @@ export function DataTableView({
             )
           }
 
-          if (property.type === 'integer' || property.type === 'number') {
+          if (isNumeric) {
             const precision = resolvePrecision(property)
             // Locale-aware number formatting (see lib/number-format.ts). Suppress thousands
             // grouping for the primary-key id column — a grouped id like "1,002" reads wrong.
             return (
-              <div className="text-right tabular-nums">
+              <div className="w-full text-right tabular-nums">
                 {formatNumberForDisplay(value, precision, {
                   locale: formattingLocale,
                   grouping: key !== primaryKeyColumn,

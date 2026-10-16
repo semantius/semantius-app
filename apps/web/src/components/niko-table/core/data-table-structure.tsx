@@ -13,7 +13,7 @@ import { flexRender } from "@tanstack/react-table"
 import { Skeleton } from "@/components/ui/skeleton"
 import { DataTableEmptyState } from "../components/data-table-empty-state"
 import { DataTableColumnHeaderRoot } from "../components/data-table-column-header"
-import { getCommonPinningStyles } from "../lib/styles"
+import { getColumnLayout } from "../lib/styles"
 import "./pinned-edge.css"
 import type { Column, Row } from "@tanstack/react-table"
 import {
@@ -123,11 +123,8 @@ export const DataTableHeader = React.memo(function DataTableHeader({
       {headerGroups.map(headerGroup => (
         <TableRow key={headerGroup.id}>
           {headerGroup.headers.map(header => {
-            const size = header.column.columnDef.size
-            const headerStyle = {
-              width: size ? `${size}px` : undefined,
-              ...getCommonPinningStyles(header.column, true),
-            }
+            const { style: headerStyle, className: layoutClass } =
+              getColumnLayout(header.column, true)
 
             return (
               <TableHead
@@ -143,6 +140,7 @@ export const DataTableHeader = React.memo(function DataTableHeader({
                 className={cn(
                   header.column.getIsPinned() && "bg-background",
                   pinnedEdgeClasses(getPinnedEdge(header.column as Column<unknown, unknown>)),
+                  layoutClass,
                 )}
               >
                 {header.isPlaceholder ? null : (
@@ -255,12 +253,9 @@ function DataTableBodyRow<TData>({
         )}
       >
         {row.getVisibleCells().map(cell => {
-          const size = cell.column.columnDef.size
           const pin = cell.column.getIsPinned()
-          const cellStyle = {
-            width: size ? `${size}px` : undefined,
-            ...getCommonPinningStyles(cell.column, false),
-          }
+          const { style: cellStyle, className: layoutClass } =
+            getColumnLayout(cell.column, false)
 
           return (
             <TableCell
@@ -272,6 +267,7 @@ function DataTableBodyRow<TData>({
                 pinnedEdgeClasses(
                   getPinnedEdge(cell.column as Column<unknown, unknown>),
                 ),
+                layoutClass,
               )}
             >
               {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -653,8 +649,8 @@ export function DataTableSkeleton({
       {Array.from({ length: rows }).map((_, rowIndex) => (
         <TableRow key={rowIndex}>
           {visibleColumns.map((column, colIndex) => {
-            const size = column.columnDef.size
-            const cellStyle = size ? { width: `${size}px` } : undefined
+            const { style: cellStyle, className: layoutClass } =
+              getColumnLayout(column, false)
             // Ragged bar widths read as content rather than as a loading bar
             // graph. Derived from the cell coordinates, not Math.random(), so a
             // re-render never reshuffles the shape mid-load. The cell keeps the
@@ -664,7 +660,7 @@ export function DataTableSkeleton({
             return (
               <TableCell
                 key={colIndex}
-                className={cellClassName}
+                className={cn(cellClassName, layoutClass)}
                 style={cellStyle}
               >
                 {/* Two heights, deliberately. The h-5 wrapper is the text-sm
@@ -674,7 +670,12 @@ export function DataTableSkeleton({
                     (10px for 14px Geist); sizing it to the line box instead
                     makes every cell a solid slab that reads as blocks, not
                     text. */}
-                <div className="flex h-5 items-center">
+                <div
+                  className={cn(
+                    "flex h-5 items-center",
+                    column.columnDef.meta?.align === "end" && "justify-end",
+                  )}
+                >
                   <Skeleton
                     className={cn("h-2.5", skeletonClassName)}
                     style={{ width: barWidth }}
