@@ -59,11 +59,12 @@ the `_app.xcustomers.*` demo routes over any module whose slug is `xcustomers`.
   | `…/create`, `…/{id}`, `…/{id}/edit` | list with the form in an overlay |
   | `…/{id}/view`, `…/new` | standalone form page, no grid |
 
-- **`edit_mode`** from the schema decides where a record opens: `auto` (default) and
-  `sidebar` use the Sheet; `modal` uses the Dialog; `page` navigates to the standalone
-  page. In `auto`, the Sheet becomes wide (two-column form, ~900px) on a screen at
-  least `lg` wide when the form has more than ten fields; the width is captured when
-  the overlay opens and held while it stays open.
+- **`edit_mode`** from the schema decides where a record opens: `page` navigates to
+  the standalone page; `modal` uses the Dialog; `sidebar` uses the Sheet; `auto`
+  (default) behaves as `page` when the schema lists `children` and as `sidebar`
+  otherwise. The Sheet becomes wide (two-column form, ~900px) on a screen at least
+  `lg` wide when the form has more than ten fields; the width is captured when the
+  overlay opens and held while it stays open.
 - **The `edit_permission` gate.** When the schema names one, "Add {label}", the
   form's edit mode and the row menu's Delete all require it.
 - **Breadcrumb, bookmark star, heading, description and "Add {label}".**

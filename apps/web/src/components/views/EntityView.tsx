@@ -207,12 +207,12 @@ export function EntityView({ moduleId: _moduleId, table_name: _table_name, recor
   const escapedViewName = view_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
   const children: ChildRelation[] = metadata.children || []
-  // 'auto' always resolves to an overlay sidebar (wide/two-column on large screens with
-  // many fields, narrow otherwise — see resolveDisplayMode/useWideSidebar below). Child
-  // navigation still works from the sidebar: the child buttons save the record and then
-  // navigate to the child table (handleOverlayBeforeSubmit), so no stable page URL is
-  // needed. Only an explicit edit_mode of 'page' / 'modal' / 'sidebar' overrides this.
-  const effectiveEditMode = metadata.table?.edit_mode || 'auto'
+  // 'auto' resolves to 'page' when the entity has child relations — a record with
+  // children is a hub the user drills down from, and the standalone page gives it a
+  // stable URL to come back to. Without children it is an overlay sidebar (wide or
+  // narrow, see useWideSidebar below). An explicit edit_mode is taken as given.
+  const editMode = metadata.table?.edit_mode || 'auto'
+  const effectiveEditMode = editMode === 'auto' && children.length > 0 ? 'page' : editMode
 
   // Read parent-filter params from URL
   const { _pf, _pv } = useSearch({
@@ -384,11 +384,11 @@ export function EntityView({ moduleId: _moduleId, table_name: _table_name, recor
   // (open-state detection + open-width capture computed above the early return)
 
   // Determine overlay display mode based on edit_mode from schema metadata.
-  // 'auto' (or unset): always a sidebar — wide (two-column) on large screens with
-  //   many fields, narrow otherwise.
+  // 'auto' (or unset) without children, and 'sidebar': a sidebar — wide (two-column)
+  //   on large screens with many fields, narrow otherwise.
   // 'modal': always use modal.
-  // 'sidebar': always use sidebar (narrow).
-  // 'page': not applicable here (handled by isStandalone above).
+  // 'page' (and 'auto' with children): not applicable here (handled by isStandalone
+  //   above) — unless an overlay URL is opened directly, which then shows the sidebar.
   //
   // "Large screen" is the Tailwind `lg` breakpoint (>= 1024px), measured against the
   // viewport width captured when the overlay opened (openWidth).
@@ -400,9 +400,8 @@ export function EntityView({ moduleId: _moduleId, table_name: _table_name, recor
   const displayMode = resolveDisplayMode()
   const useModal = displayMode === 'modal'
   // Wide sidebar (~900px) renders the form in two columns via the container-query grid.
-  // Only in auto mode, on a large screen, when the form has enough fields to benefit.
-  const useWideSidebar =
-    !useModal && effectiveEditMode !== 'sidebar' && isLargeScreen && fieldCount > 10
+  // Only on a large screen, when the form has enough fields to benefit.
+  const useWideSidebar = !useModal && isLargeScreen && fieldCount > 10
 
   const OVERLAY_FORM_ID = 'overlay-record-form'
 
@@ -534,7 +533,7 @@ export function EntityView({ moduleId: _moduleId, table_name: _table_name, recor
       />
 
       {/* Sheet for viewing/editing record. Wide (~900px, two-column form) on large
-          screens with many fields in auto mode; otherwise the default 540px column. */}
+          screens with many fields; otherwise the default 540px column. */}
       <Sheet open={isOpen && !useModal} onOpenChange={(open) => !open && handleClose()}>
         <SheetContent
           // NB: the override must carry the same `data-[side=right]:sm:` variant as the

@@ -228,14 +228,22 @@ export function appWrapper({ children }: { children: ReactNode }) {
  * `router.history.location` says where the app actually went. That is a fact
  * about a real history, not a spy recording a call. The returned `queryClient`
  * is the one the component reads, so a test can wait until its queries settle.
+ *
+ * `anyPath` mounts `ui` on a splat route instead of the index, so it keeps
+ * rendering after a navigation — for a subject like `EntityView` that reads its
+ * mode from the pathname (`/admin/modules/12`, `/admin/roles/3/view`), the way
+ * the app's own catch-all `$moduleId/$table_name` route mounts it.
  */
-export function renderInApp(ui: ReactElement, { initialEntries = ['/'] }: { initialEntries?: string[] } = {}) {
+export function renderInApp(
+  ui: ReactElement,
+  { initialEntries = ['/'], anyPath = false }: { initialEntries?: string[]; anyPath?: boolean } = {},
+) {
   // A root route with an index child, which is the shape the router expects: a
   // root route on its own matches nothing at '/' and renders the not-found
   // component instead of the subject.
   const rootRoute = createRootRoute()
   const routeTree = rootRoute.addChildren([
-    createRoute({ getParentRoute: () => rootRoute, path: '/', component: () => ui }),
+    createRoute({ getParentRoute: () => rootRoute, path: anyPath ? '$' : '/', component: () => ui }),
   ])
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const router = createRouter({
