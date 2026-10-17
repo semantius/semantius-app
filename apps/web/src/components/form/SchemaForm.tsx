@@ -613,9 +613,11 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
         // this list could only ever name the elements someone remembered to add,
         // and those four kept their boxes while the text fields beside them lost
         // theirs. New picker-style controls get the attribute, not a new selector.
+        // max-w caps the form on wide screens: the field grid is authored as two
+        // columns, so past ~1250px fields only grow wider than their values.
         className={formMode === 'view'
-          ? "space-y-4 [&_[data-slot=input]]:border-transparent [&_[data-slot=input]]:shadow-none [&_[data-slot=combobox-trigger]]:border-transparent [&_[data-slot=combobox-trigger]]:shadow-none [&_[data-field-surface]]:border-transparent [&_[data-field-surface]]:shadow-none [&_[data-field-surface]]:ring-0 [&_[data-slot=input-group]]:border-transparent [&_[data-slot=input-group]]:shadow-none [&_textarea]:border-transparent [&_textarea]:shadow-none [&_.cm-editor]:border-transparent [&_input::placeholder]:text-transparent [&_textarea::placeholder]:text-transparent"
-          : "space-y-4"
+          ? "max-w-[1250px] space-y-4 [&_[data-slot=input]]:border-transparent [&_[data-slot=input]]:shadow-none [&_[data-slot=combobox-trigger]]:border-transparent [&_[data-slot=combobox-trigger]]:shadow-none [&_[data-field-surface]]:border-transparent [&_[data-field-surface]]:shadow-none [&_[data-field-surface]]:ring-0 [&_[data-slot=input-group]]:border-transparent [&_[data-slot=input-group]]:shadow-none [&_textarea]:border-transparent [&_textarea]:shadow-none [&_.cm-editor]:border-transparent [&_input::placeholder]:text-transparent [&_textarea::placeholder]:text-transparent"
+          : "max-w-[1250px] space-y-4"
         }
       >
       {/* Display schema validation errors */}

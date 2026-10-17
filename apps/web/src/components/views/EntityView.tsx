@@ -122,9 +122,15 @@ function StandaloneFormView({
   }
 
   const children: ChildRelation[] = metadata.children || []
+  // The related-record buttons sit right of the title, unless there are more
+  // than two (they crowd it) or the content area is wider than 1350px (the form
+  // is capped at 1250px, so right-aligned buttons drift away from it). Then they
+  // go below the title, left-aligned. Width is a container query on this page's
+  // content area, not the viewport: the sidebar takes its share of the window.
+  const buttonsBelowTitle = children.length > 2
 
   return (
-    <div className="space-y-6">
+    <div className="@container space-y-6">
       <div className="flex items-center gap-1">
         <EntityBreadcrumb
           moduleId={moduleId}
@@ -140,12 +146,24 @@ function StandaloneFormView({
           <BookmarkIcon url={currentPath} title={pageTitle} label={pageTitle} />
         )}
       </div>
-      <div className="flex items-start justify-between gap-4">
+      <div
+        className={
+          buttonsBelowTitle
+            ? 'flex flex-col items-start gap-4'
+            : 'flex items-start justify-between gap-4 @min-[1350px]:flex-col @min-[1350px]:justify-start'
+        }
+      >
         <h1 className="text-3xl font-bold tracking-tight">
           {pageTitle}
         </h1>
         {children.length > 0 && (
-          <div className="flex gap-2 flex-wrap justify-end">
+          <div
+            className={
+              buttonsBelowTitle
+                ? 'flex gap-2 flex-wrap justify-start'
+                : 'flex gap-2 flex-wrap justify-end @min-[1350px]:justify-start'
+            }
+          >
             {children.map((child) => (
               <Button
                 key={child.id}
