@@ -27,6 +27,10 @@ const UNFILLED_KEY = messageId({ id: UNFILLED, defaultMessage: '' })
 const FIXTURE: MetadataId = [MODULE_ROOT, 'vitest_probe00', 'name']
 const FIXTURE_KEY = messageId({ id: FIXTURE, defaultMessage: '' })
 
+/** A module that exists on a tenant but does not ship with the app. */
+const TENANT_MODULE: MetadataId = [MODULE_ROOT, 'equipment-maintenance', 'name']
+const TENANT_MODULE_KEY = messageId({ id: TENANT_MODULE, defaultMessage: '' })
+
 async function record(locale: string): Promise<Record<string, string>> {
   const res = await fetch(translationsUrl(locale))
   return (await res.json()) as Record<string, string>
@@ -124,5 +128,23 @@ describe('a fixture module', () => {
     const index = await record(SOURCE_LANGUAGE)
     expect(index[KEY]).toBe('A real description')
     expect(index[FIXTURE_KEY]).toBeUndefined()
+  })
+})
+
+describe("a tenant's own module", () => {
+  it('is never recorded — only shipped modules belong in the language files', async () => {
+    // Any module someone created on the shared tenant is rendered by the
+    // module list, and was once recorded into en-US.json with an empty entry
+    // in every language (`src/i18n/shippedModules.ts`). Not a fixture slug, so
+    // the setup's `ignoreKeys` does not cover it: the collector's own rule does.
+    enableCollector()
+    expect(metadataText(TENANT_MODULE, 'Equipment Maintenance')).toBe('Equipment Maintenance')
+    expect(metadataText(ID, 'A real description')).toBe('A real description')
+    await flush()
+    disableCollector()
+
+    const index = await record(SOURCE_LANGUAGE)
+    expect(index[KEY]).toBe('A real description')
+    expect(index[TENANT_MODULE_KEY]).toBeUndefined()
   })
 })

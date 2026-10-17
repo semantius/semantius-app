@@ -28,6 +28,7 @@
 import { i18n } from '@lingui/core'
 import { SOURCE_LANGUAGE, currentLanguage, isKnownKey, markKnownKey } from './catalog'
 import { addSourceIndexEntry, loadSourceIndex, removeSourceIndexEntry } from './store'
+import { isShippedKey } from './shippedModules'
 import { setRenderReporter } from './translate'
 import { discoveryEnabled, writeTranslation } from './translateTarget'
 
@@ -119,7 +120,8 @@ function onVisibilityChange(): void {
 }
 
 function record(id: string, source?: string): void {
-  if (!enabled || !id || id.length > MAX_KEY_LENGTH || ignored(id)) return
+  // A tenant's own module is not recorded at all — see `./shippedModules.ts`.
+  if (!enabled || !id || id.length > MAX_KEY_LENGTH || !isShippedKey(id) || ignored(id)) return
   const existing = pending.get(id)
   if (existing) {
     // Lingui's `missing` fires inside `_()` BEFORE the producer reports, with
