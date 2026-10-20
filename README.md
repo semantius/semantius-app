@@ -130,6 +130,7 @@ The callback url is /oauth2_callback like http://localhost:5173/oauth2_callback
 | `VITE_CONTROL_PLANE_URL` | Semantius control plane (default on) — set to an explicit empty value for self-hosted |
 | `VITE_CONTROL_PLANE_ORG` | Org slug when using the control plane                    |
 | `VITE_CUBE_API_URL`    | Cube.js analytics API URL (defaults from the tenant)       |
+| `VITE_APP_FEATURES`    | Optional feature flags, comma-separated (items are trimmed). On the control plane, the tenant plan's `entitlements` are added |
 | `VITE_TRANSLATE_MODE` | The translate target's mode: `dev` / `stage` / `prod` / `off`. Unset: `dev` under `pnpm dev`, `off` in every build |
 | `VITE_TRANSLATE_API_URL` | The translate target's base, answering `GET/POST {base}/translations`. Unset: the app's own origin in `dev`, the app's own API in `prod`. Required for `stage` |
 

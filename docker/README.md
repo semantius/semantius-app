@@ -98,6 +98,7 @@ Key variables (see `.env.example` for the full list and comments):
 | `VITE_API_BASE_URL` | PostgREST API base URL. |
 | `VITE_OAUTH_*_ENDPOINT` | OAuth endpoints — **usually leave blank** and let `VITE_OAUTH_CONFIG` resolve them; set to override. |
 | `VITE_CONTROL_PLANE_URL` / `VITE_CONTROL_PLANE_ORG` | Optional control-plane tenant lookup. |
+| `VITE_APP_FEATURES` | Optional feature flags, comma-separated (items are trimmed). On the control plane, the tenant plan's `entitlements` are added. |
 | `VITE_BACKEND_TYPE` | Account-menu flavor: `cloud` (default), `self_hosted`, or `custom`. |
 | `VITE_UI_CUSTOMIZER` | Single-line JSON: the account menu (required with `VITE_BACKEND_TYPE=custom`) and the `locales` registration for extra languages. |
 | `VITE_TRANSLATE_MODE` | Translate mode: `off` (default), `prod` (per-language override records on this deployment's own API, in-app editing for users holding `translations.edit`), or `stage` (a host that holds a copy of the language files and records what the app cannot translate). |
@@ -141,7 +142,7 @@ VITE_OAUTH_CONFIG=https://your-idp/.well-known/openid-configuration
 ```
 
 Optional extras as needed: `VITE_CONTROL_PLANE_URL`, `VITE_CONTROL_PLANE_ORG`,
-`VITE_CUBE_API_URL`, `VITE_API_TYPE`, `VITE_SUPABASE_APIKEY`,
+`VITE_CUBE_API_URL`, `VITE_APP_FEATURES`, `VITE_API_TYPE`, `VITE_SUPABASE_APIKEY`,
 `VITE_OAUTH_AUDIENCE`, `VITE_OAUTH_SCOPE`, `VITE_OAUTH_LOGOUT_ENDPOINT`,
 `VITE_OAUTH_LOGOUT_REDIRECT`, `VITE_OAUTH_REDIRECT_URI`,
 `VITE_BACKEND_TYPE`, `VITE_UI_CUSTOMIZER`, `VITE_TRANSLATE_MODE`, `VITE_TRANSLATE_API_URL`.

@@ -22,7 +22,8 @@
     "VITE_TRANSLATE_API_URL",
     "VITE_TRANSLATE_MODE",
     "VITE_BACKEND_TYPE",
-    "VITE_UI_CUSTOMIZER"
+    "VITE_UI_CUSTOMIZER",
+    "VITE_APP_FEATURES"
   ],
   "tasks": {
     "build": {

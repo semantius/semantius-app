@@ -11,6 +11,7 @@
 
 import { runtimeEnv } from './runtimeEnv'
 import { currentSecureContextError } from './secureContext'
+import { mergeFeatures, parseFeatureList } from './features'
 import {
   EMPTY_LOCALE_CONFIG,
   TRANSLATE_MODE_VAR,
@@ -56,6 +57,10 @@ export interface AppConfig {
   tenantName?: string
   tenantLogo?: string | null
 
+  // Feature flags: VITE_APP_FEATURES, plus the tenant plan's entitlements when
+  // the control plane is used (see lib/features.ts).
+  features: string[]
+
   // UI (resolved from VITE_BACKEND_TYPE / VITE_UI_CUSTOMIZER — see lib/userMenu.ts).
   // Required: every AppConfig is built from envFallback(), which seeds both.
   backendType: BackendType
@@ -93,6 +98,8 @@ function envFallback(): AppConfig {
 
     cubeApiUrl: runtimeEnv('VITE_CUBE_API_URL', import.meta.env.VITE_CUBE_API_URL) || undefined,
 
+    features: parseFeatureList(runtimeEnv('VITE_APP_FEATURES', import.meta.env.VITE_APP_FEATURES)),
+
     // Neutral placeholders. initConfig() overwrites all three via
     // applyUiCustomizer() once the tenant slug is known, on every return path.
     backendType: 'cloud',
@@ -121,6 +128,9 @@ interface TenantResponse {
   name: string
   logo: string | null
   postgrest_url: string
+  plan?: {
+    entitlements?: string[] | null
+  } | null
 }
 
 
@@ -234,6 +244,7 @@ async function initConfigCore(): Promise<AppConfig> {
         tenantId: tenant.id,
         tenantName: tenant.name,
         tenantLogo: tenant.logo,
+        features: mergeFeatures(fallback.features, tenant.plan?.entitlements),
       }
 
       return _config
