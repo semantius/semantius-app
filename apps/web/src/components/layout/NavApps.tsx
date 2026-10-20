@@ -8,6 +8,7 @@ import {
 } from "lucide-react"
 import { Link, useMatchRoute, useNavigate } from '@tanstack/react-router'
 import { useTable } from '@/hooks/useTable'
+import { sidebarEntitiesQuery } from '@/lib/sidebarEntities'
 import type { Module } from '@/contexts/AuthContext'
 import { ApiErrorDisplay } from '@/components/ApiErrorDisplay'
 import { useT } from '@/i18n'
@@ -47,7 +48,7 @@ export function NavApps({
   // view over `entities` and it has been dropped, so asking for it answers
   // PGRST205 and this whole group renders as an error card.
   const { data: tables, isLoading, error } = useTable('entities', {
-    query: moduleId ? `module_id=eq.${moduleId}&is_child=not.is.true&select=table_name,plural_label,icon_url,singular_label` : '',
+    query: moduleId ? sidebarEntitiesQuery(moduleId) : '',
     enabled: !!moduleId,
   })
 

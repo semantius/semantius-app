@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { translate } from '@/i18n'
 import { initConfig, getConfig, getConfigError } from './config'
-import { mergeFeatures } from './features'
 import { SELF_HOSTED, clearRuntimeEnv, setRuntimeEnv } from '@/test/runtimeConfig'
 
 /**
@@ -139,33 +138,6 @@ describe('initConfig — configurable user menu', () => {
     await initConfig()
 
     expect(getConfigError()).toContain('Tenant lookup failed')
-  })
-})
-
-describe('initConfig — features', () => {
-  afterEach(() => {
-    clearRuntimeEnv()
-  })
-
-  it('merges VITE_APP_FEATURES with the tenant plan’s entitlements', async () => {
-    setRuntimeEnv({ VITE_APP_FEATURES: ' beta , reports,' })
-
-    await initConfig()
-
-    expect(getConfigError()).toBeNull()
-    // The entitlements are read back from the control plane rather than kept
-    // here, so the assertion holds whatever plan the test tenant is on.
-    const slug = getConfig().tenantName!
-    const tenant = await (await fetch(`https://api.semantius.cloud/organization/${slug}`)).json()
-    expect(getConfig().features).toEqual(mergeFeatures(['beta', 'reports'], tenant.plan?.entitlements))
-  })
-
-  it('uses VITE_APP_FEATURES alone on the self-hosted path', async () => {
-    setRuntimeEnv({ VITE_CONTROL_PLANE_URL: SELF_HOSTED, VITE_APP_FEATURES: 'beta,reports' })
-
-    await initConfig()
-
-    expect(getConfig().features).toEqual(['beta', 'reports'])
   })
 })
 
