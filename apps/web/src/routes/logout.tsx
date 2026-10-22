@@ -21,6 +21,7 @@ function LogoutRoute() {
       const config = getConfig()
       const logoutEndpoint = config.oauthLogoutEndpoint
       const logoutAPIEndpoint = config.oauthLogoutAPIEndpoint
+      const postLogoutUrl = config.postLogoutUrl
       const clientId = config.oauthClientId
 
       // Call the OAuth logout API to clear server-side cookies
@@ -61,6 +62,12 @@ function LogoutRoute() {
           }
           
           window.location.href = logoutUrl.toString()
+        }, 100)
+      } else if (postLogoutUrl) {
+        // Control plane: hand over to the platform picker. replace(), so Back
+        // does not land on /logout again.
+        setTimeout(() => {
+          window.location.replace(postLogoutUrl)
         }, 100)
       } else {
         // No logout endpoint - show our own logout confirmation page

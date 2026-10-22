@@ -99,6 +99,14 @@ describe('initConfig — configurable user menu', () => {
     expect(menu.some((e) => e.url.includes('{orgid}'))).toBe(false)
   })
 
+  it('sends a signed-out user to the control plane’s platform picker', async () => {
+    await initConfig()
+
+    expect(getConfig().oauthLogoutEndpoint).toBeUndefined()
+    expect(getConfig().oauthLogoutAPIEndpoint).toBe('https://app.semantius.com/api/logout')
+    expect(getConfig().postLogoutUrl).toBe('https://app.semantius.com/select-platform')
+  })
+
   it('blocks boot when VITE_BACKEND_TYPE=custom has no VITE_UI_CUSTOMIZER', async () => {
     setRuntimeEnv({ VITE_BACKEND_TYPE: 'custom' })
 
@@ -170,6 +178,8 @@ describe('initConfig — OIDC discovery (self-hosted)', () => {
     expect(getConfig().oauthUserinfoEndpoint).toBeUndefined()
     // scopes_supported drives the scope when VITE_OAUTH_SCOPE is blank.
     expect(getConfig().oauthScope).toContain('openid')
+    // The platform picker is a control-plane page; self-hosted never goes there.
+    expect(getConfig().postLogoutUrl).toBeUndefined()
   })
 
   it('uses an explicit VITE_OAUTH_USERINFO_ENDPOINT, which discovery never overrides', async () => {
