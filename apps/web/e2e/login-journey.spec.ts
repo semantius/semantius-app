@@ -101,6 +101,39 @@ test.describe('OAuth2 authorization-code login', () => {
     expect(tokenRequests).toEqual([])
   })
 
+  test('a login abandoned at the provider does not flash an error on the next visit', async ({ page }) => {
+    // Leaving the provider's form without signing in leaves the library's
+    // `loginInProgress` set in localStorage — as does another tab mid-login. The
+    // next load finds it with no `?code=`, and the library reports "Bad
+    // authorization state" before /login has done anything. /login starts a fresh
+    // redirect regardless; it used to render that stale error as "The login flow
+    // could not be started" for as long as the redirect took.
+    const libraryErrors: string[] = []
+    page.on('console', (message) => {
+      if (message.type() === 'error') libraryErrors.push(message.text())
+    })
+    await page.addInitScript(() => {
+      new MutationObserver(() => {
+        if (!/Login Error/.test(document.querySelector('h1')?.textContent ?? '')) return
+        sessionStorage.setItem('e2e_login_error_seen', 'true')
+      }).observe(document, { childList: true, subtree: true })
+    })
+
+    await page.goto('/')
+    await page.waitForURL((url) => url.origin === IDP, { timeout: 30_000 })
+
+    // Abandon it: back to the app without signing in.
+    await page.goto('/')
+    await page.waitForURL((url) => url.origin === IDP, { timeout: 30_000 })
+    expect(new URL(page.url()).pathname).toBe('/authorize')
+
+    // The stale state was really there, or this test proves nothing.
+    expect(libraryErrors.some((text) => text.includes('Bad authorization state'))).toBe(true)
+    // sessionStorage is per origin, so read it back on the app's.
+    await page.goto('/logout-success')
+    expect(await page.evaluate(() => sessionStorage.getItem('e2e_login_error_seen'))).toBeNull()
+  })
+
   // Every token exchange fails. The exchange has to be reached the real way,
   // through the provider, so the library's loginInProgress flag and PKCE
   // verifier are in place.
