@@ -158,7 +158,7 @@ hold it, and `get_schema` assembles them into one JSON Schema document per entit
 ```
 
 `table` carries `table_name`, `singular_label`, `plural_label`, `description`,
-`icon_url`, `module_id`, `view_permission`, `edit_permission`, `id_column`,
+`icon_name`, `module_id`, `view_permission`, `edit_permission`, `id_column`,
 `label_column`, `label_parent`, `order_column`, `edit_mode`, `audit_log`,
 `computed_fields`, `validation_rules`, `select_rule` and the catalog keys.
 

@@ -12,9 +12,9 @@ import { useUpdateRecord } from '@/hooks/useTableMutations'
 import { useTable } from '@/hooks/useTable'
 import { getConfig } from '@/lib/config'
 import { getModuleDisplay, moduleLabels, type Module } from '@/contexts/AuthContext'
-import { useT } from '@/i18n'
+import { useFormattingLocale, useT } from '@/i18n'
 import { renderError } from '@/lib/apiErrors'
-import { sidebarEntitiesQuery } from '@/lib/sidebarEntities'
+import { sidebarEntitiesQuery, sortSidebarEntities } from '@/lib/sidebarEntities'
 import { ApiErrorDisplay } from '@/components/ApiErrorDisplay'
 
 export const Route = createFileRoute('/_app/$moduleId/')({
@@ -81,11 +81,14 @@ function ModuleHeader({ module }: { module: Module }) {
  */
 function ModuleFirstEntryRedirect({ module }: { module: Module }) {
   const t = useT()
+  const formattingLocale = useFormattingLocale()
   const { data: entities, isLoading, error } = useTable('entities', {
     query: sidebarEntitiesQuery(module.id),
   })
 
-  const first = entities?.[0]
+  const first = entities
+    ? sortSidebarEntities(entities, module.module_slug, t, formattingLocale)[0]?.entity
+    : undefined
   if (first) {
     return (
       <Navigate

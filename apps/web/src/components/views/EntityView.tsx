@@ -7,6 +7,7 @@ import { useUserHasPermission } from '@/hooks/useUserPermissions'
 import { DataTableView, type DeleteConfirmationProps, type RowMenuItem } from '@/components/data-table-view/DataTableView'
 import { EntityBreadcrumb } from '@/components/EntityBreadcrumb'
 import { BookmarkIcon } from '@/components/ui-ext/bookmark-icon'
+import { NamedIcon } from '@/components/ui-ext/named-icon'
 import {
   Dialog,
   DialogContent,
@@ -14,7 +15,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Plus, Users } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { DataFormPage } from '@/components/data-table-view/DataFormPage'
 import { useT } from '@/i18n'
@@ -544,7 +545,7 @@ export function EntityView({ moduleId: _moduleId, table_name: _table_name, recor
             ? t('No {entity} found', { entity: metadata.table.plural_label })
             : t('No records found')
         }
-        emptyIcon={<Users className="h-12 w-12 mb-2" />}
+        emptyIcon={<NamedIcon name={metadata.table?.icon_name || 'square-plus'} className="h-12 w-12 mb-2" />}
         excludeColumns={excludeColumns}
         getRowMenuItems={getRowMenuItems}
         renderDeleteConfirmation={renderDeleteConfirmation}

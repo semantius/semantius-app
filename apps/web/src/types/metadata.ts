@@ -75,7 +75,7 @@ export interface SemSchemaTable {
   plural: string
   singular_label: string
   plural_label: string
-  icon_url?: string
+  icon_name?: string
   description?: string
   module_id?: number
   // The module's slug, as `get_schema` returns it beside `module_id`. It is

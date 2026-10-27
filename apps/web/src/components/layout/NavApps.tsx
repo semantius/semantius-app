@@ -8,10 +8,10 @@ import {
 } from "lucide-react"
 import { Link, useMatchRoute, useNavigate } from '@tanstack/react-router'
 import { useTable } from '@/hooks/useTable'
-import { sidebarEntitiesQuery } from '@/lib/sidebarEntities'
+import { sidebarEntitiesQuery, sortSidebarEntities } from '@/lib/sidebarEntities'
 import type { Module } from '@/contexts/AuthContext'
 import { ApiErrorDisplay } from '@/components/ApiErrorDisplay'
-import { useT } from '@/i18n'
+import { useFormattingLocale, useT } from '@/i18n'
 
 import {
   DropdownMenu,
@@ -43,6 +43,7 @@ export function NavApps({
   const matchRoute = useMatchRoute()
   const navigate = useNavigate()
   const t = useT()
+  const formattingLocale = useFormattingLocale()
 
   // Fetch the module's entities. NOT 'tables': that was a backward-compatibility
   // view over `entities` and it has been dropped, so asking for it answers
@@ -117,15 +118,8 @@ export function NavApps({
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
       <SidebarGroupLabel>{t('Apps')}</SidebarGroupLabel>
       <SidebarMenu>
-        {tables.map((table) => {
+        {sortSidebarEntities(tables, moduleSlug, t, formattingLocale).map(({ entity: table, label }) => {
           const tableName = String(table.table_name || '')
-          const fallback = String(table.plural_label || table.singular_label || tableName)
-          // The sidebar reads `tables` straight from the model, so it never
-          // sees the localized EntityMetadata the table route builds — it
-          // renders its own labels as messages keyed by their model path.
-          const label = moduleSlug
-            ? t({ id: ['module', moduleSlug, tableName, 'entity', 'plural_label'], defaultMessage: fallback })
-            : fallback
           const url = `/${moduleSlug || ''}/${tableName}`
 
           // Check if this link matches the current route
@@ -145,7 +139,6 @@ export function NavApps({
                   navigate({ to: url, search: {}, replace: true })
                 }}
               >
-                {!!table.icon_url && <img src={String(table.icon_url)} alt="" className="size-4 shrink-0" />}
                 <span>{label}</span>
               </SidebarMenuButton>
               {/* <DropdownMenu>
