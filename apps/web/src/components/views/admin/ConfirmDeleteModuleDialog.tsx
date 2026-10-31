@@ -87,6 +87,10 @@ export function ConfirmDeleteModuleDialog({
                 values={{ slug }}
                 components={{
                   bold: (
+                    // Double-click must take the whole slug; a button in the
+                    // sentence would announce as a control. The listener only
+                    // adjusts selection.
+                    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
                     <strong className="inline-block select-all" onMouseDown={selectWholeSlug} />
                   ),
                 }}
