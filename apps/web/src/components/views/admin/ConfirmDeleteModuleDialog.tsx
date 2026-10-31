@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useId, useState, type MouseEvent } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Trans } from '@lingui/react'
 import {
@@ -16,6 +16,23 @@ import { Label } from '@/components/ui/label'
 import type { DeleteConfirmationProps } from '@/components/data-table-view/DataTableView'
 import { renderError } from '@/lib/apiErrors'
 import { useT } from '@/i18n'
+
+/**
+ * A hyphen is a word boundary, so the browser's default double-click of
+ * `hiring-pipeline` leaves only `hiring` selected — and the space after an
+ * inline token comes along for the ride. Taking the whole element on the
+ * second mousedown (before that default runs) is the confirmation token the
+ * user meant to copy.
+ */
+function selectWholeSlug(event: MouseEvent<HTMLElement>) {
+  if (event.detail < 2) return
+  event.preventDefault()
+  const range = document.createRange()
+  range.selectNodeContents(event.currentTarget)
+  const selection = window.getSelection()
+  selection?.removeAllRanges()
+  selection?.addRange(range)
+}
 
 /**
  * The delete confirmation for a row of `modules`, in two steps.
@@ -45,15 +62,14 @@ export function ConfirmDeleteModuleDialog({
   const [step, setStep] = useState<1 | 2>(1)
   const [typed, setTyped] = useState('')
 
-  // Exact and case-sensitive, but surrounding whitespace is ignored: copying the
-  // bold slug out of the sentence can carry a trailing space, which would leave
-  // Delete disabled for a reason the user cannot see. Trimming cannot make a
-  // DIFFERENT slug match, so the confirmation loses nothing by it.
+  // Exact and case-sensitive, including surrounding whitespace. The slug is
+  // its own selectable token, so a double-click copies it without a trailing
+  // space; trimming would let "hiring-pipeline " through as if it matched.
   // The model requires no field of `modules`, so the slug can be empty. An empty
   // slug must not turn the check into "type nothing": it fails closed, and such
   // a module (unroutable anyway) is deleted through the API instead.
   const slug = String(record.module_slug ?? '')
-  const matches = slug !== '' && typed.trim() === slug
+  const matches = slug !== '' && typed === slug
 
   const confirm = () => {
     if (matches && !isPending) handleConfirm()
@@ -66,7 +82,19 @@ export function ConfirmDeleteModuleDialog({
           <AlertDialogTitle>{t('Delete {type}', { type: entityType })}</AlertDialogTitle>
           <AlertDialogDescription>
             {step === 2 ? (
-              <Trans id="Type <bold>{slug}</bold> to confirm." values={{ slug }} components={{ bold: <strong /> }} />
+              <Trans
+                id="Type <bold>{slug}</bold> to confirm."
+                values={{ slug }}
+                components={{
+                  bold: (
+                    // Double-click must take the whole slug; a button in the
+                    // sentence would announce as a control. The listener only
+                    // adjusts selection.
+                    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
+                    <strong className="inline-block select-all" onMouseDown={selectWholeSlug} />
+                  ),
+                }}
+              />
             ) : displayName ? (
               <Trans
                 id="Deleting <bold>{name}</bold> removes the module, every entity in it, their database tables and their permissions. This action cannot be undone."

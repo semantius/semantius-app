@@ -86,20 +86,30 @@ describe('ConfirmDeleteModuleDialog', () => {
     expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled()
   })
 
-  it('ignores a space before or after the slug, and nothing else', async () => {
+  it('keeps Delete disabled unless the typed value is an exact match', async () => {
     const p = props()
     const { ui, input } = await atStep2(p)
 
-    // A copied slug can carry a trailing space; it still confirms.
+    // Surrounding whitespace is not the slug.
     await ui.keyboard(' sales_pipeline ')
-    expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled()
+    await ui.keyboard('{Enter}')
+    expect(p.handleConfirm).not.toHaveBeenCalled()
 
-    // A space INSIDE is a different string.
     await ui.clear(input)
     await ui.keyboard('sales _pipeline')
     expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled()
     await ui.keyboard('{Enter}')
     expect(p.handleConfirm).not.toHaveBeenCalled()
+  })
+
+  it('selects the whole slug on double-click, including a dash and no trailing space', async () => {
+    const p = props({ record: { ...RECORD, module_slug: 'hiring-pipeline' } })
+    const { ui } = await atStep2(p)
+
+    await ui.dblClick(screen.getByText('hiring-pipeline'))
+
+    expect(window.getSelection()?.toString()).toBe('hiring-pipeline')
   })
 
   it('enables Delete for the exact slug, and deletes once on click', async () => {
