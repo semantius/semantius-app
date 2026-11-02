@@ -96,6 +96,9 @@ export interface SemSchemaTable {
   // row reordering. May be absent from `properties`, but is always appended to
   // the select/order of list queries so the rows come back in saved order.
   order_column?: string
+  // JsonLogic derivations the backend evaluates on every write. The form also
+  // evaluates them when an input changes so disabled computed fields update live.
+  computed_fields?: Array<{ name: string; jsonlogic: unknown; description?: string }>
   created_at?: string
   updated_at?: string
 }
