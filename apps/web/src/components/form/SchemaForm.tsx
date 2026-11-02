@@ -1,9 +1,18 @@
-import { Fragment, type ReactNode } from 'react'
+import { Fragment, useEffect, useRef, type ReactNode } from 'react'
 import { useForm } from '@tanstack/react-form'
 import jsonLogic, { type RulesLogic } from 'json-logic-js'
 import { validateData } from 'sem-schema'
 import { assertSupportedFormats, resolveControl } from './resolveControl'
 import { formatType, isFormatName } from '@/lib/formats'
+import {
+  evaluateComputedFields,
+  idColumnForEntity,
+  inputSnapshot,
+  loadSetRecords,
+  lookupFromCache,
+  parseComputedFields,
+  type ComputedField,
+} from '@/lib/computedFields'
 import { Button } from '@/components/ui/button'
 import { StickyContainer } from '@/components/ui-ext/sticky-container'
 import type { SchemaObject } from 'ajv'
@@ -35,6 +44,58 @@ const VALID_INPUT_MODES: readonly InputMode[] = ['default', 'required', 'readonl
 
 function isInputMode(value: unknown): value is InputMode {
   return typeof value === 'string' && (VALID_INPUT_MODES as readonly string[]).includes(value)
+}
+
+/**
+ * Re-evaluate `table.computed_fields` whenever a non-computed input changes,
+ * the same way `input_type_rule` re-runs through `form.Subscribe`. The first
+ * values are skipped so opening an existing record does not rewrite stored
+ * amounts with a client-side float that would mark the form dirty.
+ */
+function ComputedFieldsSync({
+  form,
+  entries,
+  values,
+  schema,
+}: {
+  form: { setFieldValue: (name: string, value: unknown) => void }
+  entries: ComputedField[]
+  values: Record<string, unknown>
+  schema: SchemaObject
+}) {
+  const cacheRef = useRef(new Map<string, Record<string, unknown> | null>())
+  const prevInputsRef = useRef<string | undefined>(undefined)
+  const computedNames = new Set(entries.map((entry) => entry.name))
+  const snapshot = inputSnapshot(values, computedNames)
+
+  useEffect(() => {
+    if (prevInputsRef.current === undefined) {
+      prevInputsRef.current = snapshot
+      return
+    }
+    if (prevInputsRef.current === snapshot) return
+    prevInputsRef.current = snapshot
+
+    let canceled = false
+    const properties = schema.properties as
+      | Record<string, { reference_table?: string; reference_table_id_column?: string }>
+      | undefined
+
+    void (async () => {
+      await loadSetRecords(entries, values, cacheRef.current, (entity) => idColumnForEntity(properties, entity))
+      if (canceled) return
+      const updates = evaluateComputedFields(entries, values, lookupFromCache(cacheRef.current))
+      for (const [name, next] of Object.entries(updates)) {
+        if (!Object.is(values[name], next)) form.setFieldValue(name, next)
+      }
+    })()
+
+    return () => {
+      canceled = true
+    }
+  }, [snapshot, entries, form, schema, values])
+
+  return null
 }
 
 /**
@@ -552,6 +613,9 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
   }
 
   const properties = schema.properties as Record<string, SchemaObject>
+  const computedFields = parseComputedFields(
+    (schema as { table?: { computed_fields?: unknown } }).table?.computed_fields,
+  )
 
   // Create context value for form controls - includes form instance
   const formContextValue = {
@@ -620,6 +684,14 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
           : "max-w-[1250px] space-y-4"
         }
       >
+      {formMode !== 'view' && computedFields.length > 0 && (
+        <form.Subscribe selector={(state: { values: Record<string, unknown> }) => state.values}>
+          {(values: Record<string, unknown>) => (
+            <ComputedFieldsSync form={form} entries={computedFields} values={values} schema={schema} />
+          )}
+        </form.Subscribe>
+      )}
+
       {/* Display schema validation errors */}
       <form.Subscribe selector={(state) => [state.fieldMeta._schemaError?.errors]}>
         {([schemaErrors]) => {

@@ -1,9 +1,11 @@
 import { Component, type ReactNode } from 'react'
-import { describe, it, expect, vi } from 'vitest'
+import { beforeEach, describe, it, expect, vi } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { SchemaForm } from '../SchemaForm'
 import type { SchemaObject } from 'ajv'
+import { AppHarness, bootApp } from '@/test/appHarness'
+import { db } from '@/test/moduleFixture'
 
 describe('SchemaForm', () => {
   const basicSchema: SchemaObject = {
@@ -1300,3 +1302,138 @@ describe('empty optional fields, and errors on fields the form does not draw', (
     expect(onSubmit.mock.calls[0][0]).toEqual({ kind: 'none' })
   })
 })
+
+describe('computed fields update when an input changes', () => {
+  // The Northwind amount rule from order_details.computed_fields: qty × price × (1 − discount).
+  const amountRule = {
+    '*': [{ var: 'quantity' }, { var: 'unit_price' }, { '-': [1, { var: 'discount' }] }],
+  }
+  const orderLine = {
+    type: 'object',
+    table: { computed_fields: [{ name: 'amount', jsonlogic: amountRule }] },
+    properties: {
+      quantity: { type: 'number', format: 'double', title: 'Quantity' },
+      unit_price: { type: 'number', format: 'double', title: 'Unit Price' },
+      discount: { type: 'number', format: 'double', title: 'Discount' },
+      amount: { type: 'number', format: 'double', title: 'Amount', inputMode: 'disabled' },
+    },
+  } as SchemaObject
+
+  it('shows the stored amount on open, even when the rule would disagree', () => {
+    render(
+      <SchemaForm
+        schema={orderLine}
+        formMode="edit"
+        initialValue={{ quantity: 2, unit_price: 10, discount: 0, amount: 99 }}
+      />,
+    )
+    const amount = screen.getByLabelText(/^Amount/)
+    expect(amount).toBeDisabled()
+    expect(amount).toHaveValue('99')
+  })
+
+  it('recomputes amount when quantity changes', async () => {
+    const user = userEvent.setup()
+    render(
+      <SchemaForm
+        schema={orderLine}
+        formMode="edit"
+        initialValue={{ quantity: 2, unit_price: 10, discount: 0, amount: 20 }}
+      />,
+    )
+    const quantity = screen.getByLabelText(/^Quantity/)
+    const amount = screen.getByLabelText(/^Amount/)
+    expect(amount).toHaveValue('20')
+
+    await user.clear(quantity)
+    await user.type(quantity, '3')
+
+    await waitFor(() => expect(amount).toHaveValue('30'))
+    expect(amount).toBeDisabled()
+  })
+
+  it('recomputes amount when unit price or discount changes', async () => {
+    const user = userEvent.setup()
+    render(
+      <SchemaForm
+        schema={orderLine}
+        formMode="edit"
+        initialValue={{ quantity: 2, unit_price: 10, discount: 0, amount: 20 }}
+      />,
+    )
+    const amount = screen.getByLabelText(/^Amount/)
+
+    await user.clear(screen.getByLabelText(/^Unit Price/))
+    await user.type(screen.getByLabelText(/^Unit Price/), '5')
+    await waitFor(() => expect(amount).toHaveValue('10'))
+
+    await user.clear(screen.getByLabelText(/^Discount/))
+    await user.type(screen.getByLabelText(/^Discount/), '0.5')
+    await waitFor(() => expect(amount).toHaveValue('5'))
+  })
+})
+
+describe('computed fields with set_record use the referenced row', () => {
+  beforeEach(async () => {
+    await bootApp()
+  })
+
+  it('updates the label when quantity changes, from the product name', async () => {
+    const res = await db('/products?select=id,product_name&limit=1&order=id.asc')
+    expect(res.ok).toBe(true)
+    const [product] = (await res.json()) as Array<{ id: number; product_name: string }>
+    expect(product?.product_name).toBeTruthy()
+
+    const schema = {
+      type: 'object',
+      table: {
+        computed_fields: [
+          {
+            name: 'label',
+            jsonlogic: {
+              set_record: [
+                'p',
+                'products',
+                { var: 'product_id' },
+                { cat: [{ var: 'quantity' }, ' × ', { var: 'p.product_name' }] },
+              ],
+            },
+          },
+        ],
+      },
+      properties: {
+        product_id: {
+          type: 'integer',
+          format: 'int32',
+          title: 'Product',
+          reference_table: 'products',
+          reference_table_id_column: 'id',
+        },
+        quantity: { type: 'number', format: 'double', title: 'Quantity' },
+        label: { type: 'string', format: 'text', title: 'Label', inputMode: 'disabled' },
+      },
+    } as SchemaObject
+
+    const user = userEvent.setup()
+    render(
+      <AppHarness>
+        <SchemaForm
+          schema={schema}
+          formMode="edit"
+          initialValue={{ product_id: product.id, quantity: 2, label: `2 × ${product.product_name}` }}
+        />
+      </AppHarness>,
+    )
+
+    const quantity = screen.getByLabelText(/^Quantity/)
+    const label = screen.getByLabelText(/^Label/)
+    expect(label).toBeDisabled()
+    expect(label).toHaveValue(`2 × ${product.product_name}`)
+
+    await user.clear(quantity)
+    await user.type(quantity, '4')
+
+    await waitFor(() => expect(label).toHaveValue(`4 × ${product.product_name}`))
+  })
+})
+
