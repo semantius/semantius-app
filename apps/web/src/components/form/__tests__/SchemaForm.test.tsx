@@ -1435,11 +1435,13 @@ describe('computed fields with set_record use the referenced row', () => {
     await bootApp()
   })
 
-  it('updates the label when quantity changes, from the product name', async () => {
-    const res = await db('/products?select=id,product_name&limit=1&order=id.asc')
+  it('updates the label when quantity changes, from the referenced row', async () => {
+    // A platform table on purpose: `modules` exists on every tenant, while a
+    // domain table comes and goes with whatever the tenant is provisioned with.
+    const res = await db('/modules?select=id,module_name&limit=1&order=id.asc')
     expect(res.ok).toBe(true)
-    const [product] = (await res.json()) as Array<{ id: number; product_name: string }>
-    expect(product?.product_name).toBeTruthy()
+    const [row] = (await res.json()) as Array<{ id: number; module_name: string }>
+    expect(row?.module_name).toBeTruthy()
 
     const schema = {
       type: 'object',
@@ -1449,21 +1451,21 @@ describe('computed fields with set_record use the referenced row', () => {
             name: 'label',
             jsonlogic: {
               set_record: [
-                'p',
-                'products',
-                { var: 'product_id' },
-                { cat: [{ var: 'quantity' }, ' × ', { var: 'p.product_name' }] },
+                'm',
+                'modules',
+                { var: 'module_id' },
+                { cat: [{ var: 'quantity' }, ' × ', { var: 'm.module_name' }] },
               ],
             },
           },
         ],
       },
       properties: {
-        product_id: {
+        module_id: {
           type: 'integer',
           format: 'int32',
-          title: 'Product',
-          reference_table: 'products',
+          title: 'Module',
+          reference_table: 'modules',
           reference_table_id_column: 'id',
         },
         quantity: { type: 'number', format: 'double', title: 'Quantity' },
@@ -1477,7 +1479,7 @@ describe('computed fields with set_record use the referenced row', () => {
         <SchemaForm
           schema={schema}
           formMode="edit"
-          initialValue={{ product_id: product.id, quantity: 2, label: `2 × ${product.product_name}` }}
+          initialValue={{ module_id: row.id, quantity: 2, label: `2 × ${row.module_name}` }}
         />
       </AppHarness>,
     )
@@ -1485,12 +1487,12 @@ describe('computed fields with set_record use the referenced row', () => {
     const quantity = screen.getByLabelText(/^Quantity/)
     const label = screen.getByLabelText(/^Label/)
     expect(label).toBeDisabled()
-    expect(label).toHaveValue(`2 × ${product.product_name}`)
+    expect(label).toHaveValue(`2 × ${row.module_name}`)
 
     await user.clear(quantity)
     await user.type(quantity, '4')
 
-    await waitFor(() => expect(label).toHaveValue(`4 × ${product.product_name}`))
+    await waitFor(() => expect(label).toHaveValue(`4 × ${row.module_name}`))
   })
 })
 

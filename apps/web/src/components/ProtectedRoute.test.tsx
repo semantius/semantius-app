@@ -162,5 +162,9 @@ describe('ProtectedRoute', () => {
     )
     expect(screen.queryByText('Protected Content')).not.toBeInTheDocument()
     await waitFor(() => expect(document.getElementById('app-loader')?.hidden).toBe(true))
+
+    // The way out goes through /logout, as the regular logout link does: the
+    // failed token is still in storage, so /login would redirect back here.
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/logout')
   })
 })
