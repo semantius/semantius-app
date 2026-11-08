@@ -6,10 +6,14 @@
  * label, …) updates before save. Standard operators go through json-logic-js,
  * the same engine `input_type_rule` already uses. Semantius extensions that
  * json-logic-js cannot run as custom operations — `let` and `set_record` bind
- * a name *before* evaluating the body — are handled here; `concat` is an alias
- * of `cat` registered on the shared engine.
+ * a name *before* evaluating the body — are handled here; `concat`, `is_match`,
+ * `has_permission` and the date operators are registered on the shared engine.
+ * What needs the database or a previous row (`value_changed`, `require_permission`,
+ * `is_raci_actor`, `has_consultation`) stays unknown here and throws.
  */
 import jsonLogic, { type RulesLogic } from 'json-logic-js'
+import { registerDateOperators } from '@/lib/jsonLogicDates'
+import { ruleUserHasPermission, withRuleContext } from '@/lib/ruleContext'
 
 export interface ComputedField {
   name: string
@@ -28,6 +32,18 @@ const EXTENSIONS = new Set(['let', 'set_record'])
 jsonLogic.add_operation('concat', function concat(...args: unknown[]) {
   return args.join('')
 })
+
+jsonLogic.add_operation('has_permission', function hasPermission(name: unknown) {
+  return ruleUserHasPermission(String(name))
+})
+
+// Null never matches, as on the server: reading it as "" would let "^$" match a missing value.
+jsonLogic.add_operation('is_match', function isMatch(value: unknown, pattern: unknown) {
+  if (value === null || value === undefined || pattern === null || pattern === undefined) return false
+  return new RegExp(String(pattern)).test(String(value))
+})
+
+registerDateOperators()
 
 export function parseComputedFields(value: unknown): ComputedField[] {
   if (!Array.isArray(value)) return []
@@ -161,7 +177,7 @@ export function evaluateComputedFields(
   values: Record<string, unknown>,
   records?: RecordLookup,
 ): Record<string, unknown> {
-  const data = { ...values }
+  const data = withRuleContext(values)
   const updates: Record<string, unknown> = {}
   for (const entry of entries) {
     if (!lookupsReady(entry.jsonlogic, data, records)) continue
@@ -244,9 +260,12 @@ export async function loadSetRecords(
   idColumnFor: (entity: string) => string,
 ): Promise<void> {
   const pending = new Map<string, { entity: string; id: unknown }>()
+  // The same data evaluateComputedFields looks the row up with, or an id rule
+  // reading a reserved variable caches under a key that lookup never asks for.
+  const data = withRuleContext(values)
   for (const entry of entries) {
     for (const { entity, idRule } of collectSetRecordLookups(entry.jsonlogic)) {
-      const id = applyJsonLogic(idRule, values)
+      const id = applyJsonLogic(idRule, data)
       const key = cacheKey(entity, id)
       if (id === null || id === undefined || id === '') {
         cache.set(key, null)

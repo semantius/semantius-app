@@ -3,6 +3,7 @@ import { AuthProvider, AuthContext as OAuthContext } from 'react-oauth2-code-pkc
 import type { IAuthContext } from 'react-oauth2-code-pkce'
 import { ConfigErrorPage } from '@/components/ConfigErrorPage'
 import { getApiConfig, createApiHeaders, setInterceptorToken } from '@/lib/apiClient'
+import { setRuleUser } from '@/lib/ruleContext'
 import { getConfig } from '@/lib/config'
 import { appError } from '@/lib/appError'
 import { MODULE_ROOT, reportClearedMetadata, type TranslateFn } from '@/i18n'
@@ -270,6 +271,9 @@ function RouterContextUpdater({
   const [rpcUserInfo, setRpcUserInfo] = useState<RpcUserInfo | null>(null)
   const [rpcUserInfoLoading, setRpcUserInfoLoading] = useState(false)
   const [rpcUserInfoError, setRpcUserInfoError] = useState<Error | null>(null)
+  // During render rather than in an effect: a form in this same commit evaluates
+  // its rules while it renders, before any effect of this provider has run.
+  setRuleUser(rpcUserInfo)
   const [isAuthReady, setIsAuthReady] = useState(false)
   const fetchedTokenRef = useRef<string | null>(null)
   // Latest logIn() without making it an effect dependency (the OAuth lib

@@ -14,6 +14,11 @@
  */
 import { checkJsonValue, parseJsonText, pointer, type JsonIssue } from '../json/validate';
 import {
+  DATE_DURATION,
+  DATE_FORMAT_PATTERN,
+  DATE_FORMAT_TOKENS,
+  DATE_PARTS,
+  DATE_UNITS,
   JSONLOGIC_OPERATORS,
   RACI_LETTERS,
   RESERVED_ERROR_PARAMETERS,
@@ -194,6 +199,8 @@ function checkArguments(
       issues.push({ path: argPath(index), message: `must be ${expected}` });
     }
   };
+  const expectDateUnit = (index: number) =>
+    expectLiteral(index, (v) => typeof v === 'string' && DATE_UNITS.includes(v), `one of ${quoteList(DATE_UNITS)}`);
   /** Check a raw argument: the backend reads it as text without evaluating it, so it must be a literal. */
   const expectRawString = (index: number, expected: string) => {
     if (has(index) && !isNonEmptyString(args[index])) {
@@ -243,6 +250,25 @@ function checkArguments(
       return;
     case 'throw_error':
       checkThrowError(args, argPath, issues);
+      return;
+    case 'date_add':
+      if (args.length === 2) {
+        expectLiteral(1, (v) => v === null || v === '' || (typeof v === 'string' && DATE_DURATION.test(v)), 'an ISO 8601 duration, as no unit follows');
+      } else {
+        expectDateUnit(2);
+      }
+      return;
+    case 'date_diff':
+      expectDateUnit(2);
+      return;
+    case 'date_trunc':
+      expectDateUnit(1);
+      return;
+    case 'date_part':
+      expectLiteral(1, (v) => typeof v === 'string' && DATE_PARTS.includes(v), `one of ${quoteList(DATE_PARTS)}`);
+      return;
+    case 'date_format':
+      expectLiteral(1, (v) => typeof v === 'string' && DATE_FORMAT_PATTERN.test(v), `a pattern of ${quoteList(DATE_FORMAT_TOKENS)} and separators`);
       return;
   }
 }

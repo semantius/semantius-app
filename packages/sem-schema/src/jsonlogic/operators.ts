@@ -94,6 +94,14 @@ export const JSONLOGIC_OPERATORS: Readonly<Record<string, OperatorSpec>> = {
   throw_error: op(1, 3),
   is_raci_actor: op(3, 3),
   has_consultation: op(3, 3),
+
+  // Dates. `date_add` takes [date, amount, unit] or [date, duration].
+  date_add: op(2, 3),
+  date_diff: op(3, 3),
+  date_part: op(2, 2),
+  date_trunc: op(2, 2),
+  to_date: op(1, 1),
+  date_format: op(2, 2),
 };
 
 /**
@@ -108,3 +116,34 @@ export const RESERVED_ERROR_PARAMETERS: readonly string[] = ['hint', 'code', 'en
 
 /** RACI letters accepted by `is_raci_actor` (raci_assignments.raci enum in 0210_raci.sql). */
 export const RACI_LETTERS: readonly string[] = ['responsible', 'accountable', 'consulted', 'informed'];
+
+/** Units of `date_add`, `date_diff` and `date_trunc`. The sync test compares this with the backend. */
+export const DATE_UNITS: readonly string[] = ['year', 'quarter', 'month', 'week', 'day', 'hour', 'minute', 'second'];
+
+/** Parts of `date_part`. The sync test compares this with the backend. */
+export const DATE_PARTS: readonly string[] = [
+  'year', 'iso_year', 'quarter', 'month', 'week', 'day', 'weekday', 'day_of_year', 'hour', 'minute', 'second', 'epoch',
+];
+
+/**
+ * Tokens of `date_format`, longest first so that a token is never read as a shorter
+ * one. The browser and the backend both render from this fixed list, because the
+ * browser has no to_char. The sync test compares this with the backend.
+ */
+export const DATE_FORMAT_TOKENS: readonly string[] = ['YYYY', 'Month', 'HH24', 'Mon', 'Day', 'YY', 'MM', 'DD', 'Dy', 'MI', 'SS', 'Q'];
+
+const DATE_FORMAT_TOKEN_SOURCE = `${DATE_FORMAT_TOKENS.join('|')}|[ /.:,-]`;
+
+/** One token or separator of a `date_format` pattern, for `String.prototype.match`. */
+export const DATE_FORMAT_TOKEN = new RegExp(DATE_FORMAT_TOKEN_SOURCE, 'g');
+
+/** A whole `date_format` pattern. */
+export const DATE_FORMAT_PATTERN = new RegExp(`^(?:${DATE_FORMAT_TOKEN_SOURCE})+$`);
+
+/**
+ * An ISO 8601 duration as `date_add` accepts it: canonical field order, with the
+ * per-field minus signs PostgreSQL's iso_8601 style emits. The capture groups are
+ * years, months, weeks, days, hours, minutes and seconds.
+ */
+export const DATE_DURATION =
+  /^P(?=[-\dT])(?:(-?\d+)Y)?(?:(-?\d+)M)?(?:(-?\d+)W)?(?:(-?\d+)D)?(?:T(?=[-\d])(?:(-?\d+)H)?(?:(-?\d+)M)?(?:(-?\d+(?:\.\d+)?)S)?)?$/;

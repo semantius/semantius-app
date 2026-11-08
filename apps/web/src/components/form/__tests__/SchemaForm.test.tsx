@@ -1,9 +1,10 @@
 import { Component, type ReactNode } from 'react'
-import { beforeEach, describe, it, expect, vi } from 'vitest'
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { SchemaForm } from '../SchemaForm'
 import type { SchemaObject } from 'ajv'
+import { setRuleUser } from '@/lib/ruleContext'
 import { AppHarness, bootApp } from '@/test/appHarness'
 import { db } from '@/test/moduleFixture'
 
@@ -1300,6 +1301,62 @@ describe('empty optional fields, and errors on fields the form does not draw', (
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalled())
     expect(onSubmit.mock.calls[0][0]).toEqual({ kind: 'none' })
+  })
+})
+
+describe('input_type_rule can use the Semantius operators', () => {
+  const renderRule = (rule: unknown, initialValue: Record<string, unknown> = {}) => {
+    const schema: SchemaObject = {
+      type: 'object',
+      properties: {
+        kind: { type: 'string', format: 'text', title: 'Kind' },
+        code: { type: 'string', format: 'text', title: 'Code', input_type_rule: rule },
+      },
+    }
+    render(<SchemaForm schema={schema} formMode="create" initialValue={initialValue} onSubmit={vi.fn()} />)
+  }
+  const expectHidden = () => expect(screen.queryByLabelText(/^Code/)).not.toBeInTheDocument()
+  const expectShown = () => expect(screen.getByLabelText(/^Code/)).toBeInTheDocument()
+
+  afterEach(() => {
+    setRuleUser(null)
+  })
+
+  it('runs a date operator', () => {
+    renderRule({ if: [{ '==': [{ date_part: ['2026-12-31', 'weekday'] }, 4] }, 'hidden', 'default'] })
+    expectHidden()
+  })
+
+  it('sees $today', () => {
+    renderRule({ if: [{ var: '$today' }, 'hidden', 'default'] })
+    expectHidden()
+  })
+
+  it('runs has_permission for a user who holds the permission', () => {
+    setRuleUser({ permissions: ['orders:approve'] })
+    renderRule({ if: [{ has_permission: 'orders:approve' }, 'hidden', 'default'] })
+    expectHidden()
+  })
+
+  it('runs has_permission for a user who does not', () => {
+    setRuleUser({ permissions: [] })
+    renderRule({ if: [{ has_permission: 'orders:approve' }, 'hidden', 'default'] })
+    expectShown()
+  })
+
+  it('runs is_match', () => {
+    renderRule({ if: [{ is_match: [{ var: 'kind' }, '^no'] }, 'hidden', 'default'] }, { kind: 'none' })
+    expectHidden()
+  })
+
+  it('binds let before evaluating the body', () => {
+    renderRule({ let: ['k', { var: 'kind' }, { if: [{ '==': [{ var: 'k' }, 'none'] }, 'hidden', 'default'] }] }, { kind: 'none' })
+    expectHidden()
+  })
+
+  it('keeps the static mode for a set_record, because no row is fetched for it', () => {
+    renderRule({ set_record: ['r', 'orders', { var: 'kind' }, 'hidden'] }, { kind: '1' })
+    expectShown()
   })
 })
 

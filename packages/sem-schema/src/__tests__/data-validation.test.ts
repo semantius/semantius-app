@@ -183,6 +183,17 @@ describe('Data Validation Tests', () => {
           { throw_error: ['Order is already shipped', 99017] },
           { is_raci_actor: ['orders', 'approved', 'accountable'] },
           { has_consultation: ['orders', 'approved', { var: 'id' }] },
+          { date_add: [{ var: 'term_end' }, -30, 'day'] },
+          { date_add: [{ var: 'term_end' }, 'P1DT2H'] },
+          { date_add: [{ var: 'term_end' }, { var: 'grace' }] },
+          { date_add: [{ var: 'term_end' }, 1, { var: 'unit' }] },
+          { date_diff: [{ var: 'term_end' }, { var: '$today' }, 'month'] },
+          { date_part: [{ var: 'term_end' }, 'iso_year'] },
+          { date_trunc: [{ var: 'term_end' }, 'quarter'] },
+          { to_date: [{ var: 'reviewed_at' }] },
+          { to_date: { var: 'reviewed_at' } },
+          { date_format: [{ var: 'term_end' }, 'Dy, DD Mon YYYY'] },
+          { date_format: [{ var: 'term_end' }, { var: 'pattern' }] },
           { '<': [1, { var: 'qty' }, 10] },
           { reduce: [{ var: 'lines' }, { '+': [{ var: 'current.qty' }, { var: 'accumulator' }] }, 0] },
           { missing_some: [1, ['email', 'phone']] }
@@ -353,6 +364,38 @@ describe('Data Validation Tests', () => {
         ]);
         expect(messages({ has_permission: '' })).toEqual(['must be a permission name at /has_permission']);
         expect(messages({ var: true })).toEqual(['must be a string path, a number or null at /var']);
+      });
+
+      it('should reject date operators called with the wrong number of arguments', () => {
+        expect(messages({ date_add: ['2026-01-01'] })).toEqual(['"date_add" expects 2 to 3 arguments, got 1 at /date_add']);
+        expect(messages({ date_diff: ['2026-01-02', '2026-01-01'] })).toEqual(['"date_diff" expects 3 arguments, got 2 at /date_diff']);
+        expect(messages({ date_part: ['2026-01-01'] })).toEqual(['"date_part" expects 2 arguments, got 1 at /date_part']);
+        expect(messages({ date_trunc: ['2026-01-01'] })).toEqual(['"date_trunc" expects 2 arguments, got 1 at /date_trunc']);
+        expect(messages({ to_date: ['2026-01-01', 'x'] })).toEqual(['"to_date" expects 1 argument, got 2 at /to_date']);
+        expect(messages({ date_format: ['2026-01-01'] })).toEqual(['"date_format" expects 2 arguments, got 1 at /date_format']);
+      });
+
+      it('should reject unknown literal date units, parts and patterns', () => {
+        const units = 'must be one of "year", "quarter", "month", "week", "day", "hour", "minute", "second"';
+        expect(messages({ date_add: ['2026-01-01', 1, 'fortnight'] })).toEqual([`${units} at /date_add/2`]);
+        expect(messages({ date_diff: ['2026-01-02', '2026-01-01', 'days'] })).toEqual([`${units} at /date_diff/2`]);
+        expect(messages({ date_trunc: ['2026-01-01', 'century'] })).toEqual([`${units} at /date_trunc/1`]);
+        expect(messages({ date_part: ['2026-01-01', 'century'] })).toEqual([
+          'must be one of "year", "iso_year", "quarter", "month", "week", "day", "weekday", "day_of_year", "hour", "minute", "second", "epoch" at /date_part/1'
+        ]);
+        expect(messages({ date_format: ['2026-01-01', 'TMMon'] })).toEqual([
+          'must be a pattern of "YYYY", "Month", "HH24", "Mon", "Day", "YY", "MM", "DD", "Dy", "MI", "SS", "Q" and separators at /date_format/1'
+        ]);
+      });
+
+      it.each(['P', 'PT', 'P1DT', '1 day', '-P1D', 'P1.5D'])('should reject the duration %s when no unit follows', (duration) => {
+        expect(messages({ date_add: ['2026-01-01', duration] })).toEqual([
+          'must be an ISO 8601 duration, as no unit follows at /date_add/1'
+        ]);
+      });
+
+      it('should reject a number when no unit follows', () => {
+        expect(messages({ date_add: ['2026-01-01', 30] })).toEqual(['must be an ISO 8601 duration, as no unit follows at /date_add/1']);
       });
 
       it('should reject invalid computed_fields entries', () => {

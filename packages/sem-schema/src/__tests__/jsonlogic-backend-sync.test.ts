@@ -14,7 +14,7 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { JSONLOGIC_OPERATORS, RESERVED_VARIABLES } from '../jsonlogic/operators';
+import { DATE_FORMAT_TOKENS, DATE_PARTS, DATE_UNITS, JSONLOGIC_OPERATORS, RESERVED_VARIABLES } from '../jsonlogic/operators';
 import { validateJsonLogic } from '../jsonlogic/validate';
 
 // src/__tests__ -> src -> sem-schema -> packages -> repository root -> its parent
@@ -77,6 +77,13 @@ function backendVariables(migrations: Migration[]): { file: string; variables: s
   const fn = lastFunctionBody(migrations, /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+(?:public\.)?build_record_logic_trigger\s*\(/);
   if (!fn) return undefined;
   return { file: fn.file, variables: unique([...fn.body.matchAll(/'(\$[A-Za-z_][A-Za-z0-9_]*)'/g)].map((m) => m[1])) };
+}
+
+/** A `CONSTANT text[]` declared inside a backend function. */
+function backendList(migrations: Migration[], functionName: string, constant: string): string[] | undefined {
+  const fn = lastFunctionBody(migrations, new RegExp(`CREATE\\s+(?:OR\\s+REPLACE\\s+)?FUNCTION\\s+(?:public\\.)?${functionName}\\s*\\(`));
+  const list = fn?.body.match(new RegExp(`${constant}\\s+CONSTANT\\s+text\\[\\]\\s*:=\\s*ARRAY\\[([^\\]]*)\\]`, 'i'));
+  return list ? [...list[1].matchAll(/'([^']+)'/g)].map((m) => m[1]) : undefined;
 }
 
 /**
@@ -150,6 +157,14 @@ if (!backendFound && backendRequired) {
       const missing = (variables?.variables ?? []).filter((name) => !validator.includes(name));
       const unknown = validator.filter((name) => !(variables?.variables ?? []).includes(name));
       expect({ definedIn: variables?.file, missing, unknown }).toEqual({ definedIn: variables?.file, missing: [], unknown: [] });
+    });
+
+    it.each([
+      ['units', 'jl_date_unit', 'v_units', DATE_UNITS],
+      ['parts', 'jl_date_part', 'v_parts', DATE_PARTS],
+      ['format tokens', 'jl_date_format', 'v_tokens', DATE_FORMAT_TOKENS],
+    ])('lists the same date %s as the backend (update src/jsonlogic/operators.ts)', (_label, functionName, constant, list) => {
+      expect(backendList(migrations, functionName, constant)).toEqual([...list]);
     });
 
     it('accepts every JsonLogic rule shipped in the backend migrations', () => {

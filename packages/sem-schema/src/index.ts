@@ -11,5 +11,8 @@
 // Main API
 export { validateSchema, validateData } from './api';
 
+// The date vocabulary of JsonLogic, shared with the browser evaluator
+export { DATE_DURATION, DATE_FORMAT_PATTERN, DATE_FORMAT_TOKEN, DATE_PARTS, DATE_UNITS } from './jsonlogic/operators';
+
 // Types
 export type { SchemaValidationError } from './utils';

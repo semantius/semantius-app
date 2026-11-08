@@ -1,10 +1,12 @@
 import { Fragment, useEffect, useRef, type ReactNode } from 'react'
 import { useForm } from '@tanstack/react-form'
-import jsonLogic, { type RulesLogic } from 'json-logic-js'
 import { validateData } from 'sem-schema'
 import { assertSupportedFormats, resolveControl } from './resolveControl'
 import { formatType, isFormatName } from '@/lib/formats'
+import { withRuleContext } from '@/lib/ruleContext'
 import {
+  applyJsonLogic,
+  collectSetRecordLookups,
   evaluateComputedFields,
   idColumnForEntity,
   inputSnapshot,
@@ -105,8 +107,11 @@ function ComputedFieldsSync({
  */
 function evaluateInputTypeRule(rule: unknown, values: Record<string, any>): InputMode | null {
   if (!rule || typeof rule !== 'object') return null
+  // No row is fetched for this rule, and one that ran anyway would decide about a
+  // record it never saw, so it keeps the static mode.
+  if (collectSetRecordLookups(rule).length > 0) return null
   try {
-    const result = jsonLogic.apply(rule as RulesLogic, values)
+    const result = applyJsonLogic(rule, withRuleContext(values))
     return isInputMode(result) ? result : null
   } catch {
     return null

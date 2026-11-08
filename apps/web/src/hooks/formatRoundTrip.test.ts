@@ -196,23 +196,13 @@ describe('format round trip against the tenant', () => {
     expect(back.blob_bin).not.toBe(encodeBytes(SAMPLE, 'binary'))
   })
 
-  // KNOWN DEFECT, recorded rather than fixed here.
-  //
-  // An INTERVAL column ACCEPTS ISO 8601 on write and hands back PostgreSQL's
-  // own output format on read. `InputDuration` is a plain text field whose
-  // placeholder is `P3Y6M4DT12H30M5S`, so it writes ISO and then displays
-  // "1 day 02:00:00" — a value it did not write and its placeholder says is
-  // wrong. Saving that row again stores the Postgres spelling, and the column
-  // has drifted from the format's contract without anything failing.
-  //
-  // The fix is a decision about which representation is canonical (a PostgREST
-  // `intervalstyle` on the tenant, or parsing in the control), and it belongs
-  // with the owner rather than inside a formats PR. This test pins the current
-  // answer so the choice is made deliberately: it fails the day the platform
-  // changes it.
-  it('hands an ISO duration back in PostgreSQL output format, not ISO', async () => {
+  // The tenant's interval style is ISO 8601. `InputDuration` is a plain text field
+  // whose placeholder is `P3Y6M4DT12H30M5S`, so it has to get back the spelling it
+  // wrote: with PostgreSQL's own output format it would display "1 day 02:00:00",
+  // and saving the row again would store that instead.
+  it('hands an ISO duration back as ISO', async () => {
     const back = await roundTrip(completeRow({ name: 'duration' }))
-    expect(back.how_long).toBe('1 day 02:00:00')
+    expect(back.how_long).toBe('P1DT2H')
   })
 
   it('rejects an empty string for the typed columns, which is why emptyValue is null', async () => {
