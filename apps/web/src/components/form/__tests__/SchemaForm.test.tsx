@@ -1362,8 +1362,8 @@ describe('input_type_rule can use the Semantius operators', () => {
 
 describe('input_type_rule required is validated, not only drawn', () => {
   // The asset-tracker Sale Date rule: hidden unless state is sold, then required.
-  // The asterisk used to appear while submit still treated the static schema
-  // inputMode (not `required`) and saved the empty date.
+  // The control and its submit validator take the same `renderedInputMode`, so
+  // the asterisk and the empty check cannot disagree.
   const saleDateRule = {
     if: [{ '==': [{ var: 'workflow_state' }, 'sold'] }, 'required', 'hidden'],
   }
