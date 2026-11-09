@@ -1360,6 +1360,108 @@ describe('input_type_rule can use the Semantius operators', () => {
   })
 })
 
+describe('input_type_rule required is validated, not only drawn', () => {
+  // The asset-tracker Sale Date rule: hidden unless state is sold, then required.
+  // The control and its submit validator take the same `renderedInputMode`, so
+  // the asterisk and the empty check cannot disagree.
+  const saleDateRule = {
+    if: [{ '==': [{ var: 'workflow_state' }, 'sold'] }, 'required', 'hidden'],
+  }
+  const schema: SchemaObject = {
+    type: 'object',
+    properties: {
+      workflow_state: { type: 'string', format: 'text', title: 'State', inputMode: 'required' },
+      sale_date: { type: 'string', format: 'date', title: 'Sale Date', input_type_rule: saleDateRule },
+    },
+  }
+
+  it('hides sale date when state is not sold, and submit succeeds without it', async () => {
+    const onSubmit = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <SchemaForm
+        schema={schema}
+        formMode="edit"
+        initialValue={{ workflow_state: 'draft' }}
+        onSubmit={onSubmit}
+      />,
+    )
+    expect(screen.queryByLabelText(/^Sale Date/)).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Submit' }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+  })
+
+  it('marks sale date required when state is sold, and refuses an empty value', async () => {
+    const onSubmit = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <SchemaForm
+        schema={schema}
+        formMode="edit"
+        initialValue={{ workflow_state: 'sold' }}
+        onSubmit={onSubmit}
+      />,
+    )
+
+    // The asterisk is the sighted mark; the sr-only "(required)" is in the name.
+    expect(screen.getByRole('textbox', { name: /Sale Date.*\(required\)/ })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Submit' }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/must not be empty/i)).toBeInTheDocument()
+      expect(screen.getByRole('textbox', { name: /^Sale Date/ })).toHaveAttribute('aria-invalid', 'true')
+    })
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+
+  it('submits when state is sold and sale date is filled', async () => {
+    const onSubmit = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <SchemaForm
+        schema={schema}
+        formMode="edit"
+        initialValue={{ workflow_state: 'sold', sale_date: '2024-03-15' }}
+        onSubmit={onSubmit}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Submit' }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({
+      workflow_state: 'sold',
+      sale_date: '2024-03-15',
+    })
+  })
+
+  it('requires sale date after the state is changed to sold', async () => {
+    const onSubmit = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <SchemaForm
+        schema={schema}
+        formMode="edit"
+        initialValue={{ workflow_state: 'draft' }}
+        onSubmit={onSubmit}
+      />,
+    )
+    expect(screen.queryByLabelText(/^Sale Date/)).not.toBeInTheDocument()
+
+    const state = screen.getByLabelText(/^State/)
+    await user.clear(state)
+    await user.type(state, 'sold')
+    expect(screen.getByRole('textbox', { name: /^Sale Date/ })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Submit' }))
+    await waitFor(() => {
+      expect(screen.getByText(/must not be empty/i)).toBeInTheDocument()
+    })
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+})
+
 describe('computed fields update when an input changes', () => {
   // The Northwind amount rule from order_details.computed_fields: qty × price × (1 − discount).
   const amountRule = {

@@ -121,9 +121,10 @@ function evaluateInputTypeRule(rule: unknown, values: Record<string, any>): Inpu
 /**
  * The mode a field is drawn in, or `null` when the form does not draw it.
  *
- * One function because two places need the same answer: the renderer, and the
- * submit handler, which must know whether an error it is about to attach to a
- * field has anywhere on screen to appear.
+ * This is the only place that composes `input_type_rule` with the static
+ * `inputMode`. The renderer and the field validator both take this result — the
+ * asterisk and the empty check cannot disagree. `resolvedInputMode` is the same
+ * function when the caller has form values instead of a precomputed rule result.
  */
 function renderedInputMode(
   key: string,
@@ -144,6 +145,26 @@ function renderedInputMode(
   // Form-level view mode overrides schema-level inputMode (except for hidden).
   if (formMode === 'view' && inputMode !== 'hidden') return 'readonly'
   return inputMode
+}
+
+/**
+ * `renderedInputMode` against the current form values: evaluate the field's
+ * `input_type_rule` first, then apply formMode / parentField.
+ */
+function resolvedInputMode(
+  key: string,
+  propSchema: SchemaObject,
+  values: Record<string, any>,
+  formMode: FormMode,
+  parentField: string | undefined,
+): InputMode | null {
+  return renderedInputMode(
+    key,
+    propSchema,
+    evaluateInputTypeRule((propSchema as any).input_type_rule, values),
+    formMode,
+    parentField,
+  )
 }
 
 interface SchemaFormProps {
@@ -209,6 +230,10 @@ function generateDefaultValue(schema: SchemaObject): Record<string, any> {
  * @param fieldName - The name of the field being validated
  * @param t - The active translate function
  * @param language - The catalog language, for the Ajv message localizer
+ * @param inputMode - The resolved mode (`renderedInputMode` / `resolvedInputMode`),
+ *   not the static schema `inputMode`. sem-schema only knows the static keyword,
+ *   so this is passed in and stamped onto the temp schema below — the one adapter,
+ *   not a second opinion at each call site.
  * @returns Error message if validation fails, undefined if valid
  */
 function validateField(
@@ -217,9 +242,8 @@ function validateField(
   fieldName: string,
   t: TranslateFn,
   language: string,
+  inputMode: InputMode,
 ): string | undefined {
-  // Check if field has inputMode: 'required'
-  const inputMode = (fieldSchema as any).inputMode
   const isRequired = inputMode === 'required'
 
   // For required fields, check for empty values
@@ -235,11 +259,13 @@ function validateField(
     return undefined
   }
 
-  // Create a temporary schema for this field within an object
+  // Create a temporary schema for this field within an object.
+  // Stamp the resolved mode so validateData's inputMode filter matches the
+  // asterisk — it cannot see `input_type_rule`.
   const tempSchema: SchemaObject = {
     type: 'object',
     properties: {
-      [fieldName]: fieldSchema
+      [fieldName]: { ...fieldSchema, inputMode },
     },
     // Include required if this field is required at object level
     ...(isRequired ? { required: [fieldName] } : {})
@@ -471,7 +497,8 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
       if (formMode === 'create') {
         const properties = schema.properties as Record<string, SchemaObject>
         for (const key of Object.keys(cleanedValue)) {
-          const optional = !requiredFields.has(key) && (properties[key] as any)?.inputMode !== 'required'
+          const optional = !requiredFields.has(key)
+            && resolvedInputMode(key, properties[key], value, formMode, parentField) !== 'required'
           if (cleanedValue[key] === '' && optional) delete cleanedValue[key]
         }
       }
@@ -535,7 +562,7 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
             // in a create form — so its error goes to the banner under the
             // field's title instead of disappearing with the field.
             const mode = propSchema
-              ? renderedInputMode(fieldPath, propSchema, evaluateInputTypeRule((propSchema as any).input_type_rule, value), formMode, parentField)
+              ? resolvedInputMode(fieldPath, propSchema, value, formMode, parentField)
               : null
             if (propSchema && (mode === null || mode === 'hidden')) {
               unhandledErrors.push(t('{field}: {message}', { field: propSchema.title || fieldPath, message: error.message }))
@@ -630,7 +657,8 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
     validateField: (value: any, fieldName: string) => {
       const fieldSchema = properties[fieldName]
       if (!fieldSchema) return undefined
-      return validateField(value, fieldSchema, fieldName, t, language)
+      const mode = resolvedInputMode(fieldName, fieldSchema, form.state.values, formMode, parentField) ?? 'hidden'
+      return validateField(value, fieldSchema, fieldName, t, language, mode)
     },
   }
 
@@ -811,8 +839,10 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
                     schema={propSchema as Record<string, unknown>}
                     validators={shouldValidate ? {
                       // Only validate on submit, not on blur
-                      // This prevents blur validation from canceling submit button clicks
-                      onSubmit: ({ value }) => validateField(value, propSchema, key, t, language),
+                      // This prevents blur validation from canceling submit button clicks.
+                      // Pass the same mode the control was drawn with, so the
+                      // asterisk and the empty check cannot disagree.
+                      onSubmit: ({ value }) => validateField(value, propSchema, key, t, language, inputMode),
                     } : undefined}
                   />
                 </div>
