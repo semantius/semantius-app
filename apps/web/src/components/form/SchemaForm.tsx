@@ -121,9 +121,9 @@ function evaluateInputTypeRule(rule: unknown, values: Record<string, any>): Inpu
 /**
  * The mode a field is drawn in, or `null` when the form does not draw it.
  *
- * One function because two places need the same answer: the renderer, and the
- * submit handler, which must know whether an error it is about to attach to a
- * field has anywhere on screen to appear.
+ * One function because rendering, field validators, and submit-time validation
+ * all need the same answer. A rule that paints the required asterisk but leaves
+ * the static schema `inputMode` unchanged is how an empty field used to save.
  */
 function renderedInputMode(
   key: string,
@@ -144,6 +144,54 @@ function renderedInputMode(
   // Form-level view mode overrides schema-level inputMode (except for hidden).
   if (formMode === 'view' && inputMode !== 'hidden') return 'readonly'
   return inputMode
+}
+
+/**
+ * `renderedInputMode` against the current form values: evaluate the field's
+ * `input_type_rule` first, then apply formMode / parentField.
+ */
+function resolvedInputMode(
+  key: string,
+  propSchema: SchemaObject,
+  values: Record<string, any>,
+  formMode: FormMode,
+  parentField: string | undefined,
+): InputMode | null {
+  return renderedInputMode(
+    key,
+    propSchema,
+    evaluateInputTypeRule((propSchema as any).input_type_rule, values),
+    formMode,
+    parentField,
+  )
+}
+
+/**
+ * Overlay `input_type_rule` onto the schema for submit-time `validateData`.
+ *
+ * Only `required` and `default` are stamped. Overlaying `hidden` / `readonly` /
+ * `disabled` would make sem-schema skip `pattern`, and a value a rule took off
+ * the screen (a has_a key that became readonly in create) would save.
+ */
+function schemaWithResolvedInputModes(
+  schema: SchemaObject,
+  values: Record<string, any>,
+  formMode: FormMode,
+  parentField: string | undefined,
+): SchemaObject {
+  if (!schema.properties || typeof schema.properties !== 'object') return schema
+  const properties: Record<string, SchemaObject> = {}
+  for (const [key, prop] of Object.entries(schema.properties as Record<string, SchemaObject>)) {
+    if (typeof prop !== 'object' || prop === null) {
+      properties[key] = prop
+      continue
+    }
+    const mode = resolvedInputMode(key, prop, values, formMode, parentField)
+    properties[key] = (mode === 'required' || mode === 'default')
+      ? { ...prop, inputMode: mode }
+      : prop
+  }
+  return { ...schema, properties }
 }
 
 interface SchemaFormProps {
@@ -457,6 +505,11 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
         })
         validationSchema = { ...schema, required: filteredRequired }
       }
+
+      // The asterisk on screen already follows `input_type_rule`. Validation
+      // has to see the same mode, or a field the rule made required would save
+      // empty — Sale Date when the state is sold was the reported case.
+      validationSchema = schemaWithResolvedInputModes(validationSchema, value, formMode, parentField)
       
       const requiredFields = new Set<string>(Array.isArray(validationSchema.required) ? validationSchema.required : [])
 
@@ -469,7 +522,7 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
       // An edit keeps the `''`: leaving the field out of a PATCH would make
       // clearing a text field impossible.
       if (formMode === 'create') {
-        const properties = schema.properties as Record<string, SchemaObject>
+        const properties = validationSchema.properties as Record<string, SchemaObject>
         for (const key of Object.keys(cleanedValue)) {
           const optional = !requiredFields.has(key) && (properties[key] as any)?.inputMode !== 'required'
           if (cleanedValue[key] === '' && optional) delete cleanedValue[key]
@@ -535,7 +588,7 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
             // in a create form — so its error goes to the banner under the
             // field's title instead of disappearing with the field.
             const mode = propSchema
-              ? renderedInputMode(fieldPath, propSchema, evaluateInputTypeRule((propSchema as any).input_type_rule, value), formMode, parentField)
+              ? resolvedInputMode(fieldPath, propSchema, value, formMode, parentField)
               : null
             if (propSchema && (mode === null || mode === 'hidden')) {
               unhandledErrors.push(t('{field}: {message}', { field: propSchema.title || fieldPath, message: error.message }))
@@ -630,7 +683,11 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
     validateField: (value: any, fieldName: string) => {
       const fieldSchema = properties[fieldName]
       if (!fieldSchema) return undefined
-      return validateField(value, fieldSchema, fieldName, t, language)
+      const mode = resolvedInputMode(fieldName, fieldSchema, form.state.values, formMode, parentField)
+      const schemaForValidation = (mode === 'required' || mode === 'default')
+        ? { ...fieldSchema, inputMode: mode }
+        : fieldSchema
+      return validateField(value, schemaForValidation, fieldName, t, language)
     },
   }
 
@@ -811,8 +868,10 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
                     schema={propSchema as Record<string, unknown>}
                     validators={shouldValidate ? {
                       // Only validate on submit, not on blur
-                      // This prevents blur validation from canceling submit button clicks
-                      onSubmit: ({ value }) => validateField(value, propSchema, key, t, language),
+                      // This prevents blur validation from canceling submit button clicks.
+                      // Stamp the resolved mode so a rule that returned `required`
+                      // is actually required — the static schema inputMode is not.
+                      onSubmit: ({ value }) => validateField(value, { ...propSchema, inputMode }, key, t, language),
                     } : undefined}
                   />
                 </div>
