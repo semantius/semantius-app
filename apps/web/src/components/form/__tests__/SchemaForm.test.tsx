@@ -1449,7 +1449,9 @@ describe('input_type_rule required is validated, not only drawn', () => {
     )
     expect(screen.queryByLabelText(/^Sale Date/)).not.toBeInTheDocument()
 
-    fireEvent.change(screen.getByLabelText(/^State/), { target: { value: 'sold' } })
+    const state = screen.getByLabelText(/^State/)
+    await user.clear(state)
+    await user.type(state, 'sold')
     expect(screen.getByRole('textbox', { name: /^Sale Date/ })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Submit' }))
