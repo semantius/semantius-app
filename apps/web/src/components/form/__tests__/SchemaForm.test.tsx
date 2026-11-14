@@ -959,6 +959,147 @@ describe('SchemaForm', () => {
   })
 })
 
+describe('derived ctypes default to disabled', () => {
+  // Northwind orders.subtotal is ctype rollup with inputMode default; amount on
+  // order_details is ctype computed with the same leftover default. Writing them
+  // back either overwrites the derivation or is rejected, so default must match
+  // an explicit disabled field: shown, not editable, excluded from submit.
+  const derivedCtypes = ['rollup', 'computed', 'computed_label'] as const
+
+  function orderSchema(overrides: Record<string, unknown> = {}) {
+    return {
+      type: 'object',
+      properties: {
+        customer_id: { type: 'string', format: 'text', title: 'Customer', inputMode: 'required' },
+        subtotal: {
+          type: 'number',
+          format: 'double',
+          title: 'Subtotal',
+          ctype: 'rollup',
+          inputMode: 'default',
+          ...overrides,
+        },
+      },
+    } as SchemaObject
+  }
+
+  it.each(derivedCtypes)('makes a ctype %s field with inputMode default not editable', (ctype) => {
+    render(
+      <SchemaForm
+        schema={{
+          type: 'object',
+          properties: {
+            total: { type: 'number', format: 'double', title: 'Total', ctype, inputMode: 'default' },
+          },
+        }}
+        formMode="edit"
+        initialValue={{ total: 42 }}
+      />,
+    )
+    const field = screen.getByLabelText(/^Total/)
+    expect(field).toBeDisabled()
+    expect(field).toHaveValue('42')
+  })
+
+  it('treats a missing inputMode the same as default', () => {
+    render(
+      <SchemaForm
+        schema={{
+          type: 'object',
+          properties: {
+            subtotal: { type: 'number', format: 'double', title: 'Subtotal', ctype: 'rollup' },
+          },
+        }}
+        formMode="edit"
+        initialValue={{ subtotal: 10 }}
+      />,
+    )
+    expect(screen.getByLabelText(/^Subtotal/)).toBeDisabled()
+  })
+
+  it('excludes a default rollup from submit, like an explicit disabled field', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn()
+    render(
+      <SchemaForm
+        schema={orderSchema()}
+        formMode="edit"
+        initialValue={{ customer_id: 'ALFKI', subtotal: 137.5 }}
+        onSubmit={onSubmit}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+
+    const submitted = onSubmit.mock.calls[0][0]
+    expect(submitted).toHaveProperty('customer_id', 'ALFKI')
+    expect(submitted).not.toHaveProperty('subtotal')
+  })
+
+  it('does not draw a default rollup in create mode, like other disabled fields', () => {
+    render(<SchemaForm schema={orderSchema()} formMode="create" />)
+    expect(screen.queryByLabelText(/^Subtotal/)).not.toBeInTheDocument()
+    expect(screen.getByLabelText(/^Customer/)).toBeInTheDocument()
+  })
+
+  it('keeps an ordinary default field editable', () => {
+    render(
+      <SchemaForm
+        schema={{
+          type: 'object',
+          properties: {
+            freight: { type: 'number', format: 'double', title: 'Freight', inputMode: 'default' },
+          },
+        }}
+        formMode="edit"
+        initialValue={{ freight: 5 }}
+      />,
+    )
+    expect(screen.getByLabelText(/^Freight/)).not.toBeDisabled()
+  })
+
+  it('keeps an explicit readonly on a rollup as readonly (submitted, not omitted)', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn()
+    render(
+      <SchemaForm
+        schema={orderSchema({ inputMode: 'readonly' })}
+        formMode="edit"
+        initialValue={{ customer_id: 'ALFKI', subtotal: 137.5 }}
+        onSubmit={onSubmit}
+      />,
+    )
+
+    expect(screen.getByLabelText(/^Subtotal/)).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+    expect(onSubmit.mock.calls[0][0]).toHaveProperty('subtotal', 137.5)
+  })
+
+  it('maps an input_type_rule that returns default onto disabled for a computed field', () => {
+    render(
+      <SchemaForm
+        schema={{
+          type: 'object',
+          properties: {
+            amount: {
+              type: 'number',
+              format: 'double',
+              title: 'Amount',
+              ctype: 'computed',
+              inputMode: 'default',
+              input_type_rule: { if: [true, 'default', 'required'] },
+            },
+          },
+        }}
+        formMode="edit"
+        initialValue={{ amount: 20 }}
+      />,
+    )
+    expect(screen.getByLabelText(/^Amount/)).toBeDisabled()
+  })
+})
 
 /**
  * A field with no format stops the form dead. An unknown format name does not:

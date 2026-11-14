@@ -44,8 +44,39 @@ function isSyntheticLabelField(propSchema: unknown): boolean {
 
 const VALID_INPUT_MODES: readonly InputMode[] = ['default', 'required', 'readonly', 'disabled', 'hidden']
 
+/**
+ * Derived columns. `get_schema` still ships them with `inputMode: 'default'`,
+ * but they are not user-writable: a rollup is aggregated from children, a
+ * computed / computed_label value is produced by `computed_fields`. Submitting
+ * them either overwrites the derivation or is rejected. When the declared
+ * (or rule) mode is `default`, treat them as `disabled` — shown, not editable,
+ * excluded from submit — the same as an explicit `inputMode: 'disabled'`.
+ * An explicit required / readonly / hidden on the field or from a rule is kept.
+ */
+const DISABLED_BY_DEFAULT_CTYPES: Record<string, true> = {
+  rollup: true,
+  computed: true,
+  computed_label: true,
+}
+
 function isInputMode(value: unknown): value is InputMode {
   return typeof value === 'string' && (VALID_INPUT_MODES as readonly string[]).includes(value)
+}
+
+function isDisabledByDefaultCtype(propSchema: SchemaObject): boolean {
+  const ctype = (propSchema as { ctype?: unknown }).ctype
+  return typeof ctype === 'string' && Object.hasOwn(DISABLED_BY_DEFAULT_CTYPES, ctype)
+}
+
+/** Static schema `inputMode`, with derived-ctype `default` coerced to `disabled`. */
+function schemaInputMode(propSchema: SchemaObject): InputMode {
+  return coerceDerivedCtypeDefault(propSchema, (propSchema as { inputMode?: unknown }).inputMode)
+}
+
+function coerceDerivedCtypeDefault(propSchema: SchemaObject, declared: unknown): InputMode {
+  const inputMode: InputMode = isInputMode(declared) ? declared : 'default'
+  if (inputMode === 'default' && isDisabledByDefaultCtype(propSchema)) return 'disabled'
+  return inputMode
 }
 
 /**
@@ -138,8 +169,13 @@ function renderedInputMode(
   // editable by the user.
   if (key === parentField) return 'hidden'
   // input_type_rule (JsonLogic) overrides the static schema inputMode when it
-  // evaluates to a valid InputMode against current form values.
-  const inputMode: InputMode = ruleResult || (propSchema as any).inputMode || 'default'
+  // evaluates to a valid InputMode against current form values. A derived
+  // ctype (rollup / computed / computed_label) still maps a leftover `default`
+  // — from the schema or from the rule — onto `disabled`.
+  const inputMode = coerceDerivedCtypeDefault(
+    propSchema,
+    ruleResult || (propSchema as { inputMode?: unknown }).inputMode,
+  )
   // In create mode, readonly and disabled fields are not drawn.
   if (formMode === 'create' && (inputMode === 'readonly' || inputMode === 'disabled')) return null
   // Form-level view mode overrides schema-level inputMode (except for hidden).
@@ -404,7 +440,7 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
       // - In create mode: readonly fields are not rendered but still submitted if present in initial value
       for (const key of allFields) {
         const propSchema = (schema.properties as Record<string, SchemaObject>)[key]
-        const inputMode = (propSchema as any).inputMode || 'default'
+        const inputMode = schemaInputMode(propSchema)
 
         // Synthetic label companions (ctype '_label' / 'fk_label') are computed,
         // non-writable projections — not real columns. Including them in the body
@@ -470,7 +506,7 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
         const filteredRequired = schema.required.filter((fieldName: string) => {
           const propSchema = properties[fieldName]
           if (!propSchema) return true
-          const inputMode = (propSchema as any).inputMode || 'default'
+          const inputMode = schemaInputMode(propSchema)
           
           // Disabled fields are never submitted, so never required
           if (inputMode === 'disabled') return false
