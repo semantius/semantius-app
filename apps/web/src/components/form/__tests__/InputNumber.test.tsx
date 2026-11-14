@@ -103,4 +103,72 @@ describe('InputNumber', () => {
     const input = container.querySelector('input') as HTMLInputElement
     expect(input.value).toBe('99')
   })
+
+  const interviewCount = {
+    type: 'integer',
+    format: 'int32',
+    title: 'Interview count',
+    ctype: 'rollup',
+    rollup: {
+      function: 'count',
+      link_field: 'interviews.application_id',
+      include_hidden_rows: true,
+    },
+  }
+
+  const applicationTable = {
+    table_name: 'applications',
+    module_slug: 'applicant-tracking',
+    id_column: 'id',
+  }
+
+  it('offers a drill-down link on a rollup to the linked filtered grid', () => {
+    renderControl(
+      <InputNumber name="interview_count" label="Interview count" schema={interviewCount} inputMode="disabled" />,
+      {
+        defaultValues: { id: 9, interview_count: 2 },
+        table: applicationTable,
+      },
+    )
+    const link = screen.getByRole('link', { name: 'Open Interview count' })
+    const url = new URL(link.getAttribute('href')!, 'https://example.test')
+    expect(url.pathname).toBe('/applicant-tracking/interviews')
+    expect(JSON.parse(url.searchParams.get('filters')!)).toEqual([
+      {
+        id: 'application_id',
+        value: '9',
+        variant: 'select',
+        operator: 'eq',
+        joinOperator: 'and',
+      },
+    ])
+  })
+
+  it('keeps the drill-down link while the rollup is disabled', () => {
+    renderControl(
+      <InputNumber name="interview_count" label="Interview count" schema={interviewCount} inputMode="disabled" />,
+      {
+        defaultValues: { id: 9, interview_count: 2 },
+        table: applicationTable,
+      },
+    )
+    expect(screen.getByLabelText(/^Interview count/)).toBeDisabled()
+    expect(screen.getByRole('link', { name: 'Open Interview count' })).toBeInTheDocument()
+  })
+
+  it('offers no drill-down without a row id', () => {
+    renderControl(
+      <InputNumber name="interview_count" label="Interview count" schema={interviewCount} />,
+      { defaultValues: { interview_count: 0 }, table: applicationTable },
+    )
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+  })
+
+  it('offers no drill-down on an ordinary number field', () => {
+    renderControl(<InputNumber name="age" label="Age" />, {
+      defaultValues: { id: 9, age: 2 },
+      table: applicationTable,
+    })
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+  })
 })

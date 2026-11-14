@@ -33,6 +33,11 @@ export interface HarnessOptions {
    * control that starts to would be tested against the real shape here.
    */
   properties?: Record<string, Record<string, unknown>>
+  /**
+   * Entity `table` metadata SchemaForm puts on the same schema object.
+   * Rollup drill-down reads `module_slug` and `id_column` from here.
+   */
+  table?: Record<string, unknown>
   formMode?: FormContextValue['formMode']
 }
 
@@ -40,10 +45,11 @@ export function FormHarness({
   children,
   defaultValues = {},
   properties = {},
+  table,
   formMode,
 }: HarnessOptions & { children: ReactNode }) {
   const form = useForm({ defaultValues, onSubmit: async () => {} })
-  const schema: SchemaObject = { type: 'object', properties }
+  const schema: SchemaObject = { type: 'object', properties, ...(table ? { table } : {}) }
   const value: FormContextValue = {
     form,
     schema,

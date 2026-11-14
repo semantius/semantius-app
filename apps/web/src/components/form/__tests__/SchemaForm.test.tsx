@@ -1101,6 +1101,85 @@ describe('derived ctypes default to disabled', () => {
   })
 })
 
+describe('rollup drill-down', () => {
+  // applications.interview_count: ctype rollup, link_field interviews.application_id.
+  // The icon next to the disabled count opens that table filtered to this row.
+  const applicationSchema = {
+    type: 'object',
+    properties: {
+      id: { type: 'integer', format: 'int32', title: 'Id', ctype: 'id' },
+      freight: { type: 'number', format: 'double', title: 'Freight', inputMode: 'default' },
+      interview_count: {
+        type: 'integer',
+        format: 'int32',
+        title: 'Interview count',
+        ctype: 'rollup',
+        inputMode: 'default',
+        rollup: {
+          function: 'count',
+          link_field: 'interviews.application_id',
+          include_hidden_rows: true,
+        },
+      },
+    },
+    table: {
+      table_name: 'applications',
+      module_slug: 'applicant-tracking',
+      id_column: 'id',
+      label_column: 'id',
+    },
+  } as SchemaObject
+
+  it('shows a link on the rollup to the linked table filtered by this row', () => {
+    render(
+      <SchemaForm
+        schema={applicationSchema}
+        formMode="edit"
+        initialValue={{ id: 9, interview_count: 2, freight: 1 }}
+      />,
+    )
+    const link = screen.getByRole('link', { name: 'Open Interview count' })
+    const url = new URL(link.getAttribute('href')!, 'https://example.test')
+    expect(url.pathname).toBe('/applicant-tracking/interviews')
+    expect(url.searchParams.get('page')).toBe('1')
+    expect(url.searchParams.get('sortBy')).toBe('id')
+    expect(url.searchParams.get('sortOrder')).toBe('desc')
+    expect(JSON.parse(url.searchParams.get('filters')!)).toEqual([
+      {
+        id: 'application_id',
+        value: '9',
+        variant: 'select',
+        operator: 'eq',
+        joinOperator: 'and',
+      },
+    ])
+  })
+
+  it('does not put a drill-down on a non-rollup number beside it', () => {
+    render(
+      <SchemaForm
+        schema={applicationSchema}
+        formMode="edit"
+        initialValue={{ id: 9, interview_count: 2, freight: 1 }}
+      />,
+    )
+    expect(screen.getByRole('link', { name: 'Open Interview count' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Open Freight' })).not.toBeInTheDocument()
+    expect(screen.getAllByRole('link')).toHaveLength(1)
+  })
+
+  it('still offers the link in view mode', () => {
+    render(
+      <SchemaForm
+        schema={applicationSchema}
+        formMode="view"
+        initialValue={{ id: 9, interview_count: 2 }}
+      />,
+    )
+    expect(screen.getByRole('link', { name: 'Open Interview count' })).toBeInTheDocument()
+  })
+})
+
 /**
  * A field with no format stops the form dead. An unknown format name does not:
  * it is logged and the field renders as text, so a catalog that lags the
