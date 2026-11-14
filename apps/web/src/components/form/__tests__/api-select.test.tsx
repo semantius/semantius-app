@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -197,6 +197,66 @@ describe('APISelect', () => {
     expect(getComputedStyle(empty.querySelector('svg')!).opacity).toBe(
       getComputedStyle(filled.querySelector('svg')!).opacity,
     )
+  })
+
+  it('offers no open link or add action when those options are unset', async () => {
+    const user = userEvent.setup()
+    renderSelect({ value: '1' })
+    const trigger = screen.getByRole('combobox')
+    await waitFor(() => expect(trigger).toHaveTextContent('Ada'))
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+
+    await user.click(trigger)
+    await waitFor(() => expect(trigger).toHaveAttribute('aria-expanded', 'true'))
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+  })
+
+  it('shows an open-in-new-tab link beside a selected value, outside the trigger', async () => {
+    renderSelect({
+      value: '1',
+      recordUrl: '/applicant-tracking/jobs/${id}',
+      recordLabel: 'Job',
+    })
+    const open = await screen.findByRole('link', { name: 'Open Job in a new tab' })
+    expect(open).toHaveAttribute('href', '/applicant-tracking/jobs/1')
+    expect(open).toHaveAttribute('target', '_blank')
+    expect(open).toHaveAttribute('rel', 'noopener noreferrer')
+    // Nested inside the combobox button it would be nested-interactive, and a
+    // bubbling click would open the search dropdown instead of the record.
+    expect(screen.getByRole('combobox').contains(open)).toBe(false)
+    expect(screen.getByRole('combobox')).not.toHaveAccessibleName(/Open Job/)
+  })
+
+  it('does not open the search dropdown when the open link is pressed', async () => {
+    renderSelect({
+      value: '1',
+      recordUrl: '/applicant-tracking/jobs/${id}',
+      recordLabel: 'Job',
+    })
+    const trigger = screen.getByRole('combobox')
+    const open = await screen.findByRole('link', { name: 'Open Job in a new tab' })
+    open.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }))
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+  })
+
+  it('shows an Add action at the bottom of the list only when addUrl and addLabel are set', async () => {
+    const user = userEvent.setup()
+    const onChange = vi.fn()
+    renderSelect({
+      addUrl: '/applicant-tracking/jobs/create',
+      addLabel: 'Add Job',
+      onChange,
+    })
+
+    expect(screen.queryByRole('link', { name: 'Add Job' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('combobox'))
+    const add = await screen.findByRole('link', { name: 'Add Job' })
+    expect(add).toHaveAttribute('href', '/applicant-tracking/jobs/create')
+    expect(add).toHaveAttribute('target', '_blank')
+    expect(add).toHaveAttribute('rel', 'noopener noreferrer')
+    expect(onChange).not.toHaveBeenCalled()
   })
 
   it('points aria-controls at an element that actually exists', async () => {

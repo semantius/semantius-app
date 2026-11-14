@@ -1,5 +1,7 @@
 import { useT } from '@/i18n'
 import { isFormatName, isNumericFormat } from '@/lib/formats'
+import { useRpc } from '@/hooks/useRpc'
+import type { EntityMetadata } from '@/types/metadata'
 import type { FormControlProps } from './types'
 import { useFormContext } from './FormContext'
 import { FormLabel } from './FormLabel'
@@ -18,6 +20,31 @@ export function InputReference({
 }: FormControlProps) {
   const t = useT()
   const { form, formMode } = useFormContext()
+  const referenceTable = typeof schema?.reference_table === 'string' ? schema.reference_table : undefined
+  // The referenced entity's own schema, not this form's: Job on an Application
+  // lives in the Job entity's module, and a cross-module key (module_id →
+  // modules) is not this page's module. `get_schema` is cached under the same
+  // key the table route already uses.
+  const { data: referenced } = useRpc<EntityMetadata>('get_schema', {
+    params: { p_table_name: referenceTable ?? '' },
+    enabled: !!referenceTable,
+  })
+  const referencedModule = referenced?.table?.module_slug
+  const referencedTable = referenced?.table?.table_name || referenceTable
+  const referencedSingularFallback = referenced?.table?.singular_label
+  const referencedSingular = referencedModule && referencedTable && referencedSingularFallback
+    ? t({
+        id: ['module', referencedModule, referencedTable, 'entity', 'singular_label'],
+        defaultMessage: referencedSingularFallback,
+      })
+    : referencedSingularFallback
+  const recordUrl = referencedModule && referencedTable
+    ? `/${referencedModule}/${referencedTable}/\${id}`
+    : undefined
+  const addUrl = referencedModule && referencedTable && referencedSingular
+    ? `/${referencedModule}/${referencedTable}/create`
+    : undefined
+  const addLabel = referencedSingular ? t('Add {label}', { label: referencedSingular }) : undefined
 
   // Derive props from inputMode
   const required = inputMode === 'required'
@@ -117,6 +144,10 @@ export function InputReference({
                 aria-labelledby={labelledBy(name, label)}
                 aria-describedby={describedBy(name, { description, error: field.state.meta.errors?.[0], formMode })}
                 aria-invalid={!!field.state.meta.errors?.[0]}
+                recordUrl={recordUrl}
+                recordLabel={referencedSingular}
+                addUrl={addUrl}
+                addLabel={addLabel}
               />
               <FormDescription name={name} description={description} error={field.state.meta.errors?.[0]} />
               <FormError name={name} error={field.state.meta.errors?.[0]} />
