@@ -6,6 +6,7 @@ import { AppHarness, bootApp } from '@/test/appHarness'
 import { PREFIX, db } from '@/test/moduleFixture'
 import { testToken } from '@/test/session'
 import { callRpc } from '@/lib/apiClient'
+import { canEditEntity } from '@/lib/permissions'
 import type { EntityMetadata, JsonSchemaProperty } from '@/types/metadata'
 import { SchemaForm } from '../SchemaForm'
 
@@ -90,6 +91,46 @@ describe('InputReference — the submitted key has the type of the key it points
 
     expect(submitted.id_refentity).toBe(target.key)
     expect(typeof submitted.id_refentity).toBe('string')
+  })
+
+  it('opens the selected record in a new tab and offers Add {singular} in the list', async () => {
+    const { module_id } = properties
+    const target = await pickableRow(module_id)
+    const referenced = await callRpc<EntityMetadata>('get_schema', {
+      p_table_name: String(module_id.reference_table),
+    }, testToken())
+    const slug = referenced.table?.module_slug
+    const table = referenced.table?.table_name
+    const singular = referenced.table?.singular_label
+    expect(slug).toBeTruthy()
+    expect(table).toBeTruthy()
+    expect(singular).toBeTruthy()
+    // Add is the same gate as EntityView's "Add {label}": this user can edit
+    // the referenced table, so the footer must appear. A user without that
+    // permission is covered by canEditEntity in permissions.test.ts.
+    const userInfo = await callRpc<Record<string, unknown>>('get_userinfo', {}, testToken())
+    expect(canEditEntity(userInfo, referenced.table?.edit_permission)).toBe(true)
+
+    const user = userEvent.setup()
+    render(
+      <AppHarness>
+        <SchemaForm
+          schema={{ type: 'object', properties: { module_id } }}
+          formMode="edit"
+          initialValue={{ module_id: target.key }}
+        />
+      </AppHarness>,
+    )
+
+    const open = await screen.findByRole('link', { name: `Open ${singular} in a new tab` })
+    expect(open).toHaveAttribute('href', `/${slug}/${table}/${target.key}`)
+    expect(open).toHaveAttribute('target', '_blank')
+    expect(screen.getByRole('combobox').contains(open)).toBe(false)
+
+    await user.click(screen.getByRole('combobox', { name: new RegExp(`^${String(module_id.title)}`) }))
+    const add = await screen.findByRole('link', { name: `Add ${singular}` })
+    expect(add).toHaveAttribute('href', `/${slug}/${table}/create`)
+    expect(add).toHaveAttribute('target', '_blank')
   })
 
   it('still submits a numeric key as a number', async () => {

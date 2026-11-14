@@ -45,3 +45,19 @@ export function hasAllPermissions(rpcUserInfo: PermissionHolder, names: string[]
   const held = permissionsOf(rpcUserInfo)
   return names.every((name) => held.includes(name))
 }
+
+/**
+ * Whether the user may INSERT/UPDATE/DELETE rows of an entity.
+ *
+ * There is no separate create permission: `edit_permission` on the table is
+ * the gate EntityView uses for "Add {label}", the form's edit mode, and the
+ * row menu's Delete. An unnamed permission is open to every signed-in user.
+ * A named one is closed until `/rpc/get_userinfo` resolves and lists it.
+ */
+export function canEditEntity(
+  rpcUserInfo: PermissionHolder,
+  editPermission: string | null | undefined,
+): boolean {
+  if (!editPermission) return true
+  return hasPermission(rpcUserInfo, editPermission)
+}

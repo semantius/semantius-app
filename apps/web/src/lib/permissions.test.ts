@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { hasAllPermissions, hasAnyPermission, hasPermission, permissionsOf } from './permissions'
+import { canEditEntity, hasAllPermissions, hasAnyPermission, hasPermission, permissionsOf } from './permissions'
 
 /**
  * Runs in `node`. The previous version of these tests built a full
  * `AuthContextType` by hand, rendered it through a real `AuthContext.Provider`
  * and asserted the hook read it back — a lot of machinery to check that React
  * context works, and it covered only ONE of the module's three rules. As pure
- * functions all three are covered, including the cases the server can actually
+ * functions all four are covered, including the cases the server can actually
  * produce: not loaded yet, no `permissions` key, and a `permissions` that is not
  * a list.
  */
@@ -81,6 +81,29 @@ describe('permission rules', () => {
 
     it('is false before the RPC has resolved', () => {
       expect(hasAllPermissions(null, ['customers.edit'])).toBe(false)
+    })
+  })
+
+  describe('canEditEntity', () => {
+    it('is true when the table names no edit permission', () => {
+      // Open tables stay open even before get_userinfo lands — EntityView's
+      // "Add {label}" would otherwise flash hidden on every list page.
+      expect(canEditEntity(null, null)).toBe(true)
+      expect(canEditEntity(null, undefined)).toBe(true)
+      expect(canEditEntity(null, '')).toBe(true)
+      expect(canEditEntity(admin, null)).toBe(true)
+    })
+
+    it('is true when the named permission is held', () => {
+      expect(canEditEntity(admin, 'customers.edit')).toBe(true)
+    })
+
+    it('is false when the named permission is not held', () => {
+      expect(canEditEntity(admin, 'customers.create')).toBe(false)
+    })
+
+    it('is false before the RPC has resolved when a permission is named', () => {
+      expect(canEditEntity(null, 'customers.edit')).toBe(false)
     })
   })
 })
