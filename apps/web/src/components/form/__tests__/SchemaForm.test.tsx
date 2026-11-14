@@ -1138,7 +1138,8 @@ describe('rollup drill-down', () => {
         initialValue={{ id: 9, interview_count: 2, freight: 1 }}
       />,
     )
-    const link = screen.getByRole('link', { name: 'Open Interview count' })
+    const link = screen.getByRole('link', { name: 'Open Interview count in a new tab' })
+    expect(link).toHaveAttribute('target', '_blank')
     const url = new URL(link.getAttribute('href')!, 'https://example.test')
     expect(url.pathname).toBe('/applicant-tracking/interviews')
     expect(url.searchParams.get('page')).toBe('1')
@@ -1163,8 +1164,8 @@ describe('rollup drill-down', () => {
         initialValue={{ id: 9, interview_count: 2, freight: 1 }}
       />,
     )
-    expect(screen.getByRole('link', { name: 'Open Interview count' })).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: 'Open Freight' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open Interview count in a new tab' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Open Freight in a new tab' })).not.toBeInTheDocument()
     expect(screen.getAllByRole('link')).toHaveLength(1)
   })
 
@@ -1176,7 +1177,7 @@ describe('rollup drill-down', () => {
         initialValue={{ id: 9, interview_count: 2 }}
       />,
     )
-    expect(screen.getByRole('link', { name: 'Open Interview count' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open Interview count in a new tab' })).toBeInTheDocument()
   })
 })
 

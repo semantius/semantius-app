@@ -4,6 +4,7 @@ import { useForm } from '@tanstack/react-form'
 import { I18nProvider } from '@lingui/react'
 import type { SchemaObject } from 'ajv'
 import { i18n } from '@/i18n'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { FormProvider, type FormContextValue } from '../FormContext'
 
 /**
@@ -64,7 +65,9 @@ export function FormHarness({
   // invisible until the first <Trans> landed.
   return (
     <I18nProvider i18n={i18n}>
-      <FormProvider value={value}>{children}</FormProvider>
+      <TooltipProvider>
+        <FormProvider value={value}>{children}</FormProvider>
+      </TooltipProvider>
     </I18nProvider>
   )
 }

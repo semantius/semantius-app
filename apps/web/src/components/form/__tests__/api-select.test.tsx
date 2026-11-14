@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { APISelect } from '../api-select'
 
 /** Distance from the trigger's right border to the chevron's right edge. */
@@ -35,6 +36,7 @@ describe('APISelect', () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     return render(
       <QueryClientProvider client={client}>
+        <TooltipProvider>
         <APISelect<Row>
           label="Owner"
           value=""
@@ -46,6 +48,7 @@ describe('APISelect', () => {
           id="owner"
           {...props}
         />
+        </TooltipProvider>
       </QueryClientProvider>,
     )
   }
@@ -251,6 +254,18 @@ describe('APISelect', () => {
     expect(iconBox.left - labelBox.right).toBeLessThan(12)
     // Trailing chrome (clear + chevron) still occupies the input's end.
     expect(triggerBox.right - iconBox.right).toBeGreaterThan(32)
+  })
+
+  it('names the open link on hover', async () => {
+    const user = userEvent.setup()
+    renderSelect({
+      value: '1',
+      recordUrl: '/applicant-tracking/jobs/${id}',
+      recordLabel: 'Job',
+    })
+    const open = await screen.findByRole('link', { name: 'Open Job in a new tab' })
+    await user.hover(open)
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Open Job in a new tab')
   })
 
   it('does not open the search dropdown when the open link is pressed', async () => {

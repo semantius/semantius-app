@@ -130,7 +130,9 @@ describe('InputNumber', () => {
         table: applicationTable,
       },
     )
-    const link = screen.getByRole('link', { name: 'Open Interview count' })
+    const link = screen.getByRole('link', { name: 'Open Interview count in a new tab' })
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
     const url = new URL(link.getAttribute('href')!, 'https://example.test')
     expect(url.pathname).toBe('/applicant-tracking/interviews')
     expect(JSON.parse(url.searchParams.get('filters')!)).toEqual([
@@ -144,6 +146,19 @@ describe('InputNumber', () => {
     ])
   })
 
+  it('names the drill-down on hover', async () => {
+    const user = userEvent.setup()
+    renderControl(
+      <InputNumber name="interview_count" label="Interview count" schema={interviewCount} inputMode="disabled" />,
+      {
+        defaultValues: { id: 9, interview_count: 2 },
+        table: applicationTable,
+      },
+    )
+    await user.hover(screen.getByRole('link', { name: 'Open Interview count in a new tab' }))
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Open Interview count in a new tab')
+  })
+
   it('keeps the drill-down link while the rollup is disabled', () => {
     renderControl(
       <InputNumber name="interview_count" label="Interview count" schema={interviewCount} inputMode="disabled" />,
@@ -153,7 +168,7 @@ describe('InputNumber', () => {
       },
     )
     expect(screen.getByLabelText(/^Interview count/)).toBeDisabled()
-    expect(screen.getByRole('link', { name: 'Open Interview count' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open Interview count in a new tab' })).toBeInTheDocument()
   })
 
   it('offers no drill-down without a row id', () => {
