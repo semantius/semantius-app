@@ -6,6 +6,7 @@ import { AppHarness, bootApp } from '@/test/appHarness'
 import { PREFIX, db } from '@/test/moduleFixture'
 import { testToken } from '@/test/session'
 import { callRpc } from '@/lib/apiClient'
+import { canEditEntity } from '@/lib/permissions'
 import type { EntityMetadata, JsonSchemaProperty } from '@/types/metadata'
 import { SchemaForm } from '../SchemaForm'
 
@@ -104,6 +105,11 @@ describe('InputReference — the submitted key has the type of the key it points
     expect(slug).toBeTruthy()
     expect(table).toBeTruthy()
     expect(singular).toBeTruthy()
+    // Add is the same gate as EntityView's "Add {label}": this user can edit
+    // the referenced table, so the footer must appear. A user without that
+    // permission is covered by canEditEntity in permissions.test.ts.
+    const userInfo = await callRpc<Record<string, unknown>>('get_userinfo', {}, testToken())
+    expect(canEditEntity(userInfo, referenced.table?.edit_permission)).toBe(true)
 
     const user = userEvent.setup()
     render(

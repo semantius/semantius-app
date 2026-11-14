@@ -227,6 +227,32 @@ describe('APISelect', () => {
     expect(screen.getByRole('combobox')).not.toHaveAccessibleName(/Open Job/)
   })
 
+  it('places the open icon immediately after the selected label, not at the input end', async () => {
+    renderSelect({
+      value: '1',
+      recordUrl: '/applicant-tracking/jobs/${id}',
+      recordLabel: 'Job',
+      width: '406px',
+    })
+    const trigger = screen.getByRole('combobox')
+    const open = await screen.findByRole('link', { name: 'Open Job in a new tab' })
+    await waitFor(() => expect(trigger).toHaveTextContent('Ada'))
+
+    const label = open.previousElementSibling as HTMLElement
+    expect(label).toHaveTextContent('Ada')
+
+    const labelBox = label.getBoundingClientRect()
+    const iconBox = open.getBoundingClientRect()
+    const triggerBox = trigger.getBoundingClientRect()
+
+    // A few pixels of margin between the truncated text and the icon — not the
+    // empty stretch of a 406px input.
+    expect(iconBox.left - labelBox.right).toBeGreaterThanOrEqual(0)
+    expect(iconBox.left - labelBox.right).toBeLessThan(12)
+    // Trailing chrome (clear + chevron) still occupies the input's end.
+    expect(triggerBox.right - iconBox.right).toBeGreaterThan(32)
+  })
+
   it('does not open the search dropdown when the open link is pressed', async () => {
     renderSelect({
       value: '1',

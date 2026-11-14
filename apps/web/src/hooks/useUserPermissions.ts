@@ -7,7 +7,7 @@
  */
 
 import { useAuth } from '@/hooks/useAuth'
-import { hasAllPermissions, hasAnyPermission, hasPermission } from '@/lib/permissions'
+import { canEditEntity, hasAllPermissions, hasAnyPermission, hasPermission } from '@/lib/permissions'
 
 /**
  * Whether the current user holds a specific permission.
@@ -34,4 +34,13 @@ export function useUserHasAnyPermission(names: string[]): boolean {
 export function useUserHasAllPermissions(names: string[]): boolean {
   const { rpcUserInfo } = useAuth()
   return hasAllPermissions(rpcUserInfo, names)
+}
+
+/**
+ * Whether the current user may INSERT/UPDATE/DELETE rows of an entity.
+ * @param editPermission - The table's `edit_permission`, or empty when the table is open.
+ */
+export function useCanEditEntity(editPermission: string | null | undefined): boolean {
+  const { rpcUserInfo } = useAuth()
+  return canEditEntity(rpcUserInfo, editPermission)
 }

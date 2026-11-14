@@ -1,6 +1,7 @@
 import { useT } from '@/i18n'
 import { isFormatName, isNumericFormat } from '@/lib/formats'
 import { useRpc } from '@/hooks/useRpc'
+import { useCanEditEntity } from '@/hooks/useUserPermissions'
 import type { EntityMetadata } from '@/types/metadata'
 import type { FormControlProps } from './types'
 import { useFormContext } from './FormContext'
@@ -41,10 +42,13 @@ export function InputReference({
   const recordUrl = referencedModule && referencedTable
     ? `/${referencedModule}/${referencedTable}/\${id}`
     : undefined
-  const addUrl = referencedModule && referencedTable && referencedSingular
+  // Same gate as EntityView's "Add {label}": the referenced table's
+  // edit_permission covers INSERT. There is no separate create permission.
+  const canAdd = useCanEditEntity(referenced?.table?.edit_permission)
+  const addUrl = canAdd && referencedModule && referencedTable && referencedSingular
     ? `/${referencedModule}/${referencedTable}/create`
     : undefined
-  const addLabel = referencedSingular ? t('Add {label}', { label: referencedSingular }) : undefined
+  const addLabel = canAdd && referencedSingular ? t('Add {label}', { label: referencedSingular }) : undefined
 
   // Derive props from inputMode
   const required = inputMode === 'required'

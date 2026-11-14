@@ -91,19 +91,20 @@ export interface APISelectProps<T> {
   "aria-describedby"?: string;
   "aria-invalid"?: boolean;
   /**
-   * Href of the selected record, shown as an open-in-new-tab icon to the right
-   * of the label when a value is selected. `${id}` is replaced with the
-   * selected key. A sibling of the trigger, not a child: an `<a>` inside the
-   * combobox button is nested-interactive, and a click that bubbled would open
-   * the search dropdown instead of the record.
+   * Href of the selected record, shown as an open-in-new-tab icon immediately
+   * after the selected label (not at the input's trailing edge). `${id}` is
+   * replaced with the selected key. A sibling of the trigger, not a child: an
+   * `<a>` inside the combobox button is nested-interactive, and a click that
+   * bubbled would open the search dropdown instead of the record.
    */
   recordUrl?: string;
   /** Singular label used in the open-link accessible name. Falls back to `label`. */
   recordLabel?: string;
   /**
    * Href of the "add new" action at the bottom of the dropdown. Shown only
-   * when both this and `addLabel` are set — lookups that have no create page
-   * omit both.
+   * when both this and `addLabel` are set. Callers that gate on create
+   * permission (InputReference uses the referenced table's `edit_permission`)
+   * omit both when the user cannot add.
    */
   addUrl?: string;
   /** Visible text of the add action, e.g. "Add Job". */
@@ -127,7 +128,7 @@ export function APISelect<T>({
   renderItem: renderItemProp,
   getRecordId: getRecordIdProp,
   renderListItem: renderListItemProp,
-  itemClassName = "flex items-center gap-2",
+  itemClassName = "inline-flex items-center gap-2",
   listItemClassName = "flex items-center gap-2 text-left",
   notFound,
   loadingSkeleton,
@@ -326,10 +327,23 @@ export function APISelect<T>({
   const showOpenLink = !!openHref;
   const showAddAction = !!addUrl && !!addLabel;
   const openLinkName = t("Open {field} in a new tab", { field: recordLabel || label });
-  // One size-6 overlay per trailing action, left of the in-flow chevron
-  // (`right-8`) or against the padding when the chevron is hidden.
-  const openLinkPosition = showClearButton ? "right-14" : disabled ? "right-3" : "right-8";
-  const labelGutter = showClearButton && showOpenLink ? "mr-14" : (showClearButton || showOpenLink) ? "mr-7" : undefined;
+  // The open icon sits in a sibling overlay immediately after the truncated
+  // label. `right-*` keeps that overlay out from under the clear button and
+  // chevron; it is not where the icon itself is placed.
+  const openOverlayInset = showClearButton ? "right-14" : disabled ? "right-3" : "right-8";
+  const labelGutter = showClearButton ? "mr-7" : undefined;
+  const selectedLabel = selectedOption ? (
+    <span className={itemClassName}>{renderItem(selectedOption)}</span>
+  ) : initialLoading ? (
+    // role="status" so the wait is announced. Without it a screen reader user
+    // hears the trigger's name and then silence until the record arrives.
+    <div role="status" className="flex items-center gap-2 text-muted-foreground">
+      <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+      <span>{t("Loading...")}</span>
+    </div>
+  ) : (
+    <span className="text-muted-foreground">{placeholderText}</span>
+  );
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -380,47 +394,57 @@ export function APISelect<T>({
             />
           }
         >
-            <span className={cn("truncate", labelGutter)}>
-              {selectedOption ? (
-                <div className={itemClassName}>{renderItem(selectedOption)}</div>
-              ) : initialLoading ? (
-                // role="status" so the wait is announced. Without it a screen
-                // reader user hears the trigger's name and then silence until the
-                // record arrives, with nothing saying anything is happening.
-                <div role="status" className="flex items-center gap-2 text-muted-foreground">
-                  <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-                  <span>{t("Loading...")}</span>
-                </div>
-              ) : (
-                <span className="text-muted-foreground">{placeholderText}</span>
-              )}
-            </span>
+            {showOpenLink ? (
+              // Visible label lives in the sibling overlay so the open icon can
+              // sit directly after the text. The trigger still names itself from
+              // this copy (aria-labelledby self-reference).
+              <span className="sr-only">{selectedLabel}</span>
+            ) : (
+              <span className={cn("truncate", labelGutter)}>
+                {selectedLabel}
+              </span>
+            )}
             {/* text-foreground: the chevron is the permanent affordance and
                 must not inherit a muted placeholder color from a sibling. */}
             {!disabled && <ChevronsUpDown className="ml-auto shrink-0 text-foreground opacity-50" />}
         </PopoverTrigger>
         {showOpenLink && (
-          // A real <a>, sibling of the trigger: nested inside the combobox
-          // button it would be nested-interactive, and a bubbling click would
-          // open the search dropdown instead of the record.
-          <a
-            href={openHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={openLinkName}
+          // Sibling of the trigger: an <a> inside the combobox button is
+          // nested-interactive, and a bubbling click would open the search
+          // dropdown instead of the record.
+          //
+          // The overlay itself spans from the label's left padding to the
+          // trailing chrome so a long name can truncate. `w-fit` on the inner
+          // cluster is load-bearing: without it the overlay's stretched flex
+          // row puts the icon at the input's end instead of after the text.
+          <div
             className={cn(
-              "absolute top-1/2 z-10 flex size-6 -translate-y-1/2 items-center justify-center rounded-sm opacity-50 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring",
-              openLinkPosition,
+              "absolute inset-y-0 left-3 z-10 flex items-center pointer-events-none",
+              openOverlayInset,
+              disabled && "opacity-50",
             )}
-            onPointerDown={(e) => {
-              e.stopPropagation();
-            }}
-            onClick={(e) => {
-              e.stopPropagation();
-            }}
           >
-            <ExternalLink aria-hidden="true" className="h-3 w-3" />
-          </a>
+            <span className="inline-flex w-fit min-w-0 max-w-full items-center">
+              <span className="min-w-0 truncate" aria-hidden="true">
+                {selectedLabel}
+              </span>
+              <a
+                href={openHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={openLinkName}
+                className="pointer-events-auto ml-0.5 flex size-6 shrink-0 items-center justify-center rounded-sm opacity-50 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                }}
+              >
+                <ExternalLink aria-hidden="true" className="h-3 w-3" />
+              </a>
+            </span>
+          </div>
         )}
         {showClearButton && (
           // A real <button>, not a <span role="button">: the span was neither

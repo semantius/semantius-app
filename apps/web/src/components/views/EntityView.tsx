@@ -3,7 +3,7 @@ import { useCallback, useMemo, useRef, useState } from 'react'
 import { type EntityViewProps, type ChildRelation } from "@/types/metadata"
 import { useTable } from '@/hooks/useTable'
 import { useRpc } from '@/hooks/useRpc'
-import { useUserHasPermission } from '@/hooks/useUserPermissions'
+import { useCanEditEntity } from '@/hooks/useUserPermissions'
 import { DataTableView, type DeleteConfirmationProps, type RowMenuItem } from '@/components/data-table-view/DataTableView'
 import { EntityBreadcrumb } from '@/components/EntityBreadcrumb'
 import { BookmarkIcon } from '@/components/ui-ext/bookmark-icon'
@@ -208,13 +208,10 @@ export function EntityView({ moduleId: _moduleId, table_name: _table_name, recor
   // Extract primary key column name from metadata (source of truth)
   const idColumn = metadata.table?.id_column || 'id'
 
-  // Check if user can edit - call hook unconditionally, then check if permission is required
-  const hasEditPermission = useUserHasPermission(
-    (metadata.table as { edit_permission?: string | null })?.edit_permission || ''
-  )
-  const canEdit = (metadata.table as { edit_permission?: string | null })?.edit_permission
-    ? hasEditPermission
-    : true
+  // Same gate as lookup-field "Add {singular}": a named edit_permission covers
+  // INSERT/UPDATE/DELETE; an unnamed one is open. False until get_userinfo
+  // lands when a permission is named — callers wait on "Add {label}" for that.
+  const canEdit = useCanEditEntity(metadata.table?.edit_permission)
 
   // Parse URL to determine mode
   const pathname = routerState.location.pathname
@@ -360,7 +357,7 @@ export function EntityView({ moduleId: _moduleId, table_name: _table_name, recor
 
   const fieldCount = Object.keys(metadata.properties || {}).length
 
-  // All hooks (useNavigate, useRouter, useRouterState, useUserHasPermission, useRef) must be called
+  // All hooks (useNavigate, useRouter, useRouterState, useCanEditEntity, useRef) must be called
   // unconditionally before any early return to satisfy React's rules of hooks.
   const overlayPostSaveTargetRef = useRef<string | null>(null)
 
