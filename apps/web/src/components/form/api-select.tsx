@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useId, useMemo } from "react";
-import { Check, ChevronsUpDown, Loader2, X } from "lucide-react";
+import { Check, ChevronsUpDown, ExternalLink, Loader2, Plus, X } from "lucide-react";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useQuery } from "@tanstack/react-query";
 
@@ -90,6 +90,30 @@ export interface APISelectProps<T> {
   "aria-labelledby"?: string;
   "aria-describedby"?: string;
   "aria-invalid"?: boolean;
+  /**
+   * Href of the selected record, shown as an open-in-new-tab icon to the right
+   * of the label when a value is selected. `${id}` is replaced with the
+   * selected key. A sibling of the trigger, not a child: an `<a>` inside the
+   * combobox button is nested-interactive, and a click that bubbled would open
+   * the search dropdown instead of the record.
+   */
+  recordUrl?: string;
+  /** Singular label used in the open-link accessible name. Falls back to `label`. */
+  recordLabel?: string;
+  /**
+   * Href of the "add new" action at the bottom of the dropdown. Shown only
+   * when both this and `addLabel` are set — lookups that have no create page
+   * omit both.
+   */
+  addUrl?: string;
+  /** Visible text of the add action, e.g. "Add Job". */
+  addLabel?: string;
+}
+
+function recordHref(recordUrl: string | undefined, id: string): string | undefined {
+  if (!recordUrl || !id) return undefined;
+  const encoded = encodeURIComponent(id);
+  return recordUrl.includes("${id}") ? interpolate(recordUrl, { id: encoded }) : recordUrl;
 }
 
 export function APISelect<T>({
@@ -121,6 +145,10 @@ export function APISelect<T>({
   "aria-labelledby": ariaLabelledBy,
   "aria-describedby": ariaDescribedBy,
   "aria-invalid": ariaInvalid,
+  recordUrl,
+  recordLabel,
+  addUrl,
+  addLabel,
 }: APISelectProps<T>) {
   const t = useT();
   // Defaulted in the body, not in the parameter list: a default parameter is
@@ -294,6 +322,14 @@ export function APISelect<T>({
   );
 
   const showClearButton = !disabled && !!clearable && !!selectedValue;
+  const openHref = recordHref(recordUrl, selectedValue);
+  const showOpenLink = !!openHref;
+  const showAddAction = !!addUrl && !!addLabel;
+  const openLinkName = t("Open {field} in a new tab", { field: recordLabel || label });
+  // One size-6 overlay per trailing action, left of the in-flow chevron
+  // (`right-8`) or against the padding when the chevron is hidden.
+  const openLinkPosition = showClearButton ? "right-14" : disabled ? "right-3" : "right-8";
+  const labelGutter = showClearButton && showOpenLink ? "mr-14" : (showClearButton || showOpenLink) ? "mr-7" : undefined;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -344,7 +380,7 @@ export function APISelect<T>({
             />
           }
         >
-            <span className={cn("truncate", showClearButton && "mr-7")}>
+            <span className={cn("truncate", labelGutter)}>
               {selectedOption ? (
                 <div className={itemClassName}>{renderItem(selectedOption)}</div>
               ) : initialLoading ? (
@@ -363,6 +399,29 @@ export function APISelect<T>({
                 must not inherit a muted placeholder color from a sibling. */}
             {!disabled && <ChevronsUpDown className="ml-auto shrink-0 text-foreground opacity-50" />}
         </PopoverTrigger>
+        {showOpenLink && (
+          // A real <a>, sibling of the trigger: nested inside the combobox
+          // button it would be nested-interactive, and a bubbling click would
+          // open the search dropdown instead of the record.
+          <a
+            href={openHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={openLinkName}
+            className={cn(
+              "absolute top-1/2 z-10 flex size-6 -translate-y-1/2 items-center justify-center rounded-sm opacity-50 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring",
+              openLinkPosition,
+            )}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+            }}
+          >
+            <ExternalLink aria-hidden="true" className="h-3 w-3" />
+          </a>
+        )}
         {showClearButton && (
           // A real <button>, not a <span role="button">: the span was neither
           // focusable nor key-operable. size-6 (24px) meets 2.5.8 while the X
@@ -459,6 +518,26 @@ export function APISelect<T>({
               })}
             </CommandGroup>
           </CommandList>
+          {showAddAction && (
+            <div className="border-t p-1">
+              <a
+                href={addUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex min-h-7 items-center gap-2 rounded-xl px-2 py-1.5 text-sm outline-hidden hover:bg-muted focus-visible:bg-muted"
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setOpen(false);
+                }}
+              >
+                <Plus aria-hidden="true" className="size-4 shrink-0" />
+                {addLabel}
+              </a>
+            </div>
+          )}
         </Command>
       </PopoverContent>
     </Popover>
