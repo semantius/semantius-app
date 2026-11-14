@@ -4,9 +4,13 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { SchemaForm } from '../SchemaForm'
 import type { SchemaObject } from 'ajv'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { setRuleUser } from '@/lib/ruleContext'
 import { AppHarness, bootApp } from '@/test/appHarness'
 import { db } from '@/test/moduleFixture'
+import { testToken } from '@/test/session'
+import { callRpc } from '@/lib/apiClient'
+import type { EntityMetadata } from '@/types/metadata'
 
 describe('SchemaForm', () => {
   const basicSchema: SchemaObject = {
@@ -1128,6 +1132,16 @@ describe('rollup drill-down', () => {
       id_column: 'id',
       label_column: 'id',
     },
+    children: [
+      {
+        id: 'interviews.application_id',
+        title: 'Application',
+        singular_label: 'Interview',
+        plural_label: 'Interviews',
+        id_column: 'id',
+        label_column: 'id',
+      },
+    ],
   } as SchemaObject
 
   it('shows a link on the rollup to the linked table filtered by this row', () => {
@@ -1138,7 +1152,7 @@ describe('rollup drill-down', () => {
         initialValue={{ id: 9, interview_count: 2, freight: 1 }}
       />,
     )
-    const link = screen.getByRole('link', { name: 'Open Interview count in a new tab' })
+    const link = screen.getByRole('link', { name: 'Open Interviews' })
     expect(link).toHaveAttribute('target', '_blank')
     const url = new URL(link.getAttribute('href')!, 'https://example.test')
     expect(url.pathname).toBe('/applicant-tracking/interviews')
@@ -1164,8 +1178,8 @@ describe('rollup drill-down', () => {
         initialValue={{ id: 9, interview_count: 2, freight: 1 }}
       />,
     )
-    expect(screen.getByRole('link', { name: 'Open Interview count in a new tab' })).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: 'Open Freight in a new tab' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open Interviews' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Open Freight' })).not.toBeInTheDocument()
     expect(screen.getAllByRole('link')).toHaveLength(1)
   })
 
@@ -1177,7 +1191,33 @@ describe('rollup drill-down', () => {
         initialValue={{ id: 9, interview_count: 2 }}
       />,
     )
-    expect(screen.getByRole('link', { name: 'Open Interview count in a new tab' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open Interviews' })).toBeInTheDocument()
+  })
+})
+
+describe('rollup drill-down against the tenant schema', () => {
+  beforeEach(async () => {
+    await bootApp()
+  })
+
+  it('names the link from the linked table plural when children is empty', async () => {
+    const metadata = await callRpc<EntityMetadata>('get_schema', { p_table_name: 'applications' }, testToken())
+    expect(metadata.children ?? []).toEqual([])
+    expect(metadata.properties?.interview_count?.rollup?.link_field).toBe('interviews.application_id')
+
+    render(
+      <AppHarness>
+        <TooltipProvider>
+          <SchemaForm
+            schema={metadata as SchemaObject}
+            formMode="edit"
+            initialValue={{ id: 9, interview_count: 2 }}
+          />
+        </TooltipProvider>
+      </AppHarness>,
+    )
+
+    expect(await screen.findByRole('link', { name: 'Open Interviews' })).toBeInTheDocument()
   })
 })
 

@@ -122,15 +122,23 @@ describe('InputNumber', () => {
     id_column: 'id',
   }
 
+  const applicationChildren = [
+    {
+      id: 'interviews.application_id',
+      plural_label: 'Interviews',
+    },
+  ]
+
   it('offers a drill-down link on a rollup to the linked filtered grid', () => {
     renderControl(
       <InputNumber name="interview_count" label="Interview count" schema={interviewCount} inputMode="disabled" />,
       {
         defaultValues: { id: 9, interview_count: 2 },
         table: applicationTable,
+        childRelations: applicationChildren,
       },
     )
-    const link = screen.getByRole('link', { name: 'Open Interview count in a new tab' })
+    const link = screen.getByRole('link', { name: 'Open Interviews' })
     expect(link).toHaveAttribute('target', '_blank')
     expect(link).toHaveAttribute('rel', 'noopener noreferrer')
     const url = new URL(link.getAttribute('href')!, 'https://example.test')
@@ -153,10 +161,11 @@ describe('InputNumber', () => {
       {
         defaultValues: { id: 9, interview_count: 2 },
         table: applicationTable,
+        childRelations: applicationChildren,
       },
     )
-    await user.hover(screen.getByRole('link', { name: 'Open Interview count in a new tab' }))
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('Open Interview count in a new tab')
+    await user.hover(screen.getByRole('link', { name: 'Open Interviews' }))
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Open Interviews')
   })
 
   it('keeps the drill-down link while the rollup is disabled', () => {
@@ -165,10 +174,11 @@ describe('InputNumber', () => {
       {
         defaultValues: { id: 9, interview_count: 2 },
         table: applicationTable,
+        childRelations: applicationChildren,
       },
     )
     expect(screen.getByLabelText(/^Interview count/)).toBeDisabled()
-    expect(screen.getByRole('link', { name: 'Open Interview count in a new tab' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open Interviews' })).toBeInTheDocument()
   })
 
   it('offers no drill-down without a row id', () => {

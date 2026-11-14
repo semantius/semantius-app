@@ -4,6 +4,7 @@ import {
   parseRollupLinkField,
   rollupDrillDownHref,
   rollupExpressionOf,
+  rollupLinkedEntity,
 } from './rollupDrillDown'
 
 const interviewCount = {
@@ -45,6 +46,24 @@ describe('gridPageSizeForHeight', () => {
     expect(gridPageSizeForHeight(800)).toBe(10)
     expect(gridPageSizeForHeight(1071)).toBe(15)
     expect(gridPageSizeForHeight(1331)).toBe(20)
+  })
+})
+
+describe('rollupLinkedEntity', () => {
+  it('reads the child plural whose id is the link_field', () => {
+    expect(
+      rollupLinkedEntity(interviewCount, [
+        { id: 'offers.application_id', plural_label: 'Offers' },
+        { id: 'interviews.application_id', plural_label: 'Interviews' },
+      ]),
+    ).toEqual({ table: 'interviews', plural: 'Interviews' })
+  })
+
+  it('omits the plural when that child is missing', () => {
+    expect(rollupLinkedEntity(interviewCount, [])).toEqual({
+      table: 'interviews',
+      plural: undefined,
+    })
   })
 })
 

@@ -39,6 +39,11 @@ export interface HarnessOptions {
    * Rollup drill-down reads `module_slug` and `id_column` from here.
    */
   table?: Record<string, unknown>
+  /**
+   * Child relations from `get_schema`. Rollup drill-down names the link from
+   * the child's `plural_label` whose `id` matches `rollup.link_field`.
+   */
+  childRelations?: Array<Record<string, unknown>>
   formMode?: FormContextValue['formMode']
 }
 
@@ -47,10 +52,16 @@ export function FormHarness({
   defaultValues = {},
   properties = {},
   table,
+  childRelations,
   formMode,
 }: HarnessOptions & { children: ReactNode }) {
   const form = useForm({ defaultValues, onSubmit: async () => {} })
-  const schema: SchemaObject = { type: 'object', properties, ...(table ? { table } : {}) }
+  const schema: SchemaObject = {
+    type: 'object',
+    properties,
+    ...(table ? { table } : {}),
+    ...(childRelations ? { children: childRelations } : {}),
+  }
   const value: FormContextValue = {
     form,
     schema,

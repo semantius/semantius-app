@@ -6,8 +6,9 @@ import { FormError } from './FormError'
 import { describedBy } from './fieldAria'
 import { NumberInput } from '@/components/ui-ext/number-input'
 import { resolvePrecision } from '@/lib/number-format'
-import { gridPageSizeForHeight, rollupDrillDownHref } from '@/lib/rollupDrillDown'
-import { RollupDrillDownLink } from './RollupDrillDownLink'
+import { useT } from '@/i18n'
+import { gridPageSizeForHeight, rollupDrillDownHref, rollupLinkedEntity } from '@/lib/rollupDrillDown'
+import { RollupDrillDownFromTable, RollupDrillDownLink } from './RollupDrillDownLink'
 
 export function InputNumber({
   name,
@@ -18,6 +19,7 @@ export function InputNumber({
   schema,
 }: FormControlProps) {
   const { form, formMode, schema: formSchema } = useFormContext()
+  const t = useT()
 
   // Derive props from inputMode
   const required = inputMode === 'required'
@@ -32,6 +34,7 @@ export function InputNumber({
   })
 
   const table = (formSchema as { table?: { module_slug?: string; id_column?: string } }).table
+  const children = (formSchema as { children?: Array<{ id?: unknown; plural_label?: unknown }> }).children
   const recordId = table?.id_column ? form.state.values?.[table.id_column] : undefined
   const drillDownHref = rollupDrillDownHref({
     property: schema,
@@ -39,6 +42,14 @@ export function InputNumber({
     recordId,
     pageSize: gridPageSizeForHeight(window.innerHeight),
   })
+  const linked = rollupLinkedEntity(schema, children)
+  const drillDownEntity =
+    linked?.plural && table?.module_slug
+      ? t({
+          id: ['module', table.module_slug, linked.table, 'entity', 'plural_label'],
+          defaultMessage: linked.plural,
+        })
+      : linked?.plural
 
   return (
     <form.Field name={name} validators={validators}>
@@ -63,10 +74,18 @@ export function InputNumber({
             {!hidden && (
               <div className="pt-2 space-y-1">
                 <FormLabel htmlFor={name} label={label} description={description} required={required} error={!!field.state.meta.errors?.[0]} />
-                {drillDownHref ? (
+                {drillDownHref && linked ? (
                   <div className="flex items-center gap-1">
                     <div className="min-w-0 flex-1">{input}</div>
-                    <RollupDrillDownLink href={drillDownHref} field={label ?? name} />
+                    {drillDownEntity ? (
+                      <RollupDrillDownLink href={drillDownHref} entity={drillDownEntity} />
+                    ) : (
+                      <RollupDrillDownFromTable
+                        href={drillDownHref}
+                        table={linked.table}
+                        moduleSlug={table?.module_slug}
+                      />
+                    )}
                   </div>
                 ) : (
                   input

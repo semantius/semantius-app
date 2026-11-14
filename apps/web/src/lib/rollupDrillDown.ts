@@ -52,6 +52,28 @@ export function rollupExpressionOf(property: RollupProperty | undefined): Rollup
 }
 
 /**
+ * The linked table, and its plural when `get_schema` children names it.
+ * A child's `id` is the same `"<table>.<column>"` as `rollup.link_field`.
+ * Applications on the test tenant ship an empty children array, so callers
+ * that need a label then load that table's own schema.
+ */
+export function rollupLinkedEntity(
+  property: RollupProperty | undefined,
+  children: Array<{ id?: unknown; plural_label?: unknown }> | undefined,
+): { table: string; plural: string | undefined } | undefined {
+  const expression = rollupExpressionOf(property)
+  if (!expression) return undefined
+  const linked = parseRollupLinkField(expression.link_field)
+  if (!linked) return undefined
+  const child = children?.find((entry) => entry.id === expression.link_field)
+  const plural =
+    typeof child?.plural_label === 'string' && child.plural_label !== ''
+      ? child.plural_label
+      : undefined
+  return { table: linked.table, plural }
+}
+
+/**
  * Path + query for the linked grid, or `undefined` when this field cannot
  * drill down (not a rollup, no link_field, no module, no row id).
  *
