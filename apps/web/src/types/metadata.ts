@@ -50,7 +50,10 @@ export interface JsonSchemaProperty {
   // 'fk_label'  — synthetic companion of a reference field, holds the composed
   //               label of the referenced row (e.g. supplier_id_label).
   // '_label'    — the row's own composed, human-readable label.
-  // These are display-source fields, NOT standalone grid columns.
+  //               Those two are display-source fields, NOT standalone grid columns.
+  // 'rollup' / 'computed' / 'computed_label' — derived values. When inputMode
+  //               is omitted or 'default', SchemaForm treats them as 'disabled'
+  //               (not editable, excluded from submit).
   ctype?: string
   // Whether the column accepts writes. `false` marks computed/synthetic
   // projections (e.g. ctype 'fk_label'/'_label') that are NOT real DB columns —
