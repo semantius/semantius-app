@@ -4,9 +4,13 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { SchemaForm } from '../SchemaForm'
 import type { SchemaObject } from 'ajv'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { setRuleUser } from '@/lib/ruleContext'
 import { AppHarness, bootApp } from '@/test/appHarness'
 import { db } from '@/test/moduleFixture'
+import { testToken } from '@/test/session'
+import { callRpc } from '@/lib/apiClient'
+import type { EntityMetadata } from '@/types/metadata'
 
 describe('SchemaForm', () => {
   const basicSchema: SchemaObject = {
@@ -1098,6 +1102,122 @@ describe('derived ctypes default to disabled', () => {
       />,
     )
     expect(screen.getByLabelText(/^Amount/)).toBeDisabled()
+  })
+})
+
+describe('rollup drill-down', () => {
+  // applications.interview_count: ctype rollup, link_field interviews.application_id.
+  // The icon next to the disabled count opens that table filtered to this row.
+  const applicationSchema = {
+    type: 'object',
+    properties: {
+      id: { type: 'integer', format: 'int32', title: 'Id', ctype: 'id' },
+      freight: { type: 'number', format: 'double', title: 'Freight', inputMode: 'default' },
+      interview_count: {
+        type: 'integer',
+        format: 'int32',
+        title: 'Interview count',
+        ctype: 'rollup',
+        inputMode: 'default',
+        rollup: {
+          function: 'count',
+          link_field: 'interviews.application_id',
+          include_hidden_rows: true,
+        },
+      },
+    },
+    table: {
+      table_name: 'applications',
+      module_slug: 'applicant-tracking',
+      id_column: 'id',
+      label_column: 'id',
+    },
+    children: [
+      {
+        id: 'interviews.application_id',
+        title: 'Application',
+        singular_label: 'Interview',
+        plural_label: 'Interviews',
+        id_column: 'id',
+        label_column: 'id',
+      },
+    ],
+  } as SchemaObject
+
+  it('shows a link on the rollup to the linked table filtered by this row', () => {
+    render(
+      <SchemaForm
+        schema={applicationSchema}
+        formMode="edit"
+        initialValue={{ id: 9, interview_count: 2, freight: 1 }}
+      />,
+    )
+    const link = screen.getByRole('link', { name: 'Open Interviews' })
+    expect(link).toHaveAttribute('target', '_blank')
+    const url = new URL(link.getAttribute('href')!, 'https://example.test')
+    expect(url.pathname).toBe('/applicant-tracking/interviews')
+    expect(url.searchParams.get('page')).toBe('1')
+    expect(url.searchParams.get('sortBy')).toBe('id')
+    expect(url.searchParams.get('sortOrder')).toBe('desc')
+    expect(JSON.parse(url.searchParams.get('filters')!)).toEqual([
+      {
+        id: 'application_id',
+        value: '9',
+        variant: 'select',
+        operator: 'eq',
+        joinOperator: 'and',
+      },
+    ])
+  })
+
+  it('does not put a drill-down on a non-rollup number beside it', () => {
+    render(
+      <SchemaForm
+        schema={applicationSchema}
+        formMode="edit"
+        initialValue={{ id: 9, interview_count: 2, freight: 1 }}
+      />,
+    )
+    expect(screen.getByRole('link', { name: 'Open Interviews' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Open Freight' })).not.toBeInTheDocument()
+    expect(screen.getAllByRole('link')).toHaveLength(1)
+  })
+
+  it('still offers the link in view mode', () => {
+    render(
+      <SchemaForm
+        schema={applicationSchema}
+        formMode="view"
+        initialValue={{ id: 9, interview_count: 2 }}
+      />,
+    )
+    expect(screen.getByRole('link', { name: 'Open Interviews' })).toBeInTheDocument()
+  })
+})
+
+describe('rollup drill-down against the tenant schema', () => {
+  beforeEach(async () => {
+    await bootApp()
+  })
+
+  it('names the link from the linked table plural when children is empty', async () => {
+    const metadata = await callRpc<EntityMetadata>('get_schema', { p_table_name: 'applications' }, testToken())
+    expect(metadata.children ?? []).toEqual([])
+    expect(metadata.properties?.interview_count?.rollup?.link_field).toBe('interviews.application_id')
+
+    render(
+      <AppHarness>
+        <TooltipProvider>
+          <SchemaForm
+            schema={metadata as SchemaObject}
+            formMode="edit"
+            initialValue={{ id: 9, interview_count: 2 }}
+          />
+        </TooltipProvider>
+      </AppHarness>,
+    )
+
+    expect(await screen.findByRole('link', { name: 'Open Interviews' })).toBeInTheDocument()
   })
 })
 

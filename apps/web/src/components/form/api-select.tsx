@@ -23,6 +23,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export interface Option {
   value: string;
@@ -428,21 +429,28 @@ export function APISelect<T>({
               <span className="min-w-0 truncate" aria-hidden="true">
                 {selectedLabel}
               </span>
-              <a
-                href={openHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={openLinkName}
-                className="pointer-events-auto ml-0.5 flex size-6 shrink-0 items-center justify-center rounded-sm opacity-50 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
-                onPointerDown={(e) => {
-                  e.stopPropagation();
-                }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                }}
-              >
-                <ExternalLink aria-hidden="true" className="h-3 w-3" />
-              </a>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <a
+                      href={openHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={openLinkName}
+                      className="pointer-events-auto ml-0.5 flex size-6 shrink-0 items-center justify-center rounded-sm opacity-50 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
+                      onPointerDown={(e) => {
+                        e.stopPropagation();
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                      }}
+                    />
+                  }
+                >
+                  <ExternalLink aria-hidden="true" className="h-3 w-3" />
+                </TooltipTrigger>
+                <TooltipContent>{openLinkName}</TooltipContent>
+              </Tooltip>
             </span>
           </div>
         )}

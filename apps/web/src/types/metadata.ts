@@ -55,6 +55,17 @@ export interface JsonSchemaProperty {
   //               is omitted or 'default', SchemaForm treats them as 'disabled'
   //               (not editable, excluded from submit).
   ctype?: string
+  /**
+   * Aggregation for `ctype: 'rollup'`. `link_field` is `"<table>.<column>"`
+   * pointing at the child FK; the form's drill-down link opens that table
+   * filtered to this row's id.
+   */
+  rollup?: {
+    function?: string
+    link_field?: string
+    include_hidden_rows?: boolean
+    value_field?: string
+  }
   // Whether the column accepts writes. `false` marks computed/synthetic
   // projections (e.g. ctype 'fk_label'/'_label') that are NOT real DB columns —
   // they must be excluded from INSERT/UPDATE payloads or PostgREST returns PGRST204.

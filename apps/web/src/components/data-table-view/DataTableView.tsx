@@ -13,6 +13,7 @@ import { useUserHasPermission } from '@/hooks/useUserPermissions'
 import { GRID_PINNING_MIN_WIDTH_REM, useMinWidth } from '@/hooks/use-min-width'
 import { ConfirmDeleteDialog } from '@/components/ConfirmDeleteDialog'
 import { buildPostgRESTSelect, AUTO_LABEL } from '@/lib/apiClient'
+import { parseFiltersFromURL, serializeFiltersForURL } from '@/lib/gridFilters'
 import {
   type SortingState,
   type Updater,
@@ -314,30 +315,6 @@ function filterToORCondition(filter: PlainFilter): string | null {
   }
 }
 
-// Deserialize filters from URL JSON string, regenerating filterId deterministically.
-// TanStack Router stores string search params as JSON-encoded strings (double-encoded),
-// so we unwrap one layer if needed.
-function parseFiltersFromURL(filtersParam: string | undefined): ExtendedColumnFilter<RecordType>[] {
-  if (!filtersParam) return []
-  try {
-    let parsed = JSON.parse(filtersParam)
-    // TanStack Router may have double-encoded the value: unwrap if it's still a string
-    if (typeof parsed === 'string') parsed = JSON.parse(parsed)
-    if (!Array.isArray(parsed)) return []
-    return (parsed as PlainFilter[]).map((f, i) => ({
-      ...f,
-      filterId: `url-filter-${f.id as string}-${f.operator}-${i}`,
-    }))
-  } catch {
-    return []
-  }
-}
-
-// Serialize filters for URL (strip filterId to keep URLs short)
-function serializeFiltersForURL(filters: ExtendedColumnFilter<RecordType>[]): string | undefined {
-  if (filters.length === 0) return undefined
-  return JSON.stringify(filters.map(({ filterId: _id, ...rest }) => rest))
-}
 
 
 /**
@@ -464,7 +441,7 @@ export function DataTableView({
 
   // extFilters = all niko-table filter rows (AND + OR), server-side, in URL
   const [extFilters, setExtFilters] = useState<ExtendedColumnFilter<RecordType>[]>(
-    () => parseFiltersFromURL(searchParams.filters)
+    () => parseFiltersFromURL(searchParams.filters) as ExtendedColumnFilter<RecordType>[]
   )
 
   // searchText = global search box, server-side (or= ilike across text cols), in URL
@@ -483,7 +460,7 @@ export function DataTableView({
         ? [{ id: col, desc: searchParams.sortOrder === 'desc' }]
         : defaultSorting()
     )
-    setExtFilters(parseFiltersFromURL(searchParams.filters))
+    setExtFilters(parseFiltersFromURL(searchParams.filters) as ExtendedColumnFilter<RecordType>[])
     setSearchText(searchParams.search || '')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tableName])

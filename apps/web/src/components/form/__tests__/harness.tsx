@@ -4,6 +4,7 @@ import { useForm } from '@tanstack/react-form'
 import { I18nProvider } from '@lingui/react'
 import type { SchemaObject } from 'ajv'
 import { i18n } from '@/i18n'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { FormProvider, type FormContextValue } from '../FormContext'
 
 /**
@@ -33,6 +34,16 @@ export interface HarnessOptions {
    * control that starts to would be tested against the real shape here.
    */
   properties?: Record<string, Record<string, unknown>>
+  /**
+   * Entity `table` metadata SchemaForm puts on the same schema object.
+   * Rollup drill-down reads `module_slug` and `id_column` from here.
+   */
+  table?: Record<string, unknown>
+  /**
+   * Child relations from `get_schema`. Rollup drill-down names the link from
+   * the child's `plural_label` whose `id` matches `rollup.link_field`.
+   */
+  childRelations?: Array<Record<string, unknown>>
   formMode?: FormContextValue['formMode']
 }
 
@@ -40,10 +51,17 @@ export function FormHarness({
   children,
   defaultValues = {},
   properties = {},
+  table,
+  childRelations,
   formMode,
 }: HarnessOptions & { children: ReactNode }) {
   const form = useForm({ defaultValues, onSubmit: async () => {} })
-  const schema: SchemaObject = { type: 'object', properties }
+  const schema: SchemaObject = {
+    type: 'object',
+    properties,
+    ...(table ? { table } : {}),
+    ...(childRelations ? { children: childRelations } : {}),
+  }
   const value: FormContextValue = {
     form,
     schema,
@@ -58,7 +76,9 @@ export function FormHarness({
   // invisible until the first <Trans> landed.
   return (
     <I18nProvider i18n={i18n}>
-      <FormProvider value={value}>{children}</FormProvider>
+      <TooltipProvider>
+        <FormProvider value={value}>{children}</FormProvider>
+      </TooltipProvider>
     </I18nProvider>
   )
 }
