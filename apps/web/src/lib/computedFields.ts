@@ -43,6 +43,26 @@ jsonLogic.add_operation('is_match', function isMatch(value: unknown, pattern: un
   return new RegExp(String(pattern)).test(String(value))
 })
 
+// The server refuses an arithmetic result that is not a finite number with 90920:
+// JSON has no Infinity and no NaN. Each operator below computes what json-logic-js
+// computes and throws in that case, so the form leaves the field unchanged, as it
+// does for every rule that throws.
+function refuseNonFiniteResult(operator: string, compute: (...args: any[]) => unknown): void {
+  jsonLogic.add_operation(operator, function arithmetic(...args: unknown[]) {
+    const result = compute(...args)
+    if (!Number.isFinite(result)) throw new Error(`90920: ${operator} has no finite result`)
+    return result
+  })
+}
+
+refuseNonFiniteResult('+', (...args) => args.reduce((a, b) => parseFloat(a) + parseFloat(b), 0))
+refuseNonFiniteResult('*', (...args) => args.reduce((a, b) => parseFloat(a) * parseFloat(b)))
+refuseNonFiniteResult('-', (a, b) => (b === undefined ? -a : a - b))
+refuseNonFiniteResult('/', (a, b) => a / b)
+refuseNonFiniteResult('%', (a, b) => a % b)
+refuseNonFiniteResult('max', (...args) => Math.max(...args))
+refuseNonFiniteResult('min', (...args) => Math.min(...args))
+
 registerDateOperators()
 
 export function parseComputedFields(value: unknown): ComputedField[] {

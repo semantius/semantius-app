@@ -194,6 +194,44 @@ describe('date operators refuse what the backend refuses', () => {
   })
 })
 
+describe('arithmetic refuses a result that is not a finite number, as the backend does', () => {
+  it.each([
+    [{ '/': [1, 0] }],
+    [{ '%': [1, 0] }],
+    [{ '/': [0, 0] }],
+    [{ '+': ['Infinity', 1] }],
+    [{ '-': ['Infinity', 1] }],
+    [{ '*': ['Infinity', 2] }],
+    [{ max: ['Infinity', 1] }],
+    [{ min: ['-Infinity', 1] }],
+  ])('%j', (rule) => {
+    expect(() => applyJsonLogic(rule, {})).toThrow()
+  })
+
+  it('names the code the backend raises', () => {
+    expect(() => applyJsonLogic({ '/': [1, 0] }, {})).toThrow(/^90920/)
+  })
+
+  it.each([
+    [{ '/': [4, 2] }, 2],
+    [{ '/': [2, 4] }, 0.5],
+    [{ '%': [3, 2] }, 1],
+    [{ '+': [1, '2'] }, 3],
+    [{ '*': [2, 2, 2] }, 8],
+    [{ '-': [5] }, -5],
+    [{ max: [1, 2, 3] }, 3],
+    [{ min: [1, 2, 3] }, 1],
+  ])('%j still gives %j', (rule, expected) => {
+    expect(applyJsonLogic(rule, {})).toBe(expected)
+  })
+
+  it('leaves the field unchanged, because the form catches the refusal', () => {
+    expect(
+      evaluateComputedFields([{ name: 'ratio', jsonlogic: { '/': [{ var: 'a' }, { var: 'b' }] } }], { a: 1, b: 0 }),
+    ).toEqual({})
+  })
+})
+
 describe('reserved variables', () => {
   afterEach(() => {
     setRuleUser(null)
