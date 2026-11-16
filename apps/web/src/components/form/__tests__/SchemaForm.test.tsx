@@ -965,9 +965,10 @@ describe('SchemaForm', () => {
 
 describe('derived ctypes default to disabled', () => {
   // Northwind orders.subtotal is ctype rollup with inputMode default; amount on
-  // order_details is ctype computed with the same leftover default. Writing them
-  // back either overwrites the derivation or is rejected, so default must match
-  // an explicit disabled field: shown, not editable, excluded from submit.
+  // order_details is ctype computed with the same leftover default; orders.label
+  // is ctype computed_label with required. Writing them back either overwrites
+  // the derivation or is rejected, so default and required must match an
+  // explicit disabled field: shown, not editable, excluded from submit.
   const derivedCtypes = ['rollup', 'computed', 'computed_label'] as const
 
   function orderSchema(overrides: Record<string, unknown> = {}) {
@@ -1063,7 +1064,9 @@ describe('derived ctypes default to disabled', () => {
     expect(screen.getByLabelText(/^Freight/)).not.toBeDisabled()
   })
 
-  it('keeps an explicit readonly on a rollup as readonly (submitted, not omitted)', async () => {
+  // The server owns a derived value, so the ctype, not the mode, keeps it out of
+  // every save. An ordinary readonly field is still submitted; a derived one is not.
+  it('draws an explicit readonly rollup as declared, and leaves it out of the save', async () => {
     const user = userEvent.setup()
     const onSubmit = vi.fn()
     render(
@@ -1078,8 +1081,192 @@ describe('derived ctypes default to disabled', () => {
     expect(screen.getByLabelText(/^Subtotal/)).toBeDisabled()
     await user.click(screen.getByRole('button', { name: /submit/i }))
     await waitFor(() => expect(onSubmit).toHaveBeenCalled())
-    expect(onSubmit.mock.calls[0][0]).toHaveProperty('subtotal', 137.5)
+    expect(onSubmit.mock.calls[0][0]).toEqual({ customer_id: 'ALFKI' })
   })
+
+  it.each(derivedCtypes)('leaves a hidden %s field out of the save, and still sends an ordinary hidden one', async (ctype) => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn()
+    render(
+      <SchemaForm
+        schema={{
+          type: 'object',
+          properties: {
+            customer_id: { type: 'string', format: 'text', title: 'Customer', inputMode: 'required' },
+            region: { type: 'string', format: 'text', title: 'Region', inputMode: 'hidden' },
+            total: { type: 'number', format: 'double', title: 'Total', ctype, inputMode: 'hidden' },
+          },
+        }}
+        formMode="edit"
+        initialValue={{ customer_id: 'ALFKI', region: 'WA', total: 42 }}
+        onSubmit={onSubmit}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+    expect(onSubmit.mock.calls[0][0]).toEqual({ customer_id: 'ALFKI', region: 'WA' })
+  })
+
+  it('does not let an empty derived field in the required list block the save', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn()
+    render(
+      <SchemaForm
+        schema={{
+          type: 'object',
+          properties: {
+            customer_id: { type: 'string', format: 'text', title: 'Customer', inputMode: 'required' },
+            label: { type: 'string', format: 'text', title: 'Order Id', ctype: 'computed_label', inputMode: 'readonly' },
+          },
+          required: ['customer_id', 'label'],
+        }}
+        formMode="edit"
+        initialValue={{ customer_id: 'ALFKI', label: '' }}
+        onSubmit={onSubmit}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+    expect(onSubmit.mock.calls[0][0]).toEqual({ customer_id: 'ALFKI' })
+  })
+
+  // Northwind orders.label is the entity's label column, ctype computed_label, and
+  // get_schema ships it `required` because the column is NOT NULL.
+  function labelSchema() {
+    return {
+      type: 'object',
+      properties: {
+        customer_id: { type: 'string', format: 'text', title: 'Customer', inputMode: 'required' },
+        label: { type: 'string', format: 'text', title: 'Order Id', ctype: 'computed_label', inputMode: 'required' },
+      },
+      required: ['customer_id', 'label'],
+    } as SchemaObject
+  }
+
+  it.each(derivedCtypes)('makes a ctype %s field with inputMode required not editable', (ctype) => {
+    render(
+      <SchemaForm
+        schema={{
+          type: 'object',
+          properties: {
+            total: { type: 'number', format: 'double', title: 'Total', ctype, inputMode: 'required' },
+          },
+        }}
+        formMode="edit"
+        initialValue={{ total: 42 }}
+      />,
+    )
+    const field = screen.getByLabelText(/^Total/)
+    expect(field).toBeDisabled()
+    expect(field).toHaveValue('42')
+  })
+
+  it('excludes a required computed_label from an edit submit', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn()
+    render(
+      <SchemaForm
+        schema={labelSchema()}
+        formMode="edit"
+        initialValue={{ customer_id: 'ALFKI', label: '10248' }}
+        onSubmit={onSubmit}
+      />,
+    )
+
+    expect(screen.getByLabelText(/^Order Id/)).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+    expect(onSubmit.mock.calls[0][0]).toHaveProperty('customer_id', 'ALFKI')
+    expect(onSubmit.mock.calls[0][0]).not.toHaveProperty('label')
+  })
+
+  it('creates a record without asking for a required computed_label', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn()
+    render(<SchemaForm schema={labelSchema()} formMode="create" onSubmit={onSubmit} />)
+
+    expect(screen.queryByLabelText(/^Order Id/)).not.toBeInTheDocument()
+    await user.type(screen.getByLabelText(/^Customer/), 'ALFKI')
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+    expect(onSubmit.mock.calls[0][0]).toEqual({ customer_id: 'ALFKI' })
+  })
+
+  it('maps an input_type_rule that returns required onto disabled for a computed field', () => {
+    render(
+      <SchemaForm
+        schema={{
+          type: 'object',
+          properties: {
+            amount: {
+              type: 'number',
+              format: 'double',
+              title: 'Amount',
+              ctype: 'computed',
+              inputMode: 'default',
+              input_type_rule: { if: [true, 'required', 'default'] },
+            },
+          },
+        }}
+        formMode="edit"
+        initialValue={{ amount: 20 }}
+      />,
+    )
+    expect(screen.getByLabelText(/^Amount/)).toBeDisabled()
+  })
+
+  it.each(['rollup', 'computed'] as const)(
+    'draws a hidden %s field disabled when a rule switches it to default while the form is open, and does not send it',
+    async (ctype) => {
+      const user = userEvent.setup()
+      const onSubmit = vi.fn()
+      render(
+        <SchemaForm
+          schema={{
+            type: 'object',
+            properties: {
+              kind: { type: 'string', format: 'text', title: 'Kind' },
+              amount: {
+                type: 'number',
+                format: 'double',
+                title: 'Amount',
+                ctype,
+                inputMode: 'hidden',
+                input_type_rule: { if: [{ '==': [{ var: 'kind' }, 'show'] }, 'default', 'hidden'] },
+              },
+              // The same rule on an ordinary field: it must come out editable, so
+              // the rule really answered `default` and only the ctype disables Amount.
+              note: {
+                type: 'string',
+                format: 'text',
+                title: 'Note',
+                inputMode: 'hidden',
+                input_type_rule: { if: [{ '==': [{ var: 'kind' }, 'show'] }, 'default', 'hidden'] },
+              },
+            },
+          }}
+          formMode="edit"
+          initialValue={{ kind: '', amount: 20, note: '' }}
+          onSubmit={onSubmit}
+        />,
+      )
+
+      expect(screen.queryByLabelText(/^Amount/)).not.toBeInTheDocument()
+      expect(screen.queryByLabelText(/^Note/)).not.toBeInTheDocument()
+      await user.type(screen.getByLabelText(/^Kind/), 'show')
+
+      const amount = await screen.findByLabelText(/^Amount/)
+      expect(amount).toBeDisabled()
+      expect(amount).toHaveValue('20')
+      expect(screen.getByLabelText(/^Note/)).toBeEnabled()
+
+      await user.click(screen.getByRole('button', { name: /submit/i }))
+      await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+      expect(onSubmit.mock.calls[0][0]).toEqual({ kind: 'show', note: '' })
+    },
+  )
 
   it('maps an input_type_rule that returns default onto disabled for a computed field', () => {
     render(
@@ -1200,10 +1387,15 @@ describe('rollup drill-down against the tenant schema', () => {
     await bootApp()
   })
 
+  // Northwind suppliers.product_count counts products over products.supplier_id.
+  // That is a `reference` link, and get_schema lists only `parent` links as
+  // children, so the form has no plural for it and loads the products schema:
+  // the path no form-harness test above can take.
   it('names the link from the linked table plural when children is empty', async () => {
-    const metadata = await callRpc<EntityMetadata>('get_schema', { p_table_name: 'applications' }, testToken())
+    const metadata = await callRpc<EntityMetadata>('get_schema', { p_table_name: 'suppliers' }, testToken())
     expect(metadata.children ?? []).toEqual([])
-    expect(metadata.properties?.interview_count?.rollup?.link_field).toBe('interviews.application_id')
+    expect(metadata.properties?.product_count?.rollup?.link_field).toBe('products.supplier_id')
+    const idColumn = String(metadata.table?.id_column)
 
     render(
       <AppHarness>
@@ -1211,13 +1403,13 @@ describe('rollup drill-down against the tenant schema', () => {
           <SchemaForm
             schema={metadata as SchemaObject}
             formMode="edit"
-            initialValue={{ id: 9, interview_count: 2 }}
+            initialValue={{ [idColumn]: 9, product_count: 2 }}
           />
         </TooltipProvider>
       </AppHarness>,
     )
 
-    expect(await screen.findByRole('link', { name: 'Open Interviews' })).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: 'Open Products' })).toBeInTheDocument()
   })
 })
 
@@ -1723,6 +1915,72 @@ describe('input_type_rule required is validated, not only drawn', () => {
   })
 })
 
+describe('a rule that takes required away is validated and sent in the mode it set', () => {
+  // `code` is declared required; the rule changes that once kind is `on`. Every
+  // step of the save — the payload, the required list and the schema sem-schema
+  // validates against — must follow the mode the field is in now: an empty field
+  // the user can no longer fill must not block the save, and a disabled one is
+  // never sent.
+  function schemaWith(ruled: string, inRequiredList = false): SchemaObject {
+    return {
+      type: 'object',
+      properties: {
+        kind: { type: 'string', format: 'text', title: 'Kind' },
+        code: {
+          type: 'string',
+          format: 'text',
+          title: 'Code',
+          inputMode: 'required',
+          input_type_rule: { if: [{ '==': [{ var: 'kind' }, 'on'] }, ruled, 'required'] },
+        },
+      },
+      ...(inRequiredList ? { required: ['code'] } : {}),
+    } as SchemaObject
+  }
+
+  async function saveWith(schema: SchemaObject, formMode: 'edit' | 'create', code: string) {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn()
+    render(<SchemaForm schema={schema} formMode={formMode} initialValue={{ kind: '', code }} onSubmit={onSubmit} />)
+    await user.type(screen.getByLabelText(/^Kind/), 'on')
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+    return onSubmit.mock.calls[0][0] as Record<string, unknown>
+  }
+
+  it.each([
+    // Disabled is never sent; readonly and hidden are, as they always are.
+    ['disabled', 'edit', { kind: 'on' }],
+    ['readonly', 'edit', { kind: 'on', code: '' }],
+    ['hidden', 'edit', { kind: 'on', code: '' }],
+    // A create form draws neither readonly nor disabled and sends neither, and
+    // leaves an empty optional field out.
+    ['disabled', 'create', { kind: 'on' }],
+    ['readonly', 'create', { kind: 'on' }],
+    ['hidden', 'create', { kind: 'on' }],
+  ] as const)('saves an empty required field a rule made %s in %s mode', async (ruled, formMode, expected) => {
+    expect(await saveWith(schemaWith(ruled), formMode, '')).toEqual(expected)
+  })
+
+  it('saves when the field is also in the schema required list', async () => {
+    expect(await saveWith(schemaWith('disabled', true), 'edit', '')).toEqual({ kind: 'on' })
+  })
+
+  it('does not send the value of a required field a rule disabled', async () => {
+    expect(await saveWith(schemaWith('disabled'), 'edit', 'ABC')).toEqual({ kind: 'on' })
+  })
+
+  it('still refuses the empty field while the rule leaves it required', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn()
+    render(<SchemaForm schema={schemaWith('disabled')} formMode="edit" initialValue={{ kind: '', code: '' }} onSubmit={onSubmit} />)
+    await user.type(screen.getByLabelText(/^Kind/), 'off')
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+    await waitFor(() => expect(screen.getByText(/must not be empty/i)).toBeInTheDocument())
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+})
+
 describe('computed fields update when an input changes', () => {
   // The Northwind amount rule from order_details.computed_fields: qty × price × (1 − discount).
   const amountRule = {
@@ -1791,6 +2049,43 @@ describe('computed fields update when an input changes', () => {
     await user.type(screen.getByLabelText(/^Discount/), '0.5')
     await waitFor(() => expect(amount).toHaveValue('5'))
   })
+
+  // As get_schema sends Northwind order_details: amount is ctype computed with
+  // inputMode default, label a computed_label, and the order a rollup elsewhere.
+  // A create form is where the live value matters most, so amount is drawn there.
+  const newOrderLine = {
+    type: 'object',
+    table: { computed_fields: [{ name: 'amount', jsonlogic: amountRule }] },
+    properties: {
+      quantity: { type: 'number', format: 'double', title: 'Quantity', default: 0 },
+      unit_price: { type: 'number', format: 'double', title: 'Unit Price', default: 0 },
+      discount: { type: 'number', format: 'double', title: 'Discount', default: 0 },
+      amount: { type: 'number', format: 'double', title: 'Amount', ctype: 'computed', inputMode: 'default', default: 0 },
+      label: { type: 'string', format: 'text', title: 'Label', ctype: 'computed_label', inputMode: 'required' },
+      line_count: { type: 'integer', format: 'int32', title: 'Line Count', ctype: 'rollup', inputMode: 'default' },
+    },
+  } as SchemaObject
+
+  it('draws a computed field on a create form, computes it live, and does not send it', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn()
+    render(<SchemaForm schema={newOrderLine} formMode="create" onSubmit={onSubmit} />)
+
+    const amount = screen.getByLabelText(/^Amount/)
+    expect(amount).toBeDisabled()
+    expect(screen.queryByLabelText(/^Label/)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/^Line Count/)).not.toBeInTheDocument()
+
+    await user.clear(screen.getByLabelText(/^Quantity/))
+    await user.type(screen.getByLabelText(/^Quantity/), '3')
+    await user.clear(screen.getByLabelText(/^Unit Price/))
+    await user.type(screen.getByLabelText(/^Unit Price/), '4')
+    await waitFor(() => expect(amount).toHaveValue('12'))
+
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+    expect(onSubmit.mock.calls[0][0]).not.toHaveProperty('amount')
+  })
 })
 
 describe('computed fields with set_record use the referenced row', () => {
@@ -1856,6 +2151,39 @@ describe('computed fields with set_record use the referenced row', () => {
     await user.type(quantity, '4')
 
     await waitFor(() => expect(label).toHaveValue(`4 × ${row.module_name}`))
+  })
+})
+
+describe('a SQL date default starts the form with the date it stands for', () => {
+  // Northwind orders.order_date: get_schema passes the column default through as
+  // the SQL `CURRENT_DATE`. Seeded as text, the picker looked empty and the save
+  // failed "must match format date"; shipped_date, defaulting to "", did not.
+  const orderDates: SchemaObject = {
+    type: 'object',
+    properties: {
+      order_date: { type: 'string', format: 'date', title: 'Order Date', default: 'CURRENT_DATE', inputMode: 'default' },
+      shipped_date: { type: 'string', format: 'date', title: 'Shipped Date', default: '', inputMode: 'default' },
+    },
+  }
+
+  it('shows today in the picker and saves it', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn()
+    render(<SchemaForm schema={orderDates} formMode="create" onSubmit={onSubmit} />)
+
+    expect(screen.getByLabelText(/^Order Date/)).not.toHaveValue('')
+    expect(screen.getByLabelText(/^Shipped Date/)).toHaveValue('')
+
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+    // UTC, as the server evaluates CURRENT_DATE.
+    expect(onSubmit.mock.calls[0][0].order_date).toBe(new Date().toISOString().slice(0, 10))
+    expect(screen.queryByText(/must match format/)).not.toBeInTheDocument()
+  })
+
+  it('keeps the stored date of an existing record', () => {
+    render(<SchemaForm schema={orderDates} formMode="edit" initialValue={{ order_date: '2024-07-04', shipped_date: '' }} />)
+    expect(screen.getByLabelText(/^Order Date/)).toHaveValue('July 4th, 2024')
   })
 })
 

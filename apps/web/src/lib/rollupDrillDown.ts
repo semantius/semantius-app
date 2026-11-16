@@ -54,8 +54,9 @@ export function rollupExpressionOf(property: RollupProperty | undefined): Rollup
 /**
  * The linked table, and its plural when `get_schema` children names it.
  * A child's `id` is the same `"<table>.<column>"` as `rollup.link_field`.
- * Applications on the test tenant ship an empty children array, so callers
- * that need a label then load that table's own schema.
+ * `children` lists only `parent` links, so a rollup over a `reference` link
+ * (Northwind suppliers.product_count, over products.supplier_id) is not in it,
+ * and callers that need a label then load that table's own schema.
  */
 export function rollupLinkedEntity(
   property: RollupProperty | undefined,

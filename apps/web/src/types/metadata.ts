@@ -51,9 +51,9 @@ export interface JsonSchemaProperty {
   //               label of the referenced row (e.g. supplier_id_label).
   // '_label'    — the row's own composed, human-readable label.
   //               Those two are display-source fields, NOT standalone grid columns.
-  // 'rollup' / 'computed' / 'computed_label' — derived values. When inputMode
-  //               is omitted or 'default', SchemaForm treats them as 'disabled'
-  //               (not editable, excluded from submit).
+  // 'rollup' / 'computed' / 'computed_label' — derived values. SchemaForm
+  //               never submits or requires them, whatever their inputMode;
+  //               omitted, 'default' or 'required' is drawn as 'disabled'.
   ctype?: string
   /**
    * Aggregation for `ctype: 'rollup'`. `link_field` is `"<table>.<column>"`

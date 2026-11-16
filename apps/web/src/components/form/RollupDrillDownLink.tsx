@@ -41,10 +41,13 @@ export function RollupDrillDownLink({ href, entity }: { href: string; entity: st
 }
 
 /**
- * When the parent entity's `children` array does not name this rollup (the
- * applications table on the test tenant ships `children: []`), load the
- * linked table's own schema for `plural_label`. Isolated from InputNumber so
- * a form-harness test that already has the plural never needs Auth.
+ * When the parent entity's `children` array does not name this rollup, load
+ * the linked table's own schema for `plural_label`. `children` lists only
+ * `parent` links, so this is every rollup over a `reference` link (Northwind
+ * suppliers.product_count, over products.supplier_id). If the fetch yields no
+ * plural, the link is not drawn at all, which is why a test against a real
+ * tenant covers this path. Isolated from InputNumber so a form-harness test
+ * that already has the plural never needs Auth.
  */
 export function RollupDrillDownFromTable({
   href,

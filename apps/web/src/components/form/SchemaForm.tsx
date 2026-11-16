@@ -4,6 +4,7 @@ import { validateData } from 'sem-schema'
 import { assertSupportedFormats, resolveControl } from './resolveControl'
 import { formatType, isFormatName } from '@/lib/formats'
 import { withRuleContext } from '@/lib/ruleContext'
+import { postgresDateDefault } from '@/lib/postgresDateDefaults'
 import {
   applyJsonLogic,
   collectSetRecordLookups,
@@ -45,15 +46,23 @@ function isSyntheticLabelField(propSchema: unknown): boolean {
 const VALID_INPUT_MODES: readonly InputMode[] = ['default', 'required', 'readonly', 'disabled', 'hidden']
 
 /**
- * Derived columns. `get_schema` still ships them with `inputMode: 'default'`,
- * but they are not user-writable: a rollup is aggregated from children, a
- * computed / computed_label value is produced by `computed_fields`. Submitting
- * them either overwrites the derivation or is rejected. When the declared
- * (or rule) mode is `default`, treat them as `disabled` — shown, not editable,
- * excluded from submit — the same as an explicit `inputMode: 'disabled'`.
- * An explicit required / readonly / hidden on the field or from a rule is kept.
+ * Derived columns: a rollup is aggregated from children, a computed /
+ * computed_label value is produced by `computed_fields`. The server owns their
+ * value, so the ctype, not the mode, decides that it is never submitted and
+ * never required: writing one back either overwrites the derivation or is
+ * rejected, and a required one would make the user type a value the server
+ * replaces before the form lets them save. That holds in every mode, declared
+ * or from a rule, `hidden` and `readonly` included — there is no mode for "not
+ * drawn and not sent", and `hidden` must keep sending for an ordinary field
+ * such as the parent link.
+ *
+ * The mode still decides how the field is drawn. `get_schema` ships derived
+ * columns with `inputMode: 'default'`, or `required` when the column is NOT NULL
+ * (`orders.label`, a computed_label that is the entity's label column); either
+ * is drawn as `disabled` — shown, not editable. An explicit readonly or hidden
+ * is drawn as declared.
  */
-const DISABLED_BY_DEFAULT_CTYPES: Record<string, true> = {
+const DERIVED_CTYPES: Record<string, true> = {
   rollup: true,
   computed: true,
   computed_label: true,
@@ -63,19 +72,14 @@ function isInputMode(value: unknown): value is InputMode {
   return typeof value === 'string' && (VALID_INPUT_MODES as readonly string[]).includes(value)
 }
 
-function isDisabledByDefaultCtype(propSchema: SchemaObject): boolean {
+function isDerivedCtype(propSchema: SchemaObject): boolean {
   const ctype = (propSchema as { ctype?: unknown }).ctype
-  return typeof ctype === 'string' && Object.hasOwn(DISABLED_BY_DEFAULT_CTYPES, ctype)
+  return typeof ctype === 'string' && Object.hasOwn(DERIVED_CTYPES, ctype)
 }
 
-/** Static schema `inputMode`, with derived-ctype `default` coerced to `disabled`. */
-function schemaInputMode(propSchema: SchemaObject): InputMode {
-  return coerceDerivedCtypeDefault(propSchema, (propSchema as { inputMode?: unknown }).inputMode)
-}
-
-function coerceDerivedCtypeDefault(propSchema: SchemaObject, declared: unknown): InputMode {
+function coerceDerivedCtypeMode(propSchema: SchemaObject, declared: unknown): InputMode {
   const inputMode: InputMode = isInputMode(declared) ? declared : 'default'
-  if (inputMode === 'default' && isDisabledByDefaultCtype(propSchema)) return 'disabled'
+  if ((inputMode === 'default' || inputMode === 'required') && isDerivedCtype(propSchema)) return 'disabled'
   return inputMode
 }
 
@@ -170,14 +174,19 @@ function renderedInputMode(
   if (key === parentField) return 'hidden'
   // input_type_rule (JsonLogic) overrides the static schema inputMode when it
   // evaluates to a valid InputMode against current form values. A derived
-  // ctype (rollup / computed / computed_label) still maps a leftover `default`
-  // — from the schema or from the rule — onto `disabled`.
-  const inputMode = coerceDerivedCtypeDefault(
+  // ctype (rollup / computed / computed_label) still maps `default` or
+  // `required` — from the schema or from the rule — onto `disabled`.
+  const inputMode = coerceDerivedCtypeMode(
     propSchema,
     ruleResult || (propSchema as { inputMode?: unknown }).inputMode,
   )
-  // In create mode, readonly and disabled fields are not drawn.
-  if (formMode === 'create' && (inputMode === 'readonly' || inputMode === 'disabled')) return null
+  // In create mode, readonly and disabled fields are not drawn: an id or a
+  // created_at has no value before the save. A computed field does — the form
+  // computes it live from the inputs being typed (ComputedFieldsSync), and that
+  // is when the user needs to see it — so it is drawn, not editable. A rollup
+  // (no children yet) and a computed_label stay off a create form.
+  const isComputed = (propSchema as { ctype?: unknown }).ctype === 'computed'
+  if (formMode === 'create' && (inputMode === 'readonly' || inputMode === 'disabled') && !isComputed) return null
   // Form-level view mode overrides schema-level inputMode (except for hidden).
   if (formMode === 'view' && inputMode !== 'hidden') return 'readonly'
   return inputMode
@@ -241,9 +250,12 @@ function generateDefaultValue(schema: SchemaObject): Record<string, any> {
       // form state (otherwise they leak into the submit payload). See helper.
       if (isSyntheticLabelField(propSchema)) continue
 
-      // Check if default value is provided
+      // Check if default value is provided. A date/time default can be a SQL
+      // expression (`CURRENT_DATE`) rather than a value; the form starts with the
+      // date it stands for, see postgresDateDefault.
       if ('default' in propSchema) {
-        defaults[key] = (propSchema as any).default
+        const declared = (propSchema as any).default
+        defaults[key] = postgresDateDefault(declared, (propSchema as any).format) ?? declared
       } else {
         defaults[key] = defaultValueForFormat((propSchema as any).format)
       }
@@ -432,35 +444,61 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
       const cleanedValue: Record<string, any> = {}
       
       // Get all possible fields from schema
-      const allFields = schema.properties ? Object.keys(schema.properties) : []
-      
-      // Include fields based on inputMode:
-      // - disabled fields: NEVER submitted (HTML standard behavior)
-      // - readonly fields: ALWAYS submitted (they're part of the data)
-      // - In create mode: readonly fields are not rendered but still submitted if present in initial value
-      for (const key of allFields) {
-        const propSchema = (schema.properties as Record<string, SchemaObject>)[key]
-        const inputMode = schemaInputMode(propSchema)
+      const properties = (schema.properties ?? {}) as Record<string, SchemaObject>
+      const allFields = Object.keys(properties)
 
+      // A field's mode as declared, and as it is now: its input_type_rule
+      // evaluated against these values, derived ctypes coerced as they are drawn.
+      // What the user can no longer fill must not be demanded, and what is
+      // disabled now must not be sent — so those two decisions follow the mode
+      // a rule set, not the declared one.
+      const declaredMode = (key: string): InputMode =>
+        coerceDerivedCtypeMode(properties[key], (properties[key] as { inputMode?: unknown }).inputMode)
+      const modeNow = (key: string): InputMode => {
+        const propSchema = properties[key]
+        const ruleResult = evaluateInputTypeRule((propSchema as { input_type_rule?: unknown }).input_type_rule, value)
+        return coerceDerivedCtypeMode(propSchema, ruleResult || (propSchema as { inputMode?: unknown }).inputMode)
+      }
+
+      // A field a rule has put out of the user's reach: readonly or hidden now,
+      // declared as neither. It cannot be filled, so it is not demanded. A value it
+      // holds is still sent and still has to meet its constraints: a has_a key
+      // typed into a create form, whose rule then made it readonly and so took it
+      // off the form, is still checked rather than silently dropped.
+      const outOfReachByRule = (key: string): boolean => {
+        const now = modeNow(key)
+        const declared = declaredMode(key)
+        return (now === 'readonly' || now === 'hidden') && declared !== 'readonly' && declared !== 'hidden'
+      }
+
+      // Whether a field's value goes into the request:
+      // - synthetic label companions and derived ctypes: never (see below)
+      // - disabled now, declared or by a rule: NEVER submitted (HTML standard behavior)
+      // - readonly: submitted (part of the data), except a declared readonly field
+      //   in create mode, which the form does not draw and which usually does not
+      //   exist yet. The parent field (injected via _pf/_pv) is always submitted.
+      const isSent = (key: string): boolean => {
+        const propSchema = properties[key]
         // Synthetic label companions (ctype '_label' / 'fk_label') are computed,
         // non-writable projections — not real columns. Including them in the body
         // makes PostgREST reject the whole write with PGRST204. They're also
-        // 'readonly', so in edit mode they would otherwise be submitted. Skip them.
-        if (isSyntheticLabelField(propSchema)) {
-          continue
+        // 'readonly', so in edit mode they would otherwise be submitted.
+        if (isSyntheticLabelField(propSchema)) return false
+        // The server owns a derived value: a hidden or readonly one is left out
+        // like a disabled one. See DERIVED_CTYPES.
+        if (isDerivedCtype(propSchema)) return false
+        if (modeNow(key) === 'disabled') return false
+        if (formMode === 'create' && declaredMode(key) === 'readonly' && modeNow(key) === 'readonly' && key !== parentField) {
+          return false
         }
+        return true
+      }
 
-        // Disabled fields are NEVER submitted (HTML standard behavior)
-        if (inputMode === 'disabled') {
-          continue
-        }
-        
-        // In create mode, skip readonly fields (they're not rendered and usually don't exist yet)
-        // Exception: parentField is always included (it was injected via _pf/_pv and must be submitted)
-        if (formMode === 'create' && inputMode === 'readonly' && key !== parentField) {
-          continue
-        }
-        
+      for (const key of allFields) {
+        const propSchema = properties[key]
+
+        if (!isSent(key)) continue
+
         const format = (propSchema as any).format
         const fieldValue = value[key]
         const entry = resolveControl({ format })
@@ -499,25 +537,37 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
         throw new Error('BUG: Form submitted in view mode, but view mode should have no submit button!')
       }
       
-      // Modify schema to exclude fields from required validation based on inputMode and formMode
-      let validationSchema = schema
+      // The mode each field is validated in. sem-schema's validateData reads
+      // `inputMode` off each property and demands a value for every `required`
+      // one, on top of the `required` list below, so the schema it is handed
+      // carries these modes rather than the declared ones:
+      // - never sent: `disabled`, so nothing about it is checked;
+      // - out of the user's reach by a rule: `default`, so it is not demanded,
+      //   but a value it holds still has to meet its constraints;
+      // - otherwise the mode it is in now, so one a rule made required is demanded.
+      const validationMode = (key: string): InputMode => {
+        if (!isSent(key)) return 'disabled'
+        if (outOfReachByRule(key)) return 'default'
+        return modeNow(key)
+      }
+
+      let validationSchema: SchemaObject = {
+        ...schema,
+        properties: Object.fromEntries(
+          allFields.map((key) => [key, { ...properties[key], inputMode: validationMode(key) }]),
+        ),
+      }
+
       if (schema.required && Array.isArray(schema.required)) {
-        const properties = schema.properties as Record<string, SchemaObject>
-        const filteredRequired = schema.required.filter((fieldName: string) => {
-          const propSchema = properties[fieldName]
-          if (!propSchema) return true
-          const inputMode = schemaInputMode(propSchema)
-          
-          // Disabled fields are never submitted, so never required
-          if (inputMode === 'disabled') return false
-          
-          // In create mode, readonly fields are not rendered, so not required
-          // Exception: parentField is always included
-          if (formMode === 'create' && inputMode === 'readonly' && fieldName !== parentField) return false
-          
-          return true
-        })
-        validationSchema = { ...schema, required: filteredRequired }
+        // A field that is not sent, or that a rule put out of the user's reach,
+        // is not required. The parent field is always kept.
+        const filteredRequired = schema.required.filter(
+          (fieldName: string) =>
+            !properties[fieldName]
+            || fieldName === parentField
+            || (isSent(fieldName) && !outOfReachByRule(fieldName)),
+        )
+        validationSchema = { ...validationSchema, required: filteredRequired }
       }
       
       const requiredFields = new Set<string>(Array.isArray(validationSchema.required) ? validationSchema.required : [])
@@ -531,7 +581,6 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
       // An edit keeps the `''`: leaving the field out of a PATCH would make
       // clearing a text field impossible.
       if (formMode === 'create') {
-        const properties = schema.properties as Record<string, SchemaObject>
         for (const key of Object.keys(cleanedValue)) {
           const optional = !requiredFields.has(key)
             && resolvedInputMode(key, properties[key], value, formMode, parentField) !== 'required'

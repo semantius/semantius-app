@@ -34,6 +34,13 @@ the word can be picked.
   `.order_id_label.description`, `field.unit_price.description` ("… in dieser
   Bestellung") and `field.quantity.description` ("Anzahl der **bestellten**
   Einheiten", which under an Auftrag ruling becomes Auftragsmenge).
+  Since the pg_semantius 0.5.0 model, several of these no longer carry the term:
+  `orders.field.{customer_id,employee_id,ship_via,status}.description` and
+  `order_details.field.{order_id,product_id}.description` are gone from the model;
+  `orders.field.ship_name.title` now reads "Ship Name" (see the ship-to entry) and
+  `order_details.field.label.title` reads "Label" ("Bezeichnung"). The new
+  `orders.field.label.title` "Order Id" and the `subtotal` / `total` descriptions
+  ("… the order's lines", "Order total") are left untranslated until this is ruled.
 - **What:** in SAP, *Bestellung* is a **purchase order** — what you send to a
   supplier (MM). A customer's order is a *Kundenauftrag*, short *Auftrag* (SD).
   Northwind's `orders` are customer orders: they have a customer, a ship-to
@@ -127,16 +134,18 @@ the word can be picked.
 - **Keys:** `module.nwind.orders.field.ship_address.title` ("Lieferadresse"),
   `.ship_city.title` ("Lieferort"), `.ship_country.title` ("Lieferland"),
   `.ship_region.title` ("Lieferregion"), `.ship_postal_code.title`
-  ("Liefer-Postleitzahl"), `.ship_via.title` and `.ship_via_label.title`
-  ("Versand über").
+  ("Liefer-Postleitzahl"), and `.ship_name.title` and `.description`, left
+  untranslated. `.ship_via.title` and `.ship_via_label.title` are no longer part
+  of this: the English source was reworded from "Shipped Via" to "Shipper", which
+  names the carrier, and they now read "Spediteur" like the Shipper entity.
 - **What:** SAP names this block after the **Lieferanschrift** / *Warenempfänger*
   and qualifies plain field names ("Postleitzahl", "Ort", "Land") instead of
   welding "Liefer-" onto each; "Liefer-Postleitzahl" is not a form SAP produces.
-  "Versand über" ends on a preposition, which SAP labels do not — SAP has
-  *Versandart* for the method and *Spediteur* for the carrier, and this field
-  points at the Shipper entity, which is already "Spediteur".
-- **Needs:** a ruling on the block, and a decision whether `ship_via` names the
-  carrier or the method.
+  `ship_name` was reworded from "Order" to "Ship Name" ("Name of the recipient the
+  order ships to"); its old "Bestellung" is parked in `obsolete`. Candidates are
+  *Warenempfänger* (SAP), *Empfänger*, or *Liefername* to match the block as it
+  stands — which one depends on the ruling on the block.
+- **Needs:** a ruling on the block, including the name of the recipient field.
 - **Resolves into:** `de-DE.json` (7 keys).
 - **State:** open
 
@@ -235,9 +244,11 @@ the word can be picked.
 - **Keys:** the code string `Pending` ("Ausstehend") and
   `module.nwind.orders.enum.status.pending` ("Offen").
 - **What:** one English word, two German words, for what a user reads as the same
-  state. The two keys differ only in **capitalization** of the source, which is why
-  no consistency check catches it: the "same source, two renderings" report
-  compares exact strings. SAP's order status vocabulary is *Offen* / *Erledigt*.
+  state. The two keys differed only in **capitalization** of the source, which is
+  why no consistency check caught it: the "same source, two renderings" report
+  compares exact strings. Since the pg_semantius 0.5.0 model the enum's source is
+  "Pending" as well, so the two sources are now identical; "Offen" was carried
+  over unchanged. SAP's order status vocabulary is *Offen* / *Erledigt*.
 - **Needs:** one word for the state, applied to both keys.
 - **Resolves into:** `de-DE.json`.
 - **State:** open

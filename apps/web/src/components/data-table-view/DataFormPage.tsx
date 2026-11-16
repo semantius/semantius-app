@@ -11,7 +11,8 @@ import type { EntityMetadata } from '@/types/metadata'
 interface DataFormPageProps {
   schema: EntityMetadata
   recordId?: string | null
-  onClose?: () => void
+  /** After a save. A create passes the record the server created, so the caller can go on to it. */
+  onClose?: (created?: Record<string, unknown>) => void
   formMode?: 'edit' | 'create' | 'view'
   formId?: string
   onBeforeSubmit?: (submitter: Element | null) => void
@@ -80,6 +81,7 @@ export function DataFormPage({ schema, recordId, onClose, formMode, formId, onBe
     try {
       const singularLabel = schema.table?.singular_label || t('Record')
       const labelColumn = schema.table?.label_column
+      let created: Record<string, unknown> | undefined
       if (recordId) {
         // Update existing record
         await updateRecord.mutateAsync({
@@ -88,7 +90,7 @@ export function DataFormPage({ schema, recordId, onClose, formMode, formId, onBe
         })
       } else {
         // Create new record
-        const created = await createRecord.mutateAsync(value) as Record<string, unknown> | undefined
+        created = await createRecord.mutateAsync(value) as Record<string, unknown> | undefined
         const labelValue = labelColumn && created ? String(created[labelColumn] || '') : ''
         // Two sentences, not one with the name appended: where the name sits in
         // "Customer Acme created" is a property of the language, not of a space.
@@ -105,7 +107,7 @@ export function DataFormPage({ schema, recordId, onClose, formMode, formId, onBe
       }
       
       // Close the form
-      onClose?.()
+      onClose?.(created)
     } catch (error) {
       console.error('Failed to save record:', error)
       // Error is handled by the mutation hooks and displayed in the form

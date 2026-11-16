@@ -83,7 +83,8 @@ function StandaloneFormView({
   const currentPath = useRouterState({ select: (s) => s.location.pathname })
   const idColumn = metadata.table?.id_column || 'id'
   const labelColumn = metadata.table?.label_column || ''
-  const postSaveTargetRef = useRef<string | null>(null)
+  // The child relation whose button submitted the form, to open after the save.
+  const postSaveChildRef = useRef<string | null>(null)
   const FORM_ID = 'standalone-record-form'
   // The record is shown, not edited: no permission to edit and an existing row.
   const isViewOnly = !!recordId && !canEdit
@@ -105,18 +106,18 @@ function StandaloneFormView({
 
   const handleBeforeSubmit = (submitter: Element | null) => {
     const childId = submitter instanceof HTMLElement ? submitter.dataset.childId : undefined
-    if (childId && recordId) {
-      postSaveTargetRef.current = buildChildNavUrl(moduleId, childId, recordId)
-    } else {
-      postSaveTargetRef.current = null
-    }
+    postSaveChildRef.current = childId ?? null
   }
 
-  const handleSave = () => {
-    const target = postSaveTargetRef.current
-    postSaveTargetRef.current = null
-    if (target) {
-      router.history.push(target)
+  // A child button saves, then opens that child filtered to this record. A new
+  // record has no id until the save returns, so it is read off the created row:
+  // editing and creating go to the same place.
+  const handleSave = (created?: Record<string, unknown>) => {
+    const childId = postSaveChildRef.current
+    postSaveChildRef.current = null
+    const savedId = recordId ?? (created?.[idColumn] as string | number | undefined)
+    if (childId && savedId !== undefined && savedId !== null) {
+      router.history.push(buildChildNavUrl(moduleId, childId, String(savedId)))
     } else {
       navigate({ to: viewName })
     }

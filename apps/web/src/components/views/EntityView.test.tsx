@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { screen, waitFor, within } from '@testing-library/react'
 import { bootApp, renderInApp } from '@/test/appHarness'
-import { db, deleteVitestModules, moduleFixture } from '@/test/moduleFixture'
+import { PREFIX, db, deleteVitestModules, moduleFixture } from '@/test/moduleFixture'
 import { chooseRowMenuItem, findRow } from '@/test/menu'
 import { testToken } from '@/test/session'
 import { disableCollector } from '@/i18n/missing'
@@ -161,5 +161,52 @@ describe('EntityView — edit_mode', () => {
     // The page, not an overlay: the record's child buttons are on it and no dialog opened.
     await screen.findByRole('button', { name: `${roles.children![0].plural_label_parent || roles.children![0].plural_label}...` })
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * A child button on the standalone page saves the record and opens that child,
+ * filtered to it. Editing an existing record always did; a new record has no id
+ * until the save returns, and the page used to give up and go back to the grid.
+ * `roles` is `_core`, so it is on every backend, and it has children.
+ */
+describe('EntityView — the standalone create page', () => {
+  const roleName = `${PREFIX}role_${crypto.randomUUID().slice(0, 8)}`
+
+  beforeEach(async () => {
+    await bootApp()
+    disableCollector()
+  })
+
+  afterEach(async () => {
+    await db(`/roles?role_name=eq.${encodeURIComponent(roleName)}`, { method: 'DELETE' })
+  })
+
+  it('opens the child for the record it just created, as editing does', async () => {
+    const roles = await callRpc<EntityMetadata>('get_schema', { p_table_name: 'roles' }, testToken())
+    const child = roles.children![0]
+    const childButton = `${child.plural_label_parent || child.plural_label}...`
+    const roleNameLabel = String(roles.properties?.role_name?.title ?? 'role_name')
+
+    const ui = userEvent.setup()
+    const { router } = renderInApp(
+      <EntityView moduleId="admin" table_name="roles" recordId="" metadata={roles} />,
+      { initialEntries: ['/admin/roles/new'], anyPath: true },
+    )
+
+    await ui.type(await screen.findByLabelText(new RegExp(`^${roleNameLabel}`)), roleName)
+    await ui.click(screen.getByRole('button', { name: childButton }))
+
+    const created = await waitFor(async () => {
+      const rows = (await (await db(`/roles?select=id&role_name=eq.${encodeURIComponent(roleName)}`)).json()) as { id: unknown }[]
+      expect(rows).toHaveLength(1)
+      return rows[0]
+    })
+    await waitFor(() => {
+      expect(router.history.location.pathname).toBe(`/admin/${child.id.split('.')[0]}`)
+      const search = new URLSearchParams(router.history.location.search)
+      expect(search.get('_pf')).toBe(child.id)
+      expect(search.get('_pv')).toBe(String(created.id))
+    })
   })
 })

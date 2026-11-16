@@ -1271,6 +1271,8 @@ Turbo runs in **strict env mode** and strips any env var not declared in `turbo.
 
 ## Testing
 
+**Translation tests rely only on `_core`.** `_core` (slug `admin`) is the only module every deployment has, so a test about translations reads only `_core` entities from the tenant; `tenantTranslations.test.tsx` uses `roles` for that reason. Regular tests may use `nwind`.
+
 ### Load / performance tests (`apps/load-tests`)
 
 k6 load tests live in `apps/load-tests` (an **app**, not a package — it exports nothing, it's run standalone via `k6 run`). k6 runs on its own JS runtime (goja), **not Node**, so it cannot `import` `scripts/mint-token.mjs`; `lib/auth.js` reimplements the same `client_credentials` exchange natively, reading `SEMANTIUS_API_KEY` / `VITE_CONTROL_PLANE_ORG` from `__ENV`.
