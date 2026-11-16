@@ -2,9 +2,10 @@
  * JsonLogic operators understood by the Semantius backend.
  *
  * Mirrors `evaluate_json_logic(rule jsonb, data jsonb)` in the semantius repo. The
- * function is defined in apps/_core/migrations/0015_jsonlogic.sql and REPLACED in
- * full by apps/_core/migrations/0210_raci.sql, so the later definition is the one
- * that runs. Keep this table in step with that definition:
+ * function has one definition, in apps/_core/migrations/0050_jsonlogic.sql, and it
+ * holds every operator; `is_raci_actor` and `has_consultation` call the functions
+ * of those names in apps/_core/migrations/0370_raci.sql. Keep this table in step
+ * with that definition:
  * src/__tests__/jsonlogic-backend-sync.test.ts fails when the two disagree.
  *
  * Argument counts follow the backend's behaviour, and are errors where a rule is
@@ -105,7 +106,7 @@ export const JSONLOGIC_OPERATORS: Readonly<Record<string, OperatorSpec>> = {
 };
 
 /**
- * Variables the backend injects into the rule data (0180_computed_validation.sql):
+ * Variables the backend injects into the rule data (0210_computed_validation.sql):
  * `$today`, `$now`, `$user_id` everywhere; `$old` and `$mode` for computed fields
  * and validation rules. Any other `$` name resolves to null.
  */
@@ -114,7 +115,7 @@ export const RESERVED_VARIABLES: readonly string[] = ['$today', '$now', '$user_i
 /** `throw_error` parameter names the backend reserves for the error hint. */
 export const RESERVED_ERROR_PARAMETERS: readonly string[] = ['hint', 'code', 'entity', 'rule', 'field'];
 
-/** RACI letters accepted by `is_raci_actor` (raci_assignments.raci enum in 0210_raci.sql). */
+/** RACI letters accepted by `is_raci_actor` (raci_assignments.raci enum in 0350_raci.jsonc). */
 export const RACI_LETTERS: readonly string[] = ['responsible', 'accountable', 'consulted', 'informed'];
 
 /** Units of `date_add`, `date_diff` and `date_trunc`. The sync test compares this with the backend. */

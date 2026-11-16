@@ -136,11 +136,31 @@ describe('collectSetRecordLookups', () => {
 const backendDir = process.env.SEMANTIUS_BACKEND_DIR ?? resolve(__dirname, '../../../../../semantius')
 const fixturePath = resolve(backendDir, 'apps/test/tests/0100_test_jsonlogic.json')
 const DATE_OPERATORS = new Set(['date_add', 'date_diff', 'date_part', 'date_trunc', 'to_date', 'date_format'])
+const NUMBER_OPERATORS = new Set(['+', '-', '*', '/', '%', 'max', 'min', '<', '<=', '>', '>='])
+const backendCorpus = existsSync(fixturePath) ? (JSON.parse(readFileSync(fixturePath, 'utf8')) as unknown[]) : []
 
 // The answers the backend is held to, read from its own fixture so the two cannot drift.
-const backendDateCases = (existsSync(fixturePath) ? (JSON.parse(readFileSync(fixturePath, 'utf8')) as unknown[]) : []).filter(
-  (entry): entry is [Record<string, unknown>, Record<string, unknown>, unknown] =>
-    Array.isArray(entry) && DATE_OPERATORS.has(Object.keys(entry[0] ?? {})[0] ?? ''),
+function backendCases(operators: Set<string>) {
+  return backendCorpus.filter(
+    (entry): entry is [Record<string, unknown>, Record<string, unknown>, unknown] =>
+      Array.isArray(entry) && operators.has(Object.keys(entry[0] ?? {})[0] ?? ''),
+  )
+}
+
+const backendDateCases = backendCases(DATE_OPERATORS)
+const backendNumberCases = backendCases(NUMBER_OPERATORS)
+
+describe.skipIf(backendNumberCases.length === 0 && process.env.SEMANTIUS_BACKEND_REQUIRED !== '1')(
+  'arithmetic and ordering give the answers the backend gives',
+  () => {
+    it('finds the backend fixture', () => {
+      expect(backendNumberCases.length).toBeGreaterThan(50)
+    })
+
+    it.each(backendNumberCases)('%j', (rule, data, expected) => {
+      expect(applyJsonLogic(rule, data)).toEqual(expected)
+    })
+  },
 )
 
 describe.skipIf(backendDateCases.length === 0 && process.env.SEMANTIUS_BACKEND_REQUIRED !== '1')(
@@ -185,8 +205,21 @@ describe('date operators refuse what the backend refuses', () => {
     [{ date_add: ['2026-01-01', '1 day'] }],
     [{ date_add: ['2026-01-01', '-P1D'] }],
     [{ date_add: ['2026-01-01', 'P1.5D'] }],
+    [{ date_add: ['0000-01-01', 1, 'day'] }],
+    [{ date_add: ['2026-01-01T00:00:00+16:00', 1, 'day'] }],
   ])('%j', (rule) => {
     expect(() => applyJsonLogic(rule, {})).toThrow()
+  })
+
+  // What PostgreSQL's timestamp cast accepts at its edges, which the backend reads through.
+  it.each([
+    [{ date_add: ['2026-01-01T24:00', 1, 'day'] }, '2026-01-03T00:00:00+00:00'],
+    [{ date_part: ['2026-01-01T12:59:60', 'minute'] }, 0],
+    [{ date_trunc: ['2026-01-01T23:59:59.9999999', 'day'] }, '2026-01-02T00:00:00+00:00'],
+    [{ to_date: ['2026-01-01T24:00:00'] }, '2026-01-02'],
+    [{ date_add: ['2026-01-01T00:00:00+15:59', 1, 'hour'] }, '2025-12-31T09:01:00+00:00'],
+  ])('%j gives %j, as the backend does', (rule, expected) => {
+    expect(applyJsonLogic(rule, {})).toBe(expected)
   })
 
   it('leaves the field unchanged, because the form catches the refusal', () => {
@@ -229,6 +262,155 @@ describe('arithmetic refuses a result that is not a finite number, as the backen
     expect(
       evaluateComputedFields([{ name: 'ratio', jsonlogic: { '/': [{ var: 'a' }, { var: 'b' }] } }], { a: 1, b: 0 }),
     ).toEqual({})
+  })
+})
+
+describe('arithmetic reads an operand as the backend does', () => {
+  const OPERATORS = ['+', '-', '*', '/', '%', 'max', 'min']
+
+  it.each(OPERATORS)('%s refuses text that is no number', (operator) => {
+    expect(() => applyJsonLogic({ [operator]: ['abc', 1] }, {})).toThrow(`90920: ${operator} has no finite result`)
+    expect(() => applyJsonLogic({ [operator]: [1, 'abc'] }, {})).toThrow(`90920: ${operator} has no finite result`)
+  })
+
+  it.each(OPERATORS)('%s refuses text that only starts with a number', (operator) => {
+    expect(() => applyJsonLogic({ [operator]: ['12abc', 1] }, {})).toThrow(`90920: ${operator} has no finite result`)
+  })
+
+  it.each([
+    [{ '+': [null, 1] }, 1],
+    [{ '+': ['', 1] }, 1],
+    [{ '+': ['  ', 1] }, 1],
+    [{ '+': [{ var: 'missing' }, 1] }, 1],
+    [{ '-': [5, null] }, 5],
+    [{ '-': ['', 5] }, -5],
+    [{ '*': [null, 5] }, 0],
+    [{ '*': [5, ''] }, 0],
+    [{ '/': [null, 5] }, 0],
+    [{ '/': ['', 5] }, 0],
+    [{ '%': [null, 5] }, 0],
+    [{ '%': ['', 5] }, 0],
+    [{ max: [null, -1] }, 0],
+    [{ max: ['', -1] }, 0],
+    [{ min: [null, 1] }, 0],
+    [{ min: ['', 1] }, 0],
+  ])('%j counts null and blank text as 0 and gives %j', (rule, expected) => {
+    expect(applyJsonLogic(rule, {})).toBe(expected)
+  })
+
+  it.each([
+    [{ '+': ['1.5', '2'] }, 3.5],
+    [{ '-': ['5', '2'] }, 3],
+    [{ '*': ['3', '4'] }, 12],
+    [{ '/': ['6', '3'] }, 2],
+    [{ '%': ['7', '4'] }, 3],
+    [{ max: ['2', '10'] }, 10],
+    [{ min: ['2', '10'] }, 2],
+    [{ '+': [' 12 ', 1] }, 13],
+    [{ '+': ['1e2', 1] }, 101],
+    [{ '+': ['0x10', '0o17', '0b11'] }, 34],
+  ])('%j computes with the number the text carries and gives %j', (rule, expected) => {
+    expect(applyJsonLogic(rule, {})).toBe(expected)
+  })
+
+  it.each([[{ '+': ['-0x10', 1] }], [{ '+': ['1e999', 1] }], [{ '*': ['abc'] }]])('%j is refused', (rule) => {
+    expect(() => applyJsonLogic(rule, {})).toThrow(/^90920/)
+  })
+
+  it.each([
+    [{ '+': [[1, 2], 3] }, {}, 3],
+    [{ '+': [[5], 1] }, {}, 1],
+    [{ '+': [[], 1] }, {}, 1],
+    [{ '+': [{ var: 'o' }, 1] }, { o: { a: 1 } }, 1],
+    [{ '*': [{ var: 'o' }, 5] }, { o: [2] }, 0],
+  ])('%j counts an array or an object as 0', (rule, data, expected) => {
+    expect(applyJsonLogic(rule, data)).toBe(expected)
+  })
+
+  it.each([
+    [{ '+': ['2026-01-01', 1] }, 1767225601],
+    [{ '-': ['2026-01-02', '2026-01-01'] }, 86400],
+    [{ '-': ['2026-01-01 10:00', '2026-01-01'] }, 36000],
+    [{ '-': ['2026-01-01T10:00:30', '2026-01-01'] }, 36030],
+    [{ '-': ['2026-01-01T01:00:00+01:00', '2026-01-01'] }, 0],
+    [{ '-': ['2026-01-01T00:00:00-0230', '2026-01-01'] }, 9000],
+    [{ '-': ['2026-01-01T00:00:00Z', '2026-01-01'] }, 0],
+    [{ '-': ['2026-01-01T00:00:00.5Z', '2026-01-01'] }, 0.5],
+    [{ '-': ['2024-03-01', '2024-02-28'] }, 2 * 86400],
+    [{ '-': ['2000-02-29', '2000-02-28'] }, 86400],
+    // The limits of PostgreSQL's timestamp cast, which the backend reads through.
+    [{ '-': ['2026-01-01T24:00', '2026-01-02'] }, 0],
+    [{ '-': ['2026-01-01T24:00:00.0', '2026-01-02'] }, 0],
+    [{ '-': ['2026-01-01T12:59:60', '2026-01-01T13:00'] }, 0],
+    [{ '-': ['2026-01-01T23:59:59.9999999', '2026-01-02'] }, 0],
+    [{ '-': ['2026-01-01T00:00:00+15:59', '2026-01-01'] }, -57540],
+    [{ '-': ['2026-01-01T00:00:00+05', '2026-01-01'] }, -18000],
+    [{ '+': ['0001-01-01', 0] }, -62135596800],
+  ])('%j reads ISO date text as its UTC epoch seconds and gives %j', (rule, expected) => {
+    expect(applyJsonLogic(rule, {})).toBe(expected)
+  })
+
+  it('rounds a fraction to microseconds, as PostgreSQL stores it', () => {
+    // The server's numeric is exact. A double at epoch magnitude carries about seven
+    // decimal places, so the browser's value is the same to the microsecond.
+    expect(applyJsonLogic({ '-': ['2026-01-01T00:00:00.1234567', '2026-01-01'] }, {})).toBeCloseTo(0.123457, 6)
+  })
+
+  it.each([
+    [{ '+': ['2026-02-30', 1] }],
+    [{ '+': ['2025-02-29', 1] }],
+    [{ '+': ['1900-02-29', 1] }],
+    [{ '+': ['2026-13-01', 1] }],
+    [{ '+': ['0000-01-01', 1] }],
+    [{ '+': ['2026-01-01T24:00:01', 1] }],
+    [{ '+': ['2026-01-01T24:00:00.000001', 1] }],
+    [{ '+': ['2026-01-01T10:60', 1] }],
+    [{ '+': ['2026-01-01T23:59:61', 1] }],
+    [{ '+': ['2026-01-01T23:59:60.5', 1] }],
+    [{ '+': ['2026-01-01T00:00:00+16:00', 1] }],
+    [{ '+': ['2026-01-01T00:00:00+05:99', 1] }],
+    [{ '+': ['2026-01-01x', 1] }],
+    [{ '+': [' 2026-01-01', 1] }],
+    [{ '+': ['2026-1-01', 1] }],
+  ])('%j refuses date text that names no date', (rule) => {
+    expect(() => applyJsonLogic(rule, {})).toThrow('90920: + has no finite result')
+  })
+
+  it('computes a field from an input left empty, and leaves it unchanged for a mistyped one', () => {
+    const entries = [{ name: 'amount', jsonlogic: amountRule }]
+    expect(evaluateComputedFields(entries, { quantity: '', unit_price: 10, discount: null })).toEqual({ amount: 0 })
+    expect(evaluateComputedFields(entries, { quantity: '2x', unit_price: 10, discount: 0 })).toEqual({})
+  })
+
+  it('computes a field from two date inputs', () => {
+    const entries = [{ name: 'seconds', jsonlogic: { '-': [{ var: 'ends_on' }, { var: 'starts_on' }] } }]
+    expect(evaluateComputedFields(entries, { starts_on: '2026-01-01', ends_on: '2026-01-08' })).toEqual({ seconds: 7 * 86400 })
+  })
+})
+
+describe('ordering reads its operands as the backend does', () => {
+  it.each([
+    [{ '>=': ['2026-01-01', 0] }, true],
+    [{ '<': ['2026-01-01', 1767225601] }, true],
+    [{ '<': [1767225599, '2026-01-01T00:00:00Z'] }, true],
+    [{ '>': ['2026-01-01T01:00:00+01:00', 1767225599] }, true],
+    [{ '<': ['2026-02-30', 1e12] }, false],
+    [{ '>': ['2026-02-30', -1] }, false],
+    [{ '<': [[5], 1] }, true],
+    [{ '>': [[5], 1] }, false],
+    [{ '<': [{ var: 'o' }, 1] }, true],
+    [{ '<': [true, 2] }, true],
+    [{ '>': [false, -1] }, true],
+    [{ '<': [1, 2, null] }, false],
+    [{ '<=': [0, null, 0] }, true],
+    [{ '>': [3, 2, 9] }, true],
+  ])('%j gives %j', (rule, expected) => {
+    expect(applyJsonLogic(rule, { o: { a: 1 } })).toBe(expected)
+  })
+
+  it('compares two date strings as text, as the backend does', () => {
+    expect(applyJsonLogic({ '<': ['2026-01-01T00:00:00Z', '2026-01-01'] }, {})).toBe(false)
+    expect(applyJsonLogic({ '<': ['2026-01-01', '2026-01-02'] }, {})).toBe(true)
   })
 })
 

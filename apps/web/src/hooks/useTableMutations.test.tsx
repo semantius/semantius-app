@@ -3,7 +3,7 @@ import { renderHook, waitFor } from '@testing-library/react'
 import { useCreateRecord, useUpdateRecord, useDeleteRecord } from './useTableMutations'
 import { appWrapper, bootApp } from '@/test/appHarness'
 import { disableCollector } from '@/i18n/missing'
-import { PREFIX, db, deleteVitestModules, moduleFixture as sharedModuleFixture } from '@/test/moduleFixture'
+import { TABLE_PREFIX, db, deleteVitestModules, moduleFixture as sharedModuleFixture } from '@/test/moduleFixture'
 
 /**
  * The three mutation hooks against the real tenant.
@@ -242,7 +242,7 @@ describe('useTableMutations', () => {
 
     it('deleting a module deletes the entities that belong to it', async () => {
       const row = await createModule()
-      const tableName = `${PREFIX}entity_${crypto.randomUUID().slice(0, 8)}`
+      const tableName = `${TABLE_PREFIX}entity_${crypto.randomUUID().slice(0, 8)}`
       const created = await db('/entities', {
         method: 'POST',
         body: JSON.stringify({
@@ -257,7 +257,7 @@ describe('useTableMutations', () => {
           managed: false,
         }),
       })
-      expect(created.ok).toBe(true)
+      expect(created.ok, await created.clone().text()).toBe(true)
 
       const { result } = renderHook(() => useDeleteRecord(TABLE), { wrapper: appWrapper })
       result.current.mutate(row.id as number)
@@ -274,7 +274,7 @@ describe('useTableMutations', () => {
   describe('the schema cache', () => {
     it('is refreshed after a mutation on a schema table', async () => {
       const row = await createModule()
-      const tableName = `${PREFIX}entity_${crypto.randomUUID().slice(0, 8)}`
+      const tableName = `${TABLE_PREFIX}entity_${crypto.randomUUID().slice(0, 8)}`
 
       // Resource timing is the browser's own record of what it fetched — a real
       // observation, and the only one available here: `refreshSchemaCache` calls

@@ -19,7 +19,7 @@ import { DATE_DURATION, DATE_FORMAT_PATTERN, DATE_FORMAT_TOKEN, DATE_PARTS, DATE
 
 const SECONDS_PER_DAY = 86_400
 const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/
-const DATE_TIME = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?(Z|[+-]\d{2}(?::?\d{2})?)?$/
+const DATE_TIME = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(\.\d+)?)?(Z|[+-]\d{2}(?::?\d{2})?)?$/
 const WHOLE_NUMBER_TEXT = /^-?\d+(?:\.0+)?$/
 const SUB_DAY = new Set(['hour', 'minute', 'second'])
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
@@ -86,36 +86,82 @@ const civilOf = (epoch: number): Civil => civilFromDays(daysOf(epoch))
 /** Monday is 1, as in ISO 8601. 1970-01-01 was a Thursday. */
 const weekdayOf = (epoch: number): number => ((((daysOf(epoch) + 3) % 7) + 7) % 7) + 1
 
-function dayEpoch(operator: string, value: string, year: number, month: number, day: number): number {
-  if (month < 1 || month > 12 || day < 1 || day > daysInMonth(year, month)) refuse('22008', operator, value)
-  return daysFromCivil(year, month, day) * SECONDS_PER_DAY
-}
-
-function offsetSeconds(offset: string | undefined): number {
+/** Seconds east of UTC, or null past what PostgreSQL accepts (±15:59). */
+function offsetSeconds(offset: string | undefined): number | null {
   if (!offset || offset === 'Z') return 0
   const digits = offset.slice(1).replace(':', '')
-  const seconds = Number(digits.slice(0, 2)) * 3600 + Number(digits.slice(2) || 0) * 60
+  const hours = Number(digits.slice(0, 2))
+  const minutes = Number(digits.slice(2) || 0)
+  if (hours > 15 || minutes > 59) return null
+  const seconds = hours * 3600 + minutes * 60
   return offset.startsWith('-') ? -seconds : seconds
+}
+
+/** A text of a date shape that names no such date or time, such as 2026-02-30. */
+const IMPOSSIBLE = Symbol('impossible')
+
+/**
+ * The instant an ISO 8601 date or date-time text names, read the way the backend
+ * reads it: a date is UTC midnight, a date-time without an offset is UTC, an offset
+ * moves the instant. `fraction` is the part of a second, kept apart because the
+ * date operators drop it and arithmetic does not. Undefined for text of no such shape.
+ *
+ * The backend's shape is checked by a regular expression and the value by
+ * PostgreSQL's timestamp cast, so these are that cast's limits, measured on
+ * PostgreSQL 18: year 0001 and later; 24:00:00 as the next midnight, with no
+ * fraction; second 60 at any minute, with no fraction, as the next minute; an
+ * offset up to ±15:59; a fraction rounded to microseconds before any of that,
+ * so 23:59:59.9999999 is the next midnight.
+ */
+function momentOf(value: string): (Moment & { fraction: number }) | typeof IMPOSSIBLE | undefined {
+  const date = DATE_ONLY.exec(value)
+  if (date) {
+    const [year, month, day] = [Number(date[1]), Number(date[2]), Number(date[3])]
+    if (!isCalendarDate(year, month, day)) return IMPOSSIBLE
+    return { epoch: daysFromCivil(year, month, day) * SECONDS_PER_DAY, fraction: 0, dateOnly: true }
+  }
+  const moment = DATE_TIME.exec(value)
+  if (!moment) return undefined
+  const [year, month, day] = [Number(moment[1]), Number(moment[2]), Number(moment[3])]
+  const hour = Number(moment[4])
+  const minute = Number(moment[5])
+  const second = Number(moment[6] ?? 0)
+  const rounded = moment[7] ? Math.round(Number(moment[7]) * 1e6) / 1e6 : 0
+  const endOfDay = hour === 24 && minute === 0 && second === 0 && rounded === 0
+  const leapSecond = second === 60 && rounded === 0
+  const offset = offsetSeconds(moment[8])
+  if (!isCalendarDate(year, month, day) || (hour > 23 && !endOfDay) || minute > 59 || (second > 59 && !leapSecond) || offset === null) {
+    return IMPOSSIBLE
+  }
+  // A fraction rounded up to a whole second carries into the seconds.
+  const carry = Math.floor(rounded)
+  const epoch = daysFromCivil(year, month, day) * SECONDS_PER_DAY + hour * 3600 + minute * 60 + second + carry
+  return { epoch: epoch - offset, fraction: rounded - carry, dateOnly: false }
+}
+
+function isCalendarDate(year: number, month: number, day: number): boolean {
+  return year >= 1 && month >= 1 && month <= 12 && day >= 1 && day <= daysInMonth(year, month)
 }
 
 /** Fractions of a second are dropped on the way in, as the backend does. */
 function parseMoment(operator: string, value: unknown): Moment {
   if (typeof value === 'string') {
-    const date = DATE_ONLY.exec(value)
-    if (date) {
-      return { epoch: dayEpoch(operator, value, Number(date[1]), Number(date[2]), Number(date[3])), dateOnly: true }
-    }
-    const moment = DATE_TIME.exec(value)
-    if (moment) {
-      const hour = Number(moment[4])
-      const minute = Number(moment[5])
-      const second = Number(moment[6] ?? 0)
-      if (hour > 23 || minute > 59 || second > 59) refuse('22008', operator, value)
-      const day = dayEpoch(operator, value, Number(moment[1]), Number(moment[2]), Number(moment[3]))
-      return { epoch: day + hour * 3600 + minute * 60 + second - offsetSeconds(moment[7]), dateOnly: false }
-    }
+    const moment = momentOf(value)
+    if (moment === IMPOSSIBLE) refuse('22008', operator, value)
+    if (moment) return { epoch: moment.epoch, dateOnly: moment.dateOnly }
   }
   return refuse('90915', operator, value)
+}
+
+/**
+ * The number an ISO 8601 date or date-time text is to arithmetic and ordering: its
+ * UTC epoch seconds, the fraction kept, as the backend's jl_try_number reads it (a
+ * Semantius extension; JavaScript makes NaN of it). Null for any other text and for
+ * a date that does not exist, which the backend reads as no number either.
+ */
+export function epochSecondsOf(value: string): number | null {
+  const moment = momentOf(value)
+  return moment === undefined || moment === IMPOSSIBLE ? null : moment.epoch + moment.fraction
 }
 
 function render(epoch: number, dateOnly: boolean): string {

@@ -21,6 +21,17 @@ export const PREFIX = '_vitest_'
 export const SLUG_PREFIX = 'vitest_'
 
 /**
+ * Every entity table a test creates starts with it. It cannot be `PREFIX`: the
+ * backend refuses an entity `table_name` starting with `_` (90271, the mark of an
+ * internal table). Two more limits apply to a fixture name: at most 41 bytes
+ * (90273), and table name + field name + 10 bytes at most 63 (90276, the
+ * generated `<table>_<field>_not_null`). Error codes: the backend's
+ * docs/error-contract.md. The entity's module still carries `PREFIX`, which is
+ * what cleanup deletes by.
+ */
+export const TABLE_PREFIX = 'vitest_'
+
+/**
  * A translation key minted from fixture data: `module.<fixture slug>.…` — the
  * module's own name and description, and every entity and field a test built
  * inside it. Discovery must never record one (`ignoreKeys` in setup.browser.ts):

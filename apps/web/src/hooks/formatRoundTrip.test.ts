@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { getApiConfig } from '@/lib/apiClient'
 import { getConfig, initConfig } from '@/lib/config'
 import { testToken } from '@/test/session'
-import { PREFIX, SLUG_PREFIX } from '@/test/moduleFixture'
+import { PREFIX, SLUG_PREFIX, TABLE_PREFIX } from '@/test/moduleFixture'
 import { encodeBytes, decodeBytes } from '@/lib/fileEncoding'
 
 /**
@@ -59,7 +59,7 @@ beforeAll(async () => {
   baseUrl = getApiConfig().baseUrl
   const suffix = crypto.randomUUID().slice(0, 8)
   const slug = SLUG_PREFIX + suffix
-  table = PREFIX + 'fmt_' + suffix
+  table = TABLE_PREFIX + 'fmt_' + suffix
 
   const modRes = await db('/modules', {
     method: 'POST',
@@ -90,7 +90,7 @@ beforeAll(async () => {
       managed: true,
     }),
   })
-  expect(entRes.ok).toBe(true)
+  expect(entRes.ok, await entRes.clone().text()).toBe(true)
 
   for (const [field_name, format] of FIELDS) {
     const res = await db('/fields', {

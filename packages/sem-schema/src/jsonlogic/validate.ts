@@ -273,7 +273,7 @@ function checkArguments(
   }
 }
 
-/** Mirrors the checks `throw_error` makes when it raises (0210_raci.sql). */
+/** Mirrors the checks `throw_error` makes when it raises (0050_jsonlogic.sql). */
 function checkThrowError(args: JsonValue[], argPath: (index: number) => string, issues: JsonLogicIssue[]): void {
   if (args.length > 1 && !isOperation(args[1])) {
     const code = args[1];

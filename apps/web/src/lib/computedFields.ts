@@ -12,7 +12,7 @@
  * `is_raci_actor`, `has_consultation`) stays unknown here and throws.
  */
 import jsonLogic, { type RulesLogic } from 'json-logic-js'
-import { registerDateOperators } from '@/lib/jsonLogicDates'
+import { epochSecondsOf, registerDateOperators } from '@/lib/jsonLogicDates'
 import { ruleUserHasPermission, withRuleContext } from '@/lib/ruleContext'
 
 export interface ComputedField {
@@ -43,25 +43,78 @@ jsonLogic.add_operation('is_match', function isMatch(value: unknown, pattern: un
   return new RegExp(String(pattern)).test(String(value))
 })
 
+// The number a text carries, as the server's jl_try_number reads it: what Number()
+// makes of it (blank text is 0), else the epoch seconds of an ISO date or date-time.
+// Null for text that carries no number ("abc", "12abc", "2026-02-30").
+function numberOfText(text: string): number | null {
+  const number = Number(text)
+  return Number.isNaN(number) ? epochSecondsOf(text) : number
+}
+
+// The number an arithmetic operator computes with, read as the server's jl_operand
+// reads it: null is 0, as a field left empty is no mistake, and so is an array or
+// an object (Number() would make 5 of [5]). Text that carries no number is NaN,
+// which every operator below carries into its result, so it is refused there.
+function operand(value: unknown): number {
+  if (value === null || value === undefined || typeof value === 'object') return 0
+  if (typeof value === 'string') return numberOfText(value) ?? NaN
+  return Number(value)
+}
+
 // The server refuses an arithmetic result that is not a finite number with 90920:
 // JSON has no Infinity and no NaN. Each operator below computes what json-logic-js
-// computes and throws in that case, so the form leaves the field unchanged, as it
-// does for every rule that throws.
+// computes over those operands and throws in that case, so the form leaves the
+// field unchanged, as it does for every rule that throws.
 function refuseNonFiniteResult(operator: string, compute: (...args: any[]) => unknown): void {
   jsonLogic.add_operation(operator, function arithmetic(...args: unknown[]) {
-    const result = compute(...args)
+    const result = compute(...args.map(operand))
     if (!Number.isFinite(result)) throw new Error(`90920: ${operator} has no finite result`)
     return result
   })
 }
 
-refuseNonFiniteResult('+', (...args) => args.reduce((a, b) => parseFloat(a) + parseFloat(b), 0))
-refuseNonFiniteResult('*', (...args) => args.reduce((a, b) => parseFloat(a) * parseFloat(b)))
+refuseNonFiniteResult('+', (...args) => args.reduce((a, b) => a + b, 0))
+refuseNonFiniteResult('*', (...args) => args.reduce((a, b) => a * b))
 refuseNonFiniteResult('-', (a, b) => (b === undefined ? -a : a - b))
 refuseNonFiniteResult('/', (a, b) => a / b)
 refuseNonFiniteResult('%', (a, b) => a % b)
 refuseNonFiniteResult('max', (...args) => Math.max(...args))
 refuseNonFiniteResult('min', (...args) => Math.min(...args))
+
+// Ordering as the server orders (evaluate_json_logic, the < > <= >= branch). Two
+// strings compare as text, by code unit. Otherwise each side is a number: text
+// through numberOfText, so an ISO date orders by its instant, and anything else as
+// the server's jl_to_number reads it (null, an array and an object are 0). Text that
+// carries no number makes the comparison false, as NaN does in JavaScript.
+function compare(a: unknown, b: unknown): number | null {
+  if (typeof a === 'string' && typeof b === 'string') return a < b ? -1 : a > b ? 1 : 0
+  const x = orderingNumber(a)
+  const y = orderingNumber(b)
+  if (x === null || y === null) return null
+  return x < y ? -1 : x > y ? 1 : 0
+}
+
+function orderingNumber(value: unknown): number | null {
+  if (typeof value === 'string') return numberOfText(value)
+  if (value === null || value === undefined || typeof value === 'object') return 0
+  return Number(value)
+}
+
+function ordering(operator: string, holds: (order: number) => boolean, between: boolean): void {
+  jsonLogic.add_operation(operator, function order(a: unknown, b: unknown, c?: unknown) {
+    const ab = compare(a, b)
+    if (ab === null || !holds(ab)) return false
+    // < and <= take a third argument as a range, a < b < c; > and >= ignore it.
+    if (!between || c === undefined) return true
+    const bc = compare(b, c)
+    return bc !== null && holds(bc)
+  })
+}
+
+ordering('<', (order) => order < 0, true)
+ordering('<=', (order) => order <= 0, true)
+ordering('>', (order) => order > 0, false)
+ordering('>=', (order) => order >= 0, false)
 
 registerDateOperators()
 

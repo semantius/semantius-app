@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { SchemaObject } from 'ajv'
 import { AppHarness, bootApp } from '@/test/appHarness'
-import { PREFIX, db } from '@/test/moduleFixture'
+import { PREFIX, TABLE_PREFIX, db } from '@/test/moduleFixture'
 import { testToken } from '@/test/session'
 import { callRpc } from '@/lib/apiClient'
 import { canEditEntity } from '@/lib/permissions'
@@ -29,8 +29,11 @@ import { SchemaForm } from '../SchemaForm'
  * A row the control's listbox shows, with a label no other row in it shares.
  *
  * The same select, order and page size the control asks for when opened with
- * no search term, so the row is on screen. Rows other test files write carry
- * `_vitest_` and can be deleted while this one runs; they are skipped.
+ * no search term, so the row is on screen. Rows other test files write can be
+ * deleted while this one runs, so they are skipped: a module carries `_vitest_`
+ * in its name, and an entity is known by its table name, which starts with
+ * `vitest_` (an entity's table name cannot start with `_`) while its label is
+ * plain text like "Probe".
  */
 async function pickableRow(property: JsonSchemaProperty): Promise<{ key: unknown; label: string }> {
   const table = String(property.reference_table)
@@ -45,6 +48,7 @@ async function pickableRow(property: JsonSchemaProperty): Promise<{ key: unknown
     return label !== ''
       && !label.includes(PREFIX)
       && !String(candidate[idCol]).includes(PREFIX)
+      && !String(candidate[idCol]).startsWith(TABLE_PREFIX)
       && labels.indexOf(label) === labels.lastIndexOf(label)
   })
   if (!row) throw new Error(`no row in ${table} with a unique, non-empty ${labelCol}`)
