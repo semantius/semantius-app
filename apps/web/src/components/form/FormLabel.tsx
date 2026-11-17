@@ -159,7 +159,10 @@ export function FieldHintPopover({
               data-icon-button=""
               data-i18n-text={description}
               aria-label={t('Extended documentation guide for {label}', { label })}
-              className="-ml-1 text-muted-foreground"
+              // icon-xs is a 24px box (the 2.5.8 minimum target) in a 20px label
+              // row: -my-0.5 lets it overhang by 2px each way instead of growing
+              // the row, which pushed this field's input 4px below its neighbors'.
+              className="-my-0.5 -ml-1 text-muted-foreground"
             />
           )
         }

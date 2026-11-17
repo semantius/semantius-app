@@ -66,6 +66,13 @@ export interface APISelectProps<T> {
   value: string;
   /** Callback when selection changes */
   onChange: (value: string) => void;
+  /**
+   * Called when the user is done with the field: the list closed (for any
+   * reason), a value was chosen, or focus left the trigger while the list was
+   * closed. Focus moving from the trigger into the field's own list is not
+   * leaving it.
+   */
+  onBlur?: () => void;
   /** Label for the select field */
   label: string;
   /** Placeholder text when no selection */
@@ -137,6 +144,7 @@ export function APISelect<T>({
   placeholder,
   value,
   onChange,
+  onBlur,
   disabled = false,
   width = "200px",
   className,
@@ -318,9 +326,10 @@ export function APISelect<T>({
         newValue ? (matchedOption || null) : null
       );
       onChange(newValue);
+      onBlur?.();
       setOpen(false);
     },
-    [selectedValue, onChange, clearable, options, getRecordId]
+    [selectedValue, onChange, onBlur, clearable, options, getRecordId]
   );
 
   const showClearButton = !disabled && !!clearable && !!selectedValue;
@@ -347,7 +356,13 @@ export function APISelect<T>({
   );
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(isOpen) => {
+        setOpen(isOpen);
+        if (!isOpen) onBlur?.();
+      }}
+    >
       {/* The clear button is a SIBLING of the trigger, not one of its children.
           Nesting a <button> inside the trigger <button> is invalid HTML and an
           axe `nested-interactive` (serious) error, and — because the trigger
@@ -377,6 +392,12 @@ export function APISelect<T>({
               aria-labelledby={ariaLabelledBy ? `${ariaLabelledBy} ${triggerId}` : undefined}
               aria-describedby={ariaDescribedBy}
               aria-invalid={ariaInvalid}
+              // Focus leaving the CLOSED trigger. While the list is open, focus
+              // moving off the trigger is focus moving into the list, and the
+              // list's own close reports the blur (onOpenChange above).
+              onBlur={() => {
+                if (!open) onBlur?.();
+              }}
               data-field-surface=""
               className={cn(
                 "w-full cursor-pointer justify-between font-normal pl-3",

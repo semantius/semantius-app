@@ -16,7 +16,12 @@ export function AppLayout() {
   const t = useT()
 
   return (
-    <SidebarProvider className="overflow-x-hidden">
+    // overflow-x-CLIP, not -hidden, here and on #main-content: `hidden` turns the
+    // other axis into `auto`, which makes the element a scroll container. Then
+    // #main-content, which never scrolls, is the form footer's sticky
+    // container, and a long page form's Submit bar never pins. `clip` clips
+    // the same way without creating one.
+    <SidebarProvider className="overflow-x-clip">
       {/* First focusable element in the document — see SkipLink. */}
       <SkipLink />
       <CloseMobileSidebarOnNavigate />
@@ -39,7 +44,7 @@ export function AppLayout() {
         <div
           id={MAIN_CONTENT_ID}
           tabIndex={-1}
-          className="flex flex-1 flex-col gap-4 p-4 pt-0 min-w-0 overflow-x-hidden outline-none"
+          className="flex flex-1 flex-col gap-4 p-4 pt-0 min-w-0 overflow-x-clip outline-none"
         >
           <Outlet />
         </div>

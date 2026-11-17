@@ -1,7 +1,6 @@
 import { format } from "date-fns"
 import { CalendarIcon } from "lucide-react"
 
-import { cn } from "@/lib/utils"
 import {
   InputGroup,
   InputGroupAddon,
@@ -58,8 +57,13 @@ export function DatePicker({
   // input: the group is the same surface every other control uses, it sizes the
   // gutter itself instead of a hand-tuned `pr-10`, and the focus ring wraps the
   // field and its button as one thing.
+  //
+  // No max-width: the form's grid cell decides how wide a date is (a quarter,
+  // `controls.ts`), and the picker fills it like every other control. A cap here
+  // is a second width the grid cannot see, and it leaves the rest of the cell
+  // empty.
   return (
-    <InputGroup className={cn("max-w-[280px]", className)}>
+    <InputGroup className={className}>
       <InputGroupInput
         id={id}
         value={date ? format(date, "PPP", { locale }) : ""}

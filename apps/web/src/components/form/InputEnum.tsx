@@ -141,6 +141,12 @@ export function InputEnum({
                       aria-labelledby={labelledBy(name, label) ? `${labelledBy(name, label)} ${name}` : undefined}
                       aria-invalid={!!field.state.meta.errors?.[0] || undefined}
                       aria-describedby={describedBy(name, { description, error: field.state.meta.errors?.[0], formMode })}
+                      // Focus leaving the CLOSED trigger, the other half of the
+                      // onOpenChange blur above. While the list is open, focus
+                      // moving off the trigger is focus moving into the list.
+                      onBlur={() => {
+                        if (!open) field.handleBlur()
+                      }}
                       disabled={isDisabled}
                       data-field-surface=""
                       className={cn(

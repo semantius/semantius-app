@@ -141,6 +141,7 @@ export function InputReference({
                 placeholder={disabled || readonly ? '' : placeholder}
                 value={toSelectValue(field.state.value)}
                 onChange={(value) => field.handleChange(toFormValue(value))}
+                onBlur={field.handleBlur}
                 disabled={disabled || readonly}
                 clearable={true}
                 width="100%"

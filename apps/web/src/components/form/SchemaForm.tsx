@@ -1,5 +1,5 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { useForm } from '@tanstack/react-form'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { revalidateLogic, useForm } from '@tanstack/react-form'
 import { validateData } from 'sem-schema'
 import { assertSupportedFormats, resolveControl } from './resolveControl'
 import { generateDefaultValue, isSyntheticLabelField } from './formDefaults'
@@ -432,6 +432,71 @@ function validateField(
 }
 
 
+/** The nearest ancestor that scrolls vertically, or `null` for the window. */
+function scrollContainerOf(element: HTMLElement): HTMLElement | null {
+  for (let el = element.parentElement; el && el !== document.body && el !== document.documentElement; el = el.parentElement) {
+    const overflowY = getComputedStyle(el).overflowY
+    if (overflowY === 'auto' || overflowY === 'scroll') return el
+  }
+  return null
+}
+
+/**
+ * D6: once the Submit bar has pinned, it stays at the bottom of its scroll
+ * container until the form unmounts, even when the form gets short enough to
+ * fit again (error lines going away), instead of jumping back up.
+ *
+ * Pinned is what the tests measure: the bar's bottom is the scroll container's
+ * bottom edge while the form continues below it. It is checked on scroll, on
+ * resize and whenever the fields grow. From then on the fields' tallest height
+ * is their `min-height`. It goes on the fields, not on the form: a sticky
+ * `bottom` element is never moved DOWN from where it would be, so room added
+ * after the bar (the form's own min-height) would leave the bar to move up with
+ * the fields; room kept above it holds its place.
+ */
+function useBarStaysPinned(formRef: RefObject<HTMLFormElement | null>, schema: SchemaObject, formMode: FormMode) {
+  useEffect(() => {
+    const form = formRef.current
+    const fields = form?.querySelector<HTMLElement>(':scope > .grid-container')
+    const bar = form?.querySelector<HTMLElement>(':scope > [data-slot="sticky-container"]')
+    if (!form || !fields || !bar) return
+    const container = scrollContainerOf(form)
+    const edge = () => container
+      ? container.getBoundingClientRect().top + container.clientTop + container.clientHeight
+      : document.documentElement.clientHeight
+    let pinned = false
+    let tallest = 0
+
+    const hold = () => {
+      const height = fields.getBoundingClientRect().height
+      if (height <= tallest) return
+      tallest = height
+      fields.style.minHeight = `${tallest}px`
+    }
+    const check = () => {
+      if (pinned) return
+      const bottom = edge()
+      if (Math.abs(bar.getBoundingClientRect().bottom - bottom) <= 1 && form.getBoundingClientRect().bottom > bottom + 1) {
+        pinned = true
+        hold()
+      }
+    }
+
+    const observer = new ResizeObserver(() => (pinned ? hold() : check()))
+    observer.observe(fields)
+    const scroller: HTMLElement | Window = container ?? window
+    scroller.addEventListener('scroll', check, { passive: true })
+    window.addEventListener('resize', check)
+    check()
+    return () => {
+      observer.disconnect()
+      scroller.removeEventListener('scroll', check)
+      window.removeEventListener('resize', check)
+      fields.style.minHeight = ''
+    }
+  }, [formRef, schema, formMode])
+}
+
 /**
  * A field's default display width.
  *
@@ -506,6 +571,7 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
 
   const form = useForm({
     defaultValues: defaultValue,
+    validationLogic: revalidateLogic({ mode: 'blur', modeAfterSubmission: 'change' }),
     onSubmit: async ({ value }) => {
       // Build object with all schema properties for validation
       const cleanedValue: Record<string, any> = {}
@@ -802,6 +868,9 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
     },
   })
 
+  const formRef = useRef<HTMLFormElement>(null)
+  useBarStaysPinned(formRef, schema, formMode)
+
   if (!schema.properties || typeof schema.properties !== 'object') {
     return <div>{t('Invalid schema: no properties defined')}</div>
   }
@@ -829,6 +898,7 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
   return (
     <FormProvider value={formContextValue}>
       <form
+        ref={formRef}
         id={id}
         noValidate
         onSubmit={(e) => {
@@ -842,9 +912,12 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
           // `_validationError` / `_schemaError` banners, which have no validator
           // at all, blocked every later submit: the button did nothing. The
           // validators and the whole-form check below set again what still holds.
+          // That includes `onDynamic`, where the field validators write (see the
+          // validators below): a blur error must not end the attempt either.
           for (const key of [...Object.keys(schema.properties ?? {}), '_validationError', '_schemaError']) {
-            if (!form.getFieldMeta(key)?.errorMap?.onSubmit) continue
-            form.setFieldMeta(key, (meta) => ({ ...meta, errorMap: { ...meta.errorMap, onSubmit: undefined } }))
+            const errorMap = form.getFieldMeta(key)?.errorMap
+            if (!errorMap?.onSubmit && !errorMap?.onDynamic) continue
+            form.setFieldMeta(key, (meta) => ({ ...meta, errorMap: { ...meta.errorMap, onSubmit: undefined, onDynamic: undefined } }))
           }
           form.handleSubmit()
           
@@ -1033,17 +1106,30 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
                     inputMode={inputMode}
                     schema={propSchema as Record<string, unknown>}
                     validators={shouldValidate ? {
-                      // No onBlur validator, because of TanStack Form (form-core
-                      // 1.33.5, FormApi._handleSubmit): on the form's FIRST submit
-                      // attempt, handleSubmit returns before any submit validator,
-                      // and before our onSubmit, if a field already holds an error.
-                      // Pressing Submit blurs the focused field before the click
-                      // lands, so a blur error raised by that press would end the
-                      // attempt with only that one field checked. The reset in
-                      // <form onSubmit> clears onSubmit errors only, not onBlur ones.
+                      // One `onDynamic` validator, run by the form's
+                      // `revalidateLogic({ mode: 'blur', modeAfterSubmission: 'change' })`:
+                      // before the first Submit a field is checked when it is left,
+                      // after one on every keystroke. One validator in one errorMap
+                      // slot, instead of separate onBlur/onChange/onSubmit validators
+                      // whose errors would each have to be cleared on their own.
+                      //
+                      // The reset in <form onSubmit> clears `onDynamic` as well,
+                      // because of TanStack Form (form-core 1.33.5,
+                      // FormApi._handleSubmit): on the FIRST submit attempt it returns
+                      // before running any validator if a field already holds an
+                      // error. Pressing Submit blurs the focused field first, so the
+                      // error that blur raises would otherwise end the attempt with
+                      // only that field checked; so would an error left on a field a
+                      // rule then made readonly, which has no validator to clear it.
+                      //
+                      // The error line that blur adds or removes would also move
+                      // Submit between press and release and lose the click;
+                      // FormError and FormDescription hold it steady during a press
+                      // (pressHold.ts).
+                      //
                       // `inputMode` is the mode the control was drawn with, so the
                       // asterisk and the empty check cannot disagree.
-                      onSubmit: ({ value }) => validateField(value, propSchema, key, t, language, inputMode),
+                      onDynamic: ({ value }) => validateField(value, propSchema, key, t, language, inputMode),
                     } : undefined}
                   />
                   {ruleErrorText && (

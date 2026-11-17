@@ -64,12 +64,12 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      testIgnore: /transient-failures|modal-inert|non-secure-context/,
+      testIgnore: /transient-failures|modal-inert|non-secure-context|form-blur-submit/,
       use: { ...devices['Desktop Chrome'], baseURL: HOST },
     },
     {
       name: 'tenant',
-      testMatch: /transient-failures|modal-inert/,
+      testMatch: /transient-failures|modal-inert|form-blur-submit/,
       use: { ...devices['Desktop Chrome'], baseURL: TENANT_HOST },
     },
     ...(LAN_HOST

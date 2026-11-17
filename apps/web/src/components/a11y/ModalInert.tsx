@@ -41,6 +41,15 @@ import { useEffect } from 'react'
  * stay untouched. `data-open` is removed at the start of the closing
  * transition, so `inert` comes off before Base UI returns focus to the opener
  * inside `#root`; e2e/modal-inert.spec.ts asserts that order holds.
+ *
+ * POPOVERS ARE EXCLUDED. A Base UI Popover popup also carries `role=dialog`,
+ * but it is not modal: a picker's list (reference, enum), the grid's filter
+ * menu. Matched, it made `#root` inert while it was open, so a press on Submit
+ * or on a row link landed on `body` and only closed the popover; the press
+ * itself was lost. Measured on the built app, only the popovers carry
+ * `data-slot="popover-content"` (`ui/popover.tsx`); the modal surfaces carry
+ * `sheet-content`, `dialog-content` and `alert-dialog-content`, and none sets
+ * `aria-modal`. So that slot is what the selector excludes.
  */
 export function ModalInert() {
   useEffect(() => {
@@ -49,7 +58,9 @@ export function ModalInert() {
 
     const apply = () => {
       const open = Array.from(
-        document.querySelectorAll('[role="dialog"][data-open], [role="alertdialog"][data-open]'),
+        document.querySelectorAll(
+          '[role="dialog"][data-open]:not([data-slot="popover-content"]), [role="alertdialog"][data-open]',
+        ),
       ).some((popup) => !root.contains(popup))
       if (open) root.setAttribute('inert', '')
       else root.removeAttribute('inert')

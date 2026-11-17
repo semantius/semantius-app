@@ -98,9 +98,26 @@ export function DateTimePicker({
     }
   }
 
+  // The date box is as wide as the longest date this language can show, not as
+  // wide as the cell: every month of the displayed year is laid into the same
+  // grid area as the real label, invisibly, and the widest one sets the width.
+  // A width taken from the CURRENT value would make two date-times on one form
+  // (Created At over Updated At) differ by however long their month names are,
+  // and jump when a date is picked. Measuring the formatted strings is what makes
+  // it hold in any language — a `ch` figure is right for one font and one locale.
+  const sizerDates = React.useMemo(() => {
+    const year = (date ?? new Date()).getFullYear()
+    return Array.from({ length: 12 }, (_, month) =>
+      format(new Date(year, month, 28), "PPP", { locale })
+    )
+  }, [date, locale])
+
+  // Date box at its content width, the time box packed beside it; whatever is
+  // left of the half-row cell stays empty. `min-w-0` + `truncate` let the date
+  // shrink rather than overflow where a cell is narrower than both together.
   return (
     <div className={cn("flex gap-2", className)}>
-      <div className="grid gap-2 flex-1">
+      <div className="grid min-w-0 gap-2">
         <Popover>
           <PopoverTrigger
             render={
@@ -121,7 +138,7 @@ export function DateTimePicker({
                 // below is a real textbox and does take aria-invalid.
                 data-field-surface=""
                 className={cn(
-                  "w-full justify-start text-left font-normal",
+                  "max-w-full justify-start text-left font-normal",
                   inputSurfaceClassName,
                   !date && "text-muted-foreground",
                   ariaInvalid && "border-destructive ring-3 ring-destructive/20"
@@ -133,7 +150,19 @@ export function DateTimePicker({
             }
           >
             <CalendarIcon className="mr-2 h-4 w-4" />
-            {date ? format(date, "PPP", { locale }) : <span>{t("Select date")}</span>}
+            <span className="grid min-w-0">
+              <span className="truncate [grid-area:1/1]">
+                {date ? format(date, "PPP", { locale }) : t("Select date")}
+              </span>
+              {/* Hidden from the accessibility tree as well as from sight: the
+                  trigger names itself from its own content, and twelve dates
+                  would be read out after the real one. */}
+              {sizerDates.map((text) => (
+                <span key={text} aria-hidden="true" className="invisible truncate [grid-area:1/1]">
+                  {text}
+                </span>
+              ))}
+            </span>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
             <LocalizedCalendar
@@ -144,7 +173,7 @@ export function DateTimePicker({
           </PopoverContent>
         </Popover>
       </div>
-      <div className="grid gap-2 max-w-[160px]">
+      <div className="grid w-40 shrink-0 gap-2">
         <Input
           type="time"
           value={timeValue}

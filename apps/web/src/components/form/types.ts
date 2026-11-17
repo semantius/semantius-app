@@ -18,5 +18,6 @@ export interface FormControlProps {
     onChange?: ({ value }: { value: any }) => string | undefined
     onBlur?: ({ value }: { value: any }) => string | undefined
     onSubmit?: ({ value }: { value: any }) => string | undefined
+    onDynamic?: ({ value }: { value: any }) => string | undefined
   }
 }

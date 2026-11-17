@@ -118,8 +118,10 @@ export const controls: Record<FormatName, FormatEntry> = {
   rating: compact(InputNumber),
 
   // Date and time. All three are typed columns that reject an empty string.
-  date: { control: InputDate, width: 'm', emptyValue: 'null', gridColumn: true },
-  time: { control: InputTime, width: 'm', emptyValue: 'null', gridColumn: true },
+  // A date or a time is one short value, so it takes a quarter like a number
+  // and fills it; a date-time holds both and keeps half.
+  date: { control: InputDate, width: 's', emptyValue: 'null', gridColumn: true },
+  time: { control: InputTime, width: 's', emptyValue: 'null', gridColumn: true },
   'date-time': { control: InputDateTime, width: 'm', emptyValue: 'null', gridColumn: true },
   duration: { control: InputDuration, width: 'm', emptyValue: 'null', gridColumn: true },
 

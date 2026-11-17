@@ -298,10 +298,12 @@
   html {
     @apply font-sans;
     /* 2.4.11 Focus Not Obscured, page level.
-       Two surfaces are sticky over the document scroll: the 4rem app header at
-       the top, and StickyContainer's form action bar at the bottom. Without
-       scroll-padding, a control scrolled into view by Tab lands exactly
-       underneath one of them and is invisible while focused. This is the
+       One surface is sticky over the document scroll: StickyContainer's form
+       action bar at the bottom. The 4rem app header is NOT sticky; it scrolls
+       away with the page, and the top padding only keeps a control scrolled
+       into view from landing flush against the window's top edge. Without the
+       bottom padding, a control scrolled into view by Tab lands exactly
+       underneath the bar and is invisible while focused. This is the
        browser-level lever for it; the equivalent for the data grid's own scroll
        container (sticky header + pinned columns) is computed in
        niko-table/core/data-table.tsx, because those widths are only known at

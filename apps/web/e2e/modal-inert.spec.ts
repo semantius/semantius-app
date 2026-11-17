@@ -13,12 +13,15 @@ import { exchangeApiKeyForToken } from '../src/test/exchangeApiKeyForToken'
  * Base UI returns focus to the opener, or every Escape would drop focus on
  * <body>.
  *
- * It reads Administration's `roles`: the platform's own module exists on every
- * backend, a sample module like Northwind does not. No record id is assumed —
- * the deep link is taken from a row the grid actually rendered.
+ * It reads Administration's `dashboards`: the platform's own module exists on
+ * every backend, a sample module like Northwind does not. No record id is
+ * assumed — the deep link is taken from a row the grid actually rendered.
+ * `dashboards` has no child relations, so its rows open the record Sheet; an
+ * entity with children (`roles`, which this used before) opens a record PAGE
+ * instead since 9292483, and there is no Sheet to test.
  */
 
-const LIST_PATH = '/admin/roles'
+const LIST_PATH = '/admin/dashboards'
 
 let token: string
 

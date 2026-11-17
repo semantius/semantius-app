@@ -76,7 +76,6 @@ export function InputTime({
                 onChange={(e) => field.handleChange(withOffset(e.target.value))}
                 onBlur={field.handleBlur}
                 disabled={disabled || readonly}
-                className="max-w-[160px]"
                 aria-invalid={!!field.state.meta.errors?.[0]}
                 aria-describedby={describedBy(name, { description, error: field.state.meta.errors?.[0], formMode })}
               />
