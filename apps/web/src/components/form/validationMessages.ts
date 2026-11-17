@@ -1,6 +1,6 @@
 import type { ErrorObject } from 'ajv'
 import localizers from 'ajv-i18n'
-import type { TranslateFn } from '@/i18n'
+import { msg, type MessageDescriptor, type TranslateFn } from '@/i18n'
 
 /**
  * Translate the Ajv errors `validateData()` hands back.
@@ -58,7 +58,7 @@ export function localizeValidationErrors(
 
 /**
  * A `json` / `jsonlogic` issue from sem-schema, as opposed to Ajv's own
- * "must match format" for, say, a malformed email.
+ * "must match format" for, say, a malformed date.
  *
  * Both arrive as `keyword: 'format'`; the discriminator is `params.path`, which
  * only sem-schema's json keywords attach. Tested for PRESENCE, not truth: the
@@ -93,17 +93,43 @@ function localizerFor(language: string): Localize | undefined {
 }
 
 /**
- * The messages for sem-schema's own keywords, which Ajv never wrote and
- * `ajv-i18n` therefore cannot translate.
+ * What to enter in a field whose `format` check failed, keyed by format.
+ *
+ * Ajv's own sentence, 'must match format "url"', names the schema keyword
+ * instead of what the person should type, and `ajv-i18n` only translates that
+ * same sentence ("muss dem Format 'url' entsprechen"). Each message here says
+ * what is expected and gives an example. A format not listed keeps Ajv's text.
+ * A Map, not an object literal, so a format name can never resolve to an
+ * inherited property.
+ */
+const FORMAT_MESSAGES = new Map<string, MessageDescriptor>([
+  ['url', msg('Enter a web address starting with https:// (for example https://example.com)')],
+  ['email', msg('Enter an email address (for example name@example.com)')],
+  ['uuid', msg('Enter a UUID (for example 123e4567-e89b-12d3-a456-426614174000)')],
+  ['ipv4', msg('Enter an IPv4 address (for example 192.168.0.1)')],
+  ['hostname', msg('Enter a host name (for example example.com)')],
+])
+
+/**
+ * The messages this module writes itself: sem-schema's own keywords, which Ajv
+ * never wrote and `ajv-i18n` therefore cannot translate, and the `format`
+ * errors listed in `FORMAT_MESSAGES`.
  *
  * `inputMode: 'required'` raises two distinct errors — a null/undefined value
  * and an empty string — that mean one thing to the person filling in the form,
  * so they get one message. `precision` raises one error about the DATA (too
  * many decimals) and one about the SCHEMA (a precision outside 0-4); they are
- * told apart by `params.actual`, which only the data error carries.
+ * told apart by `params.actual`, which only the data error carries. A `json` /
+ * `jsonlogic` format error is left alone: its message is the package's own,
+ * restored above.
  */
 function customKeywordMessage(error: ErrorObject, t: TranslateFn): string | undefined {
   const params = (error.params ?? {}) as Record<string, unknown>
+
+  if (error.keyword === 'format' && !isStructuredDataError(error)) {
+    const message = typeof params.format === 'string' ? FORMAT_MESSAGES.get(params.format) : undefined
+    return message ? t(message) : undefined
+  }
 
   if (error.keyword === 'inputMode') {
     return t('must not be empty')

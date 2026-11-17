@@ -101,8 +101,53 @@ describe('SchemaForm', () => {
 
       await waitFor(() => {
         // Email validation should fail
-        expect(screen.getByText(/must match format "email"/i)).toBeInTheDocument()
+        expect(screen.getByText('Enter an email address (for example name@example.com)')).toBeInTheDocument()
         expect(emailInput).toHaveAttribute('aria-invalid', 'true')
+      })
+    })
+
+    it('says what to enter for a format error, and keeps the validator’s sentence otherwise', async () => {
+      const user = userEvent.setup()
+      const field = (format: string, title: string): SchemaObject => ({ type: 'string', format, title })
+      render(
+        <SchemaForm
+          schema={{
+            type: 'object',
+            properties: {
+              homepage: field('url', 'Homepage'),
+              mail: field('email', 'Mail'),
+              key: field('uuid', 'Key'),
+              v4: field('ipv4', 'Address v4'),
+              host: field('hostname', 'Host'),
+              // No message of its own: Ajv's sentence stays.
+              v6: field('ipv6', 'Address v6'),
+            },
+          }}
+          initialValue={{
+            // The usual mistake for a url: no scheme.
+            homepage: 'example.com',
+            mail: 'notanemail',
+            key: 'not-a-uuid',
+            v4: '999.1.1.1',
+            host: 'not a host',
+            v6: 'not-an-ip',
+          }}
+        />,
+      )
+
+      await user.click(screen.getByRole('button', { name: /submit/i }))
+
+      await waitFor(() => {
+        for (const message of [
+          'Enter a web address starting with https:// (for example https://example.com)',
+          'Enter an email address (for example name@example.com)',
+          'Enter a UUID (for example 123e4567-e89b-12d3-a456-426614174000)',
+          'Enter an IPv4 address (for example 192.168.0.1)',
+          'Enter a host name (for example example.com)',
+          'must match format "ipv6"',
+        ]) {
+          expect(screen.getByText(message)).toBeInTheDocument()
+        }
       })
     })
 

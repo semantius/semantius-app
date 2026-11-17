@@ -1029,9 +1029,15 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
                     inputMode={inputMode}
                     schema={propSchema as Record<string, unknown>}
                     validators={shouldValidate ? {
-                      // Only validate on submit, not on blur
-                      // This prevents blur validation from canceling submit button clicks.
-                      // Pass the same mode the control was drawn with, so the
+                      // No onBlur validator, because of TanStack Form (form-core
+                      // 1.33.5, FormApi._handleSubmit): on the form's FIRST submit
+                      // attempt, handleSubmit returns before any submit validator,
+                      // and before our onSubmit, if a field already holds an error.
+                      // Pressing Submit blurs the focused field before the click
+                      // lands, so a blur error raised by that press would end the
+                      // attempt with only that one field checked. The reset in
+                      // <form onSubmit> clears onSubmit errors only, not onBlur ones.
+                      // `inputMode` is the mode the control was drawn with, so the
                       // asterisk and the empty check cannot disagree.
                       onSubmit: ({ value }) => validateField(value, propSchema, key, t, language, inputMode),
                     } : undefined}

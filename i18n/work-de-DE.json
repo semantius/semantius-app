@@ -1,5 +1,31 @@
 {
   "locale": "de-DE",
   "generated": "2026-09-10T21:05:52.415Z",
-  "entries": []
+  "entries": [
+    {
+      "key": "Enter a UUID (for example 123e4567-e89b-12d3-a456-426614174000)",
+      "source": "Enter a UUID (for example 123e4567-e89b-12d3-a456-426614174000)",
+      "translation": "Geben Sie eine UUID ein (zum Beispiel 123e4567-e89b-12d3-a456-426614174000)"
+    },
+    {
+      "key": "Enter a host name (for example example.com)",
+      "source": "Enter a host name (for example example.com)",
+      "translation": "Geben Sie einen Hostnamen ein (zum Beispiel example.com)"
+    },
+    {
+      "key": "Enter a web address starting with https:// (for example https://example.com)",
+      "source": "Enter a web address starting with https:// (for example https://example.com)",
+      "translation": "Geben Sie eine Webadresse ein, die mit https:// beginnt (zum Beispiel https://example.com)"
+    },
+    {
+      "key": "Enter an IPv4 address (for example 192.168.0.1)",
+      "source": "Enter an IPv4 address (for example 192.168.0.1)",
+      "translation": "Geben Sie eine IPv4-Adresse ein (zum Beispiel 192.168.0.1)"
+    },
+    {
+      "key": "Enter an email address (for example name@example.com)",
+      "source": "Enter an email address (for example name@example.com)",
+      "translation": "Geben Sie eine E-Mail-Adresse ein (zum Beispiel name@example.com)"
+    }
+  ]
 }

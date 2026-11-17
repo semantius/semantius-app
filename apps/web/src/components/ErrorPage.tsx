@@ -15,7 +15,10 @@ import {
 } from '@/components/ui/card'
 
 interface ErrorPageProps {
-  error?: Error
+  // `unknown`, not `Error`: a route can throw anything, and the router types
+  // its error boundary that way (router-core 1.171.39). renderError and
+  // ErrorDetails both take `unknown`.
+  error?: unknown
   reset?: () => void
 }
 
@@ -49,7 +52,7 @@ export function ErrorPage({ error, reset }: ErrorPageProps) {
             {t('We encountered an unexpected error. Please try again.')}
           </CardDescription>
         </CardHeader>
-        {error && (
+        {Boolean(error) && (
           <CardContent>
             <div className="rounded-md bg-muted p-4">
               <p className="text-sm font-medium mb-2">{t('Error Details:')}</p>

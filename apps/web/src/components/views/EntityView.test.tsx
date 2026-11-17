@@ -121,6 +121,10 @@ describe('EntityView — edit_mode', () => {
       expect(sheet).toHaveAttribute('data-open')
       expect(sheet).not.toHaveAttribute('data-starting-style')
     })
+    // Dropping `data-starting-style` STARTS the 200ms slide-in; it does not end
+    // it. Mid-slide the box still carries a translate, and getBoundingClientRect
+    // reports the transformed box: 900.0000610351562 under full-suite load.
+    await Promise.all(sheet.getAnimations().map((animation) => animation.finished))
     return sheet.getBoundingClientRect().width
   }
 

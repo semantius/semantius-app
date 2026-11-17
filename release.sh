@@ -28,21 +28,25 @@
 #   * **no CHANGELOG preview.** This repository has no CHANGELOG.md, so the
 #     release body is GitHub's generated notes (`generate_release_notes`).
 #
-# Usage: ./release.sh vX.Y.Z[-pre] [-y]
+# Usage: ./release.sh vX.Y.Z[-pre] [-y] [--allow-dirty]
 set -euo pipefail
 cd "$(dirname "$0")"
 
 die() { printf 'release: %s\n' "$*" >&2; exit 1; }
 
 VERSION="${1:-}"
-[ -n "$VERSION" ] || die "usage: ./release.sh vX.Y.Z[-pre] [-y]"
+[ -n "$VERSION" ] || die "usage: ./release.sh vX.Y.Z[-pre] [-y] [--allow-dirty]"
+shift
 
 ASSUME_YES=0
-case "${2:-}" in
-  -y|--yes) ASSUME_YES=1 ;;
-  "") ;;
-  *) die "unknown option: $2" ;;
-esac
+ALLOW_DIRTY=0
+for arg in "$@"; do
+  case "$arg" in
+    -y|--yes) ASSUME_YES=1 ;;
+    --allow-dirty) ALLOW_DIRTY=1 ;;
+    *) die "unknown option: $arg" ;;
+  esac
+done
 
 # The same grammar the workflow's `guard` job enforces, checked here so the
 # refusal arrives before the tag is pushed rather than a minute after.
@@ -85,8 +89,21 @@ off_branch_warning() {
 }
 off_branch_warning
 
-git diff --quiet && git diff --cached --quiet \
-  || die "uncommitted changes to tracked files — commit or stash first"
+# --allow-dirty releases with unrelated local edits in place (a plan document,
+# a scratch note). The tag points at HEAD, so those edits are not part of the
+# release. What it never covers is package.json: that is the one file this
+# script edits and commits, so a local change there would ride into the
+# release commit unreviewed.
+if [ "$ALLOW_DIRTY" -eq 1 ]; then
+  git diff --quiet -- package.json && git diff --cached --quiet -- package.json \
+    || die "uncommitted changes to package.json — --allow-dirty does not cover the file this script bumps"
+  if ! git diff --quiet || ! git diff --cached --quiet; then
+    echo "release: WARNING - uncommitted changes ignored (--allow-dirty); they are not part of the tag, but the local checks below run against them" >&2
+  fi
+else
+  git diff --quiet && git diff --cached --quiet \
+    || die "uncommitted changes to tracked files — commit or stash first, or pass --allow-dirty"
+fi
 
 UPSTREAM="$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null)" \
   || die "branch '$BRANCH' has no upstream — push it first"
@@ -188,7 +205,9 @@ if [ "$CURRENT" != "$CORE" ]; then
   sed -i "0,/^  \"version\": \".*\",$/s//  \"version\": \"$CORE\",/" package.json
   [ "$(pkg_version)" = "$CORE" ] || die "failed to bump package.json (still '$(pkg_version)')"
   git add package.json
-  git commit -q -m "chore(release): $VERSION"
+  # Pathspec, so the commit is package.json alone even when --allow-dirty left
+  # other changes staged.
+  git commit -q -m "chore(release): $VERSION" -- package.json
   git push -q origin "$BRANCH"
   echo "bumped package.json to $CORE and pushed chore(release): $VERSION"
 fi
