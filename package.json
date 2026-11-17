@@ -1,7 +1,7 @@
 {
   "name": "semantius-app",
   "private": true,
-  "version": "0.3.9",
+  "version": "0.3.10",
   "description": "web ui for semantius",
   "scripts": {
     "dev": "dotenvx run -- turbo dev",
