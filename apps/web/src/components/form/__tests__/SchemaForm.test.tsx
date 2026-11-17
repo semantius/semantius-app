@@ -10,6 +10,7 @@ import { AppHarness, bootApp } from '@/test/appHarness'
 import { db } from '@/test/moduleFixture'
 import { testToken } from '@/test/session'
 import { callRpc } from '@/lib/apiClient'
+import { disableCollector } from '@/i18n/missing'
 import type { EntityMetadata } from '@/types/metadata'
 
 describe('SchemaForm', () => {
@@ -1187,7 +1188,8 @@ describe('derived ctypes default to disabled', () => {
     const onSubmit = vi.fn()
     render(<SchemaForm schema={labelSchema()} formMode="create" onSubmit={onSubmit} />)
 
-    expect(screen.queryByLabelText(/^Order Id/)).not.toBeInTheDocument()
+    // Drawn, as a computed field is, but not editable and not demanded.
+    expect(screen.getByLabelText(/^Order Id/)).toBeDisabled()
     await user.type(screen.getByLabelText(/^Customer/), 'ALFKI')
     await user.click(screen.getByRole('button', { name: /submit/i }))
     await waitFor(() => expect(onSubmit).toHaveBeenCalled())
@@ -1807,7 +1809,8 @@ describe('input_type_rule can use the Semantius operators', () => {
     expectHidden()
   })
 
-  it('keeps the static mode for a set_record, because no row is fetched for it', () => {
+  it('keeps the static mode for a set_record while its row has not arrived', () => {
+    // Rendered without the app, so the fetch for the row fails and the rule waits.
     renderRule({ set_record: ['r', 'orders', { var: 'kind' }, 'hidden'] }, { kind: '1' })
     expectShown()
   })
@@ -2052,10 +2055,16 @@ describe('computed fields update when an input changes', () => {
 
   // As get_schema sends Northwind order_details: amount is ctype computed with
   // inputMode default, label a computed_label, and the order a rollup elsewhere.
-  // A create form is where the live value matters most, so amount is drawn there.
+  // A create form is where the live value matters most, so amount and label are
+  // drawn there.
   const newOrderLine = {
     type: 'object',
-    table: { computed_fields: [{ name: 'amount', jsonlogic: amountRule }] },
+    table: {
+      computed_fields: [
+        { name: 'amount', jsonlogic: amountRule },
+        { name: 'label', jsonlogic: { cat: [{ var: 'quantity' }, ' × Chai'] } },
+      ],
+    },
     properties: {
       quantity: { type: 'number', format: 'double', title: 'Quantity', default: 0 },
       unit_price: { type: 'number', format: 'double', title: 'Unit Price', default: 0 },
@@ -2066,14 +2075,16 @@ describe('computed fields update when an input changes', () => {
     },
   } as SchemaObject
 
-  it('draws a computed field on a create form, computes it live, and does not send it', async () => {
+  it('draws a computed field and a computed label on a create form, computes them live, and sends neither', async () => {
     const user = userEvent.setup()
     const onSubmit = vi.fn()
     render(<SchemaForm schema={newOrderLine} formMode="create" onSubmit={onSubmit} />)
 
     const amount = screen.getByLabelText(/^Amount/)
+    const label = screen.getByLabelText(/^Label/)
     expect(amount).toBeDisabled()
-    expect(screen.queryByLabelText(/^Label/)).not.toBeInTheDocument()
+    expect(label).toBeDisabled()
+    // A rollup has no children to count before the save.
     expect(screen.queryByLabelText(/^Line Count/)).not.toBeInTheDocument()
 
     await user.clear(screen.getByLabelText(/^Quantity/))
@@ -2081,10 +2092,12 @@ describe('computed fields update when an input changes', () => {
     await user.clear(screen.getByLabelText(/^Unit Price/))
     await user.type(screen.getByLabelText(/^Unit Price/), '4')
     await waitFor(() => expect(amount).toHaveValue('12'))
+    await waitFor(() => expect(label).toHaveValue('3 × Chai'))
 
     await user.click(screen.getByRole('button', { name: /submit/i }))
     await waitFor(() => expect(onSubmit).toHaveBeenCalled())
     expect(onSubmit.mock.calls[0][0]).not.toHaveProperty('amount')
+    expect(onSubmit.mock.calls[0][0]).not.toHaveProperty('label')
   })
 })
 
@@ -2184,6 +2197,257 @@ describe('a SQL date default starts the form with the date it stands for', () =>
   it('keeps the stored date of an existing record', () => {
     render(<SchemaForm schema={orderDates} formMode="edit" initialValue={{ order_date: '2024-07-04', shipped_date: '' }} />)
     expect(screen.getByLabelText(/^Order Date/)).toHaveValue('July 4th, 2024')
+  })
+})
+
+describe('a model default becomes a form value, or stays out of the INSERT', () => {
+  // Every default the backend writes into the DDL bare, or as a literal
+  // (quote_default_value in the backend's 0160_dd_functions.sql), next to one
+  // the browser cannot compute.
+  const defaults: SchemaObject = {
+    type: 'object',
+    properties: {
+      token: { type: 'string', format: 'uuid', title: 'Token', default: 'gen_random_uuid()', inputMode: 'default' },
+      origin: { type: 'string', format: 'text', title: 'Origin', default: "'user'::text", inputMode: 'default' },
+      units: { type: 'integer', format: 'int32', title: 'Units', default: '10', inputMode: 'default' },
+      seq: { type: 'integer', format: 'int64', title: 'Seq', default: "nextval('seq'::regclass)", inputMode: 'default' },
+      owner: { type: 'string', format: 'text', title: 'Owner', default: 'CURRENT_USER', inputMode: 'default' },
+      at: { type: 'string', format: 'date', title: 'At', default: 'CURRENT_TIME', inputMode: 'default' },
+    },
+  }
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+
+  it('seeds what the browser can compute and leaves the rest empty and unsent', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn()
+    render(<SchemaForm schema={defaults} formMode="create" onSubmit={onSubmit} />)
+
+    expect((screen.getByLabelText(/^Token/) as HTMLInputElement).value).toMatch(UUID)
+    expect(screen.getByLabelText(/^Origin/)).toHaveValue('user')
+    expect(screen.getByLabelText(/^Units/)).toHaveValue('10')
+    expect(screen.getByLabelText(/^Seq/)).toHaveValue('')
+    expect(screen.getByLabelText(/^Owner/)).toHaveValue('')
+    expect(screen.getByLabelText(/^At/)).toHaveValue('')
+
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+    const sent = onSubmit.mock.calls[0][0]
+    expect(sent.token).toMatch(UUID)
+    expect(sent).toMatchObject({ origin: 'user', units: 10 })
+    // Left out, so the column default applies; a typed empty would be null.
+    expect(Object.keys(sent)).not.toContain('seq')
+    expect(Object.keys(sent)).not.toContain('owner')
+    expect(Object.keys(sent)).not.toContain('at')
+  })
+
+  it('keeps one uuid for the life of the form', async () => {
+    const user = userEvent.setup()
+    render(<SchemaForm schema={defaults} formMode="create" />)
+    const token = (screen.getByLabelText(/^Token/) as HTMLInputElement).value
+    await user.type(screen.getByLabelText(/^Origin/), 's')
+    expect(screen.getByLabelText(/^Token/)).toHaveValue(token)
+  })
+
+  it('sends a computed default the user emptied as null: what the user sees is what is saved', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn()
+    render(<SchemaForm schema={defaults} formMode="create" onSubmit={onSubmit} />)
+
+    await user.clear(screen.getByLabelText(/^Token/))
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+    expect(onSubmit.mock.calls[0][0]).toHaveProperty('token', null)
+  })
+
+  it('sends an emptied field of an existing record, whatever its default', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn()
+    render(
+      <SchemaForm
+        schema={defaults}
+        formMode="edit"
+        initialValue={{ token: crypto.randomUUID(), origin: 'x', units: 1, seq: 7, owner: 'y', at: '' }}
+        onSubmit={onSubmit}
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+    expect(onSubmit.mock.calls[0][0]).toHaveProperty('at', null)
+  })
+
+  it('saves the value of a JSON default for an empty JSON editor, not its text', async () => {
+    // entities.computed_fields: get_schema sends the default as the text "[]".
+    const user = userEvent.setup()
+    const onSubmit = vi.fn()
+    const rules: SchemaObject = {
+      type: 'object',
+      properties: {
+        computed_fields: { format: 'jsonlogic', title: 'Computed Fields', default: '[]', inputMode: 'default' },
+      },
+    }
+    render(<SchemaForm schema={rules} formMode="edit" initialValue={{ computed_fields: '' }} onSubmit={onSubmit} />)
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+    expect(onSubmit.mock.calls[0][0].computed_fields).toEqual([])
+  })
+})
+
+describe('a rule that cannot run says so under its field, without blocking the save', () => {
+  function rules(codeRule: unknown, totalRule?: unknown): SchemaObject {
+    return {
+      type: 'object',
+      table: { table_name: 'vitest_rules', computed_fields: totalRule ? [{ name: 'total', jsonlogic: totalRule }] : [] },
+      properties: {
+        kind: { type: 'string', format: 'text', title: 'Kind' },
+        code: { type: 'string', format: 'text', title: 'Code', ...(codeRule ? { input_type_rule: codeRule } : {}) },
+        total: { type: 'string', format: 'text', title: 'Total', ctype: 'computed', inputMode: 'default' },
+      },
+    } as SchemaObject
+  }
+
+  it('shows an input_type_rule operator the browser cannot run, keeps the static mode, and saves', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn()
+    render(
+      <SchemaForm
+        schema={rules({ if: [{ is_raci_actor: ['orders', 'approved', 'accountable'] }, 'hidden', 'default'] })}
+        formMode="create"
+        onSubmit={onSubmit}
+      />,
+    )
+
+    expect(screen.getByLabelText(/^Code/)).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('is_raci_actor cannot run in the browser.')
+
+    await user.type(screen.getByLabelText(/^Kind/), 'a')
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+  })
+
+  it('shows an input_type_rule that returns no input mode, and keeps the static mode', () => {
+    render(<SchemaForm schema={rules({ cat: ['ed', 'it'] })} formMode="create" />)
+
+    expect(screen.getByLabelText(/^Code/)).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('The rule returned "edit", which is not an input mode.')
+  })
+
+  it('shows a computed field operator the browser cannot run once an input changes', async () => {
+    const user = userEvent.setup()
+    render(<SchemaForm schema={rules(undefined, { has_consultation: ['orders', 'approved', { var: 'id' }] })} formMode="create" />)
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    await user.type(screen.getByLabelText(/^Kind/), 'a')
+    expect(await screen.findByRole('alert')).toHaveTextContent('has_consultation cannot run in the browser.')
+  })
+
+  it('shows the throw_error of a computed field as the server words it', async () => {
+    // A rule author's message is a fixture, not a string the app ships.
+    disableCollector()
+    const user = userEvent.setup()
+    render(
+      <SchemaForm
+        schema={rules(undefined, { throw_error: ['Order ${id} is already shipped', '99017', ['id', 7]] })}
+        formMode="create"
+      />,
+    )
+
+    await user.type(screen.getByLabelText(/^Kind/), 'a')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Order 7 is already shipped')
+  })
+
+  it('clears the error once the rule runs again', async () => {
+    const user = userEvent.setup()
+    render(
+      <SchemaForm
+        schema={rules(undefined, { if: [{ '==': [{ var: 'kind' }, 'x'] }, { is_raci_actor: ['orders', 'approved', 'accountable'] }, 'ok'] })}
+        formMode="create"
+      />,
+    )
+
+    await user.type(screen.getByLabelText(/^Kind/), 'x')
+    expect(await screen.findByRole('alert')).toHaveTextContent('is_raci_actor cannot run in the browser.')
+    await user.type(screen.getByLabelText(/^Kind/), 'y')
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
+    expect(screen.getByLabelText(/^Total/)).toHaveValue('ok')
+  })
+
+  it('shows no rule error on a view', () => {
+    render(<SchemaForm schema={rules({ cat: ['ed', 'it'] })} formMode="view" initialValue={{ kind: 'a', code: 'b' }} />)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+})
+
+describe('an input_type_rule with set_record uses the referenced row', () => {
+  beforeEach(async () => {
+    await bootApp()
+  })
+
+  it('applies the rule once the row has arrived', async () => {
+    // A platform table on purpose: `modules` exists on every tenant.
+    const res = await db('/modules?select=id,module_name&limit=1&order=id.asc')
+    expect(res.ok).toBe(true)
+    const [row] = (await res.json()) as Array<{ id: number; module_name: string }>
+
+    const schema = {
+      type: 'object',
+      properties: {
+        module_id: { type: 'integer', format: 'int32', title: 'Module', reference_table: 'modules', reference_table_id_column: 'id' },
+        note: {
+          type: 'string',
+          format: 'text',
+          title: 'Note',
+          input_type_rule: {
+            set_record: ['m', 'modules', { var: 'module_id' }, { if: [{ '==': [{ var: 'm.module_name' }, row.module_name] }, 'hidden', 'default'] }],
+          },
+        },
+      },
+    } as SchemaObject
+
+    render(
+      <AppHarness>
+        <SchemaForm schema={schema} formMode="edit" initialValue={{ module_id: row.id, note: '' }} />
+      </AppHarness>,
+    )
+
+    await waitFor(() => expect(screen.queryByLabelText(/^Note/)).not.toBeInTheDocument())
+  })
+})
+
+describe('computed fields get $old and $mode, as the server gives them', () => {
+  const schema = {
+    type: 'object',
+    table: {
+      computed_fields: [
+        { name: 'changed', jsonlogic: { if: [{ value_changed: 'status' }, 'yes', 'no'] } },
+        { name: 'mode', jsonlogic: { var: '$mode' } },
+      ],
+    },
+    properties: {
+      status: { type: 'string', format: 'text', title: 'Status' },
+      changed: { type: 'string', format: 'text', title: 'Changed', ctype: 'computed', inputMode: 'default' },
+      mode: { type: 'string', format: 'text', title: 'Mode', ctype: 'computed', inputMode: 'default' },
+    },
+  } as SchemaObject
+
+  it('on an existing record: $old is the stored row and $mode update', async () => {
+    const user = userEvent.setup()
+    render(<SchemaForm schema={schema} formMode="edit" initialValue={{ status: 'open', changed: '', mode: '' }} />)
+
+    await user.type(screen.getByLabelText(/^Status/), 'x')
+    await waitFor(() => expect(screen.getByLabelText(/^Changed/)).toHaveValue('yes'))
+    expect(screen.getByLabelText(/^Mode/)).toHaveValue('update')
+
+    await user.type(screen.getByLabelText(/^Status/), '{Backspace}')
+    await waitFor(() => expect(screen.getByLabelText(/^Changed/)).toHaveValue('no'))
+  })
+
+  it('on a new record: no $old, and $mode insert', async () => {
+    const user = userEvent.setup()
+    render(<SchemaForm schema={schema} formMode="create" />)
+
+    await user.type(screen.getByLabelText(/^Status/), 'open')
+    await waitFor(() => expect(screen.getByLabelText(/^Mode/)).toHaveValue('insert'))
+    expect(screen.getByLabelText(/^Changed/)).toHaveValue('yes')
   })
 })
 

@@ -380,6 +380,7 @@
     "The login flow could not be started.": "The login flow could not be started.",
     "The order of fields determines sort priority": "The order of fields determines sort priority",
     "The page you're looking for doesn't exist or has been moved.": "The page you're looking for doesn't exist or has been moved.",
+    "The rule returned {value}, which is not an input mode.": "The rule returned {value}, which is not an input mode.",
     "The translation could not be saved": "The translation could not be saved",
     "Theme": "Theme",
     "Theme: {theme, select, dark {Dark} light {Light} other {System}}": "Theme: {theme, select, dark {Dark} light {Light} other {System}}",
@@ -1154,6 +1155,7 @@
     "{label} {name} deleted": "{label} {name} deleted",
     "{language}: {missing, plural, one {# string} other {# strings}} of {total} still in English.": "{language}: {missing, plural, one {# string} other {# strings}} of {total} still in English.",
     "{name} deleted": "{name} deleted",
+    "{operator} cannot run in the browser.": "{operator} cannot run in the browser.",
     "{start}-{end} of {total, plural, one {# item} other {# items}}": "{start}-{end} of {total, plural, one {# item} other {# items}}",
     "{table} {key} · View": "{table} {key} · View"
   }

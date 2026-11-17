@@ -1,10 +1,12 @@
-import { Fragment, useEffect, useRef, type ReactNode } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useForm } from '@tanstack/react-form'
 import { validateData } from 'sem-schema'
 import { assertSupportedFormats, resolveControl } from './resolveControl'
-import { formatType, isFormatName } from '@/lib/formats'
-import { withRuleContext } from '@/lib/ruleContext'
-import { postgresDateDefault } from '@/lib/postgresDateDefaults'
+import { generateDefaultValue, isSyntheticLabelField } from './formDefaults'
+import { withRuleContext, type RecordContext } from '@/lib/ruleContext'
+import { modelDefault } from '@/lib/modelDefaults'
+import { appError } from '@/lib/appError'
+import { renderError } from '@/lib/apiErrors'
 import {
   applyJsonLogic,
   collectSetRecordLookups,
@@ -13,8 +15,10 @@ import {
   inputSnapshot,
   loadSetRecords,
   lookupFromCache,
+  lookupsReady,
   parseComputedFields,
   type ComputedField,
+  type RecordLookup,
 } from '@/lib/computedFields'
 import { Button } from '@/components/ui/button'
 import { StickyContainer } from '@/components/ui-ext/sticky-container'
@@ -25,23 +29,6 @@ import { useLanguage, useT, type TranslateFn } from '@/i18n'
 import type { InputMode } from './types'
 
 export type FormMode = 'edit' | 'create' | 'view'
-
-/**
- * Synthetic, read-only label companions that get_schema emits as properties:
- *   - ctype '_label':   the row's own composed, human-readable label
- *   - ctype 'fk_label': a reference field's composed label (e.g. module_id_label)
- *
- * These are display-only projections (computed columns / functions), NOT real
- * writable columns. They must be excluded from form state, from rendering, and
- * above all from the write payload: PostgREST rejects any INSERT/UPDATE that
- * names them with PGRST204 "Could not find the '<col>' column of '<table>'".
- * Mirrors the same skip in buildPostgRESTSelect and the grid cell renderers
- * (DataTableView/TableView) so all consumers treat these fields consistently.
- */
-function isSyntheticLabelField(propSchema: unknown): boolean {
-  const ctype = (propSchema as { ctype?: string } | null)?.ctype
-  return ctype === '_label' || ctype === 'fk_label'
-}
 
 const VALID_INPUT_MODES: readonly InputMode[] = ['default', 'required', 'readonly', 'disabled', 'hidden']
 
@@ -83,24 +70,44 @@ function coerceDerivedCtypeMode(propSchema: SchemaObject, declared: unknown): In
   return inputMode
 }
 
+/** The rows `set_record` fetched for this form, shared by computed fields and input_type_rules. */
+type RecordCache = Map<string, Record<string, unknown> | null>
+
+/** The id column `set_record` looks a row of `entity` up by, read off the form's reference fields. */
+function idColumnFor(schema: SchemaObject): (entity: string) => string {
+  const properties = schema.properties as
+    | Record<string, { reference_table?: string; reference_table_id_column?: string }>
+    | undefined
+  return (entity) => idColumnForEntity(properties, entity)
+}
+
 /**
  * Re-evaluate `table.computed_fields` whenever a non-computed input changes,
  * the same way `input_type_rule` re-runs through `form.Subscribe`. The first
  * values are skipped so opening an existing record does not rewrite stored
  * amounts with a client-side float that would mark the form dirty.
+ *
+ * The rules get `$old` and `$mode` as the server gives them (`record`). A rule
+ * that throws leaves its field as it is, and `onErrors` hears which fields'
+ * rules threw in this evaluation and why, so the form can show it.
  */
 function ComputedFieldsSync({
   form,
   entries,
   values,
   schema,
+  cache,
+  record,
+  onErrors,
 }: {
   form: { setFieldValue: (name: string, value: unknown) => void }
   entries: ComputedField[]
   values: Record<string, unknown>
   schema: SchemaObject
+  cache: RecordCache
+  record: RecordContext
+  onErrors: (errors: Record<string, unknown>) => void
 }) {
-  const cacheRef = useRef(new Map<string, Record<string, unknown> | null>())
   const prevInputsRef = useRef<string | undefined>(undefined)
   const computedNames = new Set(entries.map((entry) => entry.name))
   const snapshot = inputSnapshot(values, computedNames)
@@ -114,43 +121,131 @@ function ComputedFieldsSync({
     prevInputsRef.current = snapshot
 
     let canceled = false
-    const properties = schema.properties as
-      | Record<string, { reference_table?: string; reference_table_id_column?: string }>
-      | undefined
 
     void (async () => {
-      await loadSetRecords(entries, values, cacheRef.current, (entity) => idColumnForEntity(properties, entity))
+      await loadSetRecords(entries, values, cache, idColumnFor(schema), record)
       if (canceled) return
-      const updates = evaluateComputedFields(entries, values, lookupFromCache(cacheRef.current))
+      const errors: Record<string, unknown> = {}
+      const updates = evaluateComputedFields(entries, values, lookupFromCache(cache), {
+        record,
+        onError: (name, error) => {
+          errors[name] = error
+        },
+      })
       for (const [name, next] of Object.entries(updates)) {
         if (!Object.is(values[name], next)) form.setFieldValue(name, next)
       }
+      onErrors(errors)
     })()
 
     return () => {
       canceled = true
     }
-  }, [snapshot, entries, form, schema, values])
+  }, [snapshot, entries, form, schema, values, cache, record, onErrors])
 
   return null
 }
 
 /**
- * Evaluate a per-field input_type_rule (JsonLogic) against the current form values.
- * Returns the resulting InputMode, or null if the rule is missing/invalid/returns a
- * non-InputMode value. Callers fall back to the static schema inputMode in that case.
+ * Fetch the rows the form's `input_type_rule`s name through `set_record`, into
+ * the cache computed fields use, whenever the inputs change. `onLoaded` is told
+ * when a row arrived, so the rules are evaluated again with it.
  */
-function evaluateInputTypeRule(rule: unknown, values: Record<string, any>): InputMode | null {
-  if (!rule || typeof rule !== 'object') return null
-  // No row is fetched for this rule, and one that ran anyway would decide about a
-  // record it never saw, so it keeps the static mode.
-  if (collectSetRecordLookups(rule).length > 0) return null
+function InputTypeRuleRecordsSync({
+  rules,
+  values,
+  schema,
+  cache,
+  onLoaded,
+}: {
+  rules: ComputedField[]
+  values: Record<string, unknown>
+  schema: SchemaObject
+  cache: RecordCache
+  onLoaded: () => void
+}) {
+  useEffect(() => {
+    let canceled = false
+    const before = cache.size
+    void (async () => {
+      await loadSetRecords(rules, values, cache, idColumnFor(schema))
+      if (!canceled && cache.size !== before) onLoaded()
+    })()
+    return () => {
+      canceled = true
+    }
+  }, [values, rules, schema, cache, onLoaded])
+
+  return null
+}
+
+/** Two sets of rule errors that would render the same: the same fields, failing the same way. */
+function sameErrors(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
+  const keys = Object.keys(a)
+  if (keys.length !== Object.keys(b).length) return false
+  const signature = (error: unknown) =>
+    error instanceof Error ? `${error.message}${JSON.stringify(error.cause ?? null)}` : String(error)
+  return keys.every((key) => Object.hasOwn(b, key) && signature(a[key]) === signature(b[key]))
+}
+
+/** What a field's input_type_rule decided: a mode, or none and why not. */
+interface RuleOutcome {
+  /** The mode the rule set; null keeps the static schema inputMode. */
+  mode: InputMode | null
+  /** Why the rule set none, to show under the field. */
+  error?: unknown
+}
+
+/**
+ * Evaluate a per-field input_type_rule (JsonLogic) against the current form
+ * values. No rule, or a `set_record` row not fetched yet, keeps the static
+ * mode silently. A rule that throws, or returns something that is not an input
+ * mode, keeps the static mode and says why.
+ */
+function evaluateInputTypeRule(rule: unknown, values: Record<string, any>, records?: RecordLookup): RuleOutcome {
+  if (!rule || typeof rule !== 'object') return { mode: null }
+  const data = withRuleContext(values)
+  if (collectSetRecordLookups(rule).length > 0 && !lookupsReady(rule, data, records)) return { mode: null }
+  let result: unknown
   try {
-    const result = applyJsonLogic(rule, withRuleContext(values))
-    return isInputMode(result) ? result : null
-  } catch {
-    return null
+    result = applyJsonLogic(rule, data, records)
+  } catch (error) {
+    return { mode: null, error }
   }
+  if (isInputMode(result)) return { mode: result }
+  return {
+    mode: null,
+    error: appError({
+      message: 'The rule returned {value}, which is not an input mode.',
+      values: { value: JSON.stringify(result) ?? 'null' },
+    }),
+  }
+}
+
+/**
+ * A rule's error with what the server's generated trigger adds to it
+ * (docs/error-contract.md, "The generated trigger"): class 90 passes through
+ * untouched; any other server-shaped error gets `entity` and `field` merged
+ * into its hint object, keeping keys it already has, and a hint that is not a
+ * JSON object is wrapped as `{ hint }` first. `entity` is what scopes a class
+ * 99 error's translation key. The app's own errors are left as they are.
+ */
+function scopeRuleError(error: unknown, entity: string | undefined, field: string): unknown {
+  if (!(error instanceof Error) || error.constructor !== Error) return error
+  const cause = error.cause as { code?: unknown; message?: unknown; hint?: unknown } | undefined
+  if (!cause || typeof cause.code !== 'string' || typeof cause.message !== 'string') return error
+  if (cause.code.startsWith('90')) return error
+  let hint: Record<string, unknown> = {}
+  if (typeof cause.hint === 'string' && cause.hint) {
+    try {
+      const parsed: unknown = JSON.parse(cause.hint)
+      hint = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : { hint: cause.hint }
+    } catch {
+      hint = { hint: cause.hint }
+    }
+  }
+  const scoped = { ...(entity ? { entity } : {}), field, ...hint }
+  return new Error(error.message, { cause: { ...cause, hint: JSON.stringify(scoped) } })
 }
 
 /**
@@ -181,11 +276,13 @@ function renderedInputMode(
     ruleResult || (propSchema as { inputMode?: unknown }).inputMode,
   )
   // In create mode, readonly and disabled fields are not drawn: an id or a
-  // created_at has no value before the save. A computed field does — the form
-  // computes it live from the inputs being typed (ComputedFieldsSync), and that
-  // is when the user needs to see it — so it is drawn, not editable. A rollup
-  // (no children yet) and a computed_label stay off a create form.
-  const isComputed = (propSchema as { ctype?: unknown }).ctype === 'computed'
+  // created_at has no value before the save. A computed field and a computed
+  // label do — the form computes them live from the inputs being typed
+  // (ComputedFieldsSync), and that is when the user needs to see them ("2 ×
+  // Chai") — so they are drawn, not editable. A rollup (no children yet) stays
+  // off a create form.
+  const ctype = (propSchema as { ctype?: unknown }).ctype
+  const isComputed = ctype === 'computed' || ctype === 'computed_label'
   if (formMode === 'create' && (inputMode === 'readonly' || inputMode === 'disabled') && !isComputed) return null
   // Form-level view mode overrides schema-level inputMode (except for hidden).
   if (formMode === 'view' && inputMode !== 'hidden') return 'readonly'
@@ -202,11 +299,12 @@ function resolvedInputMode(
   values: Record<string, any>,
   formMode: FormMode,
   parentField: string | undefined,
+  records?: RecordLookup,
 ): InputMode | null {
   return renderedInputMode(
     key,
     propSchema,
-    evaluateInputTypeRule((propSchema as any).input_type_rule, values),
+    evaluateInputTypeRule((propSchema as any).input_type_rule, values, records).mode,
     formMode,
     parentField,
   )
@@ -234,35 +332,6 @@ interface SchemaFormProps {
    * the form off-screen, since the footer's height never grows to reveal it.
    */
   footerContent?: React.ReactNode
-}
-
-/**
- * Generate default values from schema
- */
-function generateDefaultValue(schema: SchemaObject): Record<string, any> {
-  const defaults: Record<string, any> = {}
-
-  if (schema.properties && typeof schema.properties === 'object') {
-    for (const [key, propSchema] of Object.entries(schema.properties)) {
-      if (typeof propSchema !== 'object' || propSchema === null) continue
-
-      // Synthetic label companions are not real columns — never seed them into
-      // form state (otherwise they leak into the submit payload). See helper.
-      if (isSyntheticLabelField(propSchema)) continue
-
-      // Check if default value is provided. A date/time default can be a SQL
-      // expression (`CURRENT_DATE`) rather than a value; the form starts with the
-      // date it stands for, see postgresDateDefault.
-      if ('default' in propSchema) {
-        const declared = (propSchema as any).default
-        defaults[key] = postgresDateDefault(declared, (propSchema as any).format) ?? declared
-      } else {
-        defaults[key] = defaultValueForFormat((propSchema as any).format)
-      }
-    }
-  }
-
-  return defaults
 }
 
 /**
@@ -360,42 +429,6 @@ function validateField(
 
 
 /**
- * The value a field starts at when the schema gives it no `default`.
- *
- * Derived from the CATALOG's type for the format, not from the property's own
- * `type`. `get_schema` emits the JSON family with a union type array
- * (`["object","array","string","number","integer","boolean","null"]`), and a bare
- * `type === 'object'` comparison never matches an array — such a field fell
- * through to `undefined`, which InputJson renders as a completely BLANK editor.
- * The catalog collapses that union for us.
- *
- * A foreign key starts null, not 0: it is empty, and `undefined` would drop it
- * from form state entirely.
- *
- * An unknown format starts as `''`, the same as `text`, because the control
- * that will edit it is the text control.
- */
-export function defaultValueForFormat(format: unknown): unknown {
-  if (!isFormatName(format)) {
-    return typeof format === 'string' && format !== '' ? '' : undefined
-  }
-  if (format === 'reference' || format === 'parent') return null
-  switch (formatType(format)) {
-    case 'boolean':
-      return false
-    case 'object':
-      return {}
-    case 'array':
-      return []
-    case 'string':
-      return ''
-    // A number field left empty is absent, not 0.
-    default:
-      return undefined
-  }
-}
-
-/**
  * A field's default display width.
  *
  * The buckets live on the registry entry (`controls.ts`), so the form and the
@@ -433,9 +466,39 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
   // An unknown format name is logged and the field renders as text.
   assertSupportedFormats(schema)
 
+  // Seeded once per schema: a `gen_random_uuid()` or `CURRENT_TIMESTAMP` default
+  // computed on every render would hand useForm new default values each time.
+  const seeded = useMemo(() => generateDefaultValue(schema), [schema])
   // Merge schema defaults under initialValue so explicit values win
   // but defaults fill gaps (e.g. parent FK pre-filled, other fields blank).
-  const defaultValue = { ...generateDefaultValue(schema), ...(initialValue || {}) }
+  const defaultValue = { ...seeded.values, ...(initialValue || {}) }
+
+  // The rows `set_record` fetched, one cache for computed fields and
+  // input_type_rules alike. The Map is stable; fetches add to it.
+  const [recordCache] = useState<RecordCache>(() => new Map())
+  const records = lookupFromCache(recordCache)
+  // Re-renders the form when a row an input_type_rule needs has arrived, so the
+  // rule is evaluated again with it.
+  const [, setRecordsLoaded] = useState(0)
+  const onRecordsLoaded = useCallback(() => setRecordsLoaded((count) => count + 1), [])
+  // The input_type_rules that read a row through set_record.
+  const ruleRecordEntries = useMemo<ComputedField[]>(
+    () =>
+      Object.entries((schema.properties ?? {}) as Record<string, { input_type_rule?: unknown }>)
+        .filter(([, prop]) => prop && typeof prop === 'object' && collectSetRecordLookups(prop.input_type_rule).length > 0)
+        .map(([name, prop]) => ({ name, jsonlogic: prop.input_type_rule })),
+    [schema],
+  )
+  // `$old` and `$mode`, as the server gives computed fields.
+  const recordContext = useMemo<RecordContext>(
+    () => (formMode === 'create' ? { old: null, mode: 'insert' } : { old: initialValue ?? null, mode: 'update' }),
+    [formMode, initialValue],
+  )
+  // Why each computed field's rule threw in its last evaluation, to show under it.
+  const [computedErrors, setComputedErrors] = useState<Record<string, unknown>>({})
+  const onComputedErrors = useCallback((errors: Record<string, unknown>) => {
+    setComputedErrors((previous) => (sameErrors(previous, errors) ? previous : errors))
+  }, [])
 
   const form = useForm({
     defaultValues: defaultValue,
@@ -456,7 +519,7 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
         coerceDerivedCtypeMode(properties[key], (properties[key] as { inputMode?: unknown }).inputMode)
       const modeNow = (key: string): InputMode => {
         const propSchema = properties[key]
-        const ruleResult = evaluateInputTypeRule((propSchema as { input_type_rule?: unknown }).input_type_rule, value)
+        const ruleResult = evaluateInputTypeRule((propSchema as { input_type_rule?: unknown }).input_type_rule, value, records).mode
         return coerceDerivedCtypeMode(propSchema, ruleResult || (propSchema as { inputMode?: unknown }).inputMode)
       }
 
@@ -507,12 +570,16 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
           // The JSON family (json, jsonlogic, object, array). The editor always
           // hands back a *string*; the column wants a real JSON value, so an
           // edited `[]` must not be sent as the literal string `"[]"`. An empty
-          // editor saves the property's schema `default` — and `null` when it has
-          // none. Invalid JSON is left as the string so schema/DB validation
-          // surfaces it rather than silently dropping what the user typed.
+          // editor saves the value of the property's schema `default` — that
+          // default is text too (`"[]"` for entities.computed_fields), so it goes
+          // through modelDefault — and `null` when it has none or the browser
+          // cannot compute it (a create then leaves it out, below). Invalid JSON
+          // is left as the string so schema/DB validation surfaces it rather
+          // than silently dropping what the user typed.
           const trimmed = fieldValue.trim()
           if (trimmed === '') {
-            cleanedValue[key] = 'default' in (propSchema as any) ? (propSchema as any).default : null
+            const declared = 'default' in (propSchema as any) ? modelDefault((propSchema as any).default, format) : null
+            cleanedValue[key] = declared ? declared.value : null
           } else {
             try {
               cleanedValue[key] = JSON.parse(trimmed)
@@ -580,11 +647,17 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
       // record's key when absent, and rejects `''` as a malformed TypeID.
       // An edit keeps the `''`: leaving the field out of a PATCH would make
       // clearing a text field impossible.
+      //
+      // A field whose default the browser cannot compute (`nextval(…)`,
+      // `CURRENT_USER`, see modelDefault) is left out the same way while it is
+      // empty, `null` included, so the column default applies: a typed empty
+      // value is sent as an explicit `null`, which would override it.
       if (formMode === 'create') {
         for (const key of Object.keys(cleanedValue)) {
           const optional = !requiredFields.has(key)
-            && resolvedInputMode(key, properties[key], value, formMode, parentField) !== 'required'
+            && resolvedInputMode(key, properties[key], value, formMode, parentField, records) !== 'required'
           if (cleanedValue[key] === '' && optional) delete cleanedValue[key]
+          else if (seeded.uncomputed.has(key) && (cleanedValue[key] === '' || cleanedValue[key] == null)) delete cleanedValue[key]
         }
       }
 
@@ -647,7 +720,7 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
             // in a create form — so its error goes to the banner under the
             // field's title instead of disappearing with the field.
             const mode = propSchema
-              ? resolvedInputMode(fieldPath, propSchema, value, formMode, parentField)
+              ? resolvedInputMode(fieldPath, propSchema, value, formMode, parentField, records)
               : null
             if (propSchema && (mode === null || mode === 'hidden')) {
               unhandledErrors.push(t('{field}: {message}', { field: propSchema.title || fieldPath, message: error.message }))
@@ -730,6 +803,8 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
   }
 
   const properties = schema.properties as Record<string, SchemaObject>
+  // The entity's table name, which scopes a class 99 rule error's translation key.
+  const entityName = (schema as { table?: { table_name?: string } }).table?.table_name
   const computedFields = parseComputedFields(
     (schema as { table?: { computed_fields?: unknown } }).table?.computed_fields,
   )
@@ -742,7 +817,7 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
     validateField: (value: any, fieldName: string) => {
       const fieldSchema = properties[fieldName]
       if (!fieldSchema) return undefined
-      const mode = resolvedInputMode(fieldName, fieldSchema, form.state.values, formMode, parentField) ?? 'hidden'
+      const mode = resolvedInputMode(fieldName, fieldSchema, form.state.values, formMode, parentField, records) ?? 'hidden'
       return validateField(value, fieldSchema, fieldName, t, language, mode)
     },
   }
@@ -805,7 +880,29 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
       {formMode !== 'view' && computedFields.length > 0 && (
         <form.Subscribe selector={(state: { values: Record<string, unknown> }) => state.values}>
           {(values: Record<string, unknown>) => (
-            <ComputedFieldsSync form={form} entries={computedFields} values={values} schema={schema} />
+            <ComputedFieldsSync
+              form={form}
+              entries={computedFields}
+              values={values}
+              schema={schema}
+              cache={recordCache}
+              record={recordContext}
+              onErrors={onComputedErrors}
+            />
+          )}
+        </form.Subscribe>
+      )}
+
+      {ruleRecordEntries.length > 0 && (
+        <form.Subscribe selector={(state: { values: Record<string, unknown> }) => state.values}>
+          {(values: Record<string, unknown>) => (
+            <InputTypeRuleRecordsSync
+              rules={ruleRecordEntries}
+              values={values}
+              schema={schema}
+              cache={recordCache}
+              onLoaded={onRecordsLoaded}
+            />
           )}
         </form.Subscribe>
       )}
@@ -877,15 +974,24 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
             // Render a single field, optionally with a rule-derived inputMode override.
             // Called both from the static path (no rule) and from inside form.Subscribe
             // (rule present — re-renders whenever the rule result changes).
-            const renderField = (ruleResult: InputMode | null) => {
+            const renderField = (ruleOutcome: RuleOutcome) => {
               const type = propSchema.type
               const format = propSchema.format
               const hasEnum = 'enum' in propSchema && Array.isArray((propSchema as any).enum)
               const label = propSchema.title || key
               const description = propSchema.description
 
-              const inputMode = renderedInputMode(key, propSchema, ruleResult, formMode, parentField)
+              const inputMode = renderedInputMode(key, propSchema, ruleOutcome.mode, formMode, parentField)
               if (inputMode === null) return null
+
+              // Why this field's input_type_rule or computed rule did not run,
+              // shown under it. It is no validation error: saving stays
+              // possible, and the server decides. A view shows no errors, as
+              // FormError shows none there.
+              const ruleError = ruleOutcome.error ?? computedErrors[key]
+              const ruleErrorText = ruleError !== undefined && formMode !== 'view'
+                ? renderError(scopeRuleError(ruleError, entityName, key), t).message
+                : undefined
 
               // assertSupportedFormats() ran at the top of this render: a
               // missing format already threw, and an unknown name already
@@ -930,6 +1036,11 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
                       onSubmit: ({ value }) => validateField(value, propSchema, key, t, language, inputMode),
                     } : undefined}
                   />
+                  {ruleErrorText && (
+                    <p id={`${key}-rule-error`} role="alert" className="text-[0.8rem] font-medium text-destructive">
+                      {ruleErrorText}
+                    </p>
+                  )}
                 </div>
               )
             }
@@ -938,14 +1049,14 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
               return (
                 <form.Subscribe
                   key={key}
-                  selector={(state: any) => evaluateInputTypeRule(inputTypeRule, state.values)}
+                  selector={(state: any) => evaluateInputTypeRule(inputTypeRule, state.values, records)}
                 >
-                  {(ruleResult: InputMode | null) => renderField(ruleResult)}
+                  {(ruleOutcome: RuleOutcome) => renderField(ruleOutcome)}
                 </form.Subscribe>
               )
             }
 
-            const rendered = renderField(null)
+            const rendered = renderField({ mode: null })
             return rendered ? <Fragment key={key}>{rendered}</Fragment> : null
           })}
         </div>

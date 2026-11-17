@@ -8,7 +8,7 @@
  * with that definition:
  * src/__tests__/jsonlogic-backend-sync.test.ts fails when the two disagree.
  *
- * Argument counts follow the backend's behaviour, and are errors where a rule is
+ * Argument counts follow the backend's behavior, and are errors where a rule is
  * legal but almost certainly wrong (e.g. `>=` with a third argument, which the
  * backend ignores rather than treating as "between").
  */

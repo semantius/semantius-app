@@ -1,0 +1,854 @@
+[
+    "# Non-rules get passed through",
+    [ true, {}, true ],
+    [ false, {}, false ],
+    [ 17, {}, 17 ],
+    [ 3.14, {}, 3.14 ],
+    [ "apple", {}, "apple" ],
+    [ null, {}, null ],
+    [ ["a","b"], {}, ["a","b"] ],
+
+    "# Objects that are not single-key logic get passed through",
+    [ {}, {}, {} ],
+    [ {"==":[1,1],"extra":2}, {}, {"==":[1,1],"extra":2} ],
+
+    "# Single operator tests",
+    [ {"==":[1,1]}, {}, true ],
+    [ {"==":[1,"1"]}, {}, true ],
+    [ {"==":[1,2]}, {}, false ],
+    "# == against a string that carries no number: JavaScript coerces it to NaN, so nothing equals it",
+    [ {"==":["abc",0]}, {}, false ],
+    [ {"==":[0,"abc"]}, {}, false ],
+    [ {"==":[false,"abc"]}, {}, false ],
+    [ {"==":["abc",true]}, {}, false ],
+    [ {"!=":["abc",0]}, {}, true ],
+    "# but an empty or blank string is Number('') = 0, not NaN",
+    [ {"==":["",0]}, {}, true ],
+    [ {"==":[false,""]}, {}, true ],
+    [ {"==":["   ",0]}, {}, true ],
+    "# and a numeric string still compares as a number",
+    [ {"==":["0",false]}, {}, true ],
+    [ {"==":["1",true]}, {}, true ],
+    [ {"==":["12",12]}, {}, true ],
+    "# == of an array or an object against an unrelated string: nothing is coerced to a number or a boolean, so they differ",
+    [ {"==":[[1,2],"x"]}, {}, false ],
+    [ {"==":[{"var":"o"},"x"]}, {"o":{"a":1}}, false ],
+    [ {"!=":[{"var":"o"},"x"]}, {"o":{"a":1}}, true ],
+    "# == of an array against a number or a string: JavaScript joins the array with commas first, so [] is '' and [5] is '5'",
+    [ {"==":[[],0]}, {}, true ],
+    [ {"==":[[5],5]}, {}, true ],
+    [ {"==":[["a"],"a"]}, {}, true ],
+    [ {"!=":[[],0]}, {}, false ],
+    [ {"==":[[1,2],"1,2"]}, {}, true ],
+    "# and the same with the array on the other side",
+    [ {"==":[0,[]]}, {}, true ],
+    [ {"==":["a",["a"]]}, {}, true ],
+    [ {"===":[1,1]}, {}, true ],
+    [ {"===":[1,"1"]}, {}, false ],
+    [ {"===":[1,2]}, {}, false ],
+    [ {"!=":[1,2]}, {}, true ],
+    [ {"!=":[1,1]}, {}, false ],
+    [ {"!=":[1,"1"]}, {}, false ],
+    [ {"!==":[1,2]}, {}, true ],
+    [ {"!==":[1,1]}, {}, false ],
+    [ {"!==":[1,"1"]}, {}, true ],
+    "# === and !== given one argument compare it with a second one that is undefined",
+    [ {"===":[1]}, {}, false ],
+    [ {"!==":[1]}, {}, true ],
+    [ {">":[2,1]}, {}, true ],
+    [ {">":[1,1]}, {}, false ],
+    [ {">":[1,2]}, {}, false ],
+    [ {">":["2",1]}, {}, true ],
+    [ {">=":[2,1]}, {}, true ],
+    [ {">=":[1,1]}, {}, true ],
+    [ {">=":[1,2]}, {}, false ],
+    [ {">=":["2",1]}, {}, true ],
+    [ {"<":[2,1]}, {}, false ],
+    [ {"<":[1,1]}, {}, false ],
+    [ {"<":[1,2]}, {}, true ],
+    [ {"<":["1",2]}, {}, true ],
+    [ {"<":[1,2,3]}, {}, true ],
+    [ {"<":[1,1,3]}, {}, false ],
+    [ {"<":[1,4,3]}, {}, false ],
+    [ {"<=":[2,1]}, {}, false ],
+    [ {"<=":[1,1]}, {}, true ],
+    [ {"<=":[1,2]}, {}, true ],
+    [ {"<=":["1",2]}, {}, true ],
+    [ {"<=":[1,2,3]}, {}, true ],
+    [ {"<=":[1,4,3]}, {}, false ],
+    [ {"!":[false]}, {}, true ],
+    [ {"!":false}, {}, true ],
+    [ {"!":[true]}, {}, false ],
+    [ {"!":true}, {}, false ],
+    [ {"!":0}, {}, true ],
+    [ {"!":1}, {}, false ],
+    [ {"or":[true,true]}, {}, true ],
+    [ {"or":[false,true]}, {}, true ],
+    [ {"or":[true,false]}, {}, true ],
+    [ {"or":[false,false]}, {}, false ],
+    [ {"or":[false,false,true]}, {}, true ],
+    [ {"or":[false,false,false]}, {}, false ],
+    [ {"or":[false]}, {}, false ],
+    [ {"or":[true]}, {}, true ],
+    [ {"or":[1,3]}, {}, 1 ],
+    [ {"or":[3,false]}, {}, 3 ],
+    [ {"or":[false,3]}, {}, 3 ],
+    [ {"and":[true,true]}, {}, true ],
+    [ {"and":[false,true]}, {}, false ],
+    [ {"and":[true,false]}, {}, false ],
+    [ {"and":[false,false]}, {}, false ],
+    [ {"and":[true,true,true]}, {}, true ],
+    [ {"and":[true,true,false]}, {}, false ],
+    [ {"and":[false]}, {}, false ],
+    [ {"and":[true]}, {}, true ],
+    [ {"and":[1,3]}, {}, 3 ],
+    [ {"and":[3,false]}, {}, false ],
+    [ {"and":[false,3]}, {}, false ],
+    [ {"?:":[true,1,2]}, {}, 1 ],
+    [ {"?:":[false,1,2]}, {}, 2 ],
+    [ {"in":["Bart",["Bart","Homer","Lisa","Marge","Maggie"]]}, {}, true ],
+    [ {"in":["Milhouse",["Bart","Homer","Lisa","Marge","Maggie"]]}, {}, false ],
+    [ {"in":["Spring","Springfield"]}, {}, true ],
+    [ {"in":["i","team"]}, {}, false ],
+    "# in with a needle that is null or missing: JavaScript searches the string for the text 'null', which is not there. The empty string is found in every string",
+    [ {"in":[null,"abc"]}, {}, false ],
+    [ {"in":[{"var":"missing"},"abc"]}, {}, false ],
+    [ {"in":["","abc"]}, {}, true ],
+    "# in against something that is neither an array nor a string finds nothing",
+    [ {"in":[1,123]}, {}, false ],
+    [ {"in":["a",{"var":"o"}]}, {"o":{"a":1}}, false ],
+    [ {"cat":"ice"}, {}, "ice" ],
+    [ {"cat":["ice"]}, {}, "ice" ],
+    [ {"cat":["ice","cream"]}, {}, "icecream" ],
+    [ {"cat":[1,2]}, {}, "12" ],
+    [ {"cat":["Robocop",2]}, {}, "Robocop2" ],
+    [ {"cat":["we all scream for ","ice","cream"]}, {}, "we all scream for icecream" ],
+    [ {"%":[1,2]}, {}, 1 ],
+    [ {"%":[2,2]}, {}, 0 ],
+    [ {"%":[3,2]}, {}, 1 ],
+    [ {"max":[1,2,3]}, {}, 3 ],
+    [ {"max":[1,3,3]}, {}, 3 ],
+    [ {"max":[3,2,1]}, {}, 3 ],
+    [ {"max":[1]}, {}, 1 ],
+    [ {"min":[1,2,3]}, {}, 1 ],
+    [ {"min":[1,1,3]}, {}, 1 ],
+    [ {"min":[3,2,1]}, {}, 1 ],
+    [ {"min":[1]}, {}, 1 ],
+    "# a fractional maximum or minimum is returned as it is",
+    [ {"max":[1,2.5]}, {}, 2.5 ],
+    [ {"min":[1.5,2]}, {}, 1.5 ],
+
+    [ {"+":[1,2]}, {}, 3 ],
+    [ {"+":[2,2,2]}, {}, 6 ],
+    [ {"+":[1]}, {}, 1 ],
+    [ {"+":["1",1]}, {}, 2 ],
+    [ {"*":[3,2]}, {}, 6 ],
+    [ {"*":[2,2,2]}, {}, 8 ],
+    [ {"*":[1]}, {}, 1 ],
+    [ {"*":["1",1]}, {}, 1 ],
+    "# A whole result beyond the 64-bit integer range is still a number",
+    [ {"*":[10000000000,10000000000]}, {}, 100000000000000000000 ],
+    [ {"-":[2,3]}, {}, -1 ],
+    [ {"-":[3,2]}, {}, 1 ],
+    [ {"-":[3]}, {}, -3 ],
+    [ {"-":["1",1]}, {}, 0 ],
+    "# a fractional difference is returned as it is",
+    [ {"-":[1,0.5]}, {}, 0.5 ],
+    [ {"/":[4,2]}, {}, 2 ],
+    [ {"/":[2,4]}, {}, 0.5 ],
+    [ {"/":["1",1]}, {}, 1 ],
+
+    "Substring",
+    [{"substr":["jsonlogic", 4]}, null, "logic"],
+    [{"substr":["jsonlogic", -5]}, null, "logic"],
+    [{"substr":["jsonlogic", 0, 1]}, null, "j"],
+    [{"substr":["jsonlogic", -1, 1]}, null, "c"],
+    [{"substr":["jsonlogic", 4, 5]}, null, "logic"],
+    [{"substr":["jsonlogic", -5, 5]}, null, "logic"],
+    [{"substr":["jsonlogic", -5, -2]}, null, "log"],
+    [{"substr":["jsonlogic", 1, -5]}, null, "son"],
+    [{"substr":["abc", 0, -3]}, null, ""],
+    "# A negative length that reaches back past the start of the text leaves nothing",
+    [{"substr":["abc", 0, -5]}, null, ""],
+
+    "Merge arrays",
+    [{"merge":[]}, null, []],
+    [{"merge":[[1]]}, null, [1]],
+    [{"merge":[[1],[]]}, null, [1]],
+    [{"merge":[[1], [2]]}, null, [1,2]],
+    [{"merge":[[1], [2], [3]]}, null, [1,2,3]],
+    [{"merge":[[1, 2], [3]]}, null, [1,2,3]],
+    [{"merge":[[1], [2, 3]]}, null, [1,2,3]],
+    "Given non-array arguments, merge converts them to arrays",
+    [{"merge":1}, null, [1]],
+    [{"merge":[1,2]}, null, [1,2]],
+    [{"merge":[1,[2]]}, null, [1,2]],
+
+    "Too few args",
+    [{"if":[]}, null, null],
+    [{"if":[true]}, null, true],
+    [{"if":[false]}, null, false],
+    [{"if":["apple"]}, null, "apple"],
+
+    "Simple if/then/else cases",
+    [{"if":[true, "apple"]}, null, "apple"],
+    [{"if":[false, "apple"]}, null, null],
+    [{"if":[true, "apple", "banana"]}, null, "apple"],
+    [{"if":[false, "apple", "banana"]}, null, "banana"],
+
+    "Empty arrays are falsey",
+    [{"if":[ [], "apple", "banana"]}, null, "banana"],
+    [{"if":[ [1], "apple", "banana"]}, null, "apple"],
+    [{"if":[ [1,2,3,4], "apple", "banana"]}, null, "apple"],
+
+    "Empty strings are falsey, all other strings are truthy",
+    [{"if":[ "", "apple", "banana"]}, null, "banana"],
+    [{"if":[ "zucchini", "apple", "banana"]}, null, "apple"],
+    [{"if":[ "0", "apple", "banana"]}, null, "apple"],
+
+    "You can cast a string to numeric with a unary + ",
+    [{"===":[0,"0"]}, null, false],
+    [{"===":[0,{"+":"0"}]}, null, true],
+    [{"if":[ {"+":"0"}, "apple", "banana"]}, null, "banana"],
+    [{"if":[ {"+":"1"}, "apple", "banana"]}, null, "apple"],
+
+    "Zero is falsy, all other numbers are truthy",
+    [{"if":[ 0, "apple", "banana"]}, null, "banana"],
+    [{"if":[ 1, "apple", "banana"]}, null, "apple"],
+    [{"if":[ 3.1416, "apple", "banana"]}, null, "apple"],
+    [{"if":[ -1, "apple", "banana"]}, null, "apple"],
+
+    "Truthy and falsy definitions matter in Boolean operations",
+    [{"!" : [ [] ]}, {}, true],
+    [{"!!" : [ [] ]}, {}, false],
+    [{"and" : [ [], true ]}, {}, [] ],
+    [{"or" : [ [], true ]}, {}, true ],
+
+    [{"!" : [ 0 ]}, {}, true],
+    [{"!!" : [ 0 ]}, {}, false],
+    [{"and" : [ 0, true ]}, {}, 0 ],
+    [{"or" : [ 0, true ]}, {}, true ],
+
+    [{"!" : [ "" ]}, {}, true],
+    [{"!!" : [ "" ]}, {}, false],
+    [{"and" : [ "", true ]}, {}, "" ],
+    [{"or" : [ "", true ]}, {}, true ],
+
+    [{"!" : [ "0" ]}, {}, false],
+    [{"!!" : [ "0" ]}, {}, true],
+    [{"and" : [ "0", true ]}, {}, true ],
+    [{"or" : [ "0", true ]}, {}, "0" ],
+
+    [{"!" : [ {} ]}, {}, false],
+    [{"!!" : [ {} ]}, {}, true],
+    [{"and" : [ {}, true ]}, {}, true ],
+    [{"or" : [ {}, true ]}, {}, {} ],
+
+    "A missing operand is falsy",
+    [{"!" : []}, {}, true],
+    [{"!!" : []}, {}, false],
+
+    "If the conditional is logic, it gets evaluated",
+    [{"if":[ {">":[2,1]}, "apple", "banana"]}, null, "apple"],
+    [{"if":[ {">":[1,2]}, "apple", "banana"]}, null, "banana"],
+
+    "If the consequents are logic, they get evaluated",
+    [{"if":[ true, {"cat":["ap","ple"]}, {"cat":["ba","na","na"]} ]}, null, "apple"],
+    [{"if":[ false, {"cat":["ap","ple"]}, {"cat":["ba","na","na"]} ]}, null, "banana"],
+
+    "If/then/elseif/then cases",
+    [{"if":[true, "apple", true, "banana"]}, null, "apple"],
+    [{"if":[true, "apple", false, "banana"]}, null, "apple"],
+    [{"if":[false, "apple", true, "banana"]}, null, "banana"],
+    [{"if":[false, "apple", false, "banana"]}, null, null],
+
+    [{"if":[true, "apple", true, "banana", "carrot"]}, null, "apple"],
+    [{"if":[true, "apple", false, "banana", "carrot"]}, null, "apple"],
+    [{"if":[false, "apple", true, "banana", "carrot"]}, null, "banana"],
+    [{"if":[false, "apple", false, "banana", "carrot"]}, null, "carrot"],
+
+    [{"if":[false, "apple", false, "banana", false, "carrot"]}, null, null],
+    [{"if":[false, "apple", false, "banana", false, "carrot", "date"]}, null, "date"],
+    [{"if":[false, "apple", false, "banana", true, "carrot", "date"]}, null, "carrot"],
+    [{"if":[false, "apple", true, "banana", false, "carrot", "date"]}, null, "banana"],
+    [{"if":[false, "apple", true, "banana", true, "carrot", "date"]}, null, "banana"],
+    [{"if":[true, "apple", false, "banana", false, "carrot", "date"]}, null, "apple"],
+    [{"if":[true, "apple", false, "banana", true, "carrot", "date"]}, null, "apple"],
+    [{"if":[true, "apple", true, "banana", false, "carrot", "date"]}, null, "apple"],
+    [{"if":[true, "apple", true, "banana", true, "carrot", "date"]}, null, "apple"],
+
+    "Arrays with logic",
+    [[1, {"var": "x"}, 3], {"x": 2}, [1, 2, 3]],
+    [{"if": [{"var": "x"}, [{"var": "y"}], 99]}, {"x": true, "y": 42}, [42]],
+
+    "# Compound Tests",
+    [ {"and":[{">":[3,1]},true]}, {}, true ],
+    [ {"and":[{">":[3,1]},false]}, {}, false ],
+    [ {"and":[{">":[3,1]},{"!":true}]}, {}, false ],
+    [ {"and":[{">":[3,1]},{"<":[1,3]}]}, {}, true ],
+    [ {"?:":[{">":[3,1]},"visible","hidden"]}, {}, "visible" ],
+
+    "# Data-Driven",
+    [ {"var":["a"]},{"a":1},1 ],
+    [ {"var":["b"]},{"a":1},null ],
+    [ {"var":["a"]},null,null ],
+    [ {"var":"a"},{"a":1},1 ],
+    [ {"var":"b"},{"a":1},null ],
+    [ {"var":"a"},null,null ],
+    [ {"var":["a", 1]},null,1 ],
+    [ {"var":["b", 2]},{"a":1},2 ],
+    [ {"var":"a.b"},{"a":{"b":"c"}},"c" ],
+    [ {"var":"a.q"},{"a":{"b":"c"}},null ],
+    [ {"var":["a.q", 9]},{"a":{"b":"c"}},9 ],
+    [ {"var":1}, ["apple","banana"], "banana" ],
+    [ {"var":"1"}, ["apple","banana"], "banana" ],
+    [ {"var":"1.1"}, ["apple",["banana","beer"]], "beer" ],
+    [ {"and":[{"<":[{"var":"temp"},110]},{"==":[{"var":"pie.filling"},"apple"]}]},{"temp":100,"pie":{"filling":"apple"}},true ],
+    [ {"var":[{"?:":[{"<":[{"var":"temp"},110]},"pie.filling","pie.eta"]}]},{"temp":100,"pie":{"filling":"apple","eta":"60s"}},"apple" ],
+    [ {"in":[{"var":"filling"},["apple","cherry"]]},{"filling":"apple"},true ],
+    [ {"var":"a.b.c"}, null, null ],
+    [ {"var":"a.b.c"}, {"a":null}, null ],
+    [ {"var":"a.b.c"}, {"a":{"b":null}}, null ],
+    [ {"var":""}, 1, 1 ],
+    [ {"var":null}, 1, 1 ],
+    [ {"var":[]}, 1, 1 ],
+    "# var into an array by a path segment that is no index, or is beyond the int range, finds nothing: the default, or null",
+    [ {"var":"a.x"}, {"a":[1,2]}, null ],
+    [ {"var":["a.x", 9]}, {"a":[1,2]}, 9 ],
+    [ {"var":"a.99999999999"}, {"a":[1,2]}, null ],
+    [ {"var":["a.99999999999", 9]}, {"a":[1,2]}, 9 ],
+    "# nor does a negative index: JavaScript reads a[-1] as a property that is not there, not as the last element",
+    [ {"var":"a.-1"}, {"a":[1,2]}, null ],
+    [ {"var":["a.-1", 9]}, {"a":[1,2]}, 9 ],
+
+    "Missing",
+    [{"missing":[]}, null, []],
+    [{"missing":["a"]}, null, ["a"]],
+    [{"missing":"a"}, null, ["a"]],
+    [{"missing":"a"}, {"a":"apple"}, []],
+    [{"missing":["a"]}, {"a":"apple"}, []],
+    [{"missing":["a","b"]}, {"a":"apple"}, ["b"]],
+    [{"missing":["a","b"]}, {"b":"banana"}, ["a"]],
+    [{"missing":["a","b"]}, {"a":"apple", "b":"banana"}, []],
+    [{"missing":["a","b"]}, {}, ["a","b"]],
+    [{"missing":["a","b"]}, null, ["a","b"]],
+
+    [{"missing":["a.b"]}, null, ["a.b"]],
+    [{"missing":["a.b"]}, {"a":"apple"}, ["a.b"]],
+    [{"missing":["a.b"]}, {"a":{"c":"apple cake"}}, ["a.b"]],
+    [{"missing":["a.b"]}, {"a":{"b":"apple brownie"}}, []],
+    [{"missing":["a.b", "a.c"]}, {"a":{"b":"apple brownie"}}, ["a.c"]],
+
+
+    "Missing some",
+    [{"missing_some":[1, ["a", "b"]]}, {"a":"apple"}, [] ],
+    [{"missing_some":[1, ["a", "b"]]}, {"b":"banana"}, [] ],
+    [{"missing_some":[1, ["a", "b"]]}, {"a":"apple", "b":"banana"}, [] ],
+    [{"missing_some":[1, ["a", "b"]]}, {"c":"carrot"}, ["a", "b"]],
+
+    [{"missing_some":[2, ["a", "b", "c"]]}, {"a":"apple", "b":"banana"}, [] ],
+    [{"missing_some":[2, ["a", "b", "c"]]}, {"a":"apple", "c":"carrot"}, [] ],
+    [{"missing_some":[2, ["a", "b", "c"]]}, {"a":"apple", "b":"banana", "c":"carrot"}, [] ],
+    [{"missing_some":[2, ["a", "b", "c"]]}, {"a":"apple", "d":"durian"}, ["b", "c"] ],
+    [{"missing_some":[2, ["a", "b", "c"]]}, {"d":"durian", "e":"eggplant"}, ["a", "b", "c"] ],
+
+
+    "Missing and If are friends, because empty arrays are falsey in JsonLogic",
+    [{"if":[ {"missing":"a"}, "missed it", "found it" ]}, {"a":"apple"}, "found it"],
+    [{"if":[ {"missing":"a"}, "missed it", "found it" ]}, {"b":"banana"}, "missed it"],
+
+    "Missing, Merge, and If are friends. VIN is always required, APR is only required if financing is true.",
+    [
+        {"missing":{"merge":[ "vin", {"if": [{"var":"financing"}, ["apr"], [] ]} ]} },
+        {"financing":true},
+        ["vin","apr"]
+    ],
+
+    [
+        {"missing":{"merge":[ "vin", {"if": [{"var":"financing"}, ["apr"], [] ]} ]} },
+        {"financing":false},
+        ["vin"]
+    ],
+
+    "Filter, map, all, none, and some",
+    [
+        {"filter":[{"var":"integers"}, true]},
+        {"integers":[1,2,3]},
+        [1,2,3]
+    ],
+    [
+        {"filter":[{"var":"integers"}, false]},
+        {"integers":[1,2,3]},
+        []
+    ],
+    [
+        {"filter":[{"var":"integers"}, {">=":[{"var":""},2]}]},
+        {"integers":[1,2,3]},
+        [2,3]
+    ],
+    [
+        {"filter":[{"var":"integers"}, {"%":[{"var":""},2]}]},
+        {"integers":[1,2,3]},
+        [1,3]
+    ],
+
+    "A filter over something that is not an array is empty",
+    [
+        {"filter":[{"var":"integers"}, true]},
+        {"integers":5},
+        []
+    ],
+    [
+        {"filter":[{"var":"integers"}, true]},
+        null,
+        []
+    ],
+
+    [
+        {"map":[{"var":"integers"}, {"*":[{"var":""},2]}]},
+        {"integers":[1,2,3]},
+        [2,4,6]
+    ],
+    [
+        {"map":[{"var":"integers"}, {"*":[{"var":""},2]}]},
+        null,
+        []
+    ],
+    [
+        {"map":[{"var":"desserts"}, {"var":"qty"}]},
+        {"desserts":[
+            {"name":"apple","qty":1},
+            {"name":"brownie","qty":2},
+            {"name":"cupcake","qty":3}
+        ]},
+        [1,2,3]
+    ],
+
+    [
+        {"reduce":[
+            {"var":"integers"},
+            {"+":[{"var":"current"}, {"var":"accumulator"}]},
+            0
+        ]},
+        {"integers":[1,2,3,4]},
+        10
+    ],
+    [
+        {"reduce":[
+            {"var":"integers"},
+            {"+":[{"var":"current"}, {"var":"accumulator"}]},
+            {"var": "start_with"}
+        ]},
+        {"integers":[1,2,3,4], "start_with": 59},
+        69
+    ],
+    [
+        {"reduce":[
+            {"var":"integers"},
+            {"+":[{"var":"current"}, {"var":"accumulator"}]},
+            0
+        ]},
+        null,
+        0
+    ],
+    [
+        {"reduce":[
+            {"var":"integers"},
+            {"*":[{"var":"current"}, {"var":"accumulator"}]},
+            1
+        ]},
+        {"integers":[1,2,3,4]},
+        24
+    ],
+    [
+        {"reduce":[
+            {"var":"integers"},
+            {"*":[{"var":"current"}, {"var":"accumulator"}]},
+            0
+        ]},
+        {"integers":[1,2,3,4]},
+        0
+    ],
+    [
+        {"reduce": [
+            {"var":"desserts"},
+            {"+":[ {"var":"accumulator"}, {"var":"current.qty"}]},
+            0
+        ]},
+        {"desserts":[
+            {"name":"apple","qty":1},
+            {"name":"brownie","qty":2},
+            {"name":"cupcake","qty":3}
+        ]},
+        6
+    ],
+
+    "Reduce without a start value starts from null, and returns null when there is nothing to walk",
+    [
+        {"reduce":[
+            {"var":"letters"},
+            {"cat":[{"var":"accumulator"}, {"var":"current"}]}
+        ]},
+        {"letters":["a","b","c"]},
+        "abc"
+    ],
+    [
+        {"reduce":[
+            {"var":"letters"},
+            {"cat":[{"var":"accumulator"}, {"var":"current"}]}
+        ]},
+        null,
+        null
+    ],
+
+
+    [
+        {"all":[{"var":"integers"}, {">=":[{"var":""}, 1]}]},
+        {"integers":[1,2,3]},
+        true
+    ],
+    [
+        {"all":[{"var":"integers"}, {"==":[{"var":""}, 1]}]},
+        {"integers":[1,2,3]},
+        false
+    ],
+    [
+        {"all":[{"var":"integers"}, {"<":[{"var":""}, 1]}]},
+        {"integers":[1,2,3]},
+        false
+    ],
+    [
+        {"all":[{"var":"integers"}, {"<":[{"var":""}, 1]}]},
+        {"integers":[]},
+        false
+    ],
+    [
+        {"all":[ {"var":"items"}, {">=":[{"var":"qty"}, 1]}]},
+        {"items":[{"qty":1,"sku":"apple"},{"qty":2,"sku":"banana"}]},
+        true
+    ],
+    [
+        {"all":[ {"var":"items"}, {">":[{"var":"qty"}, 1]}]},
+        {"items":[{"qty":1,"sku":"apple"},{"qty":2,"sku":"banana"}]},
+        false
+    ],
+    [
+        {"all":[ {"var":"items"}, {"<":[{"var":"qty"}, 1]}]},
+        {"items":[{"qty":1,"sku":"apple"},{"qty":2,"sku":"banana"}]},
+        false
+    ],
+    [
+        {"all":[ {"var":"items"}, {">=":[{"var":"qty"}, 1]}]},
+        {"items":[]},
+        false
+    ],
+
+
+    [
+        {"none":[{"var":"integers"}, {">=":[{"var":""}, 1]}]},
+        {"integers":[1,2,3]},
+        false
+    ],
+    [
+        {"none":[{"var":"integers"}, {"==":[{"var":""}, 1]}]},
+        {"integers":[1,2,3]},
+        false
+    ],
+    [
+        {"none":[{"var":"integers"}, {"<":[{"var":""}, 1]}]},
+        {"integers":[1,2,3]},
+        true
+    ],
+    [
+        {"none":[{"var":"integers"}, {"<":[{"var":""}, 1]}]},
+        {"integers":[]},
+        true
+    ],
+    [
+        {"none":[ {"var":"items"}, {">=":[{"var":"qty"}, 1]}]},
+        {"items":[{"qty":1,"sku":"apple"},{"qty":2,"sku":"banana"}]},
+        false
+    ],
+    [
+        {"none":[ {"var":"items"}, {">":[{"var":"qty"}, 1]}]},
+        {"items":[{"qty":1,"sku":"apple"},{"qty":2,"sku":"banana"}]},
+        false
+    ],
+    [
+        {"none":[ {"var":"items"}, {"<":[{"var":"qty"}, 1]}]},
+        {"items":[{"qty":1,"sku":"apple"},{"qty":2,"sku":"banana"}]},
+        true
+    ],
+    [
+        {"none":[ {"var":"items"}, {">=":[{"var":"qty"}, 1]}]},
+        {"items":[]},
+        true
+    ],
+
+    [
+        {"some":[{"var":"integers"}, {">=":[{"var":""}, 1]}]},
+        {"integers":[1,2,3]},
+        true
+    ],
+    [
+        {"some":[{"var":"integers"}, {"==":[{"var":""}, 1]}]},
+        {"integers":[1,2,3]},
+        true
+    ],
+    [
+        {"some":[{"var":"integers"}, {"<":[{"var":""}, 1]}]},
+        {"integers":[1,2,3]},
+        false
+    ],
+    [
+        {"some":[{"var":"integers"}, {"<":[{"var":""}, 1]}]},
+        {"integers":[]},
+        false
+    ],
+    [
+        {"some":[ {"var":"items"}, {">=":[{"var":"qty"}, 1]}]},
+        {"items":[{"qty":1,"sku":"apple"},{"qty":2,"sku":"banana"}]},
+        true
+    ],
+    [
+        {"some":[ {"var":"items"}, {">":[{"var":"qty"}, 1]}]},
+        {"items":[{"qty":1,"sku":"apple"},{"qty":2,"sku":"banana"}]},
+        true
+    ],
+    [
+        {"some":[ {"var":"items"}, {"<":[{"var":"qty"}, 1]}]},
+        {"items":[{"qty":1,"sku":"apple"},{"qty":2,"sku":"banana"}]},
+        false
+    ],
+    [
+        {"some":[ {"var":"items"}, {">=":[{"var":"qty"}, 1]}]},
+        {"items":[]},
+        false
+    ],
+
+    "# is_match",
+    [
+        {"is_match":["hello@example.com", "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"]},
+        {},
+        true
+    ],
+    [
+        {"is_match":["not-an-email", "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"]},
+        {},
+        false
+    ],
+    [
+        {"is_match":["valid-slug-123", "^[a-z0-9]+(?:-[a-z0-9]+)*$"]},
+        {},
+        true
+    ],
+    [
+        {"is_match":["Invalid Slug!", "^[a-z0-9]+(?:-[a-z0-9]+)*$"]},
+        {},
+        false
+    ],
+    [
+        {"is_match":[{"var":"email"}, "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"]},
+        {"email": "user@example.org"},
+        true
+    ],
+    [
+        {"is_match":[{"var":"email"}, "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"]},
+        {"email": "bad-email"},
+        false
+    ],
+    [
+        {"is_match":["hello world", "^hello"]},
+        {},
+        true
+    ],
+    [
+        {"is_match":["goodbye world", "^hello"]},
+        {},
+        false
+    ],
+    [
+        {"is_match":["abc123", "^[a-z]+[0-9]+$"]},
+        {},
+        true
+    ],
+    [
+        {"is_match":["123abc", "^[a-z]+[0-9]+$"]},
+        {},
+        false
+    ],
+
+    "# is_match: a null value never matches. jl_to_text renders JSON null as the empty string, so the null test has to happen on the jsonb",
+    [ {"is_match":[null, "^$"]}, {}, false ],
+    [ {"is_match":[null, ".*"]}, {}, false ],
+    [ {"is_match":["", "^$"]}, {}, true ],
+    [ {"is_match":[{"var":"missing"}, "^$"]}, {}, false ],
+    [ {"is_match":["abc", null]}, {}, false ],
+
+    "# String comparison (B20, B21): two strings compare as text in code-point order, as JavaScript does; a string against a number still coerces to a number",
+    [ {">":["10","9"]}, {}, false ],
+    [ {"<":["10","9"]}, {}, true ],
+    [ {">":["b","a"]}, {}, true ],
+    [ {">":["a","b"]}, {}, false ],
+    [ {">=":["b","b"]}, {}, true ],
+    [ {"<":["a","b"]}, {}, true ],
+    [ {"<=":["a","a"]}, {}, true ],
+    [ {"<=":["b","a"]}, {}, false ],
+    [ {"<":["B","a"]}, {}, true ],
+    [ {"<":["a","b","c"]}, {}, true ],
+    [ {"<":["a","c","b"]}, {}, false ],
+    [ {"<=":["a","a","b"]}, {}, true ],
+    [ {"<":["2024-01-01","2024-02-01"]}, {}, true ],
+    [ {">":["10",9]}, {}, true ],
+    [ {"<":[9,"10"]}, {}, true ],
+    [ {">=":["2",1,3]}, {}, true ],
+    [ {"<":[1,"2",3]}, {}, true ],
+    [ {">":["b",1]}, {}, false ],
+    [ {">=":["2024-01-01",0]}, {}, true ],
+    [ {"<":[{"var":"a"},{"var":"b"}]}, {"a":"apple","b":"banana"}, true ],
+    [ {">":[{"var":"a"},{"var":"b"}]}, {"a":"10","b":"9"}, false ],
+
+    "# Ordering a string that carries no number: JavaScript coerces it to NaN, and every comparison with NaN is false",
+    [ {"<":["abc",5]}, {}, false ],
+    [ {"<=":["abc",5]}, {}, false ],
+    [ {">":[5,"abc"]}, {}, false ],
+    [ {">=":[5,"abc"]}, {}, false ],
+    [ {"<":[-1,"abc",3]}, {}, false ],
+    [ {"<=":[-5,-1,"abc"]}, {}, false ],
+    "# null and the empty string are 0, not NaN",
+    [ {"<":[null,5]}, {}, true ],
+    [ {"<":["",5]}, {}, true ],
+    "# A word that PostgreSQL's number or date parser accepts but JavaScript's Number does not is NaN as well. Only the exact spelling Infinity is a number",
+    [ {">":["NaN",0]}, {}, false ],
+    [ {">":["infinity",0]}, {}, false ],
+    [ {">":["today",0]}, {}, false ],
+    [ {">":["Infinity",0]}, {}, true ],
+
+    "# log hands back its argument unchanged",
+    [ {"log":"apple"}, {}, "apple" ],
+    [ {"log":[{"+":[1,2]}]}, {}, 3 ],
+
+    "# Date operators. Every evaluator must give these answers: the browser's test suite reads this file too.",
+
+    "# date_add: amount and unit",
+    [ {"date_add":["2026-12-31",-30,"day"]}, {}, "2026-12-01" ],
+    [ {"date_add":[{"var":"term_end"},{"-":[0,{"var":"notice"}]},"day"]}, {"term_end":"2026-12-31","notice":30}, "2026-12-01" ],
+    [ {"date_add":["2026-01-31",1,"month"]}, {}, "2026-02-28" ],
+    [ {"date_add":["2028-01-31",1,"month"]}, {}, "2028-02-29" ],
+    [ {"date_add":["2026-03-31",-1,"month"]}, {}, "2026-02-28" ],
+    [ {"date_add":["2028-02-29",1,"year"]}, {}, "2029-02-28" ],
+    [ {"date_add":["2026-11-30",1,"quarter"]}, {}, "2027-02-28" ],
+    [ {"date_add":["2026-12-28",1,"week"]}, {}, "2027-01-04" ],
+    [ {"date_add":["2026-12-31","30","day"]}, {}, "2027-01-30" ],
+    [ {"date_add":["2026-12-31",0,"day"]}, {}, "2026-12-31" ],
+    [ {"date_add":["2026-12-31T23:30:00+00:00",1,"hour"]}, {}, "2027-01-01T00:30:00+00:00" ],
+    [ {"date_add":["2026-12-31T23:59:30Z",45,"second"]}, {}, "2027-01-01T00:00:15+00:00" ],
+    [ {"date_add":["2026-01-01T00:00:00Z",90,"minute"]}, {}, "2026-01-01T01:30:00+00:00" ],
+    [ {"date_add":["2026-01-31T10:00:00Z",1,"month"]}, {}, "2026-02-28T10:00:00+00:00" ],
+    [ {"date_add":["2026-01-05T01:00:00+02:00",0,"day"]}, {}, "2026-01-04T23:00:00+00:00" ],
+    [ {"date_add":["2026-01-05T01:00:00",1,"hour"]}, {}, "2026-01-05T02:00:00+00:00" ],
+    [ {"date_add":["2026-01-05T01:00:00.750Z",0,"second"]}, {}, "2026-01-05T01:00:00+00:00" ],
+
+    "# date_add: duration",
+    [ {"date_add":["2026-01-31","P1M"]}, {}, "2026-02-28" ],
+    [ {"date_add":["2026-01-31","P1M1D"]}, {}, "2026-03-01" ],
+    [ {"date_add":["2026-01-01","P1Y2M3D"]}, {}, "2027-03-04" ],
+    [ {"date_add":["2026-01-01","P2W"]}, {}, "2026-01-15" ],
+    [ {"date_add":["2026-03-01","P-1D"]}, {}, "2026-02-28" ],
+    [ {"date_add":["2026-01-31","P1MT0S"]}, {}, "2026-02-28" ],
+    [ {"date_add":["2026-01-01","PT0S"]}, {}, "2026-01-01" ],
+    [ {"date_add":["2026-01-01T00:00:00Z","P1DT2H30M"]}, {}, "2026-01-02T02:30:00+00:00" ],
+    [ {"date_add":["2026-01-01T00:00:00Z","PT1.5S"]}, {}, "2026-01-01T00:00:01+00:00" ],
+    [ {"date_add":["2026-01-01T00:00:00Z","PT-1.5S"]}, {}, "2025-12-31T23:59:58+00:00" ],
+
+    "# date_add: no date, no answer",
+    [ {"date_add":[null,1,"day"]}, {}, null ],
+    [ {"date_add":["",1,"day"]}, {}, null ],
+    [ {"date_add":["2026-01-01",null,"day"]}, {}, null ],
+    [ {"date_add":["2026-01-01",""]}, {}, null ],
+    [ {"date_add":[{"var":"none"},1,"day"]}, {}, null ],
+
+    "# date_diff",
+    [ {"date_diff":["2026-12-31","2026-12-01","day"]}, {}, 30 ],
+    [ {"date_diff":["2026-12-01","2026-12-31","day"]}, {}, -30 ],
+    [ {"date_diff":["2026-03-01","2026-02-01","week"]}, {}, 4 ],
+    [ {"date_diff":["2026-02-28","2026-01-31","month"]}, {}, 0 ],
+    [ {"date_diff":["2026-03-31","2026-02-28","month"]}, {}, 1 ],
+    [ {"date_diff":["2026-01-01","2026-03-15","month"]}, {}, -2 ],
+    [ {"date_diff":["2028-02-28","2026-02-28","year"]}, {}, 2 ],
+    [ {"date_diff":["2029-02-28","2028-02-29","year"]}, {}, 0 ],
+    [ {"date_diff":["2026-12-31","2026-01-01","quarter"]}, {}, 3 ],
+    [ {"date_diff":["2026-01-02T12:00:00Z","2026-01-01","hour"]}, {}, 36 ],
+    [ {"date_diff":["2026-01-02","2026-01-01","hour"]}, {}, 24 ],
+    [ {"date_diff":["2026-01-01T01:30:00Z","2026-01-01T00:00:00Z","minute"]}, {}, 90 ],
+    [ {"date_diff":["2026-01-05T01:00:00+02:00","2026-01-05T00:00:00+00:00","second"]}, {}, -3600 ],
+    [ {"date_diff":["2026-01-01T00:00:01.9Z","2026-01-01T00:00:00.2Z","second"]}, {}, 1 ],
+    [ {"date_diff":["2026-01-02T12:00:00Z","2026-01-01T00:00:00Z","day"]}, {}, 1 ],
+    [ {"date_diff":["2026-01-01T00:00:00Z","2026-01-02T12:00:00Z","day"]}, {}, -1 ],
+    [ {"date_diff":[null,"2026-01-01","day"]}, {}, null ],
+    [ {"date_diff":["2026-01-01","","day"]}, {}, null ],
+
+    "# date_part",
+    [ {"date_part":["2026-12-31","year"]}, {}, 2026 ],
+    [ {"date_part":["2026-12-31","quarter"]}, {}, 4 ],
+    [ {"date_part":["2026-12-31","month"]}, {}, 12 ],
+    [ {"date_part":["2026-12-31","day"]}, {}, 31 ],
+    [ {"date_part":["2026-12-31","weekday"]}, {}, 4 ],
+    [ {"date_part":["2026-12-31","day_of_year"]}, {}, 365 ],
+    [ {"date_part":["2026-12-31","week"]}, {}, 53 ],
+    [ {"date_part":["2026-12-31","iso_year"]}, {}, 2026 ],
+    [ {"date_part":["2027-01-01","year"]}, {}, 2027 ],
+    [ {"date_part":["2027-01-01","iso_year"]}, {}, 2026 ],
+    [ {"date_part":["2027-01-01","week"]}, {}, 53 ],
+    [ {"date_part":["2027-01-01","weekday"]}, {}, 5 ],
+    [ {"date_part":["2026-01-04","weekday"]}, {}, 7 ],
+    [ {"date_part":["2026-01-04","week"]}, {}, 1 ],
+    [ {"date_part":["2026-12-31T23:59:58.9+00:00","hour"]}, {}, 23 ],
+    [ {"date_part":["2026-12-31T23:59:58.9+00:00","minute"]}, {}, 59 ],
+    [ {"date_part":["2026-12-31T23:59:58.9+00:00","second"]}, {}, 58 ],
+    [ {"date_part":["2026-12-31T23:30:00-02:00","year"]}, {}, 2027 ],
+    [ {"date_part":["2026-12-31T23:30:00-02:00","hour"]}, {}, 1 ],
+    [ {"date_part":["2026-01-01","epoch"]}, {}, 1767225600 ],
+    [ {"date_part":["2026-01-01T00:00:01.9Z","epoch"]}, {}, 1767225601 ],
+    [ {"date_part":[null,"year"]}, {}, null ],
+
+    "# date_trunc",
+    [ {"date_trunc":["2026-11-18","year"]}, {}, "2026-01-01" ],
+    [ {"date_trunc":["2026-11-18","quarter"]}, {}, "2026-10-01" ],
+    [ {"date_trunc":["2026-11-18","month"]}, {}, "2026-11-01" ],
+    [ {"date_trunc":["2026-11-18","week"]}, {}, "2026-11-16" ],
+    [ {"date_trunc":["2026-11-18","day"]}, {}, "2026-11-18" ],
+    [ {"date_trunc":["2026-11-18T13:45:10Z","week"]}, {}, "2026-11-16T00:00:00+00:00" ],
+    [ {"date_trunc":["2026-11-18T13:45:10Z","day"]}, {}, "2026-11-18T00:00:00+00:00" ],
+    [ {"date_trunc":["2026-11-18T13:45:10Z","hour"]}, {}, "2026-11-18T13:00:00+00:00" ],
+    [ {"date_trunc":["2026-11-18T13:45:10Z","minute"]}, {}, "2026-11-18T13:45:00+00:00" ],
+    [ {"date_trunc":["2026-11-18T13:45:10.5Z","second"]}, {}, "2026-11-18T13:45:10+00:00" ],
+    [ {"date_add":[{"date_add":[{"date_trunc":["2026-02-10","month"]},1,"month"]},-1,"day"]}, {}, "2026-02-28" ],
+    [ {"date_trunc":[null,"month"]}, {}, null ],
+
+    "# to_date",
+    [ {"to_date":"2026-12-31"}, {}, "2026-12-31" ],
+    [ {"to_date":["2026-12-31T23:30:00-02:00"]}, {}, "2027-01-01" ],
+    [ {"to_date":[1767225600]}, {}, "2026-01-01" ],
+    [ {"to_date":[1767229200]}, {}, "2026-01-01" ],
+    [ {"to_date":[-1]}, {}, "1969-12-31" ],
+    [ {"to_date":[null]}, {}, null ],
+    [ {"to_date":[""]}, {}, null ],
+
+    "# date_format",
+    [ {"date_format":["2026-12-31","YYYY-MM-DD"]}, {}, "2026-12-31" ],
+    [ {"date_format":["2026-12-31","DD.MM.YYYY"]}, {}, "31.12.2026" ],
+    [ {"date_format":["2026-12-31","Mon YYYY"]}, {}, "Dec 2026" ],
+    [ {"date_format":["2026-12-31","Month YY"]}, {}, "December 26" ],
+    [ {"date_format":["2026-12-31","Dy, DD Mon"]}, {}, "Thu, 31 Dec" ],
+    [ {"date_format":["2026-12-31","Day"]}, {}, "Thursday" ],
+    [ {"date_format":["2026-12-31","YYYY/Q"]}, {}, "2026/4" ],
+    [ {"date_format":["2026-12-31","YYYYMMDD"]}, {}, "20261231" ],
+    [ {"date_format":["2026-12-31","DDDy"]}, {}, "31Thu" ],
+    [ {"date_format":["2026-05-04","Month, Day"]}, {}, "May, Monday" ],
+    [ {"date_format":["2026-12-31T23:59:58.9Z","YYYY-MM-DD HH24:MI:SS"]}, {}, "2026-12-31 23:59:58" ],
+    [ {"date_format":["2026-12-31T23:30:00-02:00","YYYY-MM-DD HH24:MI"]}, {}, "2027-01-01 01:30" ],
+    [ {"date_format":[null,"YYYY"]}, {}, null ],
+
+    "EOF"
+]

@@ -25,6 +25,22 @@ const labelRule = {
   ],
 }
 
+// What a rule threw, read off the server-shaped body it carries: the code, the
+// message template and the parameters (the JSON hint).
+function thrown(run: () => unknown): { code?: unknown; message?: unknown; params?: unknown } {
+  try {
+    run()
+  } catch (error) {
+    const cause = (error as Error).cause as { code?: unknown; message?: unknown; hint?: unknown } | undefined
+    return {
+      code: cause?.code,
+      message: cause?.message,
+      params: typeof cause?.hint === 'string' ? JSON.parse(cause.hint) : undefined,
+    }
+  }
+  throw new Error('the rule did not throw')
+}
+
 function lookup(rows: Record<string, Record<string, unknown>>): RecordLookup {
   return {
     get(entity, id) {
@@ -132,12 +148,26 @@ describe('collectSetRecordLookups', () => {
   })
 })
 
-// src/lib -> src -> web -> apps -> repository root -> its parent
+// The backend's own JsonLogic test cases, committed at vendor/semantius/ so they
+// run in CI and before a release, where there is no backend checkout. Where
+// there is one, the copy must match it; `node scripts/vendor-semantius.mjs`
+// refreshes it.
+// src/lib -> src -> web -> apps -> repository root
+const vendoredPath = resolve(__dirname, '../../../../vendor/semantius/0100_test_jsonlogic.json')
+// ... -> its parent
 const backendDir = process.env.SEMANTIUS_BACKEND_DIR ?? resolve(__dirname, '../../../../../semantius')
-const fixturePath = resolve(backendDir, 'apps/test/tests/0100_test_jsonlogic.json')
+const backendPath = resolve(backendDir, 'apps/test/tests/0100_test_jsonlogic.json')
 const DATE_OPERATORS = new Set(['date_add', 'date_diff', 'date_part', 'date_trunc', 'to_date', 'date_format'])
-const NUMBER_OPERATORS = new Set(['+', '-', '*', '/', '%', 'max', 'min', '<', '<=', '>', '>='])
-const backendCorpus = existsSync(fixturePath) ? (JSON.parse(readFileSync(fixturePath, 'utf8')) as unknown[]) : []
+const NUMBER_OPERATORS = new Set(['+', '-', '*', '/', '%', 'max', 'min', '<', '<=', '>', '>=', '==', '!=', '===', '!=='])
+const backendCorpus = JSON.parse(readFileSync(vendoredPath, 'utf8')) as unknown[]
+
+describe('the vendored backend test cases', () => {
+  const required = process.env.SEMANTIUS_BACKEND_REQUIRED === '1'
+  it.skipIf(!existsSync(backendPath) && !required)('match the backend checkout (refresh: node scripts/vendor-semantius.mjs)', () => {
+    expect(existsSync(backendPath), `no semantius checkout at ${backendDir}`).toBe(true)
+    expect(backendCorpus).toEqual(JSON.parse(readFileSync(backendPath, 'utf8')))
+  })
+})
 
 // The answers the backend is held to, read from its own fixture so the two cannot drift.
 function backendCases(operators: Set<string>) {
@@ -150,31 +180,25 @@ function backendCases(operators: Set<string>) {
 const backendDateCases = backendCases(DATE_OPERATORS)
 const backendNumberCases = backendCases(NUMBER_OPERATORS)
 
-describe.skipIf(backendNumberCases.length === 0 && process.env.SEMANTIUS_BACKEND_REQUIRED !== '1')(
-  'arithmetic and ordering give the answers the backend gives',
-  () => {
-    it('finds the backend fixture', () => {
-      expect(backendNumberCases.length).toBeGreaterThan(50)
-    })
+describe('arithmetic, ordering and equality give the answers the backend gives', () => {
+  it('finds the backend fixture', () => {
+    expect(backendNumberCases.length).toBeGreaterThan(50)
+  })
 
-    it.each(backendNumberCases)('%j', (rule, data, expected) => {
-      expect(applyJsonLogic(rule, data)).toEqual(expected)
-    })
-  },
-)
+  it.each(backendNumberCases)('%j', (rule, data, expected) => {
+    expect(applyJsonLogic(rule, data)).toEqual(expected)
+  })
+})
 
-describe.skipIf(backendDateCases.length === 0 && process.env.SEMANTIUS_BACKEND_REQUIRED !== '1')(
-  'date operators give the answers the backend gives',
-  () => {
-    it('finds the backend fixture', () => {
-      expect(backendDateCases.length).toBeGreaterThan(100)
-    })
+describe('date operators give the answers the backend gives', () => {
+  it('finds the backend fixture', () => {
+    expect(backendDateCases.length).toBeGreaterThan(100)
+  })
 
-    it.each(backendDateCases)('%j', (rule, data, expected) => {
-      expect(applyJsonLogic(rule, data)).toEqual(expected)
-    })
-  },
-)
+  it.each(backendDateCases)('%j', (rule, data, expected) => {
+    expect(applyJsonLogic(rule, data)).toEqual(expected)
+  })
+})
 
 describe('date operators refuse what the backend refuses', () => {
   it.each([
@@ -242,7 +266,7 @@ describe('arithmetic refuses a result that is not a finite number, as the backen
   })
 
   it('names the code the backend raises', () => {
-    expect(() => applyJsonLogic({ '/': [1, 0] }, {})).toThrow(/^90920/)
+    expect(thrown(() => applyJsonLogic({ '/': [1, 0] }, {}))).toEqual({ code: '90920', message: '${operator} has no finite result', params: { operator: '/' } })
   })
 
   it.each([
@@ -269,12 +293,12 @@ describe('arithmetic reads an operand as the backend does', () => {
   const OPERATORS = ['+', '-', '*', '/', '%', 'max', 'min']
 
   it.each(OPERATORS)('%s refuses text that is no number', (operator) => {
-    expect(() => applyJsonLogic({ [operator]: ['abc', 1] }, {})).toThrow(`90920: ${operator} has no finite result`)
-    expect(() => applyJsonLogic({ [operator]: [1, 'abc'] }, {})).toThrow(`90920: ${operator} has no finite result`)
+    expect(thrown(() => applyJsonLogic({ [operator]: ['abc', 1] }, {}))).toMatchObject({ code: '90920', params: { operator } })
+    expect(thrown(() => applyJsonLogic({ [operator]: [1, 'abc'] }, {}))).toMatchObject({ code: '90920', params: { operator } })
   })
 
   it.each(OPERATORS)('%s refuses text that only starts with a number', (operator) => {
-    expect(() => applyJsonLogic({ [operator]: ['12abc', 1] }, {})).toThrow(`90920: ${operator} has no finite result`)
+    expect(thrown(() => applyJsonLogic({ [operator]: ['12abc', 1] }, {}))).toMatchObject({ code: '90920', params: { operator } })
   })
 
   it.each([
@@ -314,7 +338,7 @@ describe('arithmetic reads an operand as the backend does', () => {
   })
 
   it.each([[{ '+': ['-0x10', 1] }], [{ '+': ['1e999', 1] }], [{ '*': ['abc'] }]])('%j is refused', (rule) => {
-    expect(() => applyJsonLogic(rule, {})).toThrow(/^90920/)
+    expect(thrown(() => applyJsonLogic(rule, {}))).toMatchObject({ code: '90920' })
   })
 
   it.each([
@@ -373,7 +397,7 @@ describe('arithmetic reads an operand as the backend does', () => {
     [{ '+': [' 2026-01-01', 1] }],
     [{ '+': ['2026-1-01', 1] }],
   ])('%j refuses date text that names no date', (rule) => {
-    expect(() => applyJsonLogic(rule, {})).toThrow('90920: + has no finite result')
+    expect(thrown(() => applyJsonLogic(rule, {}))).toMatchObject({ code: '90920', params: { operator: '+' } })
   })
 
   it('computes a field from an input left empty, and leaves it unchanged for a mistyped one', () => {
@@ -411,6 +435,68 @@ describe('ordering reads its operands as the backend does', () => {
   it('compares two date strings as text, as the backend does', () => {
     expect(applyJsonLogic({ '<': ['2026-01-01T00:00:00Z', '2026-01-01'] }, {})).toBe(false)
     expect(applyJsonLogic({ '<': ['2026-01-01', '2026-01-02'] }, {})).toBe(true)
+  })
+})
+
+describe('arithmetic on date text is exact to the microsecond, as on the backend', () => {
+  // Expected values are what evaluate_json_logic answered (postgres18-ext).
+  it.each([
+    [{ '-': ['2024-01-01T00:00:00.1234567Z', '2024-01-01'] }, {}, 0.123457],
+    [{ '-': ['2024-01-01T00:00:00.123456Z', '2024-01-01'] }, {}, 0.123456],
+    [{ '-': ['2024-01-01T00:00:00.000001Z', '2024-01-01T00:00:00Z'] }, {}, 0.000001],
+    [{ '+': ['2024-01-01T00:00:00.5Z', 0.25] }, {}, 1704067200.75],
+    [{ '+': ['2024-01-01T00:00:00.1234567Z', 86400] }, {}, 1704153600.123457],
+    [{ '%': ['2024-01-01T00:00:00.7Z', 1] }, {}, 0.7],
+    [{ max: ['2024-01-01T00:00:00.1234567Z', 0] }, {}, 1704067200.123457],
+    [{ '-': [{ var: 'a' }, { var: 'b' }] }, { a: '2026-03-01T12:00:00.3333333+01:00', b: '2026-03-01' }, 39600.333333],
+  ])('%j with %j is %j', (rule, data, expected) => {
+    expect(applyJsonLogic(rule, data)).toBe(expected)
+  })
+
+  it('leaves arithmetic without date text alone', () => {
+    // The server's numeric keeps twenty digits; rounding here would invent a difference.
+    expect(applyJsonLogic({ '/': [1, 3] }, {})).toBe(1 / 3)
+  })
+})
+
+describe('equality decides as the backend decides', () => {
+  // Every expected value is what evaluate_json_logic answered for the same rule
+  // and data (postgres18-ext). JavaScript's own == and === differ on most of
+  // these: an ISO date against its epoch seconds, an array or an object by
+  // value, null against a missing argument.
+  it.each([
+    [{ '==': ['2024-01-01', 1704067200] }, {}, true],
+    [{ '==': ['2024-01-01T00:00:00Z', 1704067200] }, {}, true],
+    [{ '!=': ['2024-01-01', 1704067200] }, {}, false],
+    [{ '==': [{ var: 'd' }, 1704067200] }, { d: '2024-01-01' }, true],
+    [{ '==': ['2024-01-01', '2024-01-01T00:00:00Z'] }, {}, false],
+    [{ '==': ['abc', 0] }, {}, false],
+    [{ '==': ['', 0] }, {}, true],
+    [{ '==': ['0x10', 16] }, {}, true],
+    [{ '==': [[], 0] }, {}, true],
+    [{ '==': [[5], '5'] }, {}, true],
+    [{ '==': [[1, 2], '1,2'] }, {}, true],
+    [{ '==': [[null], ''] }, {}, true],
+    [{ '==': [[1], [1]] }, {}, true],
+    [{ '==': [null, 0] }, {}, false],
+    [{ '==': [null] }, {}, false],
+    [{ '==': [] }, {}, true],
+    [{ '!=': [{ var: 'missing' }, null] }, {}, false],
+    [{ '==': [true, 1] }, {}, true],
+    [{ '==': [true, '1'] }, {}, true],
+    [{ '==': [false, 'abc'] }, {}, false],
+    [{ '==': [false, []] }, {}, true],
+    [{ '===': [[1], [1]] }, {}, true],
+    [{ '===': [[1, [2]], [1, [2]]] }, {}, true],
+    [{ '===': [1, 1.0] }, {}, true],
+    [{ '===': ['1', 1] }, {}, false],
+    [{ '===': [null, null] }, {}, true],
+    [{ '==': [{ var: 'o' }, { var: 'p' }] }, { o: { a: 1, b: 2 }, p: { b: 2, a: 1 } }, true],
+    [{ '!==': [{ var: 'o' }, { var: 'p' }] }, { o: { a: 1, b: 2 }, p: { b: 2, a: 1 } }, false],
+    [{ '==': [{ var: 'o' }, '[object Object]'] }, { o: { a: 1 } }, false],
+    [{ '===': [{ var: 'o' }, { var: 'p' }] }, { o: { a: [1] }, p: { a: [2] } }, false],
+  ])('%j with %j is %j', (rule, data, expected) => {
+    expect(applyJsonLogic(rule, data)).toBe(expected)
   })
 })
 
@@ -485,9 +571,123 @@ describe('has_permission and is_match', () => {
     expect(applyJsonLogic({ is_match: [null, '^$'] }, {})).toBe(false)
   })
 
-  it('still throws for an operator that needs the database', () => {
-    expect(() => applyJsonLogic({ value_changed: 'status' }, {})).toThrow()
-    expect(() => applyJsonLogic({ is_raci_actor: ['orders', 'approved', 'accountable'] }, {})).toThrow()
+  it('says that an operator which reads the database cannot run in the browser', () => {
+    for (const rule of [
+      { is_raci_actor: ['orders', 'approved', 'accountable'] },
+      { has_consultation: ['orders', 'approved', { var: 'id' }] },
+    ]) {
+      const operator = Object.keys(rule)[0]
+      expect(() => applyJsonLogic(rule, { id: 1 })).toThrow(
+        expect.objectContaining({ envelope: { message: '{operator} cannot run in the browser.', values: { operator } } }),
+      )
+    }
+  })
+})
+
+describe('the operators that read beyond the record work as the backend does', () => {
+  afterEach(() => {
+    setRuleUser(null)
+  })
+
+  it('value_changed is true for a new record, which has no $old', () => {
+    expect(applyJsonLogic({ value_changed: 'status' }, { status: 'open' })).toBe(true)
+    expect(applyJsonLogic({ value_changed: 'status' }, { status: 'open', $old: null })).toBe(true)
+  })
+
+  it.each([
+    [{ status: 'open' }, { status: 'open' }, false],
+    [{ status: 'open' }, { status: 'done' }, true],
+    [{ status: null }, { status: null }, false],
+    // A field missing on one side differs from one that is null (IS DISTINCT FROM).
+    [{}, { status: null }, true],
+    [{}, {}, false],
+    [{ tags: ['a', 'b'] }, { tags: ['a', 'b'] }, false],
+    [{ shape: { a: 1, b: 2 } }, { shape: { b: 2, a: 1 } }, false],
+    [{ amount: 1 }, { amount: 1.0 }, false],
+  ])('value_changed with $old %j and the record %j is %j', (old, record, expected) => {
+    const field = Object.keys({ ...old, ...record })[0] ?? 'status'
+    expect(applyJsonLogic({ value_changed: field }, { ...record, $old: old })).toBe(expected)
+  })
+
+  it('require_permission is true with the permission', () => {
+    setRuleUser({ permissions: ['orders:approve'] })
+    expect(applyJsonLogic({ require_permission: 'orders:approve' }, {})).toBe(true)
+  })
+
+  it('require_permission without it raises what rbac.require_permission raises', () => {
+    setRuleUser({ permissions: [] })
+    expect(thrown(() => applyJsonLogic({ require_permission: 'orders:approve' }, {}))).toEqual({
+      code: '42501',
+      message: 'Permission denied: ${permission} required',
+      params: { code: '90101', hint: 'Ask an administrator to grant ${permission}', permission: 'orders:approve' },
+    })
+  })
+
+  // Every expected value is what evaluate_json_logic raised for the same rule (postgres18-ext).
+  it.each([
+    [{ throw_error: ['Order ${id} is already shipped', '99017', ['id', 7]] }, '99017', 'Order ${id} is already shipped', { id: 7 }],
+    [{ throw_error: 'Plain' }, '99000', 'Plain', {}],
+    [{ throw_error: ['x', '12345'] }, '90911', 'throw_error code must be a class 99 number, not ${code_given}', { code_given: '12345' }],
+    [{ throw_error: ['x', '99001', ['a']] }, '90914', 'throw_error parameters must be a flat list of name and value pairs', undefined],
+    [{ throw_error: ['x', '99001', ['entity', 1]] }, '90912', 'throw_error parameter ${name} uses a reserved name', { name: 'entity' }],
+    [{ throw_error: ['x', '99001', ['a', [1]]] }, '90913', 'throw_error parameter ${name} must be a scalar value, not ${json_type}', { name: 'a', json_type: 'array' }],
+  ])('throw_error %j raises %s', (rule, code, message, params) => {
+    expect(thrown(() => applyJsonLogic(rule, {}))).toEqual({ code, message, params })
+  })
+
+  it('throw_error evaluates its parameters, keeping their JSON type', () => {
+    expect(thrown(() => applyJsonLogic({ throw_error: ['${n} left', '99002', ['n', { var: 'n' }]] }, { n: 3 }))).toMatchObject({
+      params: { n: 3 },
+    })
+  })
+})
+
+describe('a date operator refuses with the error the backend raises', () => {
+  // Every expected value is what evaluate_json_logic raised for the same rule (postgres18-ext).
+  it.each([
+    [{ date_add: ['2026-02-30', 1, 'day'] }, '22008', 'date/time field value out of range: "2026-02-30"', undefined],
+    [{ date_add: ['today', 1, 'day'] }, '90915', '${operator} needs an ISO 8601 date or date-time, not ${value}', { operator: 'date_add', value: 'today' }],
+    [{ date_add: ['2026-01-01', 1, 'fortnight'] }, '90916', '${operator} cannot use ${unit} on this value', { operator: 'date_add', unit: 'fortnight' }],
+    [{ date_add: ['2026-01-01', 30] }, '90916', '${operator} cannot use ${unit} on this value', { operator: 'date_add', unit: null }],
+    [{ date_format: ['2026-01-01', 'TMMon'] }, '90917', '${operator} cannot use the pattern ${pattern}', { operator: 'date_format', pattern: 'TMMon' }],
+    [{ date_add: ['2026-01-01', 1.5, 'day'] }, '90918', '${operator} needs a whole number or an ISO 8601 duration, not ${value}', { operator: 'date_add', value: 1.5 }],
+  ])('%j raises %s', (rule, code, message, params) => {
+    expect(thrown(() => applyJsonLogic(rule, {}))).toEqual({ code, message, params })
+  })
+})
+
+describe('computed fields get $old and $mode, as the backend gives them', () => {
+  const entries = [
+    { name: 'changed', jsonlogic: { value_changed: 'status' } },
+    { name: 'mode', jsonlogic: { var: '$mode' } },
+    { name: 'was', jsonlogic: { var: '$old.status' } },
+  ]
+
+  it('on an insert: no $old', () => {
+    expect(evaluateComputedFields(entries, { status: 'open' }, undefined, { record: { old: null, mode: 'insert' } })).toEqual({
+      changed: true,
+      mode: 'insert',
+      was: null,
+    })
+  })
+
+  it('on an update: the stored row', () => {
+    const record = { old: { status: 'open' }, mode: 'update' } as const
+    expect(evaluateComputedFields(entries, { status: 'open' }, undefined, { record })).toEqual({ changed: false, mode: 'update', was: 'open' })
+    expect(evaluateComputedFields(entries, { status: 'done' }, undefined, { record })).toEqual({ changed: true, mode: 'update', was: 'open' })
+  })
+
+  it('reports a rule that throws, and leaves its field', () => {
+    const errors: Record<string, unknown> = {}
+    const updates = evaluateComputedFields([{ name: 'ratio', jsonlogic: { '/': [1, 0] } }], {}, undefined, {
+      onError: (name, error) => {
+        errors[name] = error
+      },
+    })
+    expect(updates).toEqual({})
+    expect(thrown(() => {
+      throw errors.ratio
+    })).toMatchObject({ code: '90920' })
   })
 })
 

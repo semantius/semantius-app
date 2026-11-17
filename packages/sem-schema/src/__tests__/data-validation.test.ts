@@ -150,7 +150,7 @@ describe('Data Validation Tests', () => {
 
     describe('valid rules', () => {
       it('should accept rules stored as JSON (objects, arrays, literals)', () => {
-        // Rules shipped in the backend (0060_dd_schema.sql, 0280_user_bookmarks.sql)
+        // Rules shipped in the backend (0150_dd_bootstrap.once.sql, 0410_user_bookmarks.jsonc)
         expect(validateData({ if: [{ in: [{ var: 'format' }, ['reference', 'parent']] }, 'required', 'hidden'] }, ruleSchema).valid).toBe(true);
         expect(validateData({ '==': [{ var: 'user_id' }, { var: '$user_id' }] }, ruleSchema).valid).toBe(true);
         expect(validateData({ if: [{ value_changed: 'origin' }, { '==': [{ var: '$old' }, null] }, true] }, ruleSchema).valid).toBe(true);

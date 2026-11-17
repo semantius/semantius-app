@@ -623,12 +623,13 @@ renders is a scan finding.
 `pnpm check` or a hook — the drift assertion that once made it mandatory is
 gone. Its job is PRUNING: a reworded or deleted code string leaves a key nothing
 at runtime can observe as gone, and the scan moves its translation to `obsolete`
-(`--prune` empties it). It never touches `module.*` — runtime owns that half —
-and it lists, without failing, code strings discovery has never seen (test
-gaps). `reconcileLanguage` keeps every `module.*` entry and every existing
-value verbatim. What it DOES prune: a runtime-discovered key that is not
-`module.*` — a server error's `23505.…` key, an operator's menu title — because it
-cannot tell those from a deleted code string; their translation lands in
+(`--prune` empties it). It never touches `module.*` or a server error code —
+runtime owns both (`isMetadataKey`; `isErrorCodeKey`: a first segment that is a
+SQLSTATE with a digit, such as `90107` or `23505.orders_pkey`) — and it lists,
+without failing, code strings discovery has never seen (test gaps).
+`reconcileLanguage` keeps every such entry and every existing value verbatim.
+What it DOES prune: any other runtime-discovered key — an operator's menu title
+— because it cannot tell it from a deleted code string; its translation lands in
 `obsolete` and the key is rediscovered on the next render. `i18n:status` reads
 the index and reports both kinds, code and model counted separately.
 
@@ -1599,6 +1600,14 @@ Always inspect API responses with `curl` before implementing — never assume re
   cross-origin, so `headers.get('retry-after')` is null unless the response also
   carries `Access-Control-Expose-Headers: Retry-After`. A test fixture that sends
   the header without exposing it tests a browser that hides it.
+- `docker exec postgres18-ext psql -U postgres -d appdb` has the backend's
+  JsonLogic functions; check a browser evaluator change against
+  `evaluate_json_logic` there rather than reasoning about PostgreSQL casts.
+- **`pnpm --filter <pkg> exec vitest …` reports
+  `ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL Command "vitest" not found`
+  whenever Vitest exits non-zero** — failing tests, or no test
+  file matching a filter. Vitest is installed and did run; read
+  its output above that line, do not reinstall anything.
 
 ### Ideas already tried and rejected — do not re-propose
 

@@ -37,8 +37,35 @@ interface Civil {
   day: number
 }
 
+/**
+ * An error in the shape the server raises it (the backend's
+ * docs/error-contract.md): the SQLSTATE, the `${name}` message template and,
+ * when there are any, the parameters as the JSON hint — the body PostgREST
+ * would hand the app. `renderError` (lib/apiErrors.ts) shows and translates it
+ * by its code, exactly as it does the server's own. `error.message` is the
+ * template, uninterpolated, as an `appError`'s is.
+ */
+export function serverError(code: string, message: string, params?: Record<string, unknown>): Error {
+  return new Error(message, { cause: { code, message, ...(params ? { hint: JSON.stringify(params) } : {}) } })
+}
+
+// What the server raises for a value a date operator refuses, by code
+// (0050_jsonlogic.sql). An impossible date is PostgreSQL's own 22008, a plain
+// sentence with no parameters.
 function refuse(code: string, operator: string, value: unknown): never {
-  throw new Error(`${code}: ${operator} cannot use ${JSON.stringify(value) ?? 'nothing'}`)
+  const given = value ?? null
+  switch (code) {
+    case '22008':
+      throw serverError('22008', `date/time field value out of range: "${String(value)}"`)
+    case '90915':
+      throw serverError('90915', '${operator} needs an ISO 8601 date or date-time, not ${value}', { operator, value: given })
+    case '90916':
+      throw serverError('90916', '${operator} cannot use ${unit} on this value', { operator, unit: given })
+    case '90917':
+      throw serverError('90917', '${operator} cannot use the pattern ${pattern}', { operator, pattern: given })
+    default:
+      throw serverError('90918', '${operator} needs a whole number or an ISO 8601 duration, not ${value}', { operator, value: given })
+  }
 }
 
 const isBlank = (value: unknown): boolean => value === null || value === undefined || value === ''

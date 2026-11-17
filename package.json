@@ -12,7 +12,7 @@
     "i18n:status": "node apps/web/scripts/i18n/status.mjs",
     "i18n:translate": "dotenvx run -- node apps/web/scripts/i18n/translate.mjs",
     "i18n:import": "dotenvx run -- node apps/web/scripts/i18n/import.mjs",
-    "check": "pnpm --filter @semantius/frontend lint && dotenvx run -- pnpm --filter @semantius/frontend test",
+    "check": "pnpm --filter @semantius/frontend lint && dotenvx run -- pnpm --filter @semantius/frontend test && pnpm --filter sem-schema test",
     "test:browser": "dotenvx run -- pnpm --filter @semantius/frontend exec vitest run --project browser",
     "test:e2e": "pnpm --filter @semantius/frontend test:e2e",
     "test:a11y-audit": "dotenvx run -- node scripts/a11y-audit/run.mjs",

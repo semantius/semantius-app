@@ -1,0 +1,709 @@
+{
+  "operators": {
+    "file": "apps/_core/migrations/0050_jsonlogic.sql",
+    "names": [
+      "!",
+      "!!",
+      "!=",
+      "!==",
+      "%",
+      "*",
+      "+",
+      "-",
+      "/",
+      "<",
+      "<=",
+      "==",
+      "===",
+      ">",
+      ">=",
+      "?:",
+      "all",
+      "and",
+      "cat",
+      "concat",
+      "date_add",
+      "date_diff",
+      "date_format",
+      "date_part",
+      "date_trunc",
+      "filter",
+      "has_consultation",
+      "has_permission",
+      "if",
+      "in",
+      "is_match",
+      "is_raci_actor",
+      "let",
+      "log",
+      "map",
+      "max",
+      "merge",
+      "min",
+      "missing",
+      "missing_some",
+      "none",
+      "or",
+      "reduce",
+      "require_permission",
+      "set_record",
+      "some",
+      "substr",
+      "throw_error",
+      "to_date",
+      "value_changed",
+      "var"
+    ]
+  },
+  "variables": {
+    "file": "apps/_core/migrations/0210_computed_validation.sql",
+    "names": [
+      "$mode",
+      "$now",
+      "$old",
+      "$today",
+      "$user_id"
+    ]
+  },
+  "dateUnits": [
+    "year",
+    "quarter",
+    "month",
+    "week",
+    "day",
+    "hour",
+    "minute",
+    "second"
+  ],
+  "dateParts": [
+    "year",
+    "iso_year",
+    "quarter",
+    "month",
+    "week",
+    "day",
+    "weekday",
+    "day_of_year",
+    "hour",
+    "minute",
+    "second",
+    "epoch"
+  ],
+  "dateFormatTokens": [
+    "YYYY",
+    "Month",
+    "HH24",
+    "Mon",
+    "Day",
+    "YY",
+    "MM",
+    "DD",
+    "Dy",
+    "MI",
+    "SS",
+    "Q"
+  ],
+  "rules": [
+    {
+      "file": "apps/_core/migrations/0150_dd_bootstrap.once.sql",
+      "rule": [
+        {
+          "code": "90201",
+          "message": "catalog_entity_code is write-once: it cannot be changed once set",
+          "source_module": "platform",
+          "jsonlogic": {
+            "if": [
+              {
+                "value_changed": "catalog_entity_code"
+              },
+              {
+                "or": [
+                  {
+                    "==": [
+                      {
+                        "var": "$old"
+                      },
+                      null
+                    ]
+                  },
+                  {
+                    "==": [
+                      {
+                        "var": "$old.catalog_entity_code"
+                      },
+                      ""
+                    ]
+                  }
+                ]
+              },
+              true
+            ]
+          }
+        },
+        {
+          "code": "90233",
+          "message": "id_type is set when an entity is created and cannot be changed",
+          "source_module": "platform",
+          "jsonlogic": {
+            "if": [
+              {
+                "value_changed": "id_type"
+              },
+              {
+                "==": [
+                  {
+                    "var": "$old"
+                  },
+                  null
+                ]
+              },
+              true
+            ]
+          }
+        },
+        {
+          "code": "90253",
+          "message": "id_column is set when an entity is created and cannot be changed",
+          "source_module": "platform",
+          "jsonlogic": {
+            "if": [
+              {
+                "value_changed": "id_column"
+              },
+              {
+                "==": [
+                  {
+                    "var": "$old"
+                  },
+                  null
+                ]
+              },
+              true
+            ]
+          }
+        },
+        {
+          "code": "90245",
+          "message": "id_prefix of an is_a entity is set when it is created",
+          "source_module": "platform",
+          "jsonlogic": {
+            "if": [
+              {
+                "and": [
+                  {
+                    "==": [
+                      {
+                        "var": "id_type"
+                      },
+                      "is_a"
+                    ]
+                  },
+                  {
+                    "value_changed": "id_prefix"
+                  }
+                ]
+              },
+              {
+                "==": [
+                  {
+                    "var": "$old"
+                  },
+                  null
+                ]
+              },
+              true
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "apps/_core/migrations/0150_dd_bootstrap.once.sql",
+      "rule": [
+        {
+          "code": "90202",
+          "message": "catalog_field_code is write-once: it cannot be changed once set",
+          "source_module": "platform",
+          "jsonlogic": {
+            "if": [
+              {
+                "value_changed": "catalog_field_code"
+              },
+              {
+                "or": [
+                  {
+                    "==": [
+                      {
+                        "var": "$old"
+                      },
+                      null
+                    ]
+                  },
+                  {
+                    "==": [
+                      {
+                        "var": "$old.catalog_field_code"
+                      },
+                      ""
+                    ]
+                  }
+                ]
+              },
+              true
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "apps/_core/migrations/0150_dd_bootstrap.once.sql",
+      "rule": [
+        {
+          "code": "90701",
+          "message": "catalog_module_code is write-once: it cannot be changed once set",
+          "source_module": "platform",
+          "jsonlogic": {
+            "if": [
+              {
+                "value_changed": "catalog_module_code"
+              },
+              {
+                "or": [
+                  {
+                    "==": [
+                      {
+                        "var": "$old"
+                      },
+                      null
+                    ]
+                  },
+                  {
+                    "==": [
+                      {
+                        "var": "$old.catalog_module_code"
+                      },
+                      ""
+                    ]
+                  }
+                ]
+              },
+              true
+            ]
+          }
+        },
+        {
+          "code": "90702",
+          "message": "module_slug must be lowercase, start with a letter or digit, and contain only a-z, 0-9, '-' and '_'",
+          "source_module": "platform",
+          "jsonlogic": {
+            "or": [
+              {
+                "==": [
+                  {
+                    "var": "module_slug"
+                  },
+                  ""
+                ]
+              },
+              {
+                "is_match": [
+                  {
+                    "var": "module_slug"
+                  },
+                  "^[a-z0-9][a-z0-9_-]*$"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "apps/_core/migrations/0150_dd_bootstrap.once.sql",
+      "rule": {
+        "or": [
+          {
+            "has_permission": "admin"
+          },
+          {
+            "has_permission": {
+              "var": "view_permission"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "file": "apps/_core/migrations/0150_dd_bootstrap.once.sql",
+      "rule": [
+        {
+          "code": "90203",
+          "message": "roles.origin is set on INSERT and cannot be changed",
+          "source_module": "platform",
+          "jsonlogic": {
+            "if": [
+              {
+                "value_changed": "origin"
+              },
+              {
+                "==": [
+                  {
+                    "var": "$old"
+                  },
+                  null
+                ]
+              },
+              true
+            ]
+          }
+        },
+        {
+          "code": "90204",
+          "message": "system role slugs cannot be changed after creation",
+          "source_module": "platform",
+          "jsonlogic": {
+            "if": [
+              {
+                "and": [
+                  {
+                    "value_changed": "slug"
+                  },
+                  {
+                    "==": [
+                      {
+                        "var": "origin"
+                      },
+                      "system"
+                    ]
+                  }
+                ]
+              },
+              {
+                "==": [
+                  {
+                    "var": "$old"
+                  },
+                  null
+                ]
+              },
+              true
+            ]
+          }
+        },
+        {
+          "code": "90206",
+          "message": "catalog_role_code is write-once: it cannot be changed once set",
+          "source_module": "platform",
+          "jsonlogic": {
+            "if": [
+              {
+                "value_changed": "catalog_role_code"
+              },
+              {
+                "or": [
+                  {
+                    "==": [
+                      {
+                        "var": "$old"
+                      },
+                      null
+                    ]
+                  },
+                  {
+                    "==": [
+                      {
+                        "var": "$old.catalog_role_code"
+                      },
+                      ""
+                    ]
+                  }
+                ]
+              },
+              true
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "apps/_core/migrations/0150_dd_bootstrap.once.sql",
+      "rule": [
+        {
+          "code": "90205",
+          "message": "permission_hierarchy.origin is set on INSERT and cannot be changed",
+          "source_module": "platform",
+          "jsonlogic": {
+            "if": [
+              {
+                "value_changed": "origin"
+              },
+              {
+                "==": [
+                  {
+                    "var": "$old"
+                  },
+                  null
+                ]
+              },
+              true
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "apps/_core/migrations/0150_dd_bootstrap.once.sql",
+      "rule": {
+        "if": [
+          {
+            "!=": [
+              {
+                "var": "format"
+              },
+              "boolean"
+            ]
+          },
+          "default",
+          "hidden"
+        ]
+      }
+    },
+    {
+      "file": "apps/_core/migrations/0150_dd_bootstrap.once.sql",
+      "rule": {
+        "if": [
+          {
+            "in": [
+              {
+                "var": "format"
+              },
+              [
+                "string",
+                "text",
+                "multiline",
+                "html",
+                "code"
+              ]
+            ]
+          },
+          "default",
+          "hidden"
+        ]
+      }
+    },
+    {
+      "file": "apps/_core/migrations/0150_dd_bootstrap.once.sql",
+      "rule": {
+        "if": [
+          {
+            "==": [
+              {
+                "var": "format"
+              },
+              "enum"
+            ]
+          },
+          "required",
+          "hidden"
+        ]
+      }
+    },
+    {
+      "file": "apps/_core/migrations/0150_dd_bootstrap.once.sql",
+      "rule": {
+        "if": [
+          {
+            "==": [
+              {
+                "var": "format"
+              },
+              "number"
+            ]
+          },
+          "required",
+          "hidden"
+        ]
+      }
+    },
+    {
+      "file": "apps/_core/migrations/0150_dd_bootstrap.once.sql",
+      "rule": {
+        "if": [
+          {
+            "in": [
+              {
+                "var": "format"
+              },
+              [
+                "reference",
+                "parent"
+              ]
+            ]
+          },
+          "required",
+          "hidden"
+        ]
+      }
+    },
+    {
+      "file": "apps/_core/migrations/0150_dd_bootstrap.once.sql",
+      "rule": {
+        "if": [
+          {
+            "in": [
+              {
+                "var": "format"
+              },
+              [
+                "reference",
+                "parent"
+              ]
+            ]
+          },
+          "required",
+          "hidden"
+        ]
+      }
+    },
+    {
+      "file": "apps/_core/migrations/0150_dd_bootstrap.once.sql",
+      "rule": {
+        "if": [
+          {
+            "in": [
+              {
+                "var": "format"
+              },
+              [
+                "reference",
+                "parent"
+              ]
+            ]
+          },
+          "required",
+          "hidden"
+        ]
+      }
+    },
+    {
+      "file": "apps/_core/migrations/0150_dd_bootstrap.once.sql",
+      "rule": {
+        "if": [
+          {
+            "==": [
+              {
+                "var": "format"
+              },
+              "parent"
+            ]
+          },
+          "default",
+          "hidden"
+        ]
+      }
+    },
+    {
+      "file": "apps/_core/migrations/0150_dd_bootstrap.once.sql",
+      "rule": {
+        "if": [
+          {
+            "==": [
+              {
+                "var": "format"
+              },
+              "parent"
+            ]
+          },
+          "default",
+          "hidden"
+        ]
+      }
+    },
+    {
+      "file": "apps/_core/migrations/0150_dd_bootstrap.once.sql",
+      "rule": {
+        "if": [
+          {
+            "in": [
+              {
+                "var": "format"
+              },
+              [
+                "boolean",
+                "multiline",
+                "html",
+                "code",
+                "json",
+                "jsonlogic",
+                "object",
+                "array"
+              ]
+            ]
+          },
+          "hidden",
+          "default"
+        ]
+      }
+    },
+    {
+      "file": "apps/_core/migrations/0150_dd_bootstrap.once.sql",
+      "rule": {
+        "if": [
+          {
+            "var": "created_at"
+          },
+          "readonly",
+          "required"
+        ]
+      }
+    },
+    {
+      "file": "apps/_core/migrations/0150_dd_bootstrap.once.sql",
+      "rule": {
+        "if": [
+          {
+            "in": [
+              {
+                "var": "id_type"
+              },
+              [
+                "typeid",
+                "is_a"
+              ]
+            ]
+          },
+          "required",
+          "hidden"
+        ]
+      }
+    },
+    {
+      "file": "apps/_core/migrations/0150_dd_bootstrap.once.sql",
+      "rule": {
+        "if": [
+          {
+            "in": [
+              {
+                "var": "id_type"
+              },
+              [
+                "is_a",
+                "has_a"
+              ]
+            ]
+          },
+          {
+            "if": [
+              {
+                "var": "created_at"
+              },
+              "readonly",
+              "required"
+            ]
+          },
+          "hidden"
+        ]
+      }
+    }
+  ]
+}

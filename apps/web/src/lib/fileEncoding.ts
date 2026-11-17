@@ -2,7 +2,7 @@
  * Wire encodings for the two binary formats in the catalog.
  *
  * `binary` is a PostgreSQL `BYTEA` column (`format_to_data_type` in the
- * backend's `0070_dd_functions.sql`), which PostgREST reads and writes as the
+ * backend's `0160_dd_functions.sql`), which PostgREST reads and writes as the
  * `hex` output format: a `\x` prefix followed by two hex digits per byte.
  * `byte` has no special column type — it falls through to `TEXT` — and carries
  * base64, which is what the JSON Schema `byte` format means.

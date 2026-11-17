@@ -25,7 +25,7 @@
  */
 export const SHIPPED_MODULES: ReadonlySet<string> = new Set([
   'admin', // `_core`: users, roles, permissions, modules, entities, fields
-  'nwind', // the Northwind sample database every tenant is provisioned with
+  'nwind', // the Northwind sample module; not every deployment has it, only `_core` is everywhere
 ])
 
 /** The first segment of every model key — `MODULE_ROOT` in `./catalog.ts`. */

@@ -19,7 +19,8 @@
  *   i18n/en-US.json   the index — `{ locale, name, messages }` with
  *                               the SOURCE text as the value of every key. The
  *                               code half is set from the scan; the `module.*`
- *                               half is runtime's and is never touched.
+ *                               and server error code half is runtime's and is
+ *                               never touched.
  *   i18n/<code>.json  each language, reconciled: a new code key
  *                               appears with `""`, a code key whose source no
  *                               longer exists moves to `obsolete`, and an
@@ -127,6 +128,24 @@ export function joinSegments(segments) {
 /** Whether a stored key belongs to the model — the `module.` root. */
 export function isMetadataKey(key) {
   return key === MODULE_ROOT || key.startsWith(`${MODULE_ROOT}.`)
+}
+
+/**
+ * Whether a stored key is a server error's: its first segment is a SQLSTATE,
+ * five uppercase letters or digits with at least one digit — `90107`,
+ * `90107.hint`, `23505.orders_pkey`. The digit keeps a code string such as
+ * "ADMIN" from matching. Like `module.*`, these are runtime's: discovery
+ * records one when the app renders it and updates its source when the server's
+ * wording changes, and the scan, which cannot see them, never prunes them.
+ */
+export function isErrorCodeKey(key) {
+  const first = key.split('.', 1)[0]
+  return /^[0-9A-Z]{5}$/.test(first) && /[0-9]/.test(first)
+}
+
+/** Whether a stored key is runtime's rather than the scan's: model text or a server error. */
+function isRuntimeKey(key) {
+  return isMetadataKey(key) || isErrorCodeKey(key)
 }
 
 /** A SQLSTATE outside the platform's own classes: a plain server sentence. */
@@ -511,15 +530,16 @@ export function readIndex(dir = LOCALES_DIR) {
 /**
  * Reconcile the index against the scan.
  *
- * The code half is what the scan found, source and all; the `module.*` half is
- * carried over untouched. Nothing else survives: a code key the scan no longer
- * sees was reworded or deleted, and an index entry for it would list work that
- * does not exist.
+ * The code half is what the scan found, source and all; the runtime half —
+ * `module.*` and server error codes (`isErrorCodeKey`) — is carried over
+ * untouched. Nothing else survives: a code key the scan no longer sees was
+ * reworded or deleted, and an index entry for it would list work that does not
+ * exist.
  */
 export function reconcileIndex(index, found) {
   const messages = {}
   for (const [key, source] of Object.entries(index.messages ?? {})) {
-    if (isMetadataKey(key)) messages[key] = source
+    if (isRuntimeKey(key)) messages[key] = source
   }
   for (const [key, entry] of found) messages[key] = entry.source
   const out = { locale: SOURCE_LANGUAGE, name: index.name || 'English' }
@@ -530,18 +550,18 @@ export function reconcileIndex(index, found) {
 /**
  * Reconcile one language against the scan.
  *
- * Existing values are carried over verbatim, `module.*` entries untouched. A
- * code key the scan no longer finds moves to `obsolete` if it holds a
- * translation and is dropped if it does not (an empty entry says nothing worth
- * keeping). A key is never resurrected FROM `obsolete`: a reworded string is a
- * new string, and the report has to say so until someone confirms the old
- * translation still fits.
+ * Existing values are carried over verbatim, `module.*` and server error code
+ * entries untouched. A code key the scan no longer finds moves to `obsolete`
+ * if it holds a translation and is dropped if it does not (an empty entry says
+ * nothing worth keeping). A key is never resurrected FROM `obsolete`: a
+ * reworded string is a new string, and the report has to say so until someone
+ * confirms the old translation still fits.
  */
 export function reconcileLanguage(file, found, { prune = false } = {}) {
   const previous = { ...(file.messages ?? {}) }
   const messages = {}
   for (const [key, value] of Object.entries(previous)) {
-    if (isMetadataKey(key)) messages[key] = value
+    if (isRuntimeKey(key)) messages[key] = value
   }
   for (const key of found.keys()) messages[key] = previous[key] ?? ''
 

@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { collectMessages, reconcileIndex, reconcileLanguage, serialize } from '../../scripts/i18n/extract.mjs'
+import { collectMessages, isErrorCodeKey, reconcileIndex, reconcileLanguage, serialize } from '../../scripts/i18n/extract.mjs'
 
 /**
  * The scan's contract, exercised against real files on disk.
@@ -175,6 +175,44 @@ describe('reconciling the index', () => {
     })
     expect(out.name).toBe('English')
   })
+
+  it('never touches a server error code either, which discovery owns as it owns module.*', () => {
+    const out = reconcileIndex(
+      {
+        locale: 'en-US',
+        name: 'English',
+        messages: {
+          '90107': 'Permission denied: only an administrator can set the external_id of a user',
+          '90107.hint': 'external_id is the identity a session resolves to.',
+          '23505.orders_pkey': 'duplicate key value violates unique constraint "orders_pkey"',
+          '99017.orders': 'Order {id} is already shipped',
+          'Old wording': 'Old wording',
+        },
+      },
+      found,
+    )
+    expect(Object.keys(out.messages ?? {}).sort()).toEqual([
+      '23505.orders_pkey',
+      '90107',
+      '90107.hint',
+      '99017.orders',
+      'Save',
+      'columnVisibility.View',
+    ])
+  })
+})
+
+describe('telling a server error code key from a code string', () => {
+  it.each(['90107', '90107.hint', '23505', '23505.orders_pkey', '42P01', '99017.orders', '22008'])('%s is a server error code', (key) => {
+    expect(isErrorCodeKey(key)).toBe(true)
+  })
+
+  it.each(['ADMIN', 'Save', 'Total', 'module.nwind.orders.entity.singular_label', '1234', '123456', '90107x', 'abc12'])(
+    '%s is not',
+    (key) => {
+      expect(isErrorCodeKey(key)).toBe(false)
+    },
+  )
 })
 
 describe('reconciling a language', () => {
@@ -209,6 +247,15 @@ describe('reconciling a language', () => {
       'module.nwind.orders.field.city.title': 'Stadt',
       'module.nwind.orders.field.zip.title': '',
     })
+  })
+
+  it('never moves a server error code to obsolete', () => {
+    const out = reconcileLanguage(
+      { locale: 'de-DE', messages: { '90107': 'Zugriff verweigert', '90920': '', '23505.orders_pkey': 'Doppelt' } },
+      found,
+    )
+    expect(out.obsolete).toBeUndefined()
+    expect(out.messages).toEqual({ '23505.orders_pkey': 'Doppelt', '90107': 'Zugriff verweigert', '90920': '', Save: '' })
   })
 
   it('empties obsolete on --prune', () => {

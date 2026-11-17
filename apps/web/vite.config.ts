@@ -188,6 +188,12 @@ export default defineConfig(({ mode }) => ({
     '__BUILD_DATE__': JSON.stringify(new Date().toISOString()),
     '__SHIPPED_LOCALES__': JSON.stringify(shippedLocales()),
   },
+  build: {
+    // Just above the largest chunk, rounded up to 100 kB: the app's entry chunk
+    // (~1.31 MB) and the module dashboard route (~1.23 MB). A chunk that grows
+    // past this gets the warning again.
+    chunkSizeWarningLimit: 1400,
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

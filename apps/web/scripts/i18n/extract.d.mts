@@ -24,6 +24,7 @@ export interface CollectedMessage {
 
 export declare function joinSegments(segments: readonly string[]): string
 export declare function isMetadataKey(key: string): boolean
+export declare function isErrorCodeKey(key: string): boolean
 export declare function sourceFiles(dir?: string): string[]
 export declare function collectMessages(files?: string[]): Map<string, CollectedMessage>
 export declare function placeholdersOf(message: string): string[]

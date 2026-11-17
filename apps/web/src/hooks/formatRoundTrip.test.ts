@@ -142,10 +142,10 @@ async function roundTrip(row: Record<string, unknown>): Promise<Record<string, u
 }
 
 /**
- * A complete row. Every column here is NOT NULL: `is_nullable()` in the
- * backend's 0070_dd_functions.sql returns true only for `reference`, `date`
- * and `date-time`, so a partial insert fails on whichever column it omitted,
- * not on the one under test.
+ * A complete row. Most of these columns are NOT NULL: `is_nullable()` in the
+ * backend's 0160_dd_functions.sql returns true only for `reference`, `date`,
+ * `time`, `date-time` and `uuid`, so a partial insert fails on whichever
+ * NOT NULL column it omitted, not on the one under test.
  */
 function completeRow(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {

@@ -17,46 +17,6 @@ the word can be picked.
 
 ---
 
-## `Order` is translated "Bestellung", which is SAP's word for the opposite thing
-
-- **Keys:** every `module.nwind.orders.*` and `module.nwind.order_details.*`
-  label — `orders.entity.singular_label`, `.plural_label`,
-  `orders.field._label.title`, `orders.field.ship_name.title`,
-  `orders.field.order_date.title` ("Bestelldatum"),
-  `orders.field.status.description`, `orders.entity.description`,
-  `orders.field.{customer_id,employee_id,freight,ship_via}.description`,
-  `order_details.entity.singular_label` / `.plural_label` ("Bestellposition(en)"),
-  `order_details.field.order_id.title` and `.description` — plus the two code
-  strings `Total Orders` and `Manage customer information and orders`, which say
-  **"Aufträge"**. The `order_details` field keys filled in the work file inherit
-  the term and change with it: `field._label.title` and `field.label.title`
-  ("Bestellposition"), `field.order_id_label.title` ("Bestellung") and
-  `.order_id_label.description`, `field.unit_price.description` ("… in dieser
-  Bestellung") and `field.quantity.description` ("Anzahl der **bestellten**
-  Einheiten", which under an Auftrag ruling becomes Auftragsmenge).
-  Since the pg_semantius 0.5.0 model, several of these no longer carry the term:
-  `orders.field.{customer_id,employee_id,ship_via,status}.description` and
-  `order_details.field.{order_id,product_id}.description` are gone from the model;
-  `orders.field.ship_name.title` now reads "Ship Name" (see the ship-to entry) and
-  `order_details.field.label.title` reads "Label" ("Bezeichnung"). The new
-  `orders.field.label.title` "Order Id" and the `subtotal` / `total` descriptions
-  ("… the order's lines", "Order total") are left untranslated until this is ruled.
-- **What:** in SAP, *Bestellung* is a **purchase order** — what you send to a
-  supplier (MM). A customer's order is a *Kundenauftrag*, short *Auftrag* (SD).
-  Northwind's `orders` are customer orders: they have a customer, a ship-to
-  address, freight and a shipper. So the entity is translated with the SAP word
-  for the other direction of trade, and the dashboard says "Aufträge" for the same
-  records — one English word, two German words, and the more frequent one is the
-  SAP-wrong one. Exactly the `Administration` shape.
-  The one place *Bestellung* IS right is
-  `module.nwind.products.field.units_on_order.*` ("Bestellte Menge") beside
-  `reorder_level` ("Meldebestand", SAP's own word) — that quantity really is on
-  order **from a supplier**.
-- **Needs:** a ruling. If SAP usage holds, `orders` becomes Auftrag / Aufträge /
-  Auftragsdatum / Auftragspositionen, and `units_on_order` keeps Bestellung.
-- **Resolves into:** `de-DE.json` (~20 keys).
-- **State:** open
-
 ## `Created At` / `Updated At` are "Erstellt am" / "Aktualisiert am"
 
 - **Keys:** 18 × `module.*.field.created_at.title`, 18 ×
@@ -127,26 +87,6 @@ the word can be picked.
 - **Needs:** a ruling — likely Funktion for the two title fields and Reihenfolge
   for the dashboard field, which also removes the collision.
 - **Resolves into:** `de-DE.json`.
-- **State:** open
-
-## The ship-to address block is compounded with "Liefer-"
-
-- **Keys:** `module.nwind.orders.field.ship_address.title` ("Lieferadresse"),
-  `.ship_city.title` ("Lieferort"), `.ship_country.title` ("Lieferland"),
-  `.ship_region.title` ("Lieferregion"), `.ship_postal_code.title`
-  ("Liefer-Postleitzahl"), and `.ship_name.title` and `.description`, left
-  untranslated. `.ship_via.title` and `.ship_via_label.title` are no longer part
-  of this: the English source was reworded from "Shipped Via" to "Shipper", which
-  names the carrier, and they now read "Spediteur" like the Shipper entity.
-- **What:** SAP names this block after the **Lieferanschrift** / *Warenempfänger*
-  and qualifies plain field names ("Postleitzahl", "Ort", "Land") instead of
-  welding "Liefer-" onto each; "Liefer-Postleitzahl" is not a form SAP produces.
-  `ship_name` was reworded from "Order" to "Ship Name" ("Name of the recipient the
-  order ships to"); its old "Bestellung" is parked in `obsolete`. Candidates are
-  *Warenempfänger* (SAP), *Empfänger*, or *Liefername* to match the block as it
-  stands — which one depends on the ruling on the block.
-- **Needs:** a ruling on the block, including the name of the recipient field.
-- **Resolves into:** `de-DE.json` (7 keys).
 - **State:** open
 
 ## Boolean fields are labeled "Ist …"
@@ -236,20 +176,6 @@ the word can be picked.
   says "Vergabe von Berechtigungen", which points at *erteilen/vergeben*.
 - **Needs:** confirm zuweisen, or switch this field group to erteilen and align
   the descriptions with it.
-- **Resolves into:** `de-DE.json`.
-- **State:** open
-
-## `Pending` is "Ausstehend" in code and "Offen" in the model
-
-- **Keys:** the code string `Pending` ("Ausstehend") and
-  `module.nwind.orders.enum.status.pending` ("Offen").
-- **What:** one English word, two German words, for what a user reads as the same
-  state. The two keys differed only in **capitalization** of the source, which is
-  why no consistency check caught it: the "same source, two renderings" report
-  compares exact strings. Since the pg_semantius 0.5.0 model the enum's source is
-  "Pending" as well, so the two sources are now identical; "Offen" was carried
-  over unchanged. SAP's order status vocabulary is *Offen* / *Erledigt*.
-- **Needs:** one word for the state, applied to both keys.
 - **Resolves into:** `de-DE.json`.
 - **State:** open
 
@@ -547,6 +473,31 @@ the word can be picked.
 - **Resolves into:** `de-DE.json`.
 - **State:** open
 
+## Judgment calls made while applying the Auftrag and ship-to rulings
+
+- **Keys:** `module.nwind.orders.enum.status.shipped`,
+  `module.nwind.orders.field.label.title`,
+  `module.nwind.orders.field.{freight,subtotal,total}.description`,
+  `module.nwind.order_details.field.quantity.description`
+- **What:** four decisions the rulings did not settle.
+  - `status.shipped` ("Shipped"): its "Versendet" was removed as not certain,
+    so the English shows. SAP's status vocabulary may want *Versandt* or
+    *Geliefert* beside *Offen* and *Kommissionierung*.
+  - `field.label.title` ("Order Id"): filled "Auftrags-ID", following the
+    catalog's "ID" for `Id`. SAP names the number of a sales document
+    *Auftragsnummer*.
+  - The currency: the owner ruled `freight.description` "Frachtkosten für den
+    Auftrag." **without** the source's "Currency: US$". The `subtotal` and
+    `total` descriptions carry the same "Currency: US$" and were filled without
+    it as well, by analogy.
+  - `quantity.description` ("Number of units ordered"): filled "Auftragsmenge
+    in Einheiten", the SAP *Auftragsmenge* this entry's predecessor named.
+- **Needs:** a word for Shipped; Auftrags-ID or Auftragsnummer; whether the
+  currency belongs in the three descriptions; confirmation of the quantity
+  description.
+- **Resolves into:** `de-DE.json` (6 keys).
+- **State:** open
+
 ---
 
 ## Resolved
@@ -564,4 +515,51 @@ the word can be picked.
   this and are unchanged.
 - **Resolved into:** `de-DE.json` — `module.admin.description` changed from
   "Verwaltung" to "Administration". Nowhere else; there is no term list.
+- **State:** RULED, applied.
+
+### `Order` → Auftrag
+
+- **Keys:** every `module.nwind.orders.*` and `module.nwind.order_details.*`
+  label that carried the term.
+- **What:** `orders` was translated "Bestellung", which in SAP is a purchase
+  order sent to a supplier (MM); Northwind's orders are customer orders, SAP's
+  *Kundenauftrag* / *Auftrag* (SD), and the dashboard already said "Aufträge".
+- **Ruling (owner):** SAP usage. `orders` is **Auftrag** / **Aufträge** /
+  **Auftragsdatum** / **Auftragspositionen**; `products.field.units_on_order`
+  keeps "Bestellte Menge", which really is on order from a supplier.
+- **Resolved into:** `de-DE.json` — `orders.entity.singular_label`,
+  `.plural_label`, `.description`, `orders.field._label.title`,
+  `.order_date.title`, `.label.title` ("Auftrags-ID"), `.freight.description`,
+  `.subtotal.description`, `.total.description`;
+  `order_details.entity.singular_label`, `.plural_label`, `.description`,
+  `order_details.field._label.title`, `.order_id.title`, `.order_id_label.title`,
+  `.order_id_label.description`, `.unit_price.description`,
+  `.quantity.description` ("Auftragsmenge in Einheiten"). The two code strings
+  already said "Aufträge". Judgment calls made while applying it are filed as
+  an open entry above.
+- **State:** RULED, applied.
+
+### Ship-to block → plain field names, Ship Name → Warenempfänger
+
+- **Keys:** `module.nwind.orders.field.ship_address.title`, `.ship_city.title`,
+  `.ship_country.title`, `.ship_region.title`, `.ship_postal_code.title`,
+  `.ship_name.title`, `.ship_name.description`
+- **What:** the block was compounded with "Liefer-" ("Liefer-Postleitzahl"),
+  which SAP does not produce, and the recipient field was untranslated.
+- **Ruling (owner):** SAP. Plain field names — **Adresse**, **Ort**, **Land**,
+  **Region**, **Postleitzahl** — and Ship Name is **Warenempfänger**.
+- **Resolved into:** `de-DE.json` — the five titles as ruled,
+  `ship_name.title` "Warenempfänger", `ship_name.description` "Name des
+  Warenempfängers, an den der Auftrag geliefert wird". The old "Bestellung"
+  parked in `obsolete` for `ship_name.title` is dropped.
+- **State:** RULED, applied.
+
+### `Pending` → Offen
+
+- **Keys:** the code string `Pending` and `module.nwind.orders.enum.status.pending`
+- **What:** one English word, two German words ("Ausstehend" in code, "Offen"
+  in the model) for what a user reads as the same state.
+- **Ruling (owner):** **Offen**, in both.
+- **Resolved into:** `de-DE.json` — the code string `Pending` changed from
+  "Ausstehend" to "Offen"; the enum already said "Offen".
 - **State:** RULED, applied.

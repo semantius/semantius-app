@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useMemo } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
 import { json } from '@codemirror/lang-json'
 import { SchemaForm, type FormMode } from '@/components/form'
-import { defaultValueForFormat } from './SchemaForm'
+import { generateDefaultValue } from './formDefaults'
 import type { SchemaObject } from 'ajv'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { validateSchema } from 'sem-schema'
@@ -15,35 +15,6 @@ import {
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { useT } from '@/i18n'
-
-/**
- * Generate default values from schema.
- *
- * This file used to keep its own copy of the derivation, and the copy had
- * drifted: it knew `reference` but not `parent`, and it seeded `{}` for a
- * `type: 'object'` but nothing at all for the union type `get_schema` emits for
- * a json column. It reads the same function SchemaForm does now.
- */
-function generateDefaultValue(schema: SchemaObject): Record<string, any> {
-  const defaults: Record<string, any> = {}
-
-  if (schema.properties && typeof schema.properties === 'object') {
-    for (const [key, propSchema] of Object.entries(schema.properties)) {
-      if (typeof propSchema !== 'object' || propSchema === null) continue
-
-      if ('default' in propSchema) {
-        defaults[key] = (propSchema as any).default
-      } else {
-        const value = defaultValueForFormat((propSchema as any).format)
-        // undefined is not seeded: an empty number field is absent, and
-        // assigning undefined would put the key in the submitted JSON.
-        if (value !== undefined) defaults[key] = value
-      }
-    }
-  }
-
-  return defaults
-}
 
 const defaultSchema = `{
   "type": "object",
@@ -123,8 +94,8 @@ export function FormPlayground({ initialSchema }: FormPlaygroundProps) {
   // Update dataText when schema changes to show default values
   useEffect(() => {
     if (schema) {
-      const defaultValues = generateDefaultValue(schema)
-      setDataText(JSON.stringify(defaultValues, null, 2))
+      const { values } = generateDefaultValue(schema)
+      setDataText(JSON.stringify(values, null, 2))
     }
   }, [schema])
 
