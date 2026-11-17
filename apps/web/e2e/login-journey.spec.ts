@@ -253,11 +253,18 @@ test.describe('OAuth2 authorization-code login', () => {
     const tryAgain = page.getByRole('button', { name: 'Try Again' })
     await expect(tryAgain).toBeEnabled()
 
-    // Keep the clicked page on screen: a 204 answer to a navigation leaves the
-    // current document in place, so the redirect to the provider starts and
-    // goes nowhere. (Leaving the request unanswered instead keeps Playwright
-    // waiting on the pending navigation, and nothing can be observed.)
-    await page.route(`${IDP}/authorize**`, (route) => route.fulfill({ status: 204 }))
+    // Keep the clicked page on screen: aborting the navigation with
+    // ERR_ABORTED leaves the current document in place (no error page is
+    // committed for that code), so the redirect to the provider starts and
+    // goes nowhere, and Playwright sees the navigation END, as a failure.
+    //
+    // Two answers that look equivalent are not. Leaving the request unanswered
+    // keeps the navigation pending forever. A 204 did the job up to Playwright
+    // 1.62 (Chromium 151); since 1.64 (Chromium 156) Playwright never sees a
+    // 204-answered navigation end either, so the click() — and every locator
+    // query on the frame after it — waited "for navigation to finish" until the
+    // test timed out, with the button already disabled on screen.
+    await page.route(`${IDP}/authorize**`, (route) => route.abort('aborted'))
     await tryAgain.click()
 
     await expect(tryAgain).toBeDisabled()
