@@ -276,14 +276,18 @@ function renderedInputMode(
     ruleResult || (propSchema as { inputMode?: unknown }).inputMode,
   )
   // In create mode, readonly and disabled fields are not drawn: an id or a
-  // created_at has no value before the save. A computed field and a computed
-  // label do — the form computes them live from the inputs being typed
-  // (ComputedFieldsSync), and that is when the user needs to see them ("2 ×
-  // Chai") — so they are drawn, not editable. A rollup (no children yet) stays
-  // off a create form.
+  // created_at has no value before the save. A computed field does — the form
+  // computes it live from the inputs being typed (ComputedFieldsSync), and that
+  // is when the user needs to see it — so it is drawn, not editable. A rollup
+  // (no children yet) stays off a create form.
+  //
+  // A computed label is never on a create form, whatever its mode or rule says.
+  // It names the record, and the name is often built from what only the save
+  // produces — `orders.label` is `Order {id}` — so a new record would show an
+  // empty, disabled box titled after the id.
   const ctype = (propSchema as { ctype?: unknown }).ctype
-  const isComputed = ctype === 'computed' || ctype === 'computed_label'
-  if (formMode === 'create' && (inputMode === 'readonly' || inputMode === 'disabled') && !isComputed) return null
+  if (formMode === 'create' && ctype === 'computed_label') return null
+  if (formMode === 'create' && (inputMode === 'readonly' || inputMode === 'disabled') && ctype !== 'computed') return null
   // Form-level view mode overrides schema-level inputMode (except for hidden).
   if (formMode === 'view' && inputMode !== 'hidden') return 'readonly'
   return inputMode

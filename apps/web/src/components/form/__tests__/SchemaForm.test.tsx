@@ -1233,8 +1233,8 @@ describe('derived ctypes default to disabled', () => {
     const onSubmit = vi.fn()
     render(<SchemaForm schema={labelSchema()} formMode="create" onSubmit={onSubmit} />)
 
-    // Drawn, as a computed field is, but not editable and not demanded.
-    expect(screen.getByLabelText(/^Order Id/)).toBeDisabled()
+    // Not drawn on a create form: `Order {id}` has no id before the save.
+    expect(screen.queryByLabelText(/^Order Id/)).not.toBeInTheDocument()
     await user.type(screen.getByLabelText(/^Customer/), 'ALFKI')
     await user.click(screen.getByRole('button', { name: /submit/i }))
     await waitFor(() => expect(onSubmit).toHaveBeenCalled())
@@ -2100,8 +2100,8 @@ describe('computed fields update when an input changes', () => {
 
   // As get_schema sends Northwind order_details: amount is ctype computed with
   // inputMode default, label a computed_label, and the order a rollup elsewhere.
-  // A create form is where the live value matters most, so amount and label are
-  // drawn there.
+  // A create form is where the live value matters most, so amount is drawn
+  // there. A computed label never is, even one computed from typed inputs.
   const newOrderLine = {
     type: 'object',
     table: {
@@ -2120,15 +2120,14 @@ describe('computed fields update when an input changes', () => {
     },
   } as SchemaObject
 
-  it('draws a computed field and a computed label on a create form, computes them live, and sends neither', async () => {
+  it('draws a computed field on a create form and computes it live, never draws a computed label, and sends neither', async () => {
     const user = userEvent.setup()
     const onSubmit = vi.fn()
     render(<SchemaForm schema={newOrderLine} formMode="create" onSubmit={onSubmit} />)
 
     const amount = screen.getByLabelText(/^Amount/)
-    const label = screen.getByLabelText(/^Label/)
     expect(amount).toBeDisabled()
-    expect(label).toBeDisabled()
+    expect(screen.queryByLabelText(/^Label/)).not.toBeInTheDocument()
     // A rollup has no children to count before the save.
     expect(screen.queryByLabelText(/^Line Count/)).not.toBeInTheDocument()
 
@@ -2137,7 +2136,8 @@ describe('computed fields update when an input changes', () => {
     await user.clear(screen.getByLabelText(/^Unit Price/))
     await user.type(screen.getByLabelText(/^Unit Price/), '4')
     await waitFor(() => expect(amount).toHaveValue('12'))
-    await waitFor(() => expect(label).toHaveValue('3 × Chai'))
+    // Typing a value the label is computed from still does not draw it.
+    expect(screen.queryByLabelText(/^Label/)).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /submit/i }))
     await waitFor(() => expect(onSubmit).toHaveBeenCalled())
