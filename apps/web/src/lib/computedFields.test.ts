@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -150,22 +151,29 @@ describe('collectSetRecordLookups', () => {
 
 // The backend's own JsonLogic test cases, committed at vendor/semantius/ so they
 // run in CI and before a release, where there is no backend checkout. Where
-// there is one, the copy must match it; `node scripts/vendor-semantius.mjs`
-// refreshes it.
+// there is one, the copy must match its COMMITTED state at SEMANTIUS_BACKEND_REF
+// (default origin/main), read through git rather than off the disk, so a backend
+// change in progress does not fail this repository's tests (see
+// packages/sem-schema/src/__tests__/jsonlogic-backend-sync.test.ts).
+// `node scripts/vendor-semantius.mjs` refreshes it.
 // src/lib -> src -> web -> apps -> repository root
 const vendoredPath = resolve(__dirname, '../../../../vendor/semantius/0100_test_jsonlogic.json')
 // ... -> its parent
 const backendDir = process.env.SEMANTIUS_BACKEND_DIR ?? resolve(__dirname, '../../../../../semantius')
-const backendPath = resolve(backendDir, 'apps/test/tests/0100_test_jsonlogic.json')
+const backendRef = process.env.SEMANTIUS_BACKEND_REF ?? 'origin/main'
+const backendFile = 'apps/test/tests/0100_test_jsonlogic.json'
+// `.git` is a directory in a clone and a file in a worktree.
+const backendFound = existsSync(resolve(backendDir, '.git'))
 const DATE_OPERATORS = new Set(['date_add', 'date_diff', 'date_part', 'date_trunc', 'to_date', 'date_format'])
 const NUMBER_OPERATORS = new Set(['+', '-', '*', '/', '%', 'max', 'min', '<', '<=', '>', '>=', '==', '!=', '===', '!=='])
 const backendCorpus = JSON.parse(readFileSync(vendoredPath, 'utf8')) as unknown[]
 
 describe('the vendored backend test cases', () => {
   const required = process.env.SEMANTIUS_BACKEND_REQUIRED === '1'
-  it.skipIf(!existsSync(backendPath) && !required)('match the backend checkout (refresh: node scripts/vendor-semantius.mjs)', () => {
-    expect(existsSync(backendPath), `no semantius checkout at ${backendDir}`).toBe(true)
-    expect(backendCorpus).toEqual(JSON.parse(readFileSync(backendPath, 'utf8')))
+  it.skipIf(!backendFound && !required)(`match the backend at ${backendRef} (refresh: node scripts/vendor-semantius.mjs)`, () => {
+    expect(backendFound, `no semantius clone at ${backendDir}`).toBe(true)
+    const committed = execFileSync('git', ['-C', backendDir, 'show', `${backendRef}:${backendFile}`], { encoding: 'utf8' })
+    expect(backendCorpus).toEqual(JSON.parse(committed))
   })
 })
 

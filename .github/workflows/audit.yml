@@ -17,6 +17,20 @@ name: Audit
 # the affected package, never by raising `--audit-level` or ignoring the
 # advisory. The findings are almost always transitive; an override moves just
 # the vulnerable package and the lockfile records it.
+#
+# The one exception is an advisory with NO fixed release, which no override can
+# close: left in, it keeps this job red every night and hides every new advisory
+# behind it. Such an advisory goes in `pnpm.auditConfig.ignoreGhsas` in the root
+# package.json, and is listed here with why it does not apply and when to remove it:
+#
+# - GHSA-fc5q-39xc-vjpf, picomatch <= 4.0.7, ReDoS through a single-branch
+#   repeated extglob such as `+(*)`. No fixed picomatch exists. picomatch is only
+#   reached through build and test tooling (vite, vitest, jest, the TanStack
+#   router plugin, the shadcn CLI), never the shipped bundle or the image, and
+#   every pattern it compiles is this repository's own config or a tool default;
+#   the attack needs the attacker to write the pattern. REMOVE the ignore and add
+#   an override (`"picomatch@<x.y.z": "^x.y.z"`) as soon as picomatch publishes a
+#   fixed release.
 on:
   schedule:
     # 03:47 UTC, offset from the hour — GitHub throttles on-the-hour crons.
