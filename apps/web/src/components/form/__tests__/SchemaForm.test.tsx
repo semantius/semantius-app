@@ -2292,10 +2292,13 @@ describe('a CURRENT_USER default on a reference to users is the signed-in user',
     )
 
     // The trigger names the user once the referenced row has arrived; its
-    // record link carries the id.
+    // record link carries the id. Both are awaited, and separately: the link
+    // renders only once a SECOND request, get_schema for users, has answered
+    // (InputReference), and the two race — the link was missing on CI when the
+    // row came first.
     const owner = await screen.findByRole('combobox', { name: /^Owner/ })
     await waitFor(() => expect(owner).toHaveTextContent(me.display_name))
-    expect(screen.getByRole('link', { name: 'Open User in a new tab' })).toHaveAttribute('href', `/admin/users/${me.user_id}`)
+    expect(await screen.findByRole('link', { name: 'Open User in a new tab' })).toHaveAttribute('href', `/admin/users/${me.user_id}`)
 
     await user.click(screen.getByRole('button', { name: /submit/i }))
     await waitFor(() => expect(onSubmit).toHaveBeenCalled())
