@@ -8,11 +8,6 @@ you identically, and it is not repeated here.
 This file is the part that is only about you: what you may do, what you must do,
 and what you must not do. Nothing here is about language.
 
-> Location note: the guide currently lives at
-> `apps/web/scripts/i18n/TRANSLATION-GUIDE.md` and the language files at
-> `apps/web/public/locales/`. Both move into this folder — see
-> `i18n-layout-plan.md`. Until then, follow the paths, not the folder.
-
 ---
 
 ## 1. You do not run `i18n:import`

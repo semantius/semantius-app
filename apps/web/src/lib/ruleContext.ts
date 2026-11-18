@@ -23,6 +23,15 @@ export function ruleUserHasPermission(name: string): boolean {
 }
 
 /**
+ * The signed-in user's id (`get_userinfo`'s `user_id`), or null before it
+ * resolves. A rule reads it as `$user_id`; a model default of a reference to
+ * users names it `CURRENT_USER` or `$user_id` (`lib/modelDefaults.ts`).
+ */
+export function signedInUserId(): unknown {
+  return ruleUser?.user_id ?? null
+}
+
+/**
  * What the server gives computed fields and validation rules beside the
  * record (0210_computed_validation.sql): `$old`, the stored row, and `$mode`.
  * The form passes it where it evaluates computed fields; an `input_type_rule`
@@ -41,7 +50,7 @@ export function withRuleContext(values: Record<string, unknown>, record?: Record
     ...values,
     $today: now.slice(0, 10),
     $now: `${now.slice(0, 19)}+00:00`,
-    $user_id: ruleUser?.user_id ?? null,
+    $user_id: signedInUserId(),
     ...(record ? { $old: record.old, $mode: record.mode } : {}),
   }
 }

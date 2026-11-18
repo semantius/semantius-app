@@ -14,6 +14,8 @@
  * JSON `"[]"` of `entities.computed_fields`).
  *
  * `modelDefault` answers `{ value }` with what the browser can compute:
+ * - `CURRENT_USER` or `$user_id` on a reference or parent field to users becomes
+ *   the signed-in user's id (see "The current user" below);
  * - a date/time expression on a date, date-time or time field becomes the date
  *   or instant it stands for (see "Date and time" below);
  * - `gen_random_uuid()` becomes `crypto.randomUUID()`;
@@ -21,13 +23,26 @@
  *   casts dropped from `'user'::text`), a number from `10` or `'10'::integer`, a
  *   boolean from `FALSE`, JSON from `[]`.
  *
- * It answers `null` for what it cannot: `NULL`, `CURRENT_USER`,
- * `SESSION_USER`, any other function call (`nextval(…)`), a date/time
- * expression on a field it does not fit, and text that is no value of the
- * field's type. The form then starts the field empty and, while it stays empty,
- * leaves it out of the INSERT, so the column default applies. Seeding the
- * expression text instead put SQL into the field, and sending the empty field
- * as `null` overrides the column default.
+ * It answers `null` for what it cannot: `NULL`, `CURRENT_USER` and
+ * `SESSION_USER` anywhere else, the current-user default while no user id is
+ * known, any other function call (`nextval(…)`), a date/time expression on a
+ * field it does not fit, and text that is no value of the field's type. The
+ * form then starts the field empty and, while it stays empty, leaves it out of
+ * the INSERT, so the column default applies. Seeding the expression text
+ * instead put SQL into the field, and sending the empty field as `null`
+ * overrides the column default.
+ *
+ * ## The current user
+ *
+ * `CURRENT_USER` or `$user_id`, in any case, as the default of a reference or
+ * parent field whose `reference_table` is `users`, means the id of whoever
+ * creates the record, the way `CURRENT_DATE` on a date field means today. The
+ * backend decides that in one place, `dd_is_current_user_default`, and makes
+ * the column default `rbac.user_id_or_null()`; `isCurrentUserDefault` below is
+ * the same test, so keep the two in step. The id is `get_userinfo`'s `user_id`
+ * (`signedInUserId()` in `lib/ruleContext.ts`, which rules read as `$user_id`).
+ * Anywhere else `CURRENT_USER` is PostgreSQL's role name, which the browser
+ * does not know, and `$user_id` is text like any other.
  *
  * ## Date and time
  *
@@ -56,6 +71,22 @@
  * any other: `'now'` on a text field is the text "now".
  */
 import { formatType, isFormatName } from '@/lib/formats'
+import { signedInUserId } from '@/lib/ruleContext'
+
+/** What a default's meaning depends on besides its text, read off the field's property schema. */
+export interface DefaultField {
+  format?: unknown
+  /** The table a reference or parent field points at. */
+  reference_table?: unknown
+}
+
+/** What a default is evaluated against. Each is a parameter so a test can fix it. */
+export interface DefaultContext {
+  /** The clock. Defaults to now. */
+  now?: Date
+  /** The signed-in user's id, or null while none is known. Defaults to `signedInUserId()`. */
+  userId?: unknown
+}
 
 type Moment =
   /** Midnight UTC, this many days from today. */
@@ -102,6 +133,17 @@ const BOOLEANS: Record<string, boolean> = {
 }
 /** The keywords `quote_default_value` emits bare that the browser cannot evaluate. */
 const UNCOMPUTABLE_KEYWORDS = new Set(['null', 'current_user', 'session_user'])
+/** The defaults that mean the signed-in user on a reference or parent field to users. */
+const CURRENT_USER_TOKENS = new Set(['current_user', '$user_id'])
+
+/** `dd_is_current_user_default` (0160_dd_functions.sql): whether `text` means the signed-in user's id on `field`. */
+function isCurrentUserDefault(text: string, field: DefaultField): boolean {
+  return (
+    (field.format === 'reference' || field.format === 'parent')
+    && field.reference_table === 'users'
+    && CURRENT_USER_TOKENS.has(text.toLowerCase())
+  )
+}
 
 const MS_PER_DAY = 86_400_000
 const DATE_FORMATS = new Set(['date', 'date-time', 'time'])
@@ -166,15 +208,22 @@ function literalValue(text: string, format: unknown): { value: unknown } | null 
 }
 
 /**
- * The form value `declared`, a field's schema `default`, stands for on a field
- * of `format` — or `null` when the browser cannot compute it, see above. A value
- * that is not text is already typed and is the value; so is blank text, the
- * "no default" of every optional text property. `now` is a parameter so a test
- * can fix the clock.
+ * The form value `declared`, a field's schema `default`, stands for on `field`
+ * — or `null` when the browser cannot compute it, see above. A value that is not
+ * text is already typed and is the value; so is blank text, the "no default" of
+ * every optional text property.
  */
-export function modelDefault(declared: unknown, format: unknown, now: Date = new Date()): { value: unknown } | null {
+export function modelDefault(
+  declared: unknown,
+  field: DefaultField,
+  { now = new Date(), userId = signedInUserId() }: DefaultContext = {},
+): { value: unknown } | null {
   if (typeof declared !== 'string' || declared.trim() === '') return { value: declared }
   const text = declared.trim()
+  const format = field.format
+
+  if (isCurrentUserDefault(text, field)) return userId == null ? null : { value: userId }
+
   const isDateFormat = typeof format === 'string' && DATE_FORMATS.has(format)
 
   const dated = momentOf(text)

@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { SchemaForm } from '../SchemaForm'
 import type { SchemaObject } from 'ajv'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { setRuleUser } from '@/lib/ruleContext'
 import { AppHarness, bootApp } from '@/test/appHarness'
 import { db } from '@/test/moduleFixture'
@@ -2242,6 +2243,63 @@ describe('a SQL date default starts the form with the date it stands for', () =>
   it('keeps the stored date of an existing record', () => {
     render(<SchemaForm schema={orderDates} formMode="edit" initialValue={{ order_date: '2024-07-04', shipped_date: '' }} />)
     expect(screen.getByLabelText(/^Order Date/)).toHaveValue('July 4th, 2024')
+  })
+})
+
+describe('a CURRENT_USER default on a reference to users is the signed-in user', () => {
+  beforeEach(async () => {
+    await bootApp()
+  })
+  afterEach(() => {
+    setRuleUser(null)
+  })
+
+  // Northwind categories.owner: get_schema hands the default over as the text
+  // `CURRENT_USER`, and the column default is rbac.user_id_or_null(). `users` is
+  // a platform table, so the reference resolves on every tenant.
+  const schema = {
+    type: 'object',
+    properties: {
+      owner: {
+        type: 'integer',
+        format: 'reference',
+        title: 'Owner',
+        default: 'CURRENT_USER',
+        inputMode: 'default',
+        reference_table: 'users',
+        reference_table_id_column: 'id',
+        reference_table_label_column: 'display_name',
+      },
+    },
+  } as SchemaObject
+
+  it('starts the field with the user get_userinfo names, and saves that id', async () => {
+    const me = await callRpc<{ user_id: number; display_name: string }>('get_userinfo', {}, testToken())
+    expect(me.user_id).toEqual(expect.any(Number))
+
+    const user = userEvent.setup()
+    const onSubmit = vi.fn()
+    // ProtectedRoute, as in the app: it renders the form once get_userinfo has
+    // answered, which is what puts the user id in reach of the seeding.
+    render(
+      <AppHarness>
+        <ProtectedRoute>
+          <TooltipProvider>
+            <SchemaForm schema={schema} formMode="create" onSubmit={onSubmit} />
+          </TooltipProvider>
+        </ProtectedRoute>
+      </AppHarness>,
+    )
+
+    // The trigger names the user once the referenced row has arrived; its
+    // record link carries the id.
+    const owner = await screen.findByRole('combobox', { name: /^Owner/ })
+    await waitFor(() => expect(owner).toHaveTextContent(me.display_name))
+    expect(screen.getByRole('link', { name: 'Open User in a new tab' })).toHaveAttribute('href', `/admin/users/${me.user_id}`)
+
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+    expect(onSubmit.mock.calls[0][0].owner).toBe(me.user_id)
   })
 })
 

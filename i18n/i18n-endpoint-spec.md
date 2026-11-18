@@ -5,9 +5,10 @@ is `apps/web/src/i18n/translateTarget.ts`; the dev server's side is
 `apps/web/vite-plugins/i18nDevWriter.ts`; the tenant's side does not exist
 yet (see the bottom).**
 
-Kept current with `i18n-metadata-messages-plan.md`; that document is the design,
-this one is the wire contract. Errors are covered here too, because the shape is
-the same everywhere and this endpoint answers in it.
+This document is the wire contract. The client-side design (keys, call forms,
+discovery, modes) is described in `CONTEXT-MEMORY.md`, "Internationalization".
+Errors are covered here too, because the shape is the same everywhere and this
+endpoint answers in it.
 
 One contract, several targets. The client is identical everywhere; only the base
 url and the mode differ (`VITE_TRANSLATE_API_URL`, `setTranslateTarget`).
@@ -94,7 +95,7 @@ A message is `{ locale, key, translation }`. Nothing else.
 - **`context` — deleted.** A free-text prefix that existed only because a code
   string had no other way to be disambiguated. A key is now an array of
   segments, and a disambiguating segment does the same job better
-  (`i18n-metadata-messages-plan.md`, "The three call forms"). No column, no
+  (`messageId()` in `apps/web/src/i18n/catalog.ts`). No column, no
   `contexts` file section, no U+0004.
 - **`scope` — deleted, completely.** Code and metadata are both messages, told
   apart by the reserved `module.` root. Error text needs no scope either: a
@@ -105,7 +106,8 @@ A message is `{ locale, key, translation }`. Nothing else.
 ## Errors
 
 Every error — raised by the app or returned by the backend — reaches the client
-in one shape. The full rules are in `i18n-metadata-messages-plan.md`, section 6.
+in one shape, described below. The parser is `apps/web/src/i18n/errors.ts`; the
+one renderer is `renderError()` in `apps/web/src/lib/apiErrors.ts`.
 
 | | | |
 | --- | --- | --- |

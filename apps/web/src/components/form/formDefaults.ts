@@ -9,7 +9,7 @@
  */
 import type { SchemaObject } from 'ajv'
 import { formatType, isFormatName } from '@/lib/formats'
-import { modelDefault } from '@/lib/modelDefaults'
+import { modelDefault, type DefaultContext } from '@/lib/modelDefaults'
 
 /**
  * Synthetic, read-only label companions that get_schema emits as properties:
@@ -79,10 +79,10 @@ export interface SeededDefaults {
 /**
  * The starting value of every property of `schema`: its model default where
  * the browser can compute one, the empty value of its format otherwise.
- * Synthetic label companions are not columns and are never seeded. `now` is a
- * parameter so a test can fix the clock.
+ * Synthetic label companions are not columns and are never seeded. `context`
+ * (the clock, the signed-in user) is a parameter so a test can fix it.
  */
-export function generateDefaultValue(schema: SchemaObject, now: Date = new Date()): SeededDefaults {
+export function generateDefaultValue(schema: SchemaObject, context: DefaultContext = {}): SeededDefaults {
   const values: Record<string, unknown> = {}
   const uncomputed = new Set<string>()
 
@@ -94,7 +94,8 @@ export function generateDefaultValue(schema: SchemaObject, now: Date = new Date(
       const format = (propSchema as { format?: unknown }).format
       let value: unknown
       if ('default' in propSchema) {
-        const computed = modelDefault((propSchema as { default?: unknown }).default, format, now)
+        const referenceTable = (propSchema as { reference_table?: unknown }).reference_table
+        const computed = modelDefault((propSchema as { default?: unknown }).default, { format, reference_table: referenceTable }, context)
         if (computed) {
           value = computed.value
         } else {

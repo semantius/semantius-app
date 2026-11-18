@@ -537,6 +537,8 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
 
   // Seeded once per schema: a `gen_random_uuid()` or `CURRENT_TIMESTAMP` default
   // computed on every render would hand useForm new default values each time.
+  // A `CURRENT_USER` default reads the signed-in user's id here, which is known
+  // by now: ProtectedRoute renders nothing until get_userinfo has answered.
   const seeded = useMemo(() => generateDefaultValue(schema), [schema])
   // Merge schema defaults under initialValue so explicit values win
   // but defaults fill gaps (e.g. parent FK pre-filled, other fields blank).
@@ -648,7 +650,7 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
           // than silently dropping what the user typed.
           const trimmed = fieldValue.trim()
           if (trimmed === '') {
-            const declared = 'default' in (propSchema as any) ? modelDefault((propSchema as any).default, format) : null
+            const declared = 'default' in (propSchema as any) ? modelDefault((propSchema as any).default, { format, reference_table: (propSchema as any).reference_table }) : null
             cleanedValue[key] = declared ? declared.value : null
           } else {
             try {
@@ -719,7 +721,7 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
       // clearing a text field impossible.
       //
       // A field whose default the browser cannot compute (`nextval(…)`,
-      // `CURRENT_USER`, see modelDefault) is left out the same way while it is
+      // `CURRENT_USER` on a text column, see modelDefault) is left out the same way while it is
       // empty, `null` included, so the column default applies: a typed empty
       // value is sent as an explicit `null`, which would override it.
       if (formMode === 'create') {
