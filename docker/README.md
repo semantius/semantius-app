@@ -99,7 +99,7 @@ Key variables (see `.env.example` for the full list and comments):
 | `VITE_OAUTH_*_ENDPOINT` | OAuth endpoints — **usually leave blank** and let `VITE_OAUTH_CONFIG` resolve them; set to override. |
 | `VITE_CONTROL_PLANE_URL` / `VITE_CONTROL_PLANE_ORG` | Optional control-plane tenant lookup. |
 | `VITE_APP_FEATURES` | Optional feature flags, comma-separated (items are trimmed). On the control plane, the tenant plan's `entitlements` are added. |
-| `VITE_BACKEND_TYPE` | Account-menu flavor: `cloud` (default), `self_hosted`, or `custom`. |
+| `VITE_BACKEND_TYPE` | Account-menu flavor: `cloud` (default), `self_hosted`, or `custom`. `self_hosted` also hides the API Keys card on the settings page. |
 | `VITE_UI_CUSTOMIZER` | Single-line JSON: the account menu (required with `VITE_BACKEND_TYPE=custom`) and the `locales` registration for extra languages. |
 | `VITE_TRANSLATE_MODE` | Translate mode: `off` (default), `prod` (per-language override records on this deployment's own API, in-app editing for users holding `translations.edit`), or `stage` (a host that holds a copy of the language files and records what the app cannot translate). |
 | `VITE_TRANSLATE_API_URL` | The translate target's base url, answering `GET/POST {base}/translations`. Unset = this deployment's own API. Required with `VITE_TRANSLATE_MODE=stage`. |
@@ -152,6 +152,9 @@ links to app.semantius.com) or `self_hosted` (Account → `/idp/account`, User
 Manager → `/idp/admin`, the latter shown only to users with the `admin`
 permission — and both `target: redirect`, since `/idp/*` is served by the
 identity provider, not by this image).
+`self_hosted` also hides the API Keys card on the settings page, because nothing
+in a self-hosted stack exchanges those keys; the identity provider's own keys are
+the supported path there.
 Set it to `custom` and supply `VITE_UI_CUSTOMIZER` to define your own; `{orgid}`
 in a url is replaced with the org slug, and each entry takes an optional
 `"target"` — `default` (in-app routing), `redirect` (full page load, same tab) or

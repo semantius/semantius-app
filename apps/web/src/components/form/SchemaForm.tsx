@@ -10,15 +10,16 @@ import { renderError } from '@/lib/apiErrors'
 import {
   applyJsonLogic,
   collectSetRecordLookups,
-  evaluateComputedFields,
+  computedValueChanged,
+  evaluateComputedFieldsWithRecords,
   idColumnForEntity,
   inputSnapshot,
-  loadSetRecords,
+  loadRuleRecords,
   lookupFromCache,
-  lookupsReady,
   parseComputedFields,
+  type CachedRecords,
   type ComputedField,
-  type RecordLookup,
+  type RecordCache,
 } from '@/lib/computedFields'
 import { Button } from '@/components/ui/button'
 import { StickyContainer } from '@/components/ui-ext/sticky-container'
@@ -70,9 +71,6 @@ function coerceDerivedCtypeMode(propSchema: SchemaObject, declared: unknown): In
   return inputMode
 }
 
-/** The rows `set_record` fetched for this form, shared by computed fields and input_type_rules. */
-type RecordCache = Map<string, Record<string, unknown> | null>
-
 /** The id column `set_record` looks a row of `entity` up by, read off the form's reference fields. */
 function idColumnFor(schema: SchemaObject): (entity: string) => string {
   const properties = schema.properties as
@@ -123,17 +121,11 @@ function ComputedFieldsSync({
     let canceled = false
 
     void (async () => {
-      await loadSetRecords(entries, values, cache, idColumnFor(schema), record)
+      const { updates, errors } = await evaluateComputedFieldsWithRecords(entries, values, cache, idColumnFor(schema), record)
       if (canceled) return
-      const errors: Record<string, unknown> = {}
-      const updates = evaluateComputedFields(entries, values, lookupFromCache(cache), {
-        record,
-        onError: (name, error) => {
-          errors[name] = error
-        },
-      })
+      // A dotted name is a path, for setFieldValue as for the server.
       for (const [name, next] of Object.entries(updates)) {
-        if (!Object.is(values[name], next)) form.setFieldValue(name, next)
+        if (computedValueChanged(values, name, next)) form.setFieldValue(name, next)
       }
       onErrors(errors)
     })()
@@ -147,7 +139,7 @@ function ComputedFieldsSync({
 }
 
 /**
- * Fetch the rows the form's `input_type_rule`s name through `set_record`, into
+ * Fetch the rows the form's `input_type_rule`s ask for through `set_record`, into
  * the cache computed fields use, whenever the inputs change. `onLoaded` is told
  * when a row arrived, so the rules are evaluated again with it.
  */
@@ -166,10 +158,14 @@ function InputTypeRuleRecordsSync({
 }) {
   useEffect(() => {
     let canceled = false
-    const before = cache.size
     void (async () => {
-      await loadSetRecords(rules, values, cache, idColumnFor(schema))
-      if (!canceled && cache.size !== before) onLoaded()
+      const arrived = await loadRuleRecords(
+        rules.map((rule) => rule.jsonlogic),
+        values,
+        cache,
+        idColumnFor(schema),
+      )
+      if (!canceled && arrived) onLoaded()
     })()
     return () => {
       canceled = true
@@ -197,21 +193,40 @@ interface RuleOutcome {
 }
 
 /**
+ * Whether a field has an input_type_rule. A missing key, or the empty object the
+ * server stores for "no rule", is none. Anything else is a rule, a literal such
+ * as "hidden" included: the server saves a literal rule (check_field_rules), and
+ * runs no required check on a field that has one, so the browser must evaluate it.
+ */
+function hasInputTypeRule(rule: unknown): boolean {
+  if (rule === undefined) return false
+  const isEmptyObject = rule !== null && typeof rule === 'object' && !Array.isArray(rule) && Object.keys(rule).length === 0
+  return !isEmptyObject
+}
+
+/**
  * Evaluate a per-field input_type_rule (JsonLogic) against the current form
  * values. No rule, or a `set_record` row not fetched yet, keeps the static
  * mode silently. A rule that throws, or returns something that is not an input
  * mode, keeps the static mode and says why.
  */
-function evaluateInputTypeRule(rule: unknown, values: Record<string, any>, records?: RecordLookup): RuleOutcome {
-  if (!rule || typeof rule !== 'object') return { mode: null }
+function evaluateInputTypeRule(
+  rule: unknown,
+  values: Record<string, any>,
+  records: CachedRecords = lookupFromCache(new Map()),
+): RuleOutcome {
+  if (!hasInputTypeRule(rule)) return { mode: null }
   const data = withRuleContext(values)
-  if (collectSetRecordLookups(rule).length > 0 && !lookupsReady(rule, data, records)) return { mode: null }
+  // A rule that read a row which has not arrived keeps the static mode silently;
+  // InputTypeRuleRecordsSync fetches it and the form evaluates the rule again.
+  const before = records.misses
   let result: unknown
   try {
     result = applyJsonLogic(rule, data, records)
   } catch (error) {
-    return { mode: null, error }
+    return records.misses > before ? { mode: null } : { mode: null, error }
   }
+  if (records.misses > before) return { mode: null }
   if (isInputMode(result)) return { mode: result }
   return {
     mode: null,
@@ -303,7 +318,7 @@ function resolvedInputMode(
   values: Record<string, any>,
   formMode: FormMode,
   parentField: string | undefined,
-  records?: RecordLookup,
+  records?: CachedRecords,
 ): InputMode | null {
   return renderedInputMode(
     key,
@@ -1143,7 +1158,7 @@ export function SchemaForm({ schema, initialValue, onSubmit, formMode = 'edit', 
               )
             }
 
-            if (inputTypeRule) {
+            if (hasInputTypeRule(inputTypeRule)) {
               return (
                 <form.Subscribe
                   key={key}

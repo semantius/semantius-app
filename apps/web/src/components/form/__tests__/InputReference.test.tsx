@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { SchemaObject } from 'ajv'
@@ -9,6 +9,9 @@ import { callRpc } from '@/lib/apiClient'
 import { canEditEntity } from '@/lib/permissions'
 import type { EntityMetadata, JsonSchemaProperty } from '@/types/metadata'
 import { SchemaForm } from '../SchemaForm'
+import { InputReference } from '../InputReference'
+import type { InputMode } from '../types'
+import { FormHarness } from './harness'
 
 /**
  * A reference submits the key it points at, in that key's own type.
@@ -150,5 +153,131 @@ describe('InputReference — the submitted key has the type of the key it points
 
     expect(submitted.module_id).toBe(target.key)
     expect(typeof submitted.module_id).toBe('number')
+  })
+})
+
+/**
+ * A reference whose target entity the user may not see looks up no row, runs
+ * no search, and shows the value it stores.
+ *
+ * For a caller who holds neither the target's view nor its edit permission,
+ * `get_schema` keeps `reference_table` on the property and leaves out the four
+ * keys it reads off the target's catalog row (`reference_visible` in the
+ * backend's 0250_public_functions.sql). The test user sees every `_core`
+ * entity, so the property here is the tenant's own `entities.module_id` with
+ * exactly those four keys removed. Nothing else in it is spelled here, and the
+ * stored values are read from the tenant.
+ *
+ * That no request reaches the target table is observed on a call-through spy
+ * of `fetch`, which replaces nothing (see useTable.test.tsx). An absence
+ * proves something only once the requests it covers would have been made, so
+ * the edit form also holds `entities.view_permission` unchanged, a reference
+ * whose target the user does see. Both fields mount in the same render; once
+ * that one has asked for its row and its target's schema, the hidden one would
+ * have asked as well.
+ */
+const TARGET_KEYS = [
+  'reference_table_id_column',
+  'reference_table_label_column',
+  'reference_table_singular_label',
+  'reference_table_plural_label',
+] as const
+
+type Property = Record<string, unknown>
+
+describe('InputReference — a target entity the user may not see', () => {
+  let properties: Record<string, Property>
+  let hiddenModule: Property
+  let stored: { module_id: unknown; view_permission: unknown }
+  let fetchSpy: MockInstance<typeof fetch>
+
+  const pathOf = (input: RequestInfo | URL) =>
+    new URL(input instanceof Request ? input.url : String(input), window.location.origin).pathname
+  const tableRequested = (table: string) =>
+    fetchSpy.mock.calls.some(([input]) => pathOf(input).endsWith(`/${table}`))
+  const schemaRequested = (table: string) =>
+    fetchSpy.mock.calls.some(([input, init]) => {
+      if (!pathOf(input).endsWith('/rpc/get_schema')) return false
+      try {
+        return (JSON.parse(String(init?.body)) as { p_table_name?: unknown }).p_table_name === table
+      } catch {
+        return false
+      }
+    })
+
+  beforeEach(async () => {
+    await bootApp()
+    const metadata = await callRpc<{ properties?: Record<string, Property> }>(
+      'get_schema',
+      { p_table_name: 'entities' },
+      testToken(),
+    )
+    properties = metadata.properties ?? {}
+    const { module_id } = properties
+    // The premise: a target the user sees carries all four, so removing them
+    // is the whole difference.
+    for (const key of TARGET_KEYS) expect(module_id).toHaveProperty(key)
+    hiddenModule = { ...module_id }
+    for (const key of TARGET_KEYS) delete hiddenModule[key]
+
+    const res = await db('/entities?select=module_id,view_permission&table_name=eq.entities')
+    expect(res.ok).toBe(true)
+    const [row] = (await res.json()) as Array<{ module_id: unknown; view_permission: unknown }>
+    expect(row.module_id).not.toBeNull()
+    expect(row.view_permission).not.toBeNull()
+    stored = row
+
+    // After the reads above, so it sees only what the control asks for.
+    fetchSpy = vi.spyOn(globalThis, 'fetch')
+  })
+
+  afterEach(() => {
+    fetchSpy?.mockRestore()
+  })
+
+  // What SchemaForm passes a control: the field's title and description, the
+  // property's own inputMode, and `readonly` in a view (`resolvedInputMode`).
+  function renderFields(fields: Record<string, Property>, formMode: 'edit' | 'view') {
+    render(
+      <AppHarness>
+        <FormHarness defaultValues={stored} properties={fields} formMode={formMode}>
+          {Object.entries(fields).map(([name, property]) => (
+            <InputReference
+              key={name}
+              name={name}
+              label={String(property.title ?? name)}
+              description={typeof property.description === 'string' ? property.description : undefined}
+              inputMode={formMode === 'view' ? 'readonly' : (property.inputMode as InputMode)}
+              schema={property}
+            />
+          ))}
+        </FormHarness>
+      </AppHarness>,
+    )
+    return screen.findByRole('combobox', { name: new RegExp(`^${String(hiddenModule.title)}`) })
+  }
+
+  it('shows the stored value, and neither looks it up nor searches the target', async () => {
+    const user = userEvent.setup()
+    const trigger = await renderFields({ module_id: hiddenModule, view_permission: properties.view_permission }, 'edit')
+
+    await waitFor(() => {
+      expect(tableRequested('permissions')).toBe(true)
+      expect(schemaRequested('permissions')).toBe(true)
+    })
+    await waitFor(() => expect(trigger).toHaveTextContent(new RegExp(`^${String(stored.module_id)}$`)))
+
+    // Opening the list is when a search would run.
+    await user.click(trigger)
+    expect(await screen.findByText(`No ${String(hiddenModule.title)} found.`)).toBeInTheDocument()
+
+    expect(tableRequested(String(hiddenModule.reference_table))).toBe(false)
+  })
+
+  it('shows the stored value in a view, read-only', async () => {
+    const trigger = await renderFields({ module_id: hiddenModule }, 'view')
+
+    await waitFor(() => expect(trigger).toHaveTextContent(new RegExp(`^${String(stored.module_id)}$`)))
+    expect(trigger).toBeDisabled()
   })
 })

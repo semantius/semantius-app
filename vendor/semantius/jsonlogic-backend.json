@@ -219,6 +219,61 @@
     },
     {
       "file": "apps/_core/migrations/0150_dd_bootstrap.once.sql",
+      "rule": {
+        "or": [
+          {
+            "has_permission": "admin"
+          },
+          {
+            "and": [
+              {
+                "or": [
+                  {
+                    "has_permission": {
+                      "var": "view_permission"
+                    }
+                  },
+                  {
+                    "has_permission": {
+                      "var": "edit_permission"
+                    }
+                  }
+                ]
+              },
+              {
+                "or": [
+                  {
+                    "!": [
+                      {
+                        "var": "id_refentity"
+                      }
+                    ]
+                  },
+                  {
+                    "set_record": [
+                      "base",
+                      "entities",
+                      {
+                        "var": "id_refentity"
+                      },
+                      {
+                        "!!": [
+                          {
+                            "var": "base"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "file": "apps/_core/migrations/0150_dd_bootstrap.once.sql",
       "rule": [
         {
           "code": "90202",

@@ -1860,6 +1860,51 @@ describe('input_type_rule can use the Semantius operators', () => {
     renderRule({ set_record: ['r', 'orders', { var: 'kind' }, 'hidden'] }, { kind: '1' })
     expectShown()
   })
+
+  // Each rule below answers what evaluate_json_logic answers for it (postgres18-ext).
+  // The browser's earlier evaluator gave the opposite mode for every one.
+  describe('operators that answer as the server does', () => {
+    it('reads substr of a missing value as empty text', () => {
+      renderRule({ if: [{ '==': [{ substr: [{ var: 'note' }, 0, 3] }, ''] }, 'hidden', 'default'] })
+      expectHidden()
+    })
+
+    it('counts substr positions in characters', () => {
+      renderRule({ if: [{ '==': [{ substr: ['😀abc', 1, 2] }, 'ab'] }, 'hidden', 'default'] })
+      expectHidden()
+    })
+
+    it('finds a list in a list by value', () => {
+      renderRule({ if: [{ in: [[1], [[1]]] }, 'hidden', 'default'] })
+      expectHidden()
+    })
+
+    it('finds no JavaScript property through var', () => {
+      renderRule({ if: [{ var: 'kind.length' }, 'hidden', 'default'] }, { kind: 'none' })
+      expectShown()
+    })
+
+    it('writes a list into cat as its jsonb text', () => {
+      renderRule({ if: [{ '==': [{ cat: [[1, 2]] }, '[1, 2]'] }, 'hidden', 'default'] })
+      expectHidden()
+    })
+
+    it('orders text by code point', () => {
+      renderRule({ if: [{ '<': ['😀', 'Ａ'] }, 'hidden', 'default'] })
+      expectShown()
+    })
+
+    it('binds a let inside map to the element', () => {
+      renderRule({ if: [{ '==': [{ map: [[1, 2], { let: ['x', { var: '' }, { var: 'x' }] }] }, [1, 2]] }, 'hidden', 'default'] })
+      expectHidden()
+    })
+
+    it('never evaluates a let in a branch that is not taken', () => {
+      renderRule({ if: [true, 'hidden', { let: ['n', { throw_error: ['not evaluated'] }, 'default'] }] })
+      expectHidden()
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    })
+  })
 })
 
 describe('input_type_rule required is validated, not only drawn', () => {
@@ -2483,6 +2528,42 @@ describe('a rule that cannot run says so under its field, without blocking the s
   })
 })
 
+describe('a literal input_type_rule is evaluated, as the server saves one', () => {
+  function withCodeRule(rule: unknown): SchemaObject {
+    return {
+      type: 'object',
+      properties: {
+        kind: { type: 'string', format: 'text', title: 'Kind' },
+        code: { type: 'string', format: 'text', title: 'Code', input_type_rule: rule },
+      },
+    } as SchemaObject
+  }
+
+  it('hides a field whose rule is "hidden"', () => {
+    render(<SchemaForm schema={withCodeRule('hidden')} formMode="create" />)
+    expect(screen.getByLabelText(/^Kind/)).toBeInTheDocument()
+    expect(screen.queryByLabelText(/^Code/)).not.toBeInTheDocument()
+  })
+
+  it('requires a field whose rule is "required"', () => {
+    render(<SchemaForm schema={withCodeRule('required')} formMode="create" />)
+    expect(screen.getByRole('textbox', { name: /Code.*\(required\)/ })).toBeInTheDocument()
+  })
+
+  it('reads the empty object as no rule', () => {
+    render(<SchemaForm schema={withCodeRule({})} formMode="create" />)
+    expect(screen.getByLabelText(/^Code/)).toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: /Code.*\(required\)/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('shows a literal that is no input mode under its field, and keeps the static mode', () => {
+    render(<SchemaForm schema={withCodeRule(5)} formMode="create" />)
+    expect(screen.getByLabelText(/^Code/)).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('The rule returned 5, which is not an input mode.')
+  })
+})
+
 describe('an input_type_rule with set_record uses the referenced row', () => {
   beforeEach(async () => {
     await bootApp()
@@ -2512,6 +2593,44 @@ describe('an input_type_rule with set_record uses the referenced row', () => {
     render(
       <AppHarness>
         <SchemaForm schema={schema} formMode="edit" initialValue={{ module_id: row.id, note: '' }} />
+      </AppHarness>,
+    )
+
+    await waitFor(() => expect(screen.queryByLabelText(/^Note/)).not.toBeInTheDocument())
+  })
+
+  it('fetches a row whose id comes from another row, once that row has arrived', async () => {
+    const res = await db('/modules?select=id,module_name&limit=2&order=id.asc')
+    expect(res.ok).toBe(true)
+    const [first, second] = (await res.json()) as Array<{ id: number; module_name: string }>
+    expect(second).toBeDefined()
+
+    // The inner id is computed from the outer row, so the second row can only be
+    // asked for once the first has arrived.
+    const innerId = { '-': [{ var: 'm.id' }, first.id - second.id] }
+    const schema = {
+      type: 'object',
+      properties: {
+        module_id: { type: 'integer', format: 'int32', title: 'Module', reference_table: 'modules', reference_table_id_column: 'id' },
+        note: {
+          type: 'string',
+          format: 'text',
+          title: 'Note',
+          input_type_rule: {
+            set_record: [
+              'm',
+              'modules',
+              { var: 'module_id' },
+              { set_record: ['n', 'modules', innerId, { if: [{ '==': [{ var: 'n.module_name' }, second.module_name] }, 'hidden', 'default'] }] },
+            ],
+          },
+        },
+      },
+    } as SchemaObject
+
+    render(
+      <AppHarness>
+        <SchemaForm schema={schema} formMode="edit" initialValue={{ module_id: first.id, note: '' }} />
       </AppHarness>,
     )
 

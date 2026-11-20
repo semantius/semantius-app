@@ -14,8 +14,8 @@
  * A value the backend would refuse throws here too. Both places that evaluate rules
  * catch it, so the form simply keeps what it had until the server refuses the save.
  */
-import jsonLogic from 'json-logic-js'
 import { DATE_DURATION, DATE_FORMAT_PATTERN, DATE_FORMAT_TOKEN, DATE_PARTS, DATE_UNITS } from 'sem-schema'
+import { addOperation, serverError } from '@/vendor/json-logic-js/jsonLogic'
 
 const SECONDS_PER_DAY = 86_400
 const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/
@@ -35,18 +35,6 @@ interface Civil {
   year: number
   month: number
   day: number
-}
-
-/**
- * An error in the shape the server raises it (the backend's
- * docs/error-contract.md): the SQLSTATE, the `${name}` message template and,
- * when there are any, the parameters as the JSON hint — the body PostgREST
- * would hand the app. `renderError` (lib/apiErrors.ts) shows and translates it
- * by its code, exactly as it does the server's own. `error.message` is the
- * template, uninterpolated, as an `appError`'s is.
- */
-export function serverError(code: string, message: string, params?: Record<string, unknown>): Error {
-  return new Error(message, { cause: { code, message, ...(params ? { hint: JSON.stringify(params) } : {}) } })
 }
 
 // What the server raises for a value a date operator refuses, by code
@@ -409,10 +397,10 @@ function dateFormat(date: unknown, pattern: unknown): string | null {
 }
 
 export function registerDateOperators(): void {
-  jsonLogic.add_operation('date_add', dateAdd)
-  jsonLogic.add_operation('date_diff', dateDiff)
-  jsonLogic.add_operation('date_part', datePart)
-  jsonLogic.add_operation('date_trunc', dateTrunc)
-  jsonLogic.add_operation('to_date', toDate)
-  jsonLogic.add_operation('date_format', dateFormat)
+  addOperation('date_add', dateAdd)
+  addOperation('date_diff', dateDiff)
+  addOperation('date_part', datePart)
+  addOperation('date_trunc', dateTrunc)
+  addOperation('to_date', toDate)
+  addOperation('date_format', dateFormat)
 }

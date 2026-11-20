@@ -143,9 +143,6 @@ importers:
       drizzle-cube:
         specifier: ^0.5.8
         version: 0.5.8(@nivo/heatmap@0.99.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@types/react@19.2.18)(cors@2.8.6)(d3@7.9.0)(drizzle-orm@0.45.2)(express@5.2.1)(hono@4.13.19)(immer@11.1.18)(react-dom@19.2.8(react@19.2.8))(react-grid-layout@2.2.4(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-is@19.2.8)(react@19.2.8)(recharts@3.10.1(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react-is@19.2.8)(react@19.2.8)(redux@5.0.1))(solid-js@1.9.19)(use-sync-external-store@1.6.0(react@19.2.8))(zod@4.6.7)
-      json-logic-js:
-        specifier: ^2.0.5
-        version: 2.0.5
       lucide-react:
         specifier: ^1.57.0
         version: 1.57.0(@types/react@19.2.18)(react@19.2.8)
@@ -228,9 +225,6 @@ importers:
       '@testing-library/user-event':
         specifier: ^14.6.7
         version: 14.6.7(@testing-library/dom@10.4.1)
-      '@types/json-logic-js':
-        specifier: ^2.0.8
-        version: 2.0.8
       '@types/node':
         specifier: ^24.13.3
         version: 24.13.3
@@ -2973,9 +2967,6 @@ packages:
   '@types/jest@30.0.0':
     resolution: {integrity: sha512-XTYugzhuwqWjws0CVz8QpM36+T+Dz5mTEBKhNs/esGLnCIlGdRy+Dq78NRjd7ls7r8BC8ZRMOrKlkO1hU0JOwA==}
 
-  '@types/json-logic-js@2.0.8':
-    resolution: {integrity: sha512-WgNsDPuTPKYXl0Jh0IfoCoJoAGGYZt5qzpmjuLSEg7r0cKp/kWtWp0HAsVepyPSPyXiHo6uXp/B/kW/2J1fa2Q==}
-
   '@types/json-schema@7.0.15':
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
 
@@ -5095,9 +5086,6 @@ packages:
 
   json-buffer@3.0.1:
     resolution: {integrity: sha512-4bV5BfR2mqfQTJm+V5tPPdf+ZpuhiIvTuAB5g8kcrXOZpTT/QwwVRWBywX1ozr6lEuPdbHxwaJlm9G6mI2sfSQ==}
-
-  json-logic-js@2.0.5:
-    resolution: {integrity: sha512-rTT2+lqcuUmj4DgWfmzupZqQDA64AdmYqizzMPWj3DxGdfFNsxPpcNVSaTj4l8W2tG/+hg7/mQhxjU3aPacO6g==}
 
   json-parse-even-better-errors@2.3.1:
     resolution: {integrity: sha512-xyFwyhro/JEof6Ghe2iz2NcXoj2sloNsWr/XsERDK/oiPCfaNhl5ONfp+jQdAZRQQ0IJWNzH9zIZF7li91kh2w==}
@@ -9609,8 +9597,6 @@ snapshots:
       expect: 30.5.1
       pretty-format: 30.5.1
 
-  '@types/json-logic-js@2.0.8': {}
-
   '@types/json-schema@7.0.15': {}
 
   '@types/node@24.13.3':
@@ -12004,8 +11990,6 @@ snapshots:
   jsesc@3.1.0: {}
 
   json-buffer@3.0.1: {}
-
-  json-logic-js@2.0.5: {}
 
   json-parse-even-better-errors@2.3.1: {}
 

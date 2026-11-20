@@ -22,6 +22,15 @@ export function InputReference({
   const t = useT()
   const { form, formMode } = useFormContext()
   const referenceTable = typeof schema?.reference_table === 'string' ? schema.reference_table : undefined
+  // A target entity the user holds neither view nor edit permission on is not
+  // in their catalog. `get_schema` still names it in `reference_table`, but
+  // leaves out `reference_table_id_column`, `reference_table_label_column` and
+  // both labels (`reference_visible` in the backend's
+  // 0250_public_functions.sql). With no key column there is no row to look up
+  // and nothing to search by, so such a reference looks up no row, runs no
+  // search, and shows the value it stores. The target's own `get_schema` below
+  // still runs and answers 42P01, so there is no record link and no Add action.
+  const targetHidden = !!referenceTable && !schema?.reference_table_id_column
   // The referenced entity's own schema, not this form's: Job on an Application
   // lives in the Job entity's module, and a cross-module key (module_id →
   // modules) is not this page's module. `get_schema` is cached under the same
@@ -73,17 +82,30 @@ export function InputReference({
   if (schema?.reference_table_label_column) renderItem = "${" + schema.reference_table_label_column + "}";
   if (schema?.reference_table_plural_label) placeholder = t('Search {label}...', { label: String(schema.reference_table_plural_label) });
 
-  if (!searchUrl && schema?.reference_table) {
+  // No `|| 'id'` fallback for the key column: a reference without one is a
+  // hidden target (above), and `id` is not every entity's key.
+  if (!searchUrl && schema?.reference_table && !targetHidden) {
     const table = schema.reference_table;
-    const idCol = schema.reference_table_id_column || 'id';
+    const idCol = schema.reference_table_id_column;
     const labelCol = schema.reference_table_label_column || 'label';
     searchUrl = `/${table}?select=${idCol},${labelCol}&limit=21&offset=0&order=${idCol}.desc&search_vector=wfts(simple).\${query}`;
   }
 
-  if (!idUrl && schema?.reference_table) {
+  if (!idUrl && schema?.reference_table && !targetHidden) {
     const table = schema.reference_table;
-    const idCol = schema.reference_table_id_column || 'id';
+    const idCol = schema.reference_table_id_column;
     idUrl = `/${table}?${idCol}=eq.\${id}`;
+  }
+
+  // A hidden target with no URL of the schema's own: the stored value has no
+  // row to resolve to, so it is its own option and the trigger shows it as
+  // stored. With neither URL, APISelect fetches nothing, for the value or for
+  // the list.
+  let recordFetcher: ((id: string) => Promise<string>) | undefined
+  if (targetHidden && !searchUrl && !idUrl) {
+    recordFetcher = async (id) => id
+    getRecordId = (id: string) => id
+    renderItem = (id: string) => id
   }
 
   // console.log('InputReference derived props', {     fieldType,    searchUrl,   idUrl,    getRecords,    getRecordId,    renderItem,    placeholder  })
@@ -134,6 +156,7 @@ export function InputReference({
               <APISelect
                 searchUrl={searchUrl}
                 idUrl={idUrl}
+                recordFetcher={recordFetcher}
                 getRecords={getRecords}
                 getRecordId={getRecordId}
                 renderItem={renderItem}

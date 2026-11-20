@@ -43,13 +43,25 @@ export interface RecordContext {
   mode: 'insert' | 'update'
 }
 
+/**
+ * A moment as the server writes `$now`, `to_jsonb(CURRENT_TIMESTAMP)` in UTC: the
+ * fraction of a second without trailing zeros, and none at all when it is zero.
+ * The server has microseconds and this clock milliseconds, so the moment itself
+ * cannot match the server's; its form does.
+ */
+export function timestampText(moment: Date): string {
+  const iso = moment.toISOString()
+  const fraction = iso.slice(20, 23).replace(/0+$/, '')
+  return `${iso.slice(0, 19)}${fraction ? `.${fraction}` : ''}+00:00`
+}
+
 /** The data a rule runs against. The reserved names win over a field of the same name, as on the server. */
 export function withRuleContext(values: Record<string, unknown>, record?: RecordContext): Record<string, unknown> {
-  const now = new Date().toISOString()
+  const moment = new Date()
   return {
     ...values,
-    $today: now.slice(0, 10),
-    $now: `${now.slice(0, 19)}+00:00`,
+    $today: moment.toISOString().slice(0, 10),
+    $now: timestampText(moment),
     $user_id: signedInUserId(),
     ...(record ? { $old: record.old, $mode: record.mode } : {}),
   }

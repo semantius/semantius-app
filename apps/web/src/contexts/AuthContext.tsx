@@ -105,17 +105,45 @@ export function moduleLabels(
   }
 }
 
+/** One entry of `get_userinfo`'s `roles`: a role the user holds. */
+export interface RpcUserRole {
+  role_id: number
+  role_name: string
+  module_id: number | null
+  description: string | null
+  assigned_at: string | null
+}
+
+/**
+ * What `POST /rpc/get_userinfo` returns, as the `tests` tenant answers it: the
+ * signed-in user's own `users` row, plus what the session grants. The model
+ * marks no `users` column required but the id, hence the nullable types.
+ *
+ * The index signature is for fields a platform adds later: `language` and
+ * `locale` are read with `in` in `src/i18n/tenant.ts`, because there an absent
+ * field and a `null` one mean different things.
+ */
 export interface RpcUserInfo {
-  modules?: Module[]
+  user_id: number
   /**
-   * The user record itself. Named here, rather than left to the index
-   * signature, because the chrome reads them: with no OAuth userinfo endpoint —
-   * the normal case, since an issuer hosts one for its OWN audience — this is
-   * where the signed-in user's name and e-mail come from. `get_userinfo` writes
-   * them from the token's claims when the record is created.
+   * The chrome reads these two: with no OAuth userinfo endpoint — the normal
+   * case, since an issuer hosts one for its OWN audience — this is where the
+   * signed-in user's name and e-mail come from. `get_userinfo` writes them from
+   * the token's claims when the record is created.
    */
-  display_name?: string
-  email?: string
+  display_name: string | null
+  email: string | null
+  first_name: string | null
+  last_name: string | null
+  external_id: string | null
+  is_disabled: boolean | null
+  last_seen: string | null
+  created_at: string | null
+  updated_at: string | null
+  roles: RpcUserRole[]
+  /** Permission names; `lib/permissions.ts` reads them. */
+  permissions: string[]
+  modules: Module[]
   [key: string]: unknown
 }
 

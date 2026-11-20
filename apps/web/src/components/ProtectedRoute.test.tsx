@@ -1,6 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { useState } from 'react'
 import { render, screen, waitFor } from '@testing-library/react'
 import { ProtectedRoute } from './ProtectedRoute'
+import { useAuth } from '@/hooks/useAuth'
+import { signedInUserId } from '@/lib/ruleContext'
 import {
   AppHarness,
   bootApp,
@@ -41,6 +44,20 @@ function overlayIsUp(): boolean {
   return !!el && !el.hidden
 }
 
+/**
+ * What a form's first render would evaluate its rules with: the rule user, read in
+ * the first render, beside the user `get_userinfo` answered.
+ */
+function FirstRender() {
+  const { rpcUserInfo } = useAuth()
+  const [seen] = useState(() => ({ ruleUser: signedInUserId(), apiUser: rpcUserInfo?.user_id }))
+  return (
+    <div data-rule-user={JSON.stringify(seen.ruleUser)} data-api-user={JSON.stringify(seen.apiUser)}>
+      Protected Content
+    </div>
+  )
+}
+
 describe('ProtectedRoute', () => {
   beforeEach(async () => {
     await installBootOverlay()
@@ -71,6 +88,24 @@ describe('ProtectedRoute', () => {
     // tenant; a second is not always enough for both.
     await waitFor(() => expect(screen.getByText('Protected Content')).toBeInTheDocument(), NETWORK)
     await waitFor(() => expect(document.getElementById('app-loader')?.hidden).toBe(true))
+  })
+
+  it('renders its children only once the rule user is known, so no rule runs for an anonymous user', async () => {
+    await bootApp()
+
+    render(
+      <AppHarness>
+        <ProtectedRoute>
+          <FirstRender />
+        </ProtectedRoute>
+      </AppHarness>,
+    )
+
+    // `$user_id` and has_permission read the rule user; a form under `_app`
+    // renders no earlier than this child does.
+    const content = await screen.findByText('Protected Content', {}, NETWORK)
+    expect(content.dataset.ruleUser).not.toBe('null')
+    expect(content.dataset.ruleUser).toBe(content.dataset.apiUser)
   })
 
   it('renders nothing when there is no session, and still takes the overlay down', async () => {

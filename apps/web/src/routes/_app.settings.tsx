@@ -3,6 +3,7 @@ import { translate, useT } from '@/i18n'
 import { pageTitle } from '@/lib/pageTitle'
 import { Settings as SettingsIcon, Key } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
+import { getConfig } from '@/lib/config'
 import {
   Card,
   CardContent,
@@ -20,6 +21,12 @@ export const Route = createFileRoute('/_app/settings')({
 function SettingsComponent() {
   const t = useT()
   const { token } = useAuth()
+  // A self-hosted stack has nothing that exchanges these keys (only
+  // semantius-auth calls validate_api_key), and its identity provider's own
+  // keys are the supported path. Decided here rather than inside the card, so
+  // that under `self_hosted` the card never mounts and neither its key list nor
+  // generate_api_key can be requested.
+  const showApiKeys = getConfig().backendType !== 'self_hosted'
 
   return (
     <div className="space-y-6">
@@ -42,7 +49,7 @@ function SettingsComponent() {
         </CardContent>
       </Card>
 
-      <ApiKeysCard />
+      {showApiKeys && <ApiKeysCard />}
 
       {import.meta.env.DEV && (
         <Card>

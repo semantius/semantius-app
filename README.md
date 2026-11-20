@@ -36,7 +36,6 @@ The open-source UI of [Semantius](https://github.com/semantius/semantius) — th
 ├── packages/
 │   └── sem-schema/                 # Custom JSON Schema vocabulary
 ├── workplace/                      # Setup, deploy, and PR-gate scripts (setup.sh, wrangler.jsonc)
-├── BACKEND.md                      # What the app talks to: shapes, endpoints, schema
 ├── release.sh                      # Cuts a release: version bump + tag → Docker publish
 ├── turbo.json
 └── pnpm-workspace.yaml
@@ -134,10 +133,6 @@ The callback url is /oauth2_callback like http://localhost:5173/oauth2_callback
 | `VITE_TRANSLATE_MODE` | The translate target's mode: `dev` / `stage` / `prod` / `off`. Unset: `dev` under `pnpm dev`, `off` in every build |
 | `VITE_TRANSLATE_API_URL` | The translate target's base, answering `GET/POST {base}/translations`. Unset: the app's own origin in `dev`, the app's own API in `prod`. Required for `stage` |
 
-**→ [BACKEND.md](BACKEND.md)** is the reference for what these point at: the two
-deployment shapes, the REST and RPC endpoints, the model schema `get_schema`
-returns, and the error codes that mean something specific.
-
 ### User Interface
 
 The account menu in the sidebar footer is configuration-driven — see
@@ -145,19 +140,21 @@ The account menu in the sidebar footer is configuration-driven — see
 
 | Variable             | Description                                                                        |
 | -------------------- | ---------------------------------------------------------------------------------- |
-| `VITE_BACKEND_TYPE`  | `cloud` (default), `self_hosted`, or `custom`. Selects the built-in account menu.  |
+| `VITE_BACKEND_TYPE`  | `cloud` (default), `self_hosted`, or `custom`. Selects the built-in account menu; `self_hosted` also hides the API Keys card. |
 | `VITE_UI_CUSTOMIZER` | Required when `VITE_BACKEND_TYPE=custom` — JSON defining the account menu.         |
 
-> **`VITE_BACKEND_TYPE` does not choose a backend.** Despite the name it moves no
-> request: it picks which built-in account menu renders, and nothing else. Where
-> the data comes from is `VITE_CONTROL_PLANE_URL` and `VITE_API_BASE_URL` above —
-> see [BACKEND.md](BACKEND.md#backend-is-two-independent-settings).
+> **`VITE_BACKEND_TYPE` does not choose a backend.** Despite the name it sends no
+> request to a different server: it picks which built-in account menu renders and,
+> under `self_hosted`, hides the API Keys card on the settings page, because nothing
+> in a self-hosted stack exchanges those keys; the identity provider's own keys are
+> the supported path there. Where the data comes from is `VITE_CONTROL_PLANE_URL`
+> and `VITE_API_BASE_URL` above.
 
 Built-in menus:
 
 | `VITE_BACKEND_TYPE` | Entries                                                                                                                                                   |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `cloud`             | Settings → `/settings?orgid={orgid}` · Profile → `https://app.semantius.com/settings?orgid={orgid}` · Platform → `…/settings/organization?orgid={orgid}` *(admin)* |
+| `cloud`             | Settings → `/settings` · Profile → `https://app.semantius.com/settings?orgid={orgid}` · Platform → `…/settings/organization?orgid={orgid}` *(admin)*      |
 | `self_hosted`       | Account → `/idp/account` · User Manager → `/idp/admin` *(admin)* — both `redirect`                                                                          |
 
 `VITE_UI_CUSTOMIZER` takes a JSON object; each entry needs `title` and `url`, plus

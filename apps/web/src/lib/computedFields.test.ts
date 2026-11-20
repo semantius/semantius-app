@@ -5,13 +5,14 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   applyJsonLogic,
   collectSetRecordLookups,
+  computedValueChanged,
   evaluateComputedFields,
   idColumnForEntity,
-  loadSetRecords,
+  lookupFromCache,
   parseComputedFields,
   type RecordLookup,
 } from './computedFields'
-import { setRuleUser } from './ruleContext'
+import { setRuleUser, timestampText } from './ruleContext'
 
 const amountRule = {
   '*': [{ var: 'quantity' }, { var: 'unit_price' }, { '-': [1, { var: 'discount' }] }],
@@ -45,12 +46,8 @@ function thrown(run: () => unknown): { code?: unknown; message?: unknown; params
 function lookup(rows: Record<string, Record<string, unknown>>): RecordLookup {
   return {
     get(entity, id) {
-      if (id === null || id === undefined || id === '') return null
-      return rows[`${entity}:${String(id)}`] ?? null
-    },
-    has(entity, id) {
-      if (id === null || id === undefined || id === '') return true
-      return `${entity}:${String(id)}` in rows
+      if (id === null || id === '') return null
+      return rows[`${entity}:${id}`] ?? null
     },
   }
 }
@@ -139,6 +136,80 @@ describe('evaluateComputedFields', () => {
     )
     expect(updates).toEqual({ amount: 20, label: '2 × Chai' })
   })
+
+  it('asks for a row whose id comes from another row once that row is there', () => {
+    // A set_record inside a set_record: the inner id reads the outer row.
+    const entries = [
+      {
+        name: 'region',
+        jsonlogic: {
+          set_record: ['c', 'customers', { var: 'customer_id' }, { set_record: ['r', 'regions', { var: 'c.region_id' }, { var: 'r.name' }] }],
+        },
+      },
+    ]
+    const cache = new Map<string, Record<string, unknown> | null>()
+    const values = { customer_id: 7 }
+
+    const first = lookupFromCache(cache)
+    expect(evaluateComputedFields(entries, values, first)).toEqual({})
+    expect([...first.missing.keys()]).toEqual(['customers:7'])
+
+    cache.set('customers:7', { region_id: 3 })
+    const second = lookupFromCache(cache)
+    expect(evaluateComputedFields(entries, values, second)).toEqual({})
+    expect([...second.missing.keys()]).toEqual(['regions:3'])
+
+    cache.set('regions:3', { name: 'EU' })
+    expect(evaluateComputedFields(entries, values, lookupFromCache(cache))).toEqual({ region: 'EU' })
+  })
+
+  it('asks for the row whose id a let or a list element holds', () => {
+    const records = lookupFromCache(new Map())
+    evaluateComputedFields(
+      [
+        { name: 'a', jsonlogic: { let: ['pid', 5, { set_record: ['p', 'products', { var: 'pid' }, { var: 'p.product_name' }] }] } },
+        { name: 'b', jsonlogic: { map: [[1, 2], { set_record: ['p', 'products', { var: '' }, { var: 'p.product_name' }] }] } },
+      ],
+      {},
+      records,
+    )
+    expect([...records.missing.keys()].sort()).toEqual(['products:1', 'products:2', 'products:5'])
+  })
+
+  it('neither evaluates the id of a set_record in a branch that is not taken nor asks for its row', () => {
+    // evaluate_json_logic answers "ok" for this rule (postgres18-ext).
+    const records = lookupFromCache(new Map())
+    const rule = { if: [true, 'ok', { set_record: ['r', 'products', { '/': [1, 0] }, { var: 'r' }] }] }
+    expect(evaluateComputedFields([{ name: 'f', jsonlogic: rule }], {}, records)).toEqual({ f: 'ok' })
+    expect(records.missing.size).toBe(0)
+  })
+
+  it('writes a dotted name by path, so a later rule reads it there', () => {
+    const updates = evaluateComputedFields(
+      [
+        { name: 'settings.theme', jsonlogic: 'dark' },
+        { name: 'label', jsonlogic: { cat: ['theme: ', { var: 'settings.theme' }] } },
+      ],
+      { settings: { theme: 'light' } },
+    )
+    expect(updates).toEqual({ 'settings.theme': 'dark', label: 'theme: dark' })
+  })
+
+  it('leaves out a dotted name whose parent is not an object, as jsonb_set does', () => {
+    expect(evaluateComputedFields([{ name: 'settings.theme', jsonlogic: 'dark' }], {})).toEqual({})
+    expect(evaluateComputedFields([{ name: 'settings.theme', jsonlogic: 'dark' }], { settings: null })).toEqual({})
+  })
+
+  it("writes a dotted name without touching the form's own objects", () => {
+    const values = { settings: { theme: 'light' } }
+    evaluateComputedFields([{ name: 'settings.theme', jsonlogic: 'dark' }], values)
+    expect(values.settings.theme).toBe('light')
+  })
+
+  it('compares a dotted name with the value at its path', () => {
+    expect(computedValueChanged({ settings: { theme: 'dark' } }, 'settings.theme', 'dark')).toBe(false)
+    expect(computedValueChanged({ settings: { theme: 'light' } }, 'settings.theme', 'dark')).toBe(true)
+  })
 })
 
 describe('collectSetRecordLookups', () => {
@@ -164,8 +235,6 @@ const backendRef = process.env.SEMANTIUS_BACKEND_REF ?? 'origin/main'
 const backendFile = 'apps/test/tests/0100_test_jsonlogic.json'
 // `.git` is a directory in a clone and a file in a worktree.
 const backendFound = existsSync(resolve(backendDir, '.git'))
-const DATE_OPERATORS = new Set(['date_add', 'date_diff', 'date_part', 'date_trunc', 'to_date', 'date_format'])
-const NUMBER_OPERATORS = new Set(['+', '-', '*', '/', '%', 'max', 'min', '<', '<=', '>', '>=', '==', '!=', '===', '!=='])
 const backendCorpus = JSON.parse(readFileSync(vendoredPath, 'utf8')) as unknown[]
 
 describe('the vendored backend test cases', () => {
@@ -177,36 +246,55 @@ describe('the vendored backend test cases', () => {
   })
 })
 
-// The answers the backend is held to, read from its own fixture so the two cannot drift.
-function backendCases(operators: Set<string>) {
-  return backendCorpus.filter(
-    (entry): entry is [Record<string, unknown>, Record<string, unknown>, unknown] =>
-      Array.isArray(entry) && operators.has(Object.keys(entry[0] ?? {})[0] ?? ''),
-  )
-}
+// The answers the backend is held to, read from its own fixture so the two cannot
+// drift. Every case runs here, so a case the backend adds that the browser answers
+// differently fails until the browser matches.
+const corpusCases = backendCorpus.filter(
+  (entry): entry is [unknown, Record<string, unknown>, unknown] => Array.isArray(entry),
+)
 
-const backendDateCases = backendCases(DATE_OPERATORS)
-const backendNumberCases = backendCases(NUMBER_OPERATORS)
-
-describe('arithmetic, ordering and equality give the answers the backend gives', () => {
+describe('every backend test case gives the answer the backend gives', () => {
   it('finds the backend fixture', () => {
-    expect(backendNumberCases.length).toBeGreaterThan(50)
+    expect(corpusCases.length).toBeGreaterThan(500)
   })
 
-  it.each(backendNumberCases)('%j', (rule, data, expected) => {
+  it.each(corpusCases)('%j with %j', (rule, data, expected) => {
     expect(applyJsonLogic(rule, data)).toEqual(expected)
   })
 })
 
-describe('date operators give the answers the backend gives', () => {
-  it('finds the backend fixture', () => {
-    expect(backendDateCases.length).toBeGreaterThan(100)
-  })
-
-  it.each(backendDateCases)('%j', (rule, data, expected) => {
-    expect(applyJsonLogic(rule, data)).toEqual(expected)
+describe('substr and missing_some refuse what the backend refuses', () => {
+  // The SQLSTATE and message evaluate_json_logic raises for the same rule (postgres18-ext).
+  it.each([
+    [{ substr: ['abcdef', 3000000000] }, '22003', 'integer out of range'],
+    [{ missing_some: [1, 'a'] }, '22023', 'cannot get array length of a scalar'],
+    [{ missing_some: [1, { a: 1, b: 2 }] }, '22023', 'cannot get array length of a non-array'],
+  ])('%j raises %s', (rule, code, message) => {
+    expect(thrown(() => applyJsonLogic(rule, {}))).toMatchObject({ code, message })
   })
 })
+
+describe('let and set_record read their name and id as the backend does', () => {
+  // Every expected value is what evaluate_json_logic answers (postgres18-ext).
+  it('refuses a null name with the SQLSTATE the backend raises', () => {
+    expect(thrown(() => applyJsonLogic({ let: [null, 1, 2] }, {}))).toMatchObject({
+      code: '22023',
+      message: 'argument 1: key must not be null',
+    })
+  })
+
+  it('names a binding that is not text by its jsonb text', () => {
+    expect(applyJsonLogic({ let: [[1, 2], 5, { var: '' }] }, {})).toEqual({ '[1, 2]': 5 })
+    expect(applyJsonLogic({ let: [{ b: 1, a: 2 }, 5, { var: '' }] }, {})).toEqual({ '{"a": 2, "b": 1}': 5 })
+  })
+
+  it("looks a row up by the id's text, so a list is not read as the number in it", () => {
+    const rows = lookup({ 'products:5': { product_name: 'Chai' } })
+    expect(applyJsonLogic({ set_record: ['r', 'products', 5, { var: 'r.product_name' }] }, {}, rows)).toBe('Chai')
+    expect(applyJsonLogic({ set_record: ['r', 'products', [5], { var: 'r.product_name' }] }, {}, rows)).toBeNull()
+  })
+})
+
 
 describe('date operators refuse what the backend refuses', () => {
   it.each([
@@ -525,8 +613,15 @@ describe('reserved variables', () => {
     const after = new Date().toISOString().slice(0, 10)
 
     expect([before, after]).toContain(today)
-    expect(now).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:00$/)
+    expect(now).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?\+00:00$/)
     expect(now.startsWith(today)).toBe(true)
+  })
+
+  it('writes $now with its milliseconds, in the form the server writes a timestamp', () => {
+    // What to_jsonb(timestamptz) gives for the same moments (postgres18-ext).
+    expect(timestampText(new Date('2026-11-20T18:03:21.617Z'))).toBe('2026-11-20T18:03:21.617+00:00')
+    expect(timestampText(new Date('2026-11-20T18:03:21.120Z'))).toBe('2026-11-20T18:03:21.12+00:00')
+    expect(timestampText(new Date('2026-11-20T18:03:21.000Z'))).toBe('2026-11-20T18:03:21+00:00')
   })
 
   it('supplies $user_id from the signed-in user, and null before it is known', () => {
@@ -541,17 +636,13 @@ describe('reserved variables', () => {
     expect(evaluateComputedFields([{ name: 'who', jsonlogic: { var: '$user_id' } }], { $user_id: 1 })).toEqual({ who: 7 })
   })
 
-  it('reaches the id rule of a set_record, so a known user is not cached as "no row"', async () => {
-    // Without the context the id reads as null, and a null id is cached as a row
-    // that does not exist under a key the later lookup never asks for. With it the
-    // id is 7, and the only thing that can reach the cache is the fetched row.
+  it('reaches the id rule of a set_record, so the row of the known user is the one asked for', () => {
     setRuleUser({ user_id: 7 })
     const entries = [{ name: 'who', jsonlogic: { set_record: ['u', 'users', { var: '$user_id' }, { var: 'u.name' }] } }]
-    const cache = new Map<string, Record<string, unknown> | null>()
+    const records = lookupFromCache(new Map())
 
-    await loadSetRecords(entries, {}, cache, () => 'id')
-
-    expect(cache.has('users:null')).toBe(false)
+    expect(evaluateComputedFields(entries, {}, records)).toEqual({})
+    expect([...records.missing.keys()]).toEqual(['users:7'])
   })
 })
 

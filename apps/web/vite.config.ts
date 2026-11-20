@@ -72,7 +72,7 @@ function shippedLocales(): string[] {
  *
  * The language files live outside `publicDir` now, so nothing copies them into
  * the build and nothing serves them in dev — but the URL is a contract. It is
- * documented in `README.md`, `docker/README.md` and `BACKEND.md`, it is what
+ * documented in `README.md` and `docker/README.md`, it is what
  * `store.ts` fetches, and `docker/nginx.conf` serves the same path out of
  * `/usr/share/nginx/html/locales/`. It does not change because the source
  * folder did.
