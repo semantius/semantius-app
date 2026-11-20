@@ -8,20 +8,24 @@
  * clone ../semantius, at its COMMITTED state SEMANTIUS_BACKEND_REF (default
  * origin/main) — through git, never off the disk, so a backend change in
  * progress is never vendored. `git fetch` that clone first: the ref is only as
- * current as its last fetch. Two files come out of it, both committed so the
+ * current as its last fetch. Three files come out of it, all committed so the
  * tests that read them run in CI and before a release, where there is no
  * backend checkout:
  *
  *   vendor/semantius/0100_test_jsonlogic.json
  *     the backend's own JsonLogic test cases (apps/test/tests/), which
  *     apps/web/src/lib/computedFields.test.ts holds the browser evaluator to;
+ *   vendor/semantius/0115_test_jsonlogic_check.json
+ *     the rules the backend accepts or refuses when a model is saved
+ *     (apps/test/tests/), which apps/web/src/lib/jsonLogicCheck.test.ts holds
+ *     the form's check of a jsonlogic field to;
  *   vendor/semantius/jsonlogic-backend.json
  *     what sem-schema's jsonlogic-backend-sync.test.ts needs from the backend's
  *     migrations: the operators, the $ variables, the date vocabularies and every
  *     shipped rule. The extraction lives in that test, so this script runs it
  *     with SEMANTIUS_VENDOR_WRITE=1, which writes instead of comparing.
  *
- * Wherever a backend checkout exists, both tests fail when a copy no longer
+ * Wherever a backend checkout exists, the tests fail when a copy no longer
  * matches it; that failure is the reminder to run this.
  */
 import { execFileSync, spawnSync } from 'node:child_process'
@@ -53,10 +57,15 @@ mkdirSync(vendorDir, { recursive: true })
 // Copied as text, so a diff against the backend's file stays readable, with
 // LF line endings whatever the repository stores. Parsed first, so a broken
 // file is refused here rather than by the test that reads it.
-const text = git('show', `${backendRef}:apps/test/tests/0100_test_jsonlogic.json`).replace(/\r\n/g, '\n')
-const corpus = JSON.parse(text)
-writeFileSync(resolve(vendorDir, '0100_test_jsonlogic.json'), text)
-console.log(`vendor-semantius: ${corpus.length} JsonLogic test cases`)
+for (const [file, what] of [
+  ['0100_test_jsonlogic.json', 'JsonLogic test cases'],
+  ['0115_test_jsonlogic_check.json', 'JsonLogic check cases'],
+]) {
+  const text = git('show', `${backendRef}:apps/test/tests/${file}`).replace(/\r\n/g, '\n')
+  const corpus = JSON.parse(text)
+  writeFileSync(resolve(vendorDir, file), text)
+  console.log(`vendor-semantius: ${corpus.length} ${what}`)
+}
 
 const run = spawnSync('pnpm', ['--filter', 'sem-schema', 'exec', 'jest', 'jsonlogic-backend-sync'], {
   cwd: root,
