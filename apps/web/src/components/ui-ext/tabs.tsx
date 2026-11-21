@@ -2,8 +2,8 @@
  * Tabs on Base UI, styled like the shadcn `base-rhea` registry item.
  *
  * WHY THIS IS IN `ui-ext/` AND NOT `ui/`. The CLI is the only sanctioned way to
- * put a file in `ui/`, and `shadcn add tabs` (both the repo's pinned 4.19 and
- * the current 4.21) emits `import { cn } from "cn"` for this item — a package
+ * put a file in `ui/`, and `shadcn add tabs` (4.19, 4.21 and the repo's pinned
+ * 4.23 alike) emits `import { cn } from "cn"` for this item — a package
  * import the CLI then "installs" as `cn@0.2.6` in package.json — instead of
  * resolving the `aliases.utils` in components.json the way every other item in
  * `ui/` did. A file that does not compile cannot be regenerated as-is, and a
