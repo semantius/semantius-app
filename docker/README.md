@@ -227,9 +227,10 @@ place nobody looked:
 ./release.sh v0.2.0-rc.1     # pre-release: no :0.2, no :latest
 ```
 
-It bumps the root `package.json`, commits that, then creates a tag (signed if
-this machine has a signing key, annotated otherwise) and pushes it — the tag
-push is the whole trigger. It refuses to run on a dirty tree, on a branch whose
+It bumps the version in the root `package.json` and in `apps/web/package.json`
+(the app the image ships; the two always agree), commits that, then creates a
+tag (signed if this machine has a signing key, annotated otherwise) and pushes
+it — the tag push is the whole trigger. It refuses to run on a dirty tree, on a branch whose
 HEAD isn't pushed, on a tag that already exists locally or on origin, or on a
 version that isn't newer than the latest tag. It builds and pushes nothing
 locally; publishing happens entirely in CI.
