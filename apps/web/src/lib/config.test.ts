@@ -99,12 +99,11 @@ describe('initConfig — configurable user menu', () => {
     expect(menu.some((e) => e.url.includes('{orgid}'))).toBe(false)
   })
 
-  it('sends a signed-out user to the control plane’s platform picker', async () => {
+  it('hands a signed-out user to the control plane’s /sign-out by navigation', async () => {
     await initConfig()
 
     expect(getConfig().oauthLogoutEndpoint).toBeUndefined()
-    expect(getConfig().oauthLogoutAPIEndpoint).toBe('https://app.semantius.com/api/logout')
-    expect(getConfig().postLogoutUrl).toBe('https://app.semantius.com/select-platform')
+    expect(getConfig().postLogoutUrl).toBe('https://app.semantius.com/sign-out')
   })
 
   it('blocks boot when VITE_BACKEND_TYPE=custom has no VITE_UI_CUSTOMIZER', async () => {

@@ -40,11 +40,12 @@ export interface AppConfig {
   oauthScope: string
   oauthUserinfoEndpoint?: string
   oauthLogoutEndpoint?: string
-  oauthLogoutAPIEndpoint?: string
   oauthLogoutRedirect?: string
   // Where /logout sends the browser when there is no IdP logout endpoint.
-  // Control plane only: the platform picker, because the tenant's IdP session
-  // outlives our logout and "Sign In Again" would silently sign back in.
+  // Control plane only: its /sign-out, which shows the platform picker or, for
+  // a user with one platform, ends the account session. Must be a top-level
+  // navigation, not a fetch: the control-plane session cookie is SameSite=Lax
+  // on another site, so a cross-site fetch arrives without it.
   postLogoutUrl?: string
   oauthAudience?: string
 
@@ -242,8 +243,7 @@ async function initConfigCore(): Promise<AppConfig> {
         ...oauthUrls,
         oauthClientId: tenant.client_id || fallback.oauthClientId,
         oauthScope: 'openid profile email',
-        oauthLogoutAPIEndpoint: `${controlPlaneBase}/api/logout`,
-        postLogoutUrl: `${controlPlaneBase}/select-platform`,
+        postLogoutUrl: `${controlPlaneBase}/sign-out`,
         apiBaseUrl: tenant.postgrest_url || fallback.apiBaseUrl,
         cubeApiUrl: runtimeEnv('VITE_CUBE_API_URL', import.meta.env.VITE_CUBE_API_URL) || `https://${tenant.name}.semantius.io`,
         oauthAudience: "tenant://" + tenant.id,

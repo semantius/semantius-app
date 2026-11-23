@@ -20,18 +20,8 @@ function LogoutRoute() {
     const performLogout = async () => {
       const config = getConfig()
       const logoutEndpoint = config.oauthLogoutEndpoint
-      const logoutAPIEndpoint = config.oauthLogoutAPIEndpoint
       const postLogoutUrl = config.postLogoutUrl
       const clientId = config.oauthClientId
-
-      // Call the OAuth logout API to clear server-side cookies
-      if (logoutAPIEndpoint) {
-        try {
-          await fetch(logoutAPIEndpoint, { method: 'POST', credentials: 'include' })
-        } catch {
-          // Ignore errors — best-effort cookie cleanup
-        }
-      }
 
       // Clear the fetch interceptor token immediately — logOut() only updates
       // React state, and the useLayoutEffect that normally calls this won't
@@ -64,8 +54,8 @@ function LogoutRoute() {
           window.location.href = logoutUrl.toString()
         }, 100)
       } else if (postLogoutUrl) {
-        // Control plane: hand over to the platform picker. replace(), so Back
-        // does not land on /logout again.
+        // Control plane: hand over to its /sign-out (picker or full sign-out).
+        // replace(), so Back does not land on /logout again.
         setTimeout(() => {
           window.location.replace(postLogoutUrl)
         }, 100)
