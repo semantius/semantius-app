@@ -332,7 +332,7 @@ describe('Data Validation Tests', () => {
 
       it('should reject an unknown $ variable', () => {
         expect(messages({ '==': [{ var: '$user' }, 1] })).toEqual([
-          'unknown variable "$user" (available: "$today", "$now", "$user_id", "$old", "$mode") at /==/0/var'
+          'unknown variable "$user" (available: "$today", "$now", "$user_id", "$role_ids", "$old", "$mode") at /==/0/var'
         ]);
       });
 

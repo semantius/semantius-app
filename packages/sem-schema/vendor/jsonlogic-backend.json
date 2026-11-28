@@ -61,6 +61,7 @@
       "$mode",
       "$now",
       "$old",
+      "$role_ids",
       "$today",
       "$user_id"
     ]
@@ -184,7 +185,7 @@
         },
         {
           "code": "90245",
-          "message": "id_prefix of an is_a entity is set when it is created",
+          "message": "type_prefix of an is_a entity is set when it is created",
           "source_module": "platform",
           "jsonlogic": {
             "if": [
@@ -199,7 +200,7 @@
                     ]
                   },
                   {
-                    "value_changed": "id_prefix"
+                    "value_changed": "type_prefix"
                   }
                 ]
               },
@@ -723,11 +724,29 @@
               },
               [
                 "typeid",
+                "typenumber",
                 "is_a"
               ]
             ]
           },
           "required",
+          "hidden"
+        ]
+      }
+    },
+    {
+      "file": "apps/_core/migrations/0150_dd_bootstrap.once.sql",
+      "rule": {
+        "if": [
+          {
+            "==": [
+              {
+                "var": "id_type"
+              },
+              "typenumber"
+            ]
+          },
+          "default",
           "hidden"
         ]
       }
@@ -744,6 +763,71 @@
               [
                 "is_a",
                 "has_a"
+              ]
+            ]
+          },
+          {
+            "if": [
+              {
+                "var": "created_at"
+              },
+              "readonly",
+              "required"
+            ]
+          },
+          "hidden"
+        ]
+      }
+    },
+    {
+      "file": "apps/_core/migrations/0150_dd_bootstrap.once.sql",
+      "rule": {
+        "if": [
+          {
+            "!=": [
+              {
+                "var": "attach_mode"
+              },
+              "none"
+            ]
+          },
+          "required",
+          "hidden"
+        ]
+      }
+    },
+    {
+      "file": "apps/_core/migrations/0150_dd_bootstrap.once.sql",
+      "rule": {
+        "if": [
+          {
+            "in": [
+              {
+                "var": "attach_mode"
+              },
+              [
+                "single",
+                "owned_shared"
+              ]
+            ]
+          },
+          "required",
+          "hidden"
+        ]
+      }
+    },
+    {
+      "file": "apps/_core/migrations/0480_reference_table_write_once.once.sql",
+      "rule": {
+        "if": [
+          {
+            "in": [
+              {
+                "var": "format"
+              },
+              [
+                "reference",
+                "parent"
               ]
             ]
           },

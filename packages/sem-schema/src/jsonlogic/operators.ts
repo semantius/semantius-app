@@ -107,10 +107,11 @@ export const JSONLOGIC_OPERATORS: Readonly<Record<string, OperatorSpec>> = {
 
 /**
  * Variables the backend injects into the rule data (0210_computed_validation.sql):
- * `$today`, `$now`, `$user_id` everywhere; `$old` and `$mode` for computed fields
- * and validation rules. Any other `$` name resolves to null.
+ * `$today`, `$now`, `$user_id` and `$role_ids` (the ids of the user's roles, empty
+ * without a user) everywhere, select_rule included; `$old` and `$mode` for
+ * computed fields and validation rules. Any other `$` name resolves to null.
  */
-export const RESERVED_VARIABLES: readonly string[] = ['$today', '$now', '$user_id', '$old', '$mode'];
+export const RESERVED_VARIABLES: readonly string[] = ['$today', '$now', '$user_id', '$role_ids', '$old', '$mode'];
 
 /** `throw_error` parameter names the backend reserves for the error hint. */
 export const RESERVED_ERROR_PARAMETERS: readonly string[] = ['hint', 'code', 'entity', 'rule', 'field'];

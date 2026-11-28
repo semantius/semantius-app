@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { validateData } from 'sem-schema'
@@ -7,25 +6,21 @@ import { describe, expect, it } from 'vitest'
 // The rules the backend accepts or refuses when a model is saved, from its own
 // case list, committed at vendor/semantius/ so they run in CI and before a
 // release, where there is no backend checkout. Where there is one, the copy must
-// match its COMMITTED state at SEMANTIUS_BACKEND_REF (default origin/main), read
-// through git rather than off the disk, as in computedFields.test.ts.
+// match the backend's file AS IT IS ON DISK, as in computedFields.test.ts.
 // `node scripts/vendor-semantius.mjs` refreshes it.
 // src/lib -> src -> web -> apps -> repository root
 const vendoredPath = resolve(__dirname, '../../../../vendor/semantius/0115_test_jsonlogic_check.json')
 // ... -> its parent
 const backendDir = process.env.SEMANTIUS_BACKEND_DIR ?? resolve(__dirname, '../../../../../semantius')
-const backendRef = process.env.SEMANTIUS_BACKEND_REF ?? 'origin/main'
-const backendFile = 'apps/test/tests/0115_test_jsonlogic_check.json'
-// `.git` is a directory in a clone and a file in a worktree.
-const backendFound = existsSync(resolve(backendDir, '.git'))
+const backendPath = resolve(backendDir, 'apps/test/tests/0115_test_jsonlogic_check.json')
+const backendFound = existsSync(backendPath)
 const backendCases = JSON.parse(readFileSync(vendoredPath, 'utf8')) as unknown[]
 
 describe('the vendored backend check cases', () => {
   const required = process.env.SEMANTIUS_BACKEND_REQUIRED === '1'
-  it.skipIf(!backendFound && !required)(`match the backend at ${backendRef} (refresh: node scripts/vendor-semantius.mjs)`, () => {
-    expect(backendFound, `no semantius clone at ${backendDir}`).toBe(true)
-    const committed = execFileSync('git', ['-C', backendDir, 'show', `${backendRef}:${backendFile}`], { encoding: 'utf8' })
-    expect(backendCases).toEqual(JSON.parse(committed))
+  it.skipIf(!backendFound && !required)(`match the backend in ${backendDir} (refresh: node scripts/vendor-semantius.mjs)`, () => {
+    expect(backendFound, `no semantius checkout at ${backendDir}`).toBe(true)
+    expect(backendCases).toEqual(JSON.parse(readFileSync(backendPath, 'utf8')))
   })
 })
 

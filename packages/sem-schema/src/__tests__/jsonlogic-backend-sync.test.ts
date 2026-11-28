@@ -6,28 +6,22 @@
  * build_record_logic_trigger() provides to rules. These tests fail when either
  * drifts apart, and when a rule the backend ships no longer passes the validator.
  *
- * What they compare against is a SNAPSHOT of the backend's migrations,
- * committed at vendor/semantius/jsonlogic-backend.json, so they run in CI and
- * before a release, where there is no backend checkout. Where there is one, a
- * further test fails when the snapshot no longer matches its committed state
- * (below). Refresh the
- * snapshot (and the backend's JsonLogic test cases beside it) with
+ * They read the backend's side from a SNAPSHOT inside this package,
+ * vendor/jsonlogic-backend.json, which is committed. That keeps the package
+ * self-contained: the tests run the same in CI, on a machine with no backend
+ * checkout, and in another repository that carries a copy of this package.
  *
- *     node scripts/vendor-semantius.mjs
- *
- * which runs this file with SEMANTIUS_VENDOR_WRITE=1: the extraction below is
- * the only one, and that run writes what it extracts instead of comparing.
- *
- * The backend is read from a clone of the semantius repository:
- *   - SEMANTIUS_BACKEND_DIR, when set
- *   - otherwise a sibling clone next to this repository (../semantius)
- * and from its COMMITTED state at SEMANTIUS_BACKEND_REF (default origin/main),
- * through git — never from the files on disk. A backend change in progress in
- * that clone (uncommitted, or on another branch) says nothing about this
- * repository, and reading the working tree made it fail here. The ref is only
- * as current as the clone's last `git fetch`.
- * Without a clone the snapshot comparison is skipped. Set
- * SEMANTIUS_BACKEND_REQUIRED=1 to fail instead.
+ * The snapshot is refreshed when the tests start, from the backend's migrations
+ * AS THEY ARE ON DISK — uncommitted changes included, so a backend change can be
+ * tested before it is committed — when all of these hold:
+ *   - this is the master repository, IntranetFactory/schema-poc-1. A copy of the
+ *     package elsewhere never rewrites its snapshot; it takes the master's.
+ *   - CI is not set.
+ *   - a semantius checkout is found: SEMANTIUS_BACKEND_DIR, when set, otherwise
+ *     a sibling checkout next to this repository (../semantius).
+ * A refresh that changes the snapshot leaves it modified in `git status`: commit
+ * it together with whatever the failing tests ask for. In the master without a
+ * checkout, the committed snapshot is used and a warning says so.
  */
 import { execFileSync } from 'child_process';
 import * as fs from 'fs';
@@ -35,15 +29,16 @@ import * as path from 'path';
 import { DATE_FORMAT_TOKENS, DATE_PARTS, DATE_UNITS, JSONLOGIC_OPERATORS, RESERVED_VARIABLES } from '../jsonlogic/operators';
 import { validateJsonLogic } from '../jsonlogic/validate';
 
+/** The origin of the master repository of this package. */
+const MASTER_ORIGIN = /[/:]IntranetFactory\/schema-poc-1(\.git)?$/i;
+
 // src/__tests__ -> src -> sem-schema -> packages -> repository root -> its parent
 const backendDir = process.env.SEMANTIUS_BACKEND_DIR ?? path.resolve(__dirname, '../../../../../semantius');
-const backendRef = process.env.SEMANTIUS_BACKEND_REF ?? 'origin/main';
-const backendRequired = process.env.SEMANTIUS_BACKEND_REQUIRED === '1';
-const vendorWrite = process.env.SEMANTIUS_VENDOR_WRITE === '1';
-// `.git` is a directory in a clone and a file in a worktree.
-const backendFound = fs.existsSync(path.join(backendDir, '.git'));
-// src/__tests__ -> src -> sem-schema -> packages -> repository root
-const snapshotPath = path.resolve(__dirname, '../../../../vendor/semantius/jsonlogic-backend.json');
+const appsDir = path.join(backendDir, 'apps');
+const backendFound = fs.existsSync(path.join(appsDir, '_core', 'migrations'));
+// src/__tests__ -> src -> sem-schema
+const snapshotPath = path.resolve(__dirname, '../../vendor/jsonlogic-backend.json');
+const ci = Boolean(process.env.CI) && process.env.CI !== 'false';
 
 interface Migration {
   file: string;
@@ -60,39 +55,34 @@ interface BackendSnapshot {
   rules: Array<{ file: string; rule: unknown }>;
 }
 
-/** git in the backend clone. */
-function git(args: string[], input?: string): Buffer {
-  return execFileSync('git', ['-C', backendDir, ...args], { input, maxBuffer: 256 * 1024 * 1024 });
-}
-
-/** The contents of `files` at `backendRef`, in one `git cat-file --batch`. */
-function readAtRef(files: string[]): string[] {
-  const out = git(['cat-file', '--batch'], files.map((file) => `${backendRef}:${file}\n`).join(''));
-  let at = 0;
-  return files.map((file) => {
-    // Each object is `<oid> blob <size>\n<content>\n`; a missing one is `<name> missing\n`.
-    const eol = out.indexOf(0x0a, at);
-    const [, type, size] = out.subarray(at, eol).toString('utf8').split(' ');
-    if (type !== 'blob') throw new Error(`${backendRef}:${file} is not in ${backendDir} (git fetch?)`);
-    const start = eol + 1;
-    at = start + Number(size) + 1;
-    return out.subarray(start, start + Number(size)).toString('utf8');
-  });
-}
-
-/** Migrations at `backendRef`, in apply order: the _core app first, then the other apps; files by name. */
-function readMigrations(): Migration[] {
-  const listed = git(['ls-tree', '-r', '--name-only', backendRef, '--', 'apps']).toString('utf8').split('\n');
-  const byApp = new Map<string, string[]>();
-  for (const file of listed) {
-    const match = /^apps\/([^/]+)\/migrations\/([^/]+\.sql)$/.exec(file);
-    if (match) byApp.set(match[1], [...(byApp.get(match[1]) ?? []), match[2]]);
+/** Whether this package is checked out in its master repository. */
+function inMaster(): boolean {
+  try {
+    const origin = execFileSync('git', ['-C', __dirname, 'remote', 'get-url', 'origin'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    return MASTER_ORIGIN.test(origin.trim());
+  } catch {
+    return false;
   }
-  const files = [...byApp.keys()]
-    .sort((a, b) => (a === '_core' ? -1 : b === '_core' ? 1 : a.localeCompare(b)))
-    .flatMap((app) => byApp.get(app)!.sort().map((name) => `apps/${app}/migrations/${name}`));
-  const contents = readAtRef(files);
-  return files.map((file, index) => ({ file, sql: contents[index] }));
+}
+
+/** Migrations on disk, in apply order: the _core app first, then the other apps; files by name. */
+function readMigrations(): Migration[] {
+  const apps = fs
+    .readdirSync(appsDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && fs.existsSync(path.join(appsDir, entry.name, 'migrations')))
+    .map((entry) => entry.name)
+    .sort((a, b) => (a === '_core' ? -1 : b === '_core' ? 1 : a.localeCompare(b)));
+  return apps.flatMap((app) => {
+    const dir = path.join(appsDir, app, 'migrations');
+    return fs
+      .readdirSync(dir)
+      .filter((name) => name.endsWith('.sql'))
+      .sort()
+      .map((name) => ({ file: `apps/${app}/migrations/${name}`, sql: fs.readFileSync(path.join(dir, name), 'utf8') }));
+  });
 }
 
 /**
@@ -185,27 +175,22 @@ function snapshotOf(migrations: Migration[]): BackendSnapshot {
   };
 }
 
-// Before anything reads the snapshot: the describe blocks below read it while
-// the tests are collected, and on the first refresh it does not exist yet.
-if (vendorWrite && backendFound) {
-  fs.mkdirSync(path.dirname(snapshotPath), { recursive: true });
-  fs.writeFileSync(snapshotPath, `${JSON.stringify(snapshotOf(readMigrations()), null, 2)}\n`);
-}
-
-describe('the vendored backend snapshot', () => {
-  if (!backendFound) {
-    const test = backendRequired ? it : it.skip;
-    test(`matches the backend at ${backendRef} (no clone at ${backendDir}; set SEMANTIUS_BACKEND_DIR)`, () => {
-      throw new Error(`No semantius clone at ${backendDir}. Set SEMANTIUS_BACKEND_DIR to the semantius repository.`);
-    });
-    return;
+// Before anything reads the snapshot: the describe block below reads it while
+// the tests are collected. Written only when it changes, so an unchanged backend
+// leaves the file alone.
+if (!ci && inMaster()) {
+  if (backendFound) {
+    const fresh = `${JSON.stringify(snapshotOf(readMigrations()), null, 2)}\n`;
+    // A checkout with core.autocrlf=true holds the committed file with CRLF.
+    const current = fs.existsSync(snapshotPath) ? fs.readFileSync(snapshotPath, 'utf8').replace(/\r\n/g, '\n') : undefined;
+    if (fresh !== current) {
+      fs.mkdirSync(path.dirname(snapshotPath), { recursive: true });
+      fs.writeFileSync(snapshotPath, fresh);
+    }
+  } else {
+    console.warn(`No semantius checkout at ${backendDir} (set SEMANTIUS_BACKEND_DIR): testing against the committed snapshot.`);
   }
-
-  it(`matches the backend at ${backendRef} (refresh it with: node scripts/vendor-semantius.mjs)`, () => {
-    const vendored = JSON.parse(fs.readFileSync(snapshotPath, 'utf8')) as BackendSnapshot;
-    expect(vendored).toEqual(snapshotOf(readMigrations()));
-  });
-});
+}
 
 describe('JsonLogic backend sync', () => {
   const backend = JSON.parse(fs.readFileSync(snapshotPath, 'utf8')) as BackendSnapshot;
